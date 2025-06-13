@@ -22,12 +22,21 @@ Several datasets are included to test different scenarios:
 
 ## Running `GNSS_IMU_Fusion.py`
 
+`GNSS_IMU_Fusion.py` is the canonical entry point for the fusion demo. Any
+functionality from the older `fusion_single.py` script has been merged here.
+
 The fusion script accepts the IMU and GNSS file paths via command-line options:
 
 ```bash
 python GNSS_IMU_Fusion.py --gnss-file GNSS_X001.csv --imu-file IMU_X001.dat
 python GNSS_IMU_Fusion.py --gnss-file GNSS_X002.csv --imu-file IMU_X002.dat
 python GNSS_IMU_Fusion.py --gnss-file GNSS_X001.csv --imu-file IMU_X003.dat
+```
+
+Specify `--init-method` to choose the attitude initialization algorithm:
+
+```bash
+python GNSS_IMU_Fusion.py --init-method TRIAD
 ```
 
 Choose any combination of the GNSS and IMU datasets to evaluate the effect of noise and bias on the fusion process.
