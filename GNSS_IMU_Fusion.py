@@ -5,8 +5,8 @@ import numpy as np
 
 from imu_fusion.data import load_gnss_csv, load_imu_dat
 from imu_fusion.attitude import compute_C_ECEF_to_NED, rot_to_quaternion
-from imu_fusion.kalman import simple_kalman
-from imu_fusion.plotting import plot_ned_positions
+from imu_fusion.kalman import kalman_with_residuals
+from imu_fusion.plotting import plot_ned_positions, plot_residuals, plot_attitude
 
 
 def main() -> None:
@@ -24,17 +24,44 @@ def main() -> None:
     q = rot_to_quaternion(C.T)
     print("Initial quaternion (body to NED):", q)
 
-    if {'X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m'} <= set(gnss.columns):
-        z = gnss[['X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m']].values
+    if {"X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m", "VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"} <= set(gnss.columns):
+        z = gnss[[
+            "X_ECEF_m",
+            "Y_ECEF_m",
+            "Z_ECEF_m",
+            "VX_ECEF_mps",
+            "VY_ECEF_mps",
+            "VZ_ECEF_mps",
+        ]].values
     else:
-        z = np.zeros((len(gnss), 3))
-    F = np.eye(3)
-    H = np.eye(3)
-    Q = np.eye(3) * 0.01
-    R = np.eye(3) * 0.1
-    xs = simple_kalman(z, F, H, Q, R, z[0])
-    plot_ned_positions(range(len(xs)), xs, "KF", "fusion_output.pdf")
-    print("Kalman filter output written to fusion_output.pdf")
+        z = np.zeros((len(gnss), 6))
+
+    times = gnss["Posix_Time"].values
+    dt = float(np.mean(np.diff(times))) if len(times) > 1 else 1.0
+
+    F = np.eye(6)
+    F[0:3, 3:6] = np.eye(3) * dt
+    H = np.eye(6)
+    Q = np.eye(6) * 0.01
+    R = np.eye(6) * 0.1
+    xs, residuals = kalman_with_residuals(z, F, H, Q, R, z[0])
+
+    time_rel = times - times[0]
+    plot_ned_positions(
+        time_rel,
+        xs[:, :3],
+        "KF",
+        "Kalman Filter Estimated Position",
+        "positions.pdf",
+    )
+    plot_residuals(time_rel, residuals, "Kalman Filter Residuals", "residuals.pdf")
+
+    yaw = np.degrees(np.arctan2(z[:, 4], z[:, 3]))
+    pitch = np.zeros_like(yaw)
+    roll = np.zeros_like(yaw)
+    plot_attitude(time_rel, yaw, pitch, roll, "Attitude Angles", "attitude.pdf")
+
+    print("Plots written: positions.pdf, residuals.pdf, attitude.pdf")
 
 
 if __name__ == "__main__":
