@@ -30,6 +30,19 @@ def load_imu_dat(path: str) -> np.ndarray:
     return np.loadtxt(path)
 
 
+def ecef_to_geodetic(x: float, y: float, z: float) -> tuple[float, float, float]:
+    """Approximate conversion from ECEF to geodetic coordinates."""
+    a = 6378137.0
+    e_sq = 6.69437999014e-3
+    p = np.sqrt(x ** 2 + y ** 2)
+    theta = np.arctan2(z * a, p * (1 - e_sq))
+    lon = np.arctan2(y, x)
+    lat = np.arctan2(z + e_sq * a * np.sin(theta) ** 3, p - e_sq * a * np.cos(theta) ** 3)
+    N = a / np.sqrt(1 - e_sq * np.sin(lat) ** 2)
+    alt = p / np.cos(lat) - N
+    return float(np.degrees(lat)), float(np.degrees(lon)), float(alt)
+
+
 # ---------------------------------------------------------------------------
 # Attitude helpers
 # ---------------------------------------------------------------------------
@@ -76,6 +89,65 @@ def rot_to_quaternion(R: np.ndarray) -> np.ndarray:
         qz = 0.25 * S
     q = np.array([qw, qx, qy, qz])
     return q / np.linalg.norm(q)
+
+
+def triad(v1_b: np.ndarray, v2_b: np.ndarray, v1_n: np.ndarray, v2_n: np.ndarray) -> np.ndarray:
+    """Compute body-to-NED rotation using the TRIAD method."""
+    t1_b = v1_b / np.linalg.norm(v1_b)
+    t2_b = np.cross(t1_b, v2_b)
+    t2_b = t2_b / np.linalg.norm(t2_b)
+    t3_b = np.cross(t1_b, t2_b)
+
+    t1_n = v1_n / np.linalg.norm(v1_n)
+    t2_n = np.cross(t1_n, v2_n)
+    t2_n = t2_n / np.linalg.norm(t2_n)
+    t3_n = np.cross(t1_n, t2_n)
+
+    return np.column_stack((t1_n, t2_n, t3_n)) @ np.column_stack((t1_b, t2_b, t3_b)).T
+
+
+def estimate_initial_orientation(gnss: pd.DataFrame, imu: np.ndarray) -> tuple[np.ndarray, float, float]:
+    """Estimate initial body-to-NED rotation matrix from first samples."""
+    # Determine reference latitude/longitude from first valid GNSS row
+    valid = gnss[(gnss["X_ECEF_m"] != 0) | (gnss["Y_ECEF_m"] != 0) | (gnss["Z_ECEF_m"] != 0)]
+    row = valid.iloc[0]
+    lat_deg, lon_deg, _ = ecef_to_geodetic(row["X_ECEF_m"], row["Y_ECEF_m"], row["Z_ECEF_m"])
+
+    lat = np.deg2rad(lat_deg)
+    lon = np.deg2rad(lon_deg)
+
+    g_ned = np.array([0.0, 0.0, 9.81])
+    omega_e = 7.2921159e-5
+    omega_ned = omega_e * np.array([np.cos(lat), 0.0, -np.sin(lat)])
+
+    dt_imu = 1.0 / 400.0
+    acc = imu[:, 5:8] / dt_imu
+    gyro = imu[:, 2:5] / dt_imu
+    N_static = min(4000, len(imu))
+    acc_mean = np.mean(acc[:N_static], axis=0)
+    gyro_mean = np.mean(gyro[:N_static], axis=0)
+    g_body = -acc_mean
+    omega_body = gyro_mean
+
+    C_b_n = triad(g_body, omega_body, g_ned, omega_ned)
+    return C_b_n, lat_deg, lon_deg
+
+
+def quat_to_euler(q: np.ndarray) -> np.ndarray:
+    """Convert quaternion to roll, pitch, yaw in degrees."""
+    w, x, y, z = q
+    t0 = 2 * (w * x + y * z)
+    t1 = 1 - 2 * (x * x + y * y)
+    roll = np.arctan2(t0, t1)
+
+    t2 = 2 * (w * y - z * x)
+    t2 = np.clip(t2, -1.0, 1.0)
+    pitch = np.arcsin(t2)
+
+    t3 = 2 * (w * z + x * y)
+    t4 = 1 - 2 * (y * y + z * z)
+    yaw = np.arctan2(t3, t4)
+    return np.degrees([roll, pitch, yaw])
 
 
 # ---------------------------------------------------------------------------
@@ -199,12 +271,11 @@ def plot_attitude_multi(times: Sequence[Iterable], yaws: Sequence[Iterable], pit
 def run_pair(gnss_file: str, imu_file: str, label: str):
     """Run filter on one GNSS/IMU pair and return plotting data."""
     gnss = load_gnss_csv(gnss_file)
-    _ = load_imu_dat(imu_file)  # IMU data currently unused
+    imu = load_imu_dat(imu_file)
 
-    lat = float(gnss.iloc[0].get("Latitude_deg", 0.0))
-    lon = float(gnss.iloc[0].get("Longitude_deg", 0.0))
-    C = compute_C_ECEF_to_NED(np.deg2rad(lat), np.deg2rad(lon))
-    q = rot_to_quaternion(C.T)
+    C_b_n, lat_deg, lon_deg = estimate_initial_orientation(gnss, imu)
+    q = rot_to_quaternion(C_b_n)
+    print(f"{label}: initial lat {lat_deg:.4f} deg lon {lon_deg:.4f} deg")
     print(f"{label}: initial quaternion (body to NED):", q)
 
     if {"X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m", "VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"} <= set(gnss.columns):
@@ -230,9 +301,10 @@ def run_pair(gnss_file: str, imu_file: str, label: str):
     xs, residuals = kalman_with_residuals(z, F, H, Q, R, z[0])
 
     time_rel = times - times[0]
-    yaw = np.degrees(np.arctan2(z[:, 4], z[:, 3]))
-    pitch = np.zeros_like(yaw)
-    roll = np.zeros_like(yaw)
+    roll, pitch, yaw = quat_to_euler(q)
+    roll = np.full_like(time_rel, roll)
+    pitch = np.full_like(time_rel, pitch)
+    yaw = np.full_like(time_rel, yaw)
 
     return {
         "label": label,
