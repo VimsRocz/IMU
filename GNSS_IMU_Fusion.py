@@ -63,7 +63,7 @@ def main():
     )
     args = parser.parse_args()
 
-    method_choice = args.method
+    method = args.method
     gnss_file = args.gnss_file
     imu_file = args.imu_file
 
@@ -71,9 +71,9 @@ def main():
 
     imu_stem = pathlib.Path(args.imu_file).stem
     gnss_stem = pathlib.Path(args.gnss_file).stem
-    tag = TAG(imu=imu_stem, gnss=gnss_stem, method=args.method)
+    tag = TAG(imu=imu_stem, gnss=gnss_stem, method=method)
 
-    logging.info(f"Running attitude-estimation method: {method_choice}")
+    logging.info(f"Running attitude-estimation method: {method}")
     
     if not os.path.exists(gnss_file):
         print(f"[ERROR] GNSS file not found: {gnss_file}", file=sys.stderr)
@@ -590,7 +590,7 @@ def main():
     logging.info("Subtask 3.7: Plotting validation errors and quaternion components.")
     
     # Define methods and cases for plotting
-    methods = [method_choice]
+    methods = [method]
     cases = ['Case 1', 'Case 2']
     
     # Collect error data for both cases
@@ -687,7 +687,7 @@ def main():
     # Subtask 4.1: Access Rotation Matrices from Task 3
     # --------------------------------
     logging.info("Subtask 4.1: Accessing rotation matrices from Task 3.")
-    methods = [method_choice]
+    methods = [method]
     C_B_N_methods = {m: task3_results[m]['R'] for m in methods}
     logging.info("Rotation matrices accessed: %s", list(C_B_N_methods.keys()))
     
@@ -1178,8 +1178,8 @@ def main():
         logging.info(f"Method {m}: Kalman Filter completed.")
     
     # Compute residuals for the selected method
-    residual_pos = fused_pos[method_choice] - gnss_pos_ned_interp
-    residual_vel = fused_vel[method_choice] - gnss_vel_ned_interp
+    residual_pos = fused_pos[method] - gnss_pos_ned_interp
+    residual_vel = fused_vel[method] - gnss_vel_ned_interp
     
     # Integrate attitude using gyroscope data
     def quat_multiply(q, r):
@@ -1202,10 +1202,10 @@ def main():
     
     orientations = np.zeros((len(imu_time), 4))
     initial_quats = {'TRIAD': q_tri, 'Davenport': q_dav, 'SVD': q_svd}
-    orientations[0] = initial_quats[method_choice]
+    orientations[0] = initial_quats[method]
     for i in range(1, len(imu_time)):
         dt = imu_time[i] - imu_time[i-1]
-        dq = quat_from_rate(gyro_body_corrected[method_choice][i], dt)
+        dq = quat_from_rate(gyro_body_corrected[method][i], dt)
         orientations[i] = quat_multiply(orientations[i-1], dq)
         orientations[i] /= np.linalg.norm(orientations[i])
     
@@ -1232,7 +1232,7 @@ def main():
     # Configure logging if not already done
     
     # Define methods and colors
-    methods = [method_choice]
+    methods = [method]
     colors = {'TRIAD': 'r', 'Davenport': 'g', 'SVD': 'b'}
     directions = ['North', 'East', 'Down']
     
@@ -1248,71 +1248,71 @@ def main():
     
     
     # Subtask 5.8.2: Plotting Results for selected method
-    logging.info(f"Subtask 5.8.2: Plotting results for {method_choice}.")
-    print(f"# Subtask 5.8.2: Starting to plot results for {method_choice}.")
+    logging.info(f"Subtask 5.8.2: Plotting results for {method}.")
+    print(f"# Subtask 5.8.2: Starting to plot results for {method}.")
     fig, axes = plt.subplots(3, 3, figsize=(15, 10))
     
     # Davenport - Position
     for j in range(3):
         ax = axes[0, j]
         ax.plot(imu_time, gnss_pos_ned_interp[:, j], 'k-', label='GNSS')
-        ax.plot(imu_time, fused_pos[method_choice][:, j], colors[method_choice], alpha=0.7, label=f'Fused {method_choice}')
+        ax.plot(imu_time, fused_pos[method][:, j], colors[method], alpha=0.7, label=f'Fused {method}')
         ax.set_title(f'Position {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Position (m)')
         ax.legend()
         logging.info(
-            f"Subtask 5.8.2: Plotted {method_choice} position {directions[j]}: "
-            f"First = {fused_pos[method_choice][0, j]:.4f}, Last = {fused_pos[method_choice][-1, j]:.4f}"
+            f"Subtask 5.8.2: Plotted {method} position {directions[j]}: "
+            f"First = {fused_pos[method][0, j]:.4f}, Last = {fused_pos[method][-1, j]:.4f}"
         )
         print(
-            f"# Plotted {method_choice} position {directions[j]}: "
-            f"First = {fused_pos[method_choice][0, j]:.4f}, Last = {fused_pos[method_choice][-1, j]:.4f}"
+            f"# Plotted {method} position {directions[j]}: "
+            f"First = {fused_pos[method][0, j]:.4f}, Last = {fused_pos[method][-1, j]:.4f}"
         )
     
     # Davenport - Velocity
     for j in range(3):
         ax = axes[1, j]
         ax.plot(imu_time, gnss_vel_ned_interp[:, j], 'k-', label='GNSS')
-        ax.plot(imu_time, fused_vel[method_choice][:, j], colors[method_choice], alpha=0.7, label=f'Fused {method_choice}')
+        ax.plot(imu_time, fused_vel[method][:, j], colors[method], alpha=0.7, label=f'Fused {method}')
         ax.set_title(f'Velocity {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Velocity (m/s)')
         ax.legend()
         logging.info(
-            f"Subtask 5.8.2: Plotted {method_choice} velocity {directions[j]}: "
-            f"First = {fused_vel[method_choice][0, j]:.4f}, Last = {fused_vel[method_choice][-1, j]:.4f}"
+            f"Subtask 5.8.2: Plotted {method} velocity {directions[j]}: "
+            f"First = {fused_vel[method][0, j]:.4f}, Last = {fused_vel[method][-1, j]:.4f}"
         )
         print(
-            f"# Plotted {method_choice} velocity {directions[j]}: "
-            f"First = {fused_vel[method_choice][0, j]:.4f}, Last = {fused_vel[method_choice][-1, j]:.4f}"
+            f"# Plotted {method} velocity {directions[j]}: "
+            f"First = {fused_vel[method][0, j]:.4f}, Last = {fused_vel[method][-1, j]:.4f}"
         )
     
     # Davenport - Acceleration
     for j in range(3):
         ax = axes[2, j]
         ax.plot(imu_time, gnss_acc_ned_interp[:, j], 'k-', label='GNSS')
-        ax.plot(imu_time, fused_acc[method_choice][:, j], colors[method_choice], alpha=0.7, label=f'Fused {method_choice}')
+        ax.plot(imu_time, fused_acc[method][:, j], colors[method], alpha=0.7, label=f'Fused {method}')
         ax.set_title(f'Acceleration {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Acceleration (m/s²)')
         ax.legend()
         logging.info(
-            f"Subtask 5.8.2: Plotted {method_choice} acceleration {directions[j]}: "
-            f"First = {fused_acc[method_choice][0, j]:.4f}, Last = {fused_acc[method_choice][-1, j]:.4f}"
+            f"Subtask 5.8.2: Plotted {method} acceleration {directions[j]}: "
+            f"First = {fused_acc[method][0, j]:.4f}, Last = {fused_acc[method][-1, j]:.4f}"
         )
         print(
-            f"# Plotted {method_choice} acceleration {directions[j]}: "
-            f"First = {fused_acc[method_choice][0, j]:.4f}, Last = {fused_acc[method_choice][-1, j]:.4f}"
+            f"# Plotted {method} acceleration {directions[j]}: "
+            f"First = {fused_acc[method][0, j]:.4f}, Last = {fused_acc[method][-1, j]:.4f}"
         )
     
     plt.tight_layout()
-    out_pdf = f"results/{tag}_task5_results_{method_choice}.pdf"
+    out_pdf = f"results/{tag}_task5_results_{method}.pdf"
     if not args.no_plots:
         plt.savefig(out_pdf)
     plt.close()
-    logging.info(f"Subtask 5.8.2: {method_choice} plot saved as '{out_pdf}'")
-    print(f"# Subtask 5.8.2: {method_choice} plotting completed. Saved as '{out_pdf}'.")
+    logging.info(f"Subtask 5.8.2: {method} plot saved as '{out_pdf}'")
+    print(f"# Subtask 5.8.2: {method} plotting completed. Saved as '{out_pdf}'.")
     
     # Plot residuals of position and velocity
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
@@ -1326,7 +1326,7 @@ def main():
         axes[1, j].set_xlabel('Time (s)')
         axes[1, j].set_ylabel('Residual (m/s)')
     plt.tight_layout()
-    res_pdf = f"results/{tag}_{method_choice.lower()}_residuals.pdf"
+    res_pdf = f"results/{tag}_{method.lower()}_residuals.pdf"
     if not args.no_plots:
         plt.savefig(res_pdf)
     plt.close()
@@ -1340,7 +1340,7 @@ def main():
         ax[i].set_title(f'{labels[i]} vs Time')
     ax[-1].set_xlabel('Time (s)')
     plt.tight_layout()
-    att_pdf = f"results/{tag}_{method_choice.lower()}_attitude_angles.pdf"
+    att_pdf = f"results/{tag}_{method.lower()}_attitude_angles.pdf"
     if not args.no_plots:
         plt.savefig(att_pdf)
     plt.close()
@@ -1355,9 +1355,9 @@ def main():
         f'{tag}_task4_all_ned.pdf': 'Integrated data in NED frame',
         f'{tag}_task4_all_ecef.pdf': 'Integrated data in ECEF frame',
         f'{tag}_task4_all_body.pdf': 'Integrated data in body frame',
-        f'{tag}_task5_results_{method_choice}.pdf': f'Kalman filter results using {method_choice}',
-        f'{tag}_{method_choice.lower()}_residuals.pdf': 'Position and velocity residuals',
-        f'{tag}_{method_choice.lower()}_attitude_angles.pdf': 'Attitude angles over time'
+        f'{tag}_task5_results_{method}.pdf': f'Kalman filter results using {method}',
+        f'{tag}_{method.lower()}_residuals.pdf': 'Position and velocity residuals',
+        f'{tag}_{method.lower()}_attitude_angles.pdf': 'Attitude angles over time'
     }
     summary_path = os.path.join("results", f"{tag}_plot_summary.md")
     with open(summary_path, 'w') as f:
@@ -1367,16 +1367,16 @@ def main():
     np.savez(
         f"results/{tag}_kf_output.npz",
         summary=dict(
-            initial_north_jump=fused_pos[method_choice][0, 0],
+            initial_north_jump=fused_pos[method][0, 0],
             final_alignment_error=float(np.linalg.norm(residual_pos[-1])),
         ),
     )
 
     # Print short summary line for easy grep
-    north_jump = fused_pos[method_choice][0, 0]
+    north_jump = fused_pos[method][0, 0]
     final_error = float(np.linalg.norm(residual_pos[-1]))
     print(
-        f"[SUMMARY] method={method_choice:<9} imu={os.path.basename(imu_file):<12} "
+        f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file):<12} "
         f"gnss={os.path.basename(gnss_file):<12} initial_north_jump={north_jump:.2f} m "
         f"final_alignment_error={final_error:.2f} m"
     )

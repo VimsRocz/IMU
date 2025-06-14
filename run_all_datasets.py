@@ -1,47 +1,50 @@
 #!/usr/bin/env python3
 """
-Run GNSS_IMU_Fusion.py on all required data-set pairs in one shot.
-
-Adds a `[SUMMARY]` line to the console for each run – GNSS_IMU_Fusion
-already emits this so we just relay the output.
+Batch-runner for all IMU/GNSS sets and all attitude-initialisation methods.
+Writes one log file per run in ./logs and prints a short SUMMARY line
+that `summarise_runs.py` can aggregate later.
 """
 
-import subprocess
-from pathlib import Path
+import pathlib, subprocess, datetime, itertools, sys
 
-# ----------------------------------------------------------------------
-# Edit this table whenever you have new files to process.
+HERE     = pathlib.Path(__file__).resolve().parent
+SCRIPT   = HERE / "GNSS_IMU_Fusion.py"
+LOG_DIR  = HERE / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
 DATASETS = [
-    # (IMU file,         GNSS file)
-    ("IMU_X002.dat",     "GNSS_X002.csv"),  # noisy-noisy
-    ("IMU_X001.dat",     "GNSS_X001.csv"),  # clean-clean
-    ("IMU_X003.dat",     "GNSS_X002.csv"),  # bias-noisy
+    ("IMU_X001.dat", "GNSS_X001.csv"),
+    ("IMU_X002.dat", "GNSS_X002.csv"),
+    ("IMU_X003.dat", "GNSS_X002.csv"),   # <- note the GNSS swap
 ]
-# ----------------------------------------------------------------------
 
-def run_pair(imu_file: str, gnss_file: str) -> None:
-    """Call GNSS_IMU_Fusion.py for a single IMU–GNSS pair."""
-    cmd = [
-        "python", "GNSS_IMU_Fusion.py",
-        "--imu-file", imu_file,
-        "--gnss-file", gnss_file,
+METHODS  = ["TRIAD", "Davenport", "SVD", "ALL"]
+
+def run_one(imu, gnss, method):
+    ts    = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    log   = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
+    cmd   = [
+        sys.executable, SCRIPT,
+        "--imu-file",  imu,
+        "--gnss-file", gnss,
+        "--method",    method
     ]
-    print("\n>>>", " ".join(cmd))
-    subprocess.run(cmd, check=True)   # raises if the script crashes
+    print(f"\n─── Running {imu}/{gnss}  with  {method} ───")
+    with log.open("w") as fh:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        for line in proc.stdout:                 # live-stream to console & file
+            print(line, end="")
+            fh.write(line)
+    if proc.wait() != 0:
+        raise RuntimeError(f"{cmd} failed, see {log}")
 
-
-def main() -> None:
-    # Verify that the user is in the repo root (so the files resolve)
-    here = Path.cwd()
+def main():
+    here_files = {p.name for p in HERE.iterdir()}
     for imu, gnss in DATASETS:
-        if not Path(imu).is_file():
-            raise FileNotFoundError(f"{imu} not found in {here}")
-        if not Path(gnss).is_file():
-            raise FileNotFoundError(f"{gnss} not found in {here}")
-
-    for imu, gnss in DATASETS:
-        run_pair(imu, gnss)
-
+        if imu not in here_files or gnss not in here_files:
+            raise FileNotFoundError(f"Missing {imu} or {gnss} in {HERE}")
+        for method in METHODS:
+            run_one(imu, gnss, method)
 
 if __name__ == "__main__":
     main()
