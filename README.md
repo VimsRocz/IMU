@@ -28,6 +28,16 @@ A simplified demonstration of the Kalman filter using a single IMU and GNSS pair
 ### GNSS_IMU_Fusion.py
 The main entry point for running the fusion on any of the provided datasets.
 
+### full_project_workflow.py
+A consolidated script that reproduces all of the step-by-step tasks from the
+project. It computes reference vectors, solves Wahba's problem using multiple
+methods, compares IMU and GNSS data and runs a basic Kalman filter. Run the
+script without arguments to process the example datasets and generate the PDF
+figures described below.
+### Method-specific workflows
+Three directories (`triad_workflow`, `davenport_workflow`, `svd_workflow`) each contain a `workflow.py` script demonstrating Wahba's solution using one method. Run the script inside each folder to execute the processing using that estimator.
+
+
 ## Running `GNSS_IMU_Fusion.py`
 
 The fusion script accepts the IMU and GNSS file paths via command-line options:
