@@ -20,7 +20,7 @@ scale is slightly off.
 
 ## Running all methods
 
-Use `run_all_methods.py` to execute the fusion script with TRIAD, Davenport and SVD sequentially:
+Use `run_all_methods.py` to execute the fusion script with TRIAD, Davenport, SVD and the combined method sequentially:
 
 ```bash
 python run_all_methods.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
