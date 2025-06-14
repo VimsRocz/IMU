@@ -2,6 +2,7 @@ import argparse
 import logging
 import sys
 import os
+from pathlib import Path
 
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
@@ -61,10 +62,22 @@ def main():
         default="IMU_X001.dat",
         help="Path to IMU DAT file",
     )
+    parser.add_argument(
+        "--output-dir",
+        default="results",
+        help="Directory to write plots and numeric outputs",
+    )
     args = parser.parse_args()
     method_choice = args.method
     gnss_file = args.gnss_file
     imu_file = args.imu_file
+    output_dir = args.output_dir
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    imu_stem = Path(imu_file).stem
+    gnss_stem = Path(gnss_file).stem
+    tag = f"{imu_stem}_{gnss_stem}_{method_choice}"
 
     logging.info(f"Running attitude-estimation method: {method_choice}")
     
@@ -186,10 +199,10 @@ def main():
     
     # Set plot title and save
     plt.title("Initial Location on Earth Map")
-    plt.savefig('location_map.pdf')
+    plt.savefig(os.path.join(output_dir, f"{tag}_location_map.pdf"))
     plt.close()
-    
-    logging.info("Location map saved as 'location_map.pdf'")
+
+    logging.info("Location map saved")
     
     
     # ================================
@@ -616,9 +629,9 @@ def main():
     axes[1].legend()
     
     plt.tight_layout()
-    plt.savefig('task3_errors_comparison.pdf')
+    plt.savefig(os.path.join(output_dir, f"{tag}_task3_errors_comparison.pdf"))
     plt.close()
-    logging.info("Error comparison plot saved as 'task3_errors_comparison.pdf'")
+    logging.info("Error comparison plot saved")
     
     # Collect quaternion data for both cases
     # Note: Assumes q_tri, q_dav, q_svd (Case 1) and q_tri_doc, q_dav_doc, q_svd_doc (Case 2) are quaternion arrays
@@ -647,9 +660,9 @@ def main():
     ax.legend()
     
     plt.tight_layout()
-    plt.savefig('task3_quaternions_comparison.pdf')
+    plt.savefig(os.path.join(output_dir, f"{tag}_task3_quaternions_comparison.pdf"))
     plt.close()
-    logging.info("Quaternion comparison plot saved as 'task3_quaternions_comparison.pdf'")
+    logging.info("Quaternion comparison plot saved")
     
     # --------------------------------
     # Subtask 3.8: Store Rotation Matrices for Later Tasks
@@ -738,6 +751,9 @@ def main():
     gnss_acc_ecef[1:] = (gnss_vel_ecef[1:] - gnss_vel_ecef[:-1]) / dt[1:, np.newaxis]
     gnss_acc_ned = np.array([C_ECEF_to_NED @ a for a in gnss_acc_ecef])
     logging.info("GNSS acceleration estimated in NED frame.")
+
+    acc_biases = {}
+    gyro_biases = {}
     
      
     
@@ -785,6 +801,8 @@ def main():
             # Correct the entire dataset
             acc_body_corrected[m] = scale * (acc_body - acc_bias)
             gyro_body_corrected[m] = gyro_body - gyro_bias
+            acc_biases[m] = acc_bias
+            gyro_biases[m] = gyro_bias
 
             logging.info(f"Method {m}: Accelerometer bias: {acc_bias}")
             logging.info(f"Method {m}: Gyroscope bias: {gyro_bias}")
@@ -890,9 +908,9 @@ def main():
         ax.set_ylabel('Acceleration (m/s²)')
         ax.legend()
     plt.tight_layout()
-    plt.savefig('task4_comparison_ned.pdf')
+    plt.savefig(os.path.join(output_dir, f"{tag}_task4_comparison_ned.pdf"))
     plt.close()
-    logging.info("Comparison plot in NED frame saved as 'task4_comparison_ned.pdf'")
+    logging.info("Comparison plot in NED frame saved")
     
     # Plot 1: Data in mixed frames (GNSS position/velocity in ECEF, IMU acceleration in body)
     logging.info("Plotting data in mixed frames.")
@@ -917,9 +935,9 @@ def main():
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
-    plt.savefig('task4_mixed_frames.pdf')
+    plt.savefig(os.path.join(output_dir, f"{tag}_task4_mixed_frames.pdf"))
     plt.close()
-    logging.info("Mixed frames plot saved as 'task4_mixed_frames.pdf'")
+    logging.info("Mixed frames plot saved")
     
     # Plot 2: All data in NED frame
     logging.info("Plotting all data in NED frame.")
@@ -943,9 +961,9 @@ def main():
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
-    plt.savefig('task4_all_ned.pdf')
+    plt.savefig(os.path.join(output_dir, f"{tag}_task4_all_ned.pdf"))
     plt.close()
-    logging.info("All data in NED frame plot saved as 'task4_all_ned.pdf'")
+    logging.info("All data in NED frame plot saved")
     
     # Plot 3: All data in ECEF frame
     logging.info("Plotting all data in ECEF frame.")
@@ -970,9 +988,9 @@ def main():
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
-    plt.savefig('task4_all_ecef.pdf')
+    plt.savefig(os.path.join(output_dir, f"{tag}_task4_all_ecef.pdf"))
     plt.close()
-    logging.info("All data in ECEF frame plot saved as 'task4_all_ecef.pdf'")
+    logging.info("All data in ECEF frame plot saved")
     
     # Plot 4: All data in body frame
     logging.info("Plotting all data in body frame.")
@@ -997,9 +1015,9 @@ def main():
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
-    plt.savefig('task4_all_body.pdf')
+    plt.savefig(os.path.join(output_dir, f"{tag}_task4_all_body.pdf"))
     plt.close()
-    logging.info("All data in body frame plot saved as 'task4_all_body.pdf'")
+    logging.info("All data in body frame plot saved")
     
     
     
@@ -1287,7 +1305,7 @@ def main():
         )
     
     plt.tight_layout()
-    out_pdf = f'task5_results_{method_choice}.pdf'
+    out_pdf = os.path.join(output_dir, f"{tag}_task5_results_{method_choice}.pdf")
     plt.savefig(out_pdf)
     plt.close()
     logging.info(f"Subtask 5.8.2: {method_choice} plot saved as '{out_pdf}'")
@@ -1305,7 +1323,7 @@ def main():
         axes[1, j].set_xlabel('Time (s)')
         axes[1, j].set_ylabel('Residual (m/s)')
     plt.tight_layout()
-    res_pdf = f'{method_choice.lower()}_residuals.pdf'
+    res_pdf = os.path.join(output_dir, f"{tag}_{method_choice.lower()}_residuals.pdf")
     plt.savefig(res_pdf)
     plt.close()
     
@@ -1318,27 +1336,39 @@ def main():
         ax[i].set_title(f'{labels[i]} vs Time')
     ax[-1].set_xlabel('Time (s)')
     plt.tight_layout()
-    att_pdf = f'{method_choice.lower()}_attitude_angles.pdf'
+    att_pdf = os.path.join(output_dir, f"{tag}_{method_choice.lower()}_attitude_angles.pdf")
     plt.savefig(att_pdf)
     plt.close()
     
     # Create plot summary
     summary = {
-        'location_map.pdf': 'Initial location on Earth map',
-        'task3_errors_comparison.pdf': 'Attitude initialization error comparison',
-        'task3_quaternions_comparison.pdf': 'Quaternion components for initialization',
-        'task4_comparison_ned.pdf': 'GNSS vs IMU data in NED frame',
-        'task4_mixed_frames.pdf': 'GNSS/IMU data in mixed frames',
-        'task4_all_ned.pdf': 'Integrated data in NED frame',
-        'task4_all_ecef.pdf': 'Integrated data in ECEF frame',
-        'task4_all_body.pdf': 'Integrated data in body frame',
-        f'task5_results_{method_choice}.pdf': f'Kalman filter results using {method_choice}',
-        f'{method_choice.lower()}_residuals.pdf': 'Position and velocity residuals',
-        f'{method_choice.lower()}_attitude_angles.pdf': 'Attitude angles over time'
+        f'{tag}_location_map.pdf': 'Initial location on Earth map',
+        f'{tag}_task3_errors_comparison.pdf': 'Attitude initialization error comparison',
+        f'{tag}_task3_quaternions_comparison.pdf': 'Quaternion components for initialization',
+        f'{tag}_task4_comparison_ned.pdf': 'GNSS vs IMU data in NED frame',
+        f'{tag}_task4_mixed_frames.pdf': 'GNSS/IMU data in mixed frames',
+        f'{tag}_task4_all_ned.pdf': 'Integrated data in NED frame',
+        f'{tag}_task4_all_ecef.pdf': 'Integrated data in ECEF frame',
+        f'{tag}_task4_all_body.pdf': 'Integrated data in body frame',
+        f'{tag}_task5_results_{method_choice}.pdf': f'Kalman filter results using {method_choice}',
+        f'{tag}_{method_choice.lower()}_residuals.pdf': 'Position and velocity residuals',
+        f'{tag}_{method_choice.lower()}_attitude_angles.pdf': 'Attitude angles over time'
     }
-    with open('plot_summary.md', 'w') as f:
+    summary_path = os.path.join(output_dir, f"{tag}_plot_summary.md")
+    with open(summary_path, 'w') as f:
         for name, desc in summary.items():
             f.write(f'- **{name}**: {desc}\n')
+
+    np.savez(
+        os.path.join(output_dir, f"{tag}_kf_output.npz"),
+        fused_pos=fused_pos[method_choice],
+        fused_vel=fused_vel[method_choice],
+        residual_pos=residual_pos,
+        residual_vel=residual_vel,
+        acc_bias=acc_biases.get(method_choice),
+        gyro_bias=gyro_biases.get(method_choice),
+        attitude_angles=attitude_angles,
+    )
 
     # Print short summary line for easy grep
     north_jump = fused_pos[method_choice][0, 0]
