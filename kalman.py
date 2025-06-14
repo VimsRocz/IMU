@@ -38,9 +38,13 @@ class GNSSIMUKalman:
         self.kf.x[0:3] += self.kf.x[3:6] * dt
 
     def update_gnss(self, pos_meas, vel_meas):
+        """Update state with GNSS measurement and return residual."""
         z = np.hstack([pos_meas, vel_meas])
+        pred = self.kf.H @ self.kf.x
+        residual = z - pred
+        S = self.kf.H @ self.kf.P @ self.kf.H.T + self.kf.R
         self.kf.update(z)
-        return self.kf.x.copy()
+        return self.kf.x.copy(), residual, S
 
 def rts_smoother(X, P, F_list, Q_list):
     """Rauch-Tung-Striebel smoother."""
