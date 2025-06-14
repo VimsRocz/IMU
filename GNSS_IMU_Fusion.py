@@ -545,42 +545,54 @@ def main():
     # Subtask 3.6: Validate Attitude Determination and Compare Methods
     # --------------------------------
     logging.info("Subtask 3.6: Validating attitude determination and comparing methods.")
-    def angle_error(v_est, v_ref):
-        dot = np.clip(np.dot(v_est, v_ref), -1.0, 1.0)
-        return np.degrees(np.arccos(dot))
-    
-    results_x001 = {}
-    results_x001_doc = {}
-    methods = {'TRIAD': R_tri, 'Davenport': R_dav, 'SVD': R_svd, 'ALL': R_all}
-    methods_doc = {'TRIAD': R_tri_doc, 'Davenport': R_dav_doc, 'SVD': R_svd_doc}
-    
-    # Case 1: Current implementation
-    for name, R in methods.items():
-        g_est_NED = R @ v1_B
-        omega_est_NED = R @ v2_B
-        err_g = angle_error(g_est_NED, v1_N)
-        err_omega = angle_error(omega_est_NED, v2_N)
-        results_x001[name] = {'gravity_error': err_g, 'earth_rate_error': err_omega}
-        logging.info(f"Case X001 - {name} method errors: gravity = {err_g:.4f}°, Earth rate = {err_omega:.4f}°")
-        print(f"Case X001 - {name} method errors: gravity = {err_g:.4f}°, Earth rate = {err_omega:.4f}°")
-    
-    # Case 2: Document equations
-    for name, R in methods_doc.items():
-        g_est_NED = R @ v1_B
-        omega_est_NED = R @ v2_B
-        err_g = angle_error(g_est_NED, v1_N)
-        err_omega = angle_error(omega_est_NED, v2_N_doc)
-        results_x001_doc[name] = {'gravity_error': err_g, 'earth_rate_error': err_omega}
-        logging.info(f"Case X001_doc - {name} method errors: gravity = {err_g:.4f}°, Earth rate = {err_omega:.4f}°")
-        print(f"Case X001_doc - {name} method errors: gravity = {err_g:.4f}°, Earth rate = {err_omega:.4f}°")
-    
-    # Summary table
+    # -- Composite quaternion and per-method errors ---------------------------
+    quats_case1 = {'TRIAD': q_tri, 'Davenport': q_dav, 'SVD': q_svd}
+    quats_case2 = {'TRIAD': q_tri_doc, 'Davenport': q_dav_doc, 'SVD': q_svd_doc}
+
+    methods = ["TRIAD", "Davenport", "SVD"]
+
+    def normalise(q):
+        return q / np.linalg.norm(q)
+
+    q_all_1 = normalise(sum(quats_case1[m] for m in methods))
+    q_all_2 = normalise(sum(quats_case2[m] for m in methods))
+
+    quats_case1["ALL"] = q_all_1
+    quats_case2["ALL"] = q_all_2
+    methods.append("ALL")
+
+    def attitude_errors(q1, q2):
+        def quat_to_rot(q):
+            w, x, y, z = q
+            return np.array([
+                [1 - 2*(y**2 + z**2), 2*(x*y - w*z),     2*(x*z + w*y)],
+                [2*(x*y + w*z),     1 - 2*(x**2 + z**2), 2*(y*z - w*x)],
+                [2*(x*z - w*y),     2*(y*z + w*x),     1 - 2*(x**2 + y**2)]
+            ])
+
+        R1 = quat_to_rot(q1)
+        R2 = quat_to_rot(q2)
+        g_vec = np.array([0.0, 0.0, 1.0])
+        w_vec = np.array([1.0, 0.0, 0.0])
+
+        def ang(a, b):
+            dot = np.clip(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)), -1.0, 1.0)
+            return np.degrees(np.arccos(dot))
+
+        g_err = ang(R1 @ g_vec, R2 @ g_vec)
+        w_err = ang(R1 @ w_vec, R2 @ w_vec)
+        return g_err, w_err
+
+    results = {}
+    for m in methods:
+        g_err, w_err = attitude_errors(quats_case1[m], quats_case2[m])
+        results[m] = {"gravity_error": g_err, "earth_rate_error": w_err}
+
     print("\n==== Method Comparison for Case X001 and Case X001_doc ====")
-    print(f"{'Case':<15} {'Method':<10} {'Gravity Error (deg)':<20} {'Earth Rate Error (deg)':<20}")
-    for name in methods:
-        print(f"{'X001':<15} {name:<10} {results_x001[name]['gravity_error']:<20.4f} {results_x001[name]['earth_rate_error']:<20.4f}")
-    for name in methods_doc:
-        print(f"{'X001_doc':<15} {name:<10} {results_x001_doc[name]['gravity_error']:<20.4f} {results_x001_doc[name]['earth_rate_error']:<20.4f}")
+    print(f"{'Method':<10} {'Gravity Error (deg)':<20} {'Earth Rate Error (deg)':<20}")
+    for m in methods:
+        r = results[m]
+        print(f"{m:<10} {r['gravity_error']:<20.4f} {r['earth_rate_error']:<20.4f}")
     
     # --------------------------------
     # Subtask 3.7: Plot Validation Errors and Quaternion Components
@@ -589,39 +601,26 @@ def main():
     
     logging.info("Subtask 3.7: Plotting validation errors and quaternion components.")
     
-    # Define methods and cases for plotting
-    methods = [method]
-    cases = ['Case 1', 'Case 2']
-    
-    # Collect error data for both cases
-    # Note: Assumes results_x001 and results_x001_doc are dictionaries containing error data
-    gravity_errors_case1 = [results_x001[m]['gravity_error'] for m in methods]
-    earth_rate_errors_case1 = [results_x001[m]['earth_rate_error'] for m in methods]
-    gravity_errors_case2 = [results_x001_doc.get(m, {'gravity_error':0})['gravity_error'] for m in methods]
-    earth_rate_errors_case2 = [results_x001_doc.get(m, {'earth_rate_error':0})['earth_rate_error'] for m in methods]
-    
-    # Plot error comparison
+    methods_plot = methods
+
+    gravity_errors = [results[m]['gravity_error'] for m in methods_plot]
+    earth_rate_errors = [results[m]['earth_rate_error'] for m in methods_plot]
+
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    x = np.arange(len(methods))
+    x = np.arange(len(methods_plot))
     width = 0.35
-    
-    # Gravity errors subplot
-    axes[0].bar(x - width/2, gravity_errors_case1, width, label='Case 1')
-    axes[0].bar(x + width/2, gravity_errors_case2, width, label='Case 2')
+
+    axes[0].bar(x, gravity_errors, width)
     axes[0].set_xticks(x)
-    axes[0].set_xticklabels(methods)
-    axes[0].set_title('Gravity Error Comparison')
+    axes[0].set_xticklabels(methods_plot)
+    axes[0].set_title('Gravity Error')
     axes[0].set_ylabel('Error (degrees)')
-    axes[0].legend()
-    
-    # Earth rate errors subplot
-    axes[1].bar(x - width/2, earth_rate_errors_case1, width, label='Case 1')
-    axes[1].bar(x + width/2, earth_rate_errors_case2, width, label='Case 2')
+
+    axes[1].bar(x, earth_rate_errors, width)
     axes[1].set_xticks(x)
-    axes[1].set_xticklabels(methods)
-    axes[1].set_title('Earth Rate Error Comparison')
+    axes[1].set_xticklabels(methods_plot)
+    axes[1].set_title('Earth Rate Error')
     axes[1].set_ylabel('Error (degrees)')
-    axes[1].legend()
     
     plt.tight_layout()
     if not args.no_plots:
@@ -630,9 +629,7 @@ def main():
     logging.info("Error comparison plot saved")
     
     # Collect quaternion data for both cases
-    # Note: Assumes q_tri, q_dav, q_svd (Case 1) and q_tri_doc, q_dav_doc, q_svd_doc (Case 2) are quaternion arrays
-    quats_case1 = {'TRIAD': q_tri, 'Davenport': q_dav, 'SVD': q_svd}
-    quats_case2 = {'TRIAD': q_tri_doc, 'Davenport': q_dav_doc, 'SVD': q_svd_doc}
+    cases = ['Case 1', 'Case 2']
     
     # Plot quaternion components
     fig, ax = plt.subplots(figsize=(12, 6))
@@ -1364,21 +1361,17 @@ def main():
         for name, desc in summary.items():
             f.write(f'- **{name}**: {desc}\n')
 
+    rmse_pos = np.sqrt(np.mean(np.sum((gnss_pos_ned_interp - fused_pos[method])**2, axis=1)))
+    final_pos = np.linalg.norm(gnss_pos_ned_interp[-1] - fused_pos[method][-1])
+
     np.savez(
         f"results/{tag}_kf_output.npz",
-        summary=dict(
-            initial_north_jump=fused_pos[method][0, 0],
-            final_alignment_error=float(np.linalg.norm(residual_pos[-1])),
-        ),
+        summary=dict(rmse_pos=rmse_pos, final_pos=final_pos),
     )
 
-    # Print short summary line for easy grep
-    north_jump = fused_pos[method][0, 0]
-    final_error = float(np.linalg.norm(residual_pos[-1]))
     print(
-        f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file):<12} "
-        f"gnss={os.path.basename(gnss_file):<12} initial_north_jump={north_jump:.2f} m "
-        f"final_alignment_error={final_error:.2f} m"
+        f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file)} gnss={os.path.basename(gnss_file)} "
+        f"rmse_pos={rmse_pos:7.2f}m final_pos={final_pos:7.2f}m"
     )
     
 
