@@ -84,3 +84,25 @@ def estimate_initial_orientation(imu: np.ndarray, gnss: pd.DataFrame) -> np.ndar
         ]
     )
     return rot_to_quaternion(R)
+
+from .wahba import triad_method
+
+
+def estimate_initial_orientation_triad(
+    accel: np.ndarray,
+    gyro: np.ndarray,
+    gnss: pd.DataFrame,
+    samples: int = 4000,
+) -> np.ndarray:
+    """Estimate initial quaternion using the TRIAD method with gravity normalisation."""
+    lat = np.deg2rad(float(gnss.iloc[0].get("Latitude_deg", 0.0)))
+    lon = np.deg2rad(float(gnss.iloc[0].get("Longitude_deg", 0.0)))
+    g_ned = np.array([0.0, 0.0, 9.81])
+    omega_ie = 7.2921159e-5 * np.array([np.cos(lat), 0.0, -np.sin(lat)])
+    n = min(samples, len(accel))
+    g_body = -np.mean(accel[:n], axis=0)
+    if np.linalg.norm(g_body) > 1e-3:
+        g_body = 9.81 * g_body / np.linalg.norm(g_body)
+    omega_body = np.mean(gyro[:n], axis=0)
+    R = triad_method(g_body, omega_body, g_ned, omega_ie)
+    return rot_to_quaternion(R)
