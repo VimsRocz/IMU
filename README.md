@@ -37,6 +37,7 @@ methods, compares IMU and GNSS data and runs a basic Kalman filter. Run the
 script without arguments to process the example datasets and generate the PDF
 figures described below.
 
+
 ## Running `GNSS_IMU_Fusion.py`
 
 The fusion script accepts the IMU and GNSS file paths via command-line options:
