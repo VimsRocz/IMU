@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+"""
+Parse logs/* for lines that start with [SUMMARY] and emit:
+  summary.csv
+  summary.md
+"""
+
+import csv, pathlib, re
+
+LOG_DIR = pathlib.Path("logs")
+SUMMARY = re.compile(r"\[SUMMARY\]\s+(.*)")
+
+rows = []
+for log in LOG_DIR.glob("*.log"):
+    for line in log.read_text().splitlines():
+        m = SUMMARY.search(line)
+        if m:
+            kv = dict(pair.split("=", 1) for pair in m.group(1).split())
+            rows.append(kv)
+
+# CSV -------------------------------------------------------------------------
+with open("summary.csv", "w", newline="") as fh:
+    writer = csv.DictWriter(fh, fieldnames=rows[0].keys())
+    writer.writeheader()
+    writer.writerows(rows)
+
+# Markdown table --------------------------------------------------------------
+with open("summary.md", "w") as fh:
+    hdr = " | ".join(rows[0].keys())
+    sep = " | ".join("---" for _ in rows[0])
+    fh.write(hdr + "\n" + sep + "\n")
+    for r in rows:
+        fh.write(" | ".join(r.values()) + "\n")
+
+print("Created summary.csv and summary.md")
