@@ -4,8 +4,9 @@ from .attitude import (
     quat_multiply,
     quat_normalize,
     estimate_initial_orientation,
+    estimate_initial_orientation_triad,
 )
-from .data import estimate_acc_bias
+
 
 __all__ = [
     "compute_C_ECEF_to_NED",
@@ -13,5 +14,5 @@ __all__ = [
     "quat_multiply",
     "quat_normalize",
     "estimate_initial_orientation",
-    "estimate_acc_bias",
+
 ]
