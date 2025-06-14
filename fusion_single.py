@@ -20,6 +20,50 @@ from imu_fusion.wahba import (
 )
 
 
+def smooth_gnss(gnss: pd.DataFrame, window: int = 5) -> pd.DataFrame:
+    """Return GNSS DataFrame smoothed with a moving average."""
+    gnss = gnss.copy()
+    cols = [
+        "X_ECEF_m",
+        "Y_ECEF_m",
+        "Z_ECEF_m",
+        "VX_ECEF_mps",
+        "VY_ECEF_mps",
+        "VZ_ECEF_mps",
+    ]
+    for c in cols:
+        if c in gnss.columns:
+            gnss[c] = (
+                gnss[c]
+                .rolling(window, center=True, min_periods=1)
+                .mean()
+            )
+    return gnss
+
+
+def remove_imu_bias(imu: np.ndarray, samples: int = 200) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Remove gyro and accelerometer bias estimated from first samples."""
+    imu = imu.copy()
+    gyro_bias = np.mean(imu[:samples, 2:5], axis=0)
+    acc_bias = np.mean(imu[:samples, 5:8], axis=0)
+    imu[:, 2:5] -= gyro_bias
+    imu[:, 5:8] -= acc_bias
+    return imu, gyro_bias, acc_bias
+
+
+def _average_quaternions(qs: Sequence[np.ndarray]) -> np.ndarray:
+    """Return average quaternion using the method of Markley."""
+    A = np.zeros((4, 4))
+    for q in qs:
+        qn = q / np.linalg.norm(q)
+        A += np.outer(qn, qn)
+    eigvals, eigvecs = np.linalg.eigh(A)
+    q_avg = eigvecs[:, np.argmax(eigvals)]
+    if q_avg[0] < 0:
+        q_avg = -q_avg
+    return q_avg
+
+
 # ---------------------------------------------------------------------------
 # Data loading helpers
 # ---------------------------------------------------------------------------
@@ -287,17 +331,40 @@ def _initial_quaternion(gnss: pd.DataFrame, imu: np.ndarray, method: str) -> np.
 
     if method == "TRIAD":
         R = triad(g_body, omega_body, g_ned, omega_ie)
-    elif method == "Davenport":
+        return rot_to_quaternion(R)
+    if method == "Davenport":
         R = davenport_q_method(g_body, omega_body, g_ned, omega_ie)
-    else:
+        return rot_to_quaternion(R)
+    if method == "SVD":
         R = svd_method(g_body, omega_body, g_ned, omega_ie)
+        return rot_to_quaternion(R)
+    if method == "MEAN":
+        qs = [
+            rot_to_quaternion(triad(g_body, omega_body, g_ned, omega_ie)),
+            rot_to_quaternion(davenport_q_method(g_body, omega_body, g_ned, omega_ie)),
+            rot_to_quaternion(svd_method(g_body, omega_body, g_ned, omega_ie)),
+        ]
+        return _average_quaternions(qs)
+    # fallback to SVD if unknown method
+    R = svd_method(g_body, omega_body, g_ned, omega_ie)
     return rot_to_quaternion(R)
 
 
-def run_pair(gnss_file: str, imu_file: str, label: str, method: str = "TRIAD"):
+def run_pair(
+    gnss_file: str,
+    imu_file: str,
+    label: str,
+    method: str = "TRIAD",
+    smooth_window: int = 5,
+    bias_samples: int = 200,
+):
     """Run filter on one GNSS/IMU pair and return plotting data."""
-    gnss = load_gnss_csv(gnss_file)
-    imu = load_imu_dat(imu_file)
+    gnss_raw = load_gnss_csv(gnss_file)
+    imu_raw = load_imu_dat(imu_file)
+
+    gnss = smooth_gnss(gnss_raw, smooth_window)
+    imu, gyro_bias, acc_bias = remove_imu_bias(imu_raw, bias_samples)
+    print(f"{label}: gyro bias {gyro_bias}, acc bias {acc_bias}")
 
     q = _initial_quaternion(gnss, imu, method)
     lat_deg = float(gnss.iloc[0].get("Latitude_deg", 0.0))
@@ -357,10 +424,12 @@ def main() -> None:
     parser.add_argument("--imu-file", default="IMU_X001.dat", help="IMU dat file")
     parser.add_argument(
         "--init-method",
-        choices=["TRIAD", "Davenport", "SVD", "ALL"],
+        choices=["TRIAD", "Davenport", "SVD", "MEAN", "ALL"],
         default="TRIAD",
         help="Attitude initialization method",
     )
+    parser.add_argument("--smooth-window", type=int, default=5, help="GNSS moving average window")
+    parser.add_argument("--bias-samples", type=int, default=200, help="IMU samples used for bias estimation")
     args = parser.parse_args()
 
     if args.all:
@@ -374,12 +443,21 @@ def main() -> None:
 
     methods = [args.init_method]
     if args.init_method == "ALL":
-        methods = ["TRIAD", "Davenport", "SVD"]
+        methods = ["TRIAD", "Davenport", "SVD", "MEAN"]
 
     results = []
     for g, i, l in pairs:
         for m in methods:
-            results.append(run_pair(g, i, f"{l}_{m}", m))
+            results.append(
+                run_pair(
+                    g,
+                    i,
+                    f"{l}_{m}",
+                    m,
+                    smooth_window=args.smooth_window,
+                    bias_samples=args.bias_samples,
+                )
+            )
 
     for r in results:
         base = r["label"]

@@ -55,10 +55,13 @@ python GNSS_IMU_Fusion.py --gnss-file GNSS_X002.csv --imu-file IMU_X002.dat
 python GNSS_IMU_Fusion.py --gnss-file GNSS_X001.csv --imu-file IMU_X003.dat
 ```
 
-Specify `--init-method` to choose the attitude initialization algorithm:
+Specify `--init-method` to choose the attitude initialization algorithm.
+The `MEAN` option averages TRIAD, Davenport and SVD results.
+GNSS inputs can be smoothed with `--smooth-window` and IMU bias
+estimated using `--bias-samples`:
 
 ```bash
-python GNSS_IMU_Fusion.py --init-method TRIAD
+python GNSS_IMU_Fusion.py --init-method MEAN --smooth-window 7 --bias-samples 500
 ```
 
 Choose any combination of the GNSS and IMU datasets to evaluate the effect of noise and bias on the fusion process.
