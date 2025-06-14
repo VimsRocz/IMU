@@ -1,5 +1,6 @@
 import argparse
 import logging
+import sys
 import os
 
 import cartopy.crs as ccrs
@@ -10,7 +11,11 @@ from filterpy.kalman import KalmanFilter
 from scipy.signal import butter, filtfilt
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
 
 def average_rotation_matrices(rotations):
     """Average a list of rotation matrices and re-orthonormalise."""
@@ -60,10 +65,14 @@ def main():
     method_choice = args.method
     gnss_file = args.gnss_file
     imu_file = args.imu_file
+
+    logging.info(f"Running attitude-estimation method: {method_choice}")
     
     if not os.path.exists(gnss_file):
+        print(f"[ERROR] GNSS file not found: {gnss_file}", file=sys.stderr)
         raise FileNotFoundError(f"{gnss_file} not found")
     if not os.path.exists(imu_file):
+        print(f"[ERROR] IMU file not found: {imu_file}", file=sys.stderr)
         raise FileNotFoundError(f"{imu_file} not found")
     
     # Function to convert ECEF to geodetic coordinates
@@ -93,6 +102,9 @@ def main():
     logging.info("Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.")
     try:
         gnss_data = pd.read_csv(gnss_file)
+    except FileNotFoundError:
+        print(f"[ERROR] GNSS file not found: {gnss_file}", file=sys.stderr)
+        raise
     except Exception as e:
         logging.error(f"Failed to load GNSS data file: {e}")
         raise
@@ -191,6 +203,9 @@ def main():
     logging.info("Subtask 2.1: Loading and parsing IMU data.")
     try:
         data = np.loadtxt(imu_file)
+    except FileNotFoundError:
+        print(f"[ERROR] IMU file not found: {imu_file}", file=sys.stderr)
+        raise
     except Exception as e:
         logging.error(f"Failed to load IMU data file: {e}")
         raise
@@ -1013,6 +1028,10 @@ def main():
     try:
         gnss_data = pd.read_csv(gnss_file)
         imu_data = pd.read_csv(imu_file, sep='\s+', header=None)
+    except FileNotFoundError as e:
+        missing = 'GNSS' if 'csv' in str(e) else 'IMU'
+        print(f"[ERROR] {missing} file not found: {e.filename}", file=sys.stderr)
+        raise
     except Exception as e:
         logging.error(f"Failed to load data: {e}")
         raise
@@ -1320,6 +1339,15 @@ def main():
     with open('plot_summary.md', 'w') as f:
         for name, desc in summary.items():
             f.write(f'- **{name}**: {desc}\n')
+
+    # Print short summary line for easy grep
+    north_jump = fused_pos[method_choice][0, 0]
+    final_error = float(np.linalg.norm(residual_pos[-1]))
+    print(
+        f"[SUMMARY] method={method_choice:<9} imu={os.path.basename(imu_file):<12} "
+        f"gnss={os.path.basename(gnss_file):<12} initial_north_jump={north_jump:.2f} m "
+        f"final_alignment_error={final_error:.2f} m"
+    )
     
 
 if __name__ == "__main__":
