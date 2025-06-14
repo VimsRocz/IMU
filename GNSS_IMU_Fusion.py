@@ -79,6 +79,7 @@ def main():
     imu_stem = pathlib.Path(args.imu_file).stem
     gnss_stem = pathlib.Path(args.gnss_file).stem
     tag = TAG(imu=imu_stem, gnss=gnss_stem, method=method)
+    summary_tag = f"{imu_stem}_{gnss_stem}"
 
     logging.info(f"Running attitude-estimation method: {method}")
     
@@ -1455,6 +1456,21 @@ def main():
         innov_vel=innov_vel_all[method],
         euler=euler_all[method],
     )
+
+    # --- Persist for cross-dataset comparison ------------------------------
+    import pickle, gzip
+    pack = {
+        "method"   : method,
+        "dataset"  : summary_tag.split("_")[1],
+        "t"        : t_rel_ilu,
+        "pos_ned"  : fused_pos[method],
+        "vel_ned"  : fused_vel[method],
+        "pos_gnss" : gnss_pos_ned,
+        "vel_gnss" : gnss_vel_ned,
+    }
+    fname = pathlib.Path("results") / f"{summary_tag}_{method}_compare.pkl.gz"
+    with gzip.open(fname, "wb") as f:
+        pickle.dump(pack, f)
 
     print(
         f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file)} gnss={os.path.basename(gnss_file)} "

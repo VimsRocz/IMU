@@ -34,6 +34,14 @@ To process every IMU/GNSS pair defined in `run_all_datasets.py`, simply run:
 python run_all_datasets.py
 ```
 
+After all runs complete you can compare the datasets side by side:
+
+```bash
+python plot_compare_all.py
+```
+This creates one `all_datasets_<method>_comparison.pdf` per method in
+`results/`.
+
 ## Tests
 
 Run the unit tests with `pytest`:
