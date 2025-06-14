@@ -1,23 +1,40 @@
 import argparse
+import os
 import subprocess
 import sys
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run GNSS_IMU_Fusion with multiple methods")
-    parser.add_argument("--imu-file", default="IMU_X001.dat", help="Path to IMU DAT file")
-    parser.add_argument("--gnss-file", default="GNSS_X001.csv", help="Path to GNSS CSV file")
     args = parser.parse_args()
 
+    cases = [
+        ("IMU_X001.dat", "GNSS_X001.csv", "clean"),
+        ("IMU_X002.dat", "GNSS_X002.csv", "noise"),
+        ("IMU_X003.dat", "GNSS_X003.csv", "bias"),
+    ]
+
     methods = ["TRIAD", "Davenport", "SVD", "ALL"]
-    for m in methods:
-        cmd = [sys.executable, "GNSS_IMU_Fusion.py", "--method", m,
-               "--imu-file", args.imu_file, "--gnss-file", args.gnss_file]
-        print(f"Running method {m}...")
-        ret = subprocess.run(cmd)
-        if ret.returncode != 0:
-            print(f"Method {m} failed", file=sys.stderr)
-            sys.exit(ret.returncode)
+    os.makedirs("logs", exist_ok=True)
+    for imu, gnss, tag in cases:
+        for m in methods:
+            log_name = os.path.join("logs", f"{tag}_{m}.log")
+            cmd = [
+                sys.executable,
+                "GNSS_IMU_Fusion.py",
+                "--method",
+                m,
+                "--imu-file",
+                imu,
+                "--gnss-file",
+                gnss,
+            ]
+            print(f"Running {tag} with method {m}...")
+            with open(log_name, "w") as f:
+                ret = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+            if ret.returncode != 0:
+                print(f"{tag} {m} failed", file=sys.stderr)
+                sys.exit(ret.returncode)
 
 if __name__ == "__main__":
     main()
