@@ -12,6 +12,12 @@ from scipy.signal import butter, filtfilt
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
+def average_rotation_matrices(rotations):
+    """Average a list of rotation matrices and re-orthonormalise."""
+    A = sum(rotations) / len(rotations)
+    U, _, Vt = np.linalg.svd(A)
+    return U @ Vt
+
 def compute_C_ECEF_to_NED(lat, lon):
     """Compute rotation matrix from ECEF to NED frame."""
     sin_phi = np.sin(lat)
@@ -36,7 +42,7 @@ def main():
     parser = argparse.ArgumentParser(description="IMU/GNSS fusion")
     parser.add_argument(
         "--method",
-        choices=["TRIAD", "Davenport", "SVD"],
+        choices=["TRIAD", "Davenport", "SVD", "ALL"],
         default="Davenport",
         help="Attitude initialization method",
     )
@@ -496,6 +502,13 @@ def main():
     q_svd_doc = rot_to_quaternion(R_svd_doc)
     if q_svd_doc[0] < 0:
         q_svd_doc = -q_svd_doc
+
+    # Combine all methods by averaging rotation matrices
+    R_all = average_rotation_matrices([R_tri, R_dav, R_svd])
+    q_all = rot_to_quaternion(R_all)
+    if q_all[0] < 0:
+        q_all = -q_all
+
     logging.info(f"Quaternion (TRIAD, Case 1): {q_tri}")
     print(f"Quaternion (TRIAD, Case 1): {q_tri}")
     logging.info(f"Quaternion (SVD, Case 1): {q_svd}")
@@ -515,7 +528,7 @@ def main():
     
     results_x001 = {}
     results_x001_doc = {}
-    methods = {'TRIAD': R_tri, 'Davenport': R_dav, 'SVD': R_svd}
+    methods = {'TRIAD': R_tri, 'Davenport': R_dav, 'SVD': R_svd, 'ALL': R_all}
     methods_doc = {'TRIAD': R_tri_doc, 'Davenport': R_dav_doc, 'SVD': R_svd_doc}
     
     # Case 1: Current implementation
@@ -561,8 +574,8 @@ def main():
     # Note: Assumes results_x001 and results_x001_doc are dictionaries containing error data
     gravity_errors_case1 = [results_x001[m]['gravity_error'] for m in methods]
     earth_rate_errors_case1 = [results_x001[m]['earth_rate_error'] for m in methods]
-    gravity_errors_case2 = [results_x001_doc[m]['gravity_error'] for m in methods]
-    earth_rate_errors_case2 = [results_x001_doc[m]['earth_rate_error'] for m in methods]
+    gravity_errors_case2 = [results_x001_doc.get(m, {'gravity_error':0})['gravity_error'] for m in methods]
+    earth_rate_errors_case2 = [results_x001_doc.get(m, {'earth_rate_error':0})['earth_rate_error'] for m in methods]
     
     # Plot error comparison
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
@@ -630,7 +643,8 @@ def main():
     task3_results = {
         'TRIAD': {'R': R_tri},
         'Davenport': {'R': R_dav},
-        'SVD': {'R': R_svd}
+        'SVD': {'R': R_svd},
+        'ALL': {'R': R_all}
     }
     logging.info("Task 3 results stored in memory: %s", list(task3_results.keys()))
         

@@ -9,7 +9,7 @@ def main():
     parser.add_argument("--gnss-file", default="GNSS_X001.csv", help="Path to GNSS CSV file")
     args = parser.parse_args()
 
-    methods = ["TRIAD", "Davenport", "SVD"]
+    methods = ["TRIAD", "Davenport", "SVD", "ALL"]
     for m in methods:
         cmd = [sys.executable, "GNSS_IMU_Fusion.py", "--method", m,
                "--imu-file", args.imu_file, "--gnss-file", args.gnss_file]
