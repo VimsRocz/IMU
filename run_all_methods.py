@@ -4,7 +4,7 @@ import subprocess, os, pathlib, itertools
 
 cases   = [("IMU_X001.dat", "GNSS_X001.csv"),
            ("IMU_X002.dat", "GNSS_X002.csv")]
-methods = ["TRIAD", "SVD", "Davenport", "ALL"]
+methods = ["TRIAD", "SVD", "Davenport"]
 
 os.makedirs("results", exist_ok=True)
 

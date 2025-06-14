@@ -18,7 +18,7 @@ DATASETS = [
     ("IMU_X003.dat", "GNSS_X002.csv"),   # <- note the GNSS swap
 ]
 
-METHODS  = ["TRIAD", "Davenport", "SVD", "ALL"]
+METHODS  = ["TRIAD", "Davenport", "SVD"]
 
 def run_one(imu, gnss, method):
     ts    = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
