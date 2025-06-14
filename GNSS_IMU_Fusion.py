@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
+from scipy.signal import butter, filtfilt
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -22,6 +23,13 @@ def compute_C_ECEF_to_NED(lat, lon):
         [-sin_lambda, cos_lambda, 0],
         [-cos_phi * cos_lambda, -cos_phi * sin_lambda, -sin_phi],
     ])
+
+def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):
+    """Apply a zero-phase Butterworth low-pass filter to the data."""
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(order, normal_cutoff, btype="low", analog=False)
+    return filtfilt(b, a, data, axis=0)
 
 def main():
     # Parse command-line arguments
@@ -196,6 +204,8 @@ def main():
     dt_imu = 1.0 / 400.0  # 400 Hz, dt = 0.0025s
     acc = acc / dt_imu  # Convert to acceleration (m/s²)
     gyro = gyro / dt_imu  # Convert to angular velocity (rad/s)
+    acc = butter_lowpass_filter(acc)
+    gyro = butter_lowpass_filter(gyro)
     N_static = min(4000, data.shape[0])
     static_acc = np.mean(acc[:N_static], axis=0)
     static_gyro = np.mean(gyro[:N_static], axis=0)
@@ -668,10 +678,9 @@ def main():
         # Convert velocity increments to acceleration (m/s²)
         # Columns 5,6,7 are velocity increments (m/s) over dt_ilu
         acc_body = imu_data[[5,6,7]].values / dt_ilu  # acc_body = delta_v / dt_ilu
-        
-        # Convert angular increments to angular rates (rad/s)
-        # Columns 2,3,4 are angular increments (rad) over dt_ilu
         gyro_body = imu_data[[2,3,4]].values / dt_ilu  # gyro_body = delta_theta / dt_ilu
+        acc_body = butter_lowpass_filter(acc_body)
+        gyro_body = butter_lowpass_filter(gyro_body)
         
         N_static = 4000
         if len(imu_data) < N_static:
@@ -688,21 +697,23 @@ def main():
         for m in methods:
             C_N_B = C_B_N_methods[m].T  # NED to Body rotation matrix
             g_body_expected = C_N_B @ g_NED  # Expected gravity in body frame
-            
+
             # Accelerometer bias: static_acc should equal -g_body_expected (since a_body = f_body - g_body)
             acc_bias = static_acc + g_body_expected  # Bias = measured - expected
-            
+            scale = 9.81 / np.linalg.norm(static_acc - acc_bias)
+
             # Gyroscope bias: static_gyro should equal C_N_B @ omega_ie_NED
             omega_ie_NED = np.array([7.2921159e-5 * np.cos(ref_lat), 0.0, -7.2921159e-5 * np.sin(ref_lat)])
             omega_ie_body_expected = C_N_B @ omega_ie_NED
             gyro_bias = static_gyro - omega_ie_body_expected  # Bias = measured - expected
-            
+
             # Correct the entire dataset
-            acc_body_corrected[m] = acc_body - acc_bias
+            acc_body_corrected[m] = scale * (acc_body - acc_bias)
             gyro_body_corrected[m] = gyro_body - gyro_bias
-            
+
             logging.info(f"Method {m}: Accelerometer bias: {acc_bias}")
             logging.info(f"Method {m}: Gyroscope bias: {gyro_bias}")
+            logging.info(f"Method {m}: Accelerometer scale factor: {scale:.4f}")
             print(f"Method {m}: Accelerometer bias: {acc_bias}")
             print(f"Method {m}: Gyroscope bias: {gyro_bias}")
         
@@ -974,6 +985,7 @@ def main():
     dt_ilu = 1.0 / 400.0
     imu_time = np.arange(len(imu_data)) * dt_ilu + gnss_time[0]
     acc_body = imu_data[[5,6,7]].values / dt_ilu
+    acc_body = butter_lowpass_filter(acc_body)
     N_static = 4000
     if len(imu_data) < N_static:
         raise ValueError("Insufficient static samples.")
@@ -987,8 +999,10 @@ def main():
         C_N_B = C_B_N_methods[m].T
         g_body_expected = C_N_B @ g_NED
         bias = static_acc + g_body_expected
-        acc_body_corrected[m] = acc_body - bias
+        scale = 9.81 / np.linalg.norm(static_acc - bias)
+        acc_body_corrected[m] = scale * (acc_body - bias)
         logging.info(f"Method {m}: Bias computed: {bias}")
+        logging.info(f"Method {m}: Scale factor: {scale:.4f}")
     
     # --------------------------------
     # Subtask 5.4: Integrate IMU Data for Each Method
