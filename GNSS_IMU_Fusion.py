@@ -1,27 +1,15 @@
 #!/usr/bin/env python3
-"""Command line entry point for IMU/GNSS fusion demo."""
-import argparse
-import numpy as np
+"""Thin wrapper script invoking :mod:`fusion_single`.
 
-from imu_fusion.data import load_gnss_csv, load_imu_dat
+This keeps ``GNSS_IMU_Fusion.py`` as the recommended entry point
+mentioned in the README while delegating all real work to
+``fusion_single.main``.  Any command line arguments are passed through
+unchanged.
+"""
 
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="IMU/GNSS fusion demo")
-    parser.add_argument("--all", action="store_true", help="run all dataset combinations")
-    parser.add_argument("--gnss-file", default="GNSS_X001.csv", help="GNSS CSV file")
-    parser.add_argument("--imu-file", default="IMU_X001.dat", help="IMU dat file")
-    parser.add_argument(
-        "--init-method",
-        choices=["TRIAD", "Davenport", "SVD"],
-        default="Davenport",
-        help="Attitude initialization method",
-    )
-    args = parser.parse_args()
-
-
+from fusion_single import main
 
 
 if __name__ == "__main__":
     main()
+
