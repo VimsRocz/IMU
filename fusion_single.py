@@ -14,6 +14,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from filterpy.kalman import KalmanFilter
+from imu_fusion.wahba import (
+    davenport_q_method,
+    svd_method,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -268,15 +272,40 @@ def plot_attitude_multi(times: Sequence[Iterable], yaws: Sequence[Iterable], pit
 # Filter run helpers
 # ---------------------------------------------------------------------------
 
-def run_pair(gnss_file: str, imu_file: str, label: str):
+def _initial_quaternion(gnss: pd.DataFrame, imu: np.ndarray, method: str) -> np.ndarray:
+    """Return initial body-to-NED quaternion using the chosen Wahba method."""
+    lat = np.deg2rad(float(gnss.iloc[0].get("Latitude_deg", 0.0)))
+    g_ned = np.array([0.0, 0.0, 9.81])
+    omega_ie = 7.2921159e-5 * np.array([np.cos(lat), 0.0, -np.sin(lat)])
+
+    dt = 1.0 / 400.0
+    acc = imu[:, 5:8] / dt
+    gyro = imu[:, 2:5] / dt
+    N = min(4000, len(acc))
+    g_body = -np.mean(acc[:N], axis=0)
+    omega_body = np.mean(gyro[:N], axis=0)
+
+    if method == "TRIAD":
+        R = triad(g_body, omega_body, g_ned, omega_ie)
+    elif method == "Davenport":
+        R = davenport_q_method(g_body, omega_body, g_ned, omega_ie)
+    else:
+        R = svd_method(g_body, omega_body, g_ned, omega_ie)
+    return rot_to_quaternion(R)
+
+
+def run_pair(gnss_file: str, imu_file: str, label: str, method: str = "TRIAD"):
     """Run filter on one GNSS/IMU pair and return plotting data."""
     gnss = load_gnss_csv(gnss_file)
     imu = load_imu_dat(imu_file)
 
-    C_b_n, lat_deg, lon_deg = estimate_initial_orientation(gnss, imu)
-    q = rot_to_quaternion(C_b_n)
-    print(f"{label}: initial lat {lat_deg:.4f} deg lon {lon_deg:.4f} deg")
-    print(f"{label}: initial quaternion (body to NED):", q)
+    q = _initial_quaternion(gnss, imu, method)
+    lat_deg = float(gnss.iloc[0].get("Latitude_deg", 0.0))
+    lon_deg = float(gnss.iloc[0].get("Longitude_deg", 0.0))
+    print(
+        f"{label}: {method} initial lat {lat_deg:.4f} deg lon {lon_deg:.4f} deg"
+    )
+    print(f"{label}: {method} quaternion (body to NED):", q)
 
     if {"X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m", "VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"} <= set(gnss.columns):
         z = gnss[[
@@ -326,6 +355,12 @@ def main() -> None:
     parser.add_argument("--all", action="store_true", help="run all dataset combinations")
     parser.add_argument("--gnss-file", default="GNSS_X001.csv", help="GNSS CSV file")
     parser.add_argument("--imu-file", default="IMU_X001.dat", help="IMU dat file")
+    parser.add_argument(
+        "--init-method",
+        choices=["TRIAD", "Davenport", "SVD", "ALL"],
+        default="TRIAD",
+        help="Attitude initialization method",
+    )
     args = parser.parse_args()
 
     if args.all:
@@ -337,7 +372,14 @@ def main() -> None:
     else:
         pairs = [(args.gnss_file, args.imu_file, "run")]
 
-    results = [run_pair(g, i, l) for g, i, l in pairs]
+    methods = [args.init_method]
+    if args.init_method == "ALL":
+        methods = ["TRIAD", "Davenport", "SVD"]
+
+    results = []
+    for g, i, l in pairs:
+        for m in methods:
+            results.append(run_pair(g, i, f"{l}_{m}", m))
 
     for r in results:
         base = r["label"]
