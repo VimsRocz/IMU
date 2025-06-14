@@ -282,13 +282,69 @@ def _initial_quaternion(gnss: pd.DataFrame, imu: np.ndarray, method: str) -> np.
     dt = 1.0 / 400.0
     acc = imu[:, 5:8] / dt
     gyro = imu[:, 2:5] / dt
-    N = min(4000, len(acc))
-    g_body = -np.mean(acc[:N], axis=0)
-    omega_body = np.mean(gyro[:N], axis=0)
+    n = min(4000, len(acc))
+    g_body = -np.mean(acc[:n], axis=0)
+    omega_body = np.mean(gyro[:n], axis=0)
 
     if method == "TRIAD":
         R = triad(g_body, omega_body, g_ned, omega_ie)
+    elif method == "DAVENPORT":
+        R = davenport_q_method(g_body, omega_body, g_ned, omega_ie)
+    elif method == "SVD":
+        R = svd_method(g_body, omega_body, g_ned, omega_ie)
+    elif method == "MEAN":
+        R = (
+            triad(g_body, omega_body, g_ned, omega_ie)
+            + davenport_q_method(g_body, omega_body, g_ned, omega_ie)
+            + svd_method(g_body, omega_body, g_ned, omega_ie)
+        ) / 3.0
+    else:
+        raise ValueError(f"Unknown method {method}")
 
+    return rot_to_quaternion(R)
+
+
+def smooth_gnss(df: pd.DataFrame, window: int) -> pd.DataFrame:
+    """Return GNSS data with optional rolling mean smoothing."""
+    if window <= 1:
+        return df
+    cols = [
+        "X_ECEF_m",
+        "Y_ECEF_m",
+        "Z_ECEF_m",
+        "VX_ECEF_mps",
+        "VY_ECEF_mps",
+        "VZ_ECEF_mps",
+    ]
+    df = df.copy()
+    df[cols] = df[cols].rolling(window, center=True, min_periods=1).mean()
+    return df
+
+
+def remove_imu_bias(data: np.ndarray, samples: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Remove constant bias estimated from the first ``samples`` IMU rows."""
+    if samples <= 0:
+        return data, np.zeros(3), np.zeros(3)
+    dt = 1.0 / 400.0
+    gyro = data[:, 2:5] / dt
+    acc = data[:, 5:8] / dt
+    n = min(samples, len(data))
+    gyro_bias = np.mean(gyro[:n], axis=0)
+    acc_bias = np.mean(acc[:n], axis=0)
+    corrected = data.copy()
+    corrected[:, 2:5] -= gyro_bias * dt
+    corrected[:, 5:8] -= acc_bias * dt
+    return corrected, gyro_bias, acc_bias
+
+
+def _run_pair(
+    gnss_file: str,
+    imu_file: str,
+    label: str,
+    method: str,
+    smooth_window: int,
+    bias_samples: int,
+) -> dict:
     """Run filter on one GNSS/IMU pair and return plotting data."""
     gnss_raw = load_gnss_csv(gnss_file)
     imu_raw = load_imu_dat(imu_file)
@@ -305,15 +361,24 @@ def _initial_quaternion(gnss: pd.DataFrame, imu: np.ndarray, method: str) -> np.
     )
     print(f"{label}: {method} quaternion (body to NED):", q)
 
-    if {"X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m", "VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"} <= set(gnss.columns):
-        z = gnss[[
-            "X_ECEF_m",
-            "Y_ECEF_m",
-            "Z_ECEF_m",
-            "VX_ECEF_mps",
-            "VY_ECEF_mps",
-            "VZ_ECEF_mps",
-        ]].values
+    if {
+        "X_ECEF_m",
+        "Y_ECEF_m",
+        "Z_ECEF_m",
+        "VX_ECEF_mps",
+        "VY_ECEF_mps",
+        "VZ_ECEF_mps",
+    } <= set(gnss.columns):
+        z = gnss[
+            [
+                "X_ECEF_m",
+                "Y_ECEF_m",
+                "Z_ECEF_m",
+                "VX_ECEF_mps",
+                "VY_ECEF_mps",
+                "VZ_ECEF_mps",
+            ]
+        ].values
     else:
         z = np.zeros((len(gnss), 6))
 
@@ -355,6 +420,12 @@ def main() -> None:
     parser.add_argument("--imu-file", default="IMU_X001.dat", help="IMU dat file")
     parser.add_argument(
         "--init-method",
+        default="TRIAD",
+        choices=["TRIAD", "DAVENPORT", "SVD", "MEAN", "ALL"],
+        help="attitude initialisation method",
+    )
+    parser.add_argument("--smooth-window", type=int, default=1, help="GNSS smoothing window")
+    parser.add_argument("--bias-samples", type=int, default=0, help="IMU samples for bias estimation")
 
     args = parser.parse_args()
 
@@ -369,13 +440,15 @@ def main() -> None:
 
     methods = [args.init_method]
     if args.init_method == "ALL":
-
+        methods = ["TRIAD", "DAVENPORT", "SVD", "MEAN"]
 
     results = []
     for g, i, l in pairs:
         for m in methods:
-
-
+            lbl = f"{l}_{m.lower()}" if len(methods) > 1 else l
+            results.append(
+                _run_pair(g, i, lbl, m, args.smooth_window, args.bias_samples)
+            )
     for r in results:
         base = r["label"]
         plot_ned_positions(r["time"], r["pos"], base, f"Position {base}", f"positions_{base}.pdf")
