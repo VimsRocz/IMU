@@ -6,6 +6,7 @@ from imu_fusion.attitude import (
     rot_to_quaternion,
     quat_multiply,
     quat_normalize,
+
     estimate_initial_orientation,
 )
 import pandas as pd
@@ -33,6 +34,7 @@ def test_quaternion_helpers_roundtrip():
     assert np.allclose(q2n, expected)
 
 
+
 def test_estimate_initial_orientation_identity_yaw():
     imu = np.zeros((1, 6))
     gnss = pd.DataFrame({
@@ -45,3 +47,4 @@ def test_estimate_initial_orientation_identity_yaw():
     q = estimate_initial_orientation(imu, gnss)
     expected = np.array([1.0, 0.0, 0.0, 0.0])
     assert np.allclose(q, expected)
+
