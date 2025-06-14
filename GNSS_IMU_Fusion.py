@@ -19,7 +19,6 @@ COLORS = {
     "TRIAD": "tab:blue",
     "Davenport": "tab:orange",
     "SVD": "tab:green",
-    "ALL": "tab:pink",
 }
 
 # Setup logging
@@ -62,7 +61,7 @@ def main():
     parser.add_argument(
         "--method",
         default="Davenport",
-        choices=["TRIAD", "SVD", "Davenport", "ALL"],
+        choices=["TRIAD", "SVD", "Davenport"],
     )
     parser.add_argument(
         "--no-plots",
@@ -565,10 +564,6 @@ def main():
     q_all_1 = normalise(sum(quats_case1[m] for m in methods))
     q_all_2 = normalise(sum(quats_case2[m] for m in methods))
 
-    quats_case1["ALL"] = q_all_1
-    quats_case2["ALL"] = q_all_2
-    methods.append("ALL")
-
     def attitude_errors(q1, q2):
         def quat_to_rot(q):
             w, x, y, z = q
@@ -673,8 +668,7 @@ def main():
     task3_results = {
         'TRIAD': {'R': R_tri},
         'Davenport': {'R': R_dav},
-        'SVD': {'R': R_svd},
-        'ALL': {'R': R_all}
+        'SVD': {'R': R_svd}
     }
     logging.info("Task 3 results stored in memory: %s", list(task3_results.keys()))
         
