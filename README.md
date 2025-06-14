@@ -42,6 +42,14 @@ python plot_compare_all.py
 This creates one `all_datasets_<method>_comparison.pdf` per method in
 `results/`.
 
+## Automated figure generation
+
+The module `auto_plots.py` contains helper routines for creating the standard
+set of plots and a summary table of metrics for each batch run.  Integrate
+these helpers into your own batch script to automatically export the six
+"must‑have" figures (tasks 3–5 and validation plots) and a CSV/LaTeX table of
+RMSE and innovation statistics.
+
 ## Tests
 
 Run the unit tests with `pytest`:
