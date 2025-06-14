@@ -188,33 +188,79 @@ def main():
     except Exception as e:
         logging.error(f"Failed to load IMU data file: {e}")
         raise
+
     if data.shape[1] >= 10:
         acc = data[:, 5:8]  # Velocity increments (m/s)
         gyro = data[:, 2:5]  # Angular increments (rad)
     else:
         logging.error(f"Unexpected data format in {imu_file}.")
         raise ValueError("Invalid IMU data format.")
+
     logging.info(f"IMU data loaded: {data.shape[0]} samples")
     print(f"IMU data loaded: {data.shape[0]} samples")
+
+    # Estimate IMU sampling period from time column if available
+    if data.shape[0] > 1:
+        dt_imu = np.mean(np.diff(data[:100, 1]))
+    else:
+        dt_imu = 1.0 / 400.0
+    if dt_imu <= 0:
+        dt_imu = 1.0 / 400.0
+    logging.info(f"Estimated IMU sampling period: {dt_imu:.6f} s")
     
     # --------------------------------
     # Subtask 2.2: Estimate Static Body-Frame Vectors
     # --------------------------------
-    logging.info("Subtask 2.2: Estimating static body-frame vectors from first 4000 samples.")
-    dt_imu = 1.0 / 400.0  # 400 Hz, dt = 0.0025s
-    acc = acc / dt_imu  # Convert to acceleration (m/s²)
-    gyro = gyro / dt_imu  # Convert to angular velocity (rad/s)
+    logging.info(
+        "Subtask 2.2: Estimating static body-frame vectors using a low-motion interval."
+    )
+
+    # Convert increments to rates
+    acc = acc / dt_imu  # m/s^2
+    gyro = gyro / dt_imu  # rad/s
+
+    # Low-pass filter to suppress high-frequency noise
     acc = butter_lowpass_filter(acc)
     gyro = butter_lowpass_filter(gyro)
-    N_static = min(4000, data.shape[0])
-    static_acc = np.mean(acc[:N_static], axis=0)
-    static_gyro = np.mean(gyro[:N_static], axis=0)
-    logging.info(f"Static accelerometer vector (mean over {N_static} samples): {static_acc}")
-    logging.info(f"Static gyroscope vector (mean over {N_static} samples): {static_gyro}")
+
+    # --- Detect a static interval automatically ---
+    def find_static_interval(accel, window_size=400, std_threshold=0.05):
+        mags = np.linalg.norm(accel, axis=1)
+        n = len(accel)
+        win = window_size
+        stds = np.array([mags[i : i + win].std() for i in range(0, n - win)])
+        idx = np.where(stds < std_threshold)[0]
+        if idx.size > 0:
+            start = idx[0]
+            return start, start + win
+        # fallback: use first window
+        return 0, min(win, n)
+
+    start_idx, end_idx = find_static_interval(acc)
+    N_static = end_idx - start_idx
+    static_acc = np.mean(acc[start_idx:end_idx], axis=0)
+    static_gyro = np.mean(gyro[start_idx:end_idx], axis=0)
+    logging.info(
+        f"Static interval: {start_idx} to {end_idx} (length {N_static} samples)"
+    )
+    logging.info(
+        f"Static accelerometer vector (mean over {N_static} samples): {static_acc}"
+    )
+    logging.info(
+        f"Static gyroscope vector (mean over {N_static} samples): {static_gyro}"
+    )
     g_norm = np.linalg.norm(static_acc)
     omega_norm = np.linalg.norm(static_gyro)
     logging.info(f"Estimated gravity magnitude from IMU: {g_norm:.4f} m/s² (expected ~9.81)")
     logging.info(f"Estimated Earth rotation magnitude from IMU: {omega_norm:.6e} rad/s (expected ~7.2921e-5)")
+
+    # Simple accelerometer scale calibration
+    scale_factor = 9.81 / g_norm if g_norm > 0 else 1.0
+    if abs(scale_factor - 1.0) > 0.05:
+        logging.info(f"Applying accelerometer scale factor: {scale_factor:.4f}")
+    acc *= scale_factor
+    static_acc *= scale_factor
+    g_norm *= scale_factor
     print(f"Static accelerometer mean: {static_acc}")
     print(f"Static gyroscope mean: {static_gyro}")
     print(f"Gravity magnitude: {g_norm:.4f} m/s²")
