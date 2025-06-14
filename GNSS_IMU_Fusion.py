@@ -53,6 +53,38 @@ def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):
     b, a = butter(order, normal_cutoff, btype="low", analog=False)
     return filtfilt(b, a, data, axis=0)
 
+
+def angle_between(a: np.ndarray, b: np.ndarray) -> float:
+    """Return the angle in degrees between two vectors."""
+    a = np.asarray(a)
+    b = np.asarray(b)
+    if a.shape != (3,) or b.shape != (3,):
+        raise ValueError("angle_between expects 3D vectors")
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+    if na == 0 or nb == 0:
+        return float("nan")
+    cosang = np.dot(a, b) / (na * nb)
+    cosang = np.clip(cosang, -1.0, 1.0)
+    return float(np.degrees(np.arccos(cosang)))
+
+
+def compute_wahba_errors(
+    C_bn: np.ndarray,
+    g_body: np.ndarray,
+    omega_ie_body: np.ndarray,
+    g_ref_ned: np.ndarray,
+    omega_ref_ned: np.ndarray,
+) -> tuple[float, float]:
+    """Return gravity and Earth-rate angle errors for a DCM."""
+
+    g_pred_ned = C_bn @ g_body
+    omega_pred_ned = C_bn @ omega_ie_body
+
+    grav_err = angle_between(g_pred_ned, g_ref_ned)
+    earth_err = angle_between(omega_pred_ned, omega_ref_ned)
+    return grav_err, earth_err
+
 def main():
     # Parse command-line arguments
     parser = argparse.ArgumentParser()
@@ -548,6 +580,19 @@ def main():
     print(f"Quaternion (TRIAD, Case 2): {q_tri_doc}")
     logging.info(f"Quaternion (SVD, Case 2): {q_svd_doc}")
     print(f"Quaternion (SVD, Case 2): {q_svd_doc}")
+
+    # -- Error metrics for each method ------------------------------------
+    print("\nAttitude errors using reference vectors:")
+    for name, R in {
+        "TRIAD": R_tri,
+        "Davenport": R_dav,
+        "SVD": R_svd,
+    }.items():
+        grav_err, earth_err = compute_wahba_errors(
+            R, g_body, omega_ie_body, g_NED, omega_ie_NED
+        )
+        print(f"{name} -> Gravity error (deg):     {grav_err:.6f}")
+        print(f"{name} -> Earth rate error (deg):  {earth_err:.6f}")
     
     # --------------------------------
     # Subtask 3.6: Validate Attitude Determination and Compare Methods
