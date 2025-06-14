@@ -3,3 +3,4 @@ pandas
 matplotlib
 cartopy
 filterpy
+scipy
