@@ -12,9 +12,10 @@ from pathlib import Path
 # ----------------------------------------------------------------------
 # Edit this table whenever you have new files to process.
 DATASETS = [
-    ("IMU_X002.dat", "GNSS_X002.csv"),
-    ("IMU_X001.dat", "GNSS_X001.csv"),
-    ("IMU_X002.dat", "GNSS_X003.csv"),
+    # (IMU file,         GNSS file)
+    ("IMU_X002.dat",     "GNSS_X002.csv"),  # noisy-noisy
+    ("IMU_X001.dat",     "GNSS_X001.csv"),  # clean-clean
+    ("IMU_X003.dat",     "GNSS_X002.csv"),  # bias-noisy
 ]
 # ----------------------------------------------------------------------
 
