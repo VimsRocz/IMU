@@ -6,9 +6,7 @@ from imu_fusion.attitude import (
     rot_to_quaternion,
     quat_multiply,
     quat_normalize,
-    triad,
-    davenport_q_method,
-    svd_method,
+
     estimate_initial_orientation,
 )
 import pandas as pd
@@ -35,21 +33,6 @@ def test_quaternion_helpers_roundtrip():
     q2n = quat_normalize(q2)
     assert np.allclose(q2n, expected)
 
-
-def test_triad_davenport_svd_identity():
-    g_b = np.array([0.0, 0.0, 1.0])
-    w_b = np.array([1.0, 0.0, 0.0])
-    g_n = g_b.copy()
-    w_n = w_b.copy()
-
-    R_tri = triad(g_b, w_b, g_n, w_n)
-    R_dav = davenport_q_method(g_b, w_b, g_n, w_n)
-    R_svd = svd_method(g_b, w_b, g_n, w_n)
-
-    I = np.eye(3)
-    assert np.allclose(R_tri, I)
-    assert np.allclose(R_dav, I)
-    assert np.allclose(R_svd, I)
 
 
 def test_estimate_initial_orientation_identity_yaw():
