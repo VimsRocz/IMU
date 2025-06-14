@@ -17,3 +17,19 @@ static accelerometer vector is used to compute a simple scale factor so that the
 measured gravity is close to 9.81 m/s². This improves the attitude
 initialisation when the first samples are not perfectly static or the sensor
 scale is slightly off.
+
+## Running all methods
+
+Use `run_all_methods.py` to execute the fusion script with TRIAD, Davenport and SVD sequentially:
+
+```bash
+python run_all_methods.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
+```
+
+## Tests
+
+Run the unit tests with `pytest`:
+
+```bash
+pytest -q
+```
