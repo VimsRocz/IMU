@@ -1,0 +1,11 @@
+- **location_map.pdf**: Initial location on Earth map
+- **task3_errors_comparison.pdf**: Attitude initialization error comparison
+- **task3_quaternions_comparison.pdf**: Quaternion components for initialization
+- **task4_comparison_ned.pdf**: GNSS vs IMU data in NED frame
+- **task4_mixed_frames.pdf**: GNSS/IMU data in mixed frames
+- **task4_all_ned.pdf**: Integrated data in NED frame
+- **task4_all_ecef.pdf**: Integrated data in ECEF frame
+- **task4_all_body.pdf**: Integrated data in body frame
+- **task5_results_Davenport.pdf**: Kalman filter results using Davenport
+- **davenport_residuals.pdf**: Position and velocity residuals
+- **davenport_attitude_angles.pdf**: Attitude angles over time
