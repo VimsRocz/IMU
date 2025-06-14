@@ -2,6 +2,8 @@
 
 IMU data processing and initialization tools in Python for experimenting with attitude initialization and GNSS/IMU fusion.
 
+For a step-by-step explanation of the demonstration workflow see **TASKS.md**.
+
 ## Installation
 
 Install dependencies with:
@@ -34,8 +36,6 @@ project. It computes reference vectors, solves Wahba's problem using multiple
 methods, compares IMU and GNSS data and runs a basic Kalman filter. Run the
 script without arguments to process the example datasets and generate the PDF
 figures described below.
-### Method-specific workflows
-Three directories (`triad_workflow`, `davenport_workflow`, `svd_workflow`) each contain a `workflow.py` script demonstrating Wahba's solution using one method. Run the script inside each folder to execute the processing using that estimator.
 
 
 ## Running `GNSS_IMU_Fusion.py`
