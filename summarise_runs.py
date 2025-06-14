@@ -20,14 +20,16 @@ for log in LOG_DIR.glob("*.log"):
 
 # CSV -------------------------------------------------------------------------
 with open("summary.csv", "w", newline="") as fh:
-    writer = csv.DictWriter(fh, fieldnames=rows[0].keys())
+    writer = csv.DictWriter(
+        fh, fieldnames=["method", "imu", "gnss", "rmse_pos", "final_pos"]
+    )
     writer.writeheader()
     writer.writerows(rows)
 
 # Markdown table --------------------------------------------------------------
 with open("summary.md", "w") as fh:
-    hdr = " | ".join(rows[0].keys())
-    sep = " | ".join("---" for _ in rows[0])
+    hdr = " | ".join(["method", "imu", "gnss", "rmse_pos", "final_pos"])
+    sep = " | ".join("---" for _ in range(5))
     fh.write(hdr + "\n" + sep + "\n")
     for r in rows:
         fh.write(" | ".join(r.values()) + "\n")
