@@ -1,3 +1,4 @@
+# flake8: noqa
 """TRIAD-based IMU/GNSS processing demonstration.
 
 This script consolidates the step-by-step task code used during

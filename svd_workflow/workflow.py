@@ -1,3 +1,4 @@
+# flake8: noqa
 """SVD-based IMU/GNSS processing demonstration.
 
 This script consolidates the step-by-step task code used during

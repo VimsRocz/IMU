@@ -43,3 +43,15 @@ def estimate_acc_bias(acc: np.ndarray, n_samples: int = 4000, alpha: float = 0.1
         filtered[i] = alpha * acc[i] + (1 - alpha) * filtered[i - 1]
 
     return np.median(filtered, axis=0)
+
+
+def apply_acc_bias(acc: np.ndarray, bias: np.ndarray) -> np.ndarray:
+    """Return accelerometer measurements corrected for constant bias."""
+
+    acc = np.asarray(acc)
+    bias = np.asarray(bias)
+    if acc.ndim != 2 or acc.shape[1] != 3:
+        raise ValueError("acc must be an N x 3 array")
+    if bias.shape != (3,):
+        raise ValueError("bias must have shape (3,)")
+    return acc - bias

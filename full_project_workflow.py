@@ -23,12 +23,19 @@ available in the current directory.
 """
 
 import argparse
+import logging
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
-import logging
 from filterpy.kalman import KalmanFilter
+
+from imu_fusion.logging_utils import (
+    setup_logging,
+    log_static_validation,
+    append_summary,
+)
 
 # ---------------------------------------------------------------------
 # Helper functions
@@ -92,7 +99,7 @@ def rot_to_quaternion(R: np.ndarray) -> np.ndarray:
     return q / np.linalg.norm(q)
 
 
-def run_workflow(gnss_file: str, imu_file: str):
+def run_workflow(gnss_file: str, imu_file: str, log_dir: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Execute the full workflow for the given dataset pair."""
     logging.info("TASK 1: Define reference vectors in NED frame")
 
@@ -149,6 +156,7 @@ def run_workflow(gnss_file: str, imu_file: str):
     N_static = min(4000, len(acc))
     static_acc = np.mean(acc[:N_static], axis=0)
     static_gyro = np.mean(gyro[:N_static], axis=0)
+    log_static_validation(acc[:N_static], gyro[:N_static])
 
     g_body = -static_acc
     omega_ie_body = static_gyro
@@ -217,6 +225,34 @@ def run_workflow(gnss_file: str, imu_file: str):
     q_dav = rot_to_quaternion(R_dav)
     q_svd = rot_to_quaternion(R_svd)
 
+    def _ang_err(v_true: np.ndarray, v_est: np.ndarray) -> float:
+        c = np.clip(np.dot(v_true, v_est) / (np.linalg.norm(v_true) * np.linalg.norm(v_est)), -1.0, 1.0)
+        return np.degrees(np.arccos(c))
+
+    grav_err_tri = _ang_err(v1_N, R_tri @ v1_B)
+    earth_err_tri = _ang_err(v2_N, R_tri @ v2_B)
+    grav_err_dav = _ang_err(v1_N, R_dav @ v1_B)
+    earth_err_dav = _ang_err(v2_N, R_dav @ v2_B)
+    grav_err_svd = _ang_err(v1_N, R_svd @ v1_B)
+    earth_err_svd = _ang_err(v2_N, R_svd @ v2_B)
+
+    logging.info("==== ATTITUDE INIT SUMMARY ====")
+    logging.info(
+        "TRIAD: gravity err = %.3f deg, earth rate err = %.3f deg",
+        grav_err_tri,
+        earth_err_tri,
+    )
+    logging.info(
+        "Davenport: gravity err = %.3f deg, earth rate err = %.3f deg",
+        grav_err_dav,
+        earth_err_dav,
+    )
+    logging.info(
+        "SVD: gravity err = %.3f deg, earth rate err = %.3f deg",
+        grav_err_svd,
+        earth_err_svd,
+    )
+
     print("\nRotation quaternions (body to NED):")
     print("TRIAD:", q_tri)
     print("Davenport:", q_dav)
@@ -266,6 +302,7 @@ def run_workflow(gnss_file: str, imu_file: str):
     # Task 5: simple Kalman filter
     # ------------------------------------------------------------------
     logging.info("TASK 5: Sensor Fusion with Kalman Filter")
+    logging.info("Starting Kalman filter run")
 
     time_gnss = gnss_data["Posix_Time"].values
     z = np.hstack((pos_ned, vel_ned))
@@ -297,17 +334,24 @@ def run_workflow(gnss_file: str, imu_file: str):
     xs = np.array(xs)
     residuals = np.array(residuals)
 
+    final_drift = np.linalg.norm(xs[-1, :3] - z[len(xs) - 1, :3])
+    logging.info("Kalman filter finished. Final position drift: %.1f m", final_drift)
 
     t = time_gnss[: len(xs)] - time_gnss[0]
+    append_summary(
+        log_dir,
+        [
+            f"TRIAD gravity error {grav_err_tri:.3f} deg",
+            f"TRIAD earth-rate error {earth_err_tri:.3f} deg",
+            f"Final drift {final_drift:.1f} m",
+        ],
+    )
     return t, xs, residuals
 
 
 def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    log_dir = "logs"
+    setup_logging(log_dir)
     parser = argparse.ArgumentParser(description="Compare clean and noisy datasets")
     parser.add_argument("--clean-gnss", default="GNSS_X001.csv")
     parser.add_argument("--clean-imu", default="IMU_X001.dat")
@@ -315,8 +359,8 @@ def main() -> None:
     parser.add_argument("--noisy-imu", default="IMU_X003.dat")
     args = parser.parse_args()
 
-    t_clean, xs_clean, res_clean = run_workflow(args.clean_gnss, args.clean_imu)
-    t_noisy, xs_noisy, res_noisy = run_workflow(args.noisy_gnss, args.noisy_imu)
+    t_clean, xs_clean, res_clean = run_workflow(args.clean_gnss, args.clean_imu, log_dir)
+    t_noisy, xs_noisy, res_noisy = run_workflow(args.noisy_gnss, args.noisy_imu, log_dir)
 
     # Combined position plot
     plt.figure()

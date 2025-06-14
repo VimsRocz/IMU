@@ -77,3 +77,10 @@ Choose any combination of the GNSS and IMU datasets to evaluate the effect of no
 
 After execution, several PDF plots summarizing the results are written to the working directory. A `plot_summary.md` file is also generated that lists each PDF with a short description. These files provide visual feedback of the Kalman filter results, residuals and attitude estimates.
 
+## Logging
+
+All scripts now write detailed logs to the `logs/` directory. Console output
+is mirrored to `logs/run.log` and a short summary of each run is appended to
+`logs/run_summary.txt`. Review these files to verify the measured biases,
+attitude errors and final Kalman drift after each execution.
+

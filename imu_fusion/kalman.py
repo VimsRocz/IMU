@@ -48,13 +48,19 @@ def kalman_with_bias(
     Q: np.ndarray,
     R: np.ndarray,
     x0: np.ndarray,
+    *,
+    initial_bias: np.ndarray | None = None,
     bias_process_var: float = 1e-5,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Kalman filter with three additional accelerometer-bias states."""
     base_dim = len(x0)
     dim_x = base_dim + 3
     kf = KalmanFilter(dim_x=dim_x, dim_z=zs.shape[1])
-    kf.x = np.hstack([x0, np.zeros(3)])
+    if initial_bias is None:
+        initial_bias = np.zeros(3)
+    if initial_bias.shape != (3,):
+        raise ValueError("initial_bias must have shape (3,)")
+    kf.x = np.hstack([x0, initial_bias])
 
     F_ext = np.eye(dim_x)
     F_ext[:base_dim, :base_dim] = F

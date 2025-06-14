@@ -1,5 +1,5 @@
 import numpy as np
-from imu_fusion.kalman import kalman_with_residuals
+from imu_fusion.kalman import kalman_with_residuals, kalman_with_bias
 
 
 def test_kalman_with_residuals_constant_velocity():
@@ -31,3 +31,15 @@ def test_kalman_with_residuals_constant_velocity():
 
     assert np.allclose(xs, expected_xs)
     assert np.allclose(res, expected_res)
+
+
+def test_kalman_with_bias_initial_bias():
+    zs = np.zeros((3, 1))
+    F = np.eye(1)
+    H = np.eye(1)
+    Q = np.zeros((1, 1))
+    R = np.eye(1)
+    x0 = np.array([0.0])
+    xs, _ = kalman_with_bias(zs, F, H, Q, R, x0, initial_bias=np.array([0.5, 0.5, 0.5]))
+    assert xs.shape[1] == 4
+    assert np.allclose(xs[0, -3:], [0.5, 0.5, 0.5])
