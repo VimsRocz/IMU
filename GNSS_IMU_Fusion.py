@@ -1150,6 +1150,39 @@ def main():
     fused_pos = {m: np.zeros_like(imu_pos[m]) for m in methods}
     fused_vel = {m: np.zeros_like(imu_vel[m]) for m in methods}
     fused_acc = {m: np.zeros_like(imu_acc[m]) for m in methods}
+    # Interpolate GNSS data to IMU time once
+    gnss_pos_ned_interp = np.zeros((len(imu_time), 3))
+    gnss_vel_ned_interp = np.zeros((len(imu_time), 3))
+    for j in range(3):
+        gnss_pos_ned_interp[:, j] = np.interp(imu_time, gnss_time, gnss_pos_ned[:, j])
+        gnss_vel_ned_interp[:, j] = np.interp(imu_time, gnss_time, gnss_vel_ned[:, j])
+
+    innov_pos_all = {}
+    innov_vel_all = {}
+    attitude_q_all = {}
+    euler_all = {}
+    innov_pos_all = {}
+    innov_vel_all = {}
+    attitude_q_all = {}
+    euler_all = {}
+
+    def quat_multiply(q, r):
+        w0, x0, y0, z0 = q
+        w1, x1, y1, z1 = r
+        return np.array([
+            w0*w1 - x0*x1 - y0*y1 - z0*z1,
+            w0*x1 + x0*w1 + y0*z1 - z0*y1,
+            w0*y1 - x0*z1 + y0*w1 + z0*x1,
+            w0*z1 + x0*y1 - y0*x1 + z0*w1,
+        ])
+
+    def quat_from_rate(omega, dt):
+        theta = np.linalg.norm(omega) * dt
+        if theta == 0:
+            return np.array([1.0, 0.0, 0.0, 0.0])
+        axis = omega / np.linalg.norm(omega)
+        half = theta / 2.0
+        return np.array([np.cos(half), *(np.sin(half) * axis)])
     for m in methods:
         kf = KalmanFilter(dim_x=9, dim_z=6)
         kf.x = np.hstack((imu_pos[m][0], imu_vel[m][0], imu_acc[m][0]))
@@ -1161,69 +1194,86 @@ def main():
         fused_pos[m][0] = imu_pos[m][0]
         fused_vel[m][0] = imu_vel[m][0]
         fused_acc[m][0] = imu_acc[m][0]
+
+        # ---------- logging containers ----------
+        innov_pos = []      # GNSS - predicted position
+        innov_vel = []      # GNSS - predicted velocity
+        attitude_q = []     # quaternion history
+
+        # attitude initialisation for logging
+        orientations = np.zeros((len(imu_time), 4))
+        initial_quats = {'TRIAD': q_tri, 'Davenport': q_dav, 'SVD': q_svd}
+        orientations[0] = initial_quats[m]
+        attitude_q.append(orientations[0])
+        q_cur = orientations[0]
         
-        # Interpolate GNSS data to IMU time
-        gnss_pos_ned_interp = np.zeros_like(imu_pos[m])
-        gnss_vel_ned_interp = np.zeros_like(imu_vel[m])
-        for j in range(3):
-            gnss_pos_ned_interp[:, j] = np.interp(imu_time, gnss_time, gnss_pos_ned[:, j])
-            gnss_vel_ned_interp[:, j] = np.interp(imu_time, gnss_time, gnss_vel_ned[:, j])
+
         
         # Run Kalman Filter
         for i in range(1, len(imu_time)):
             dt = imu_time[i] - imu_time[i-1]
+
+            # propagate quaternion using gyro measurement
+            dq = quat_from_rate(gyro_body_corrected[m][i], dt)
+            q_cur = quat_multiply(q_cur, dq)
+            q_cur /= np.linalg.norm(q_cur)
+            orientations[i] = q_cur
+
             # Prediction step
             kf.F[0:3,3:6] = np.eye(3) * dt
             kf.F[3:6,6:9] = np.eye(3) * dt
             kf.predict()
+
+            # ---------- save attitude BEFORE measurement update ----------
+            attitude_q.append(q_cur)
+
+            # ---------- compute and log the innovations BEFORE update ----------
+            pred = kf.H @ kf.x
+            innov = np.hstack((gnss_pos_ned_interp[i], gnss_vel_ned_interp[i])) - pred
+            innov_pos.append(innov[0:3])
+            innov_vel.append(innov[3:6])
+
             # Update step
             z = np.hstack((gnss_pos_ned_interp[i], gnss_vel_ned_interp[i]))
             kf.update(z)
+
             fused_pos[m][i] = kf.x[0:3]
             fused_vel[m][i] = kf.x[3:6]
             fused_acc[m][i] = imu_acc[m][i]  # Use integrated acceleration
+
         logging.info(f"Method {m}: Kalman Filter completed.")
+
+        # stack log lists
+        innov_pos = np.vstack(innov_pos)
+        innov_vel = np.vstack(innov_vel)
+        attitude_q = np.vstack(attitude_q)
+
+        def quat2euler(q):
+            """Return roll, pitch, yaw (rad) from w-x-y-z quaternion."""
+            w, x, y, z = q
+            t2 = +2.0 * (w * y - z * x)
+            t2 = np.clip(t2, -1.0, 1.0)
+            pitch = np.arcsin(t2)
+            t0 = +2.0 * (w * x + y * z)
+            t1 = +1.0 - 2.0 * (x * x + y * y)
+            roll = np.arctan2(t0, t1)
+            t3 = +2.0 * (w * z + x * y)
+            t4 = +1.0 - 2.0 * (y * y + z * z)
+            yaw = np.arctan2(t3, t4)
+            return roll, pitch, yaw
+
+        euler = np.apply_along_axis(quat2euler, 1, attitude_q)
+
+        innov_pos_all[m] = innov_pos
+        innov_vel_all[m] = innov_vel
+        attitude_q_all[m] = attitude_q
+        euler_all[m] = euler
     
     # Compute residuals for the selected method
     residual_pos = fused_pos[method] - gnss_pos_ned_interp
     residual_vel = fused_vel[method] - gnss_vel_ned_interp
-    
-    # Integrate attitude using gyroscope data
-    def quat_multiply(q, r):
-        w0, x0, y0, z0 = q
-        w1, x1, y1, z1 = r
-        return np.array([
-            w0*w1 - x0*x1 - y0*y1 - z0*z1,
-            w0*x1 + x0*w1 + y0*z1 - z0*y1,
-            w0*y1 - x0*z1 + y0*w1 + z0*x1,
-            w0*z1 + x0*y1 - y0*x1 + z0*w1
-        ])
-    
-    def quat_from_rate(omega, dt):
-        theta = np.linalg.norm(omega) * dt
-        if theta == 0:
-            return np.array([1.0, 0.0, 0.0, 0.0])
-        axis = omega / np.linalg.norm(omega)
-        half = theta / 2.0
-        return np.array([np.cos(half), *(np.sin(half) * axis)])
-    
-    orientations = np.zeros((len(imu_time), 4))
-    initial_quats = {'TRIAD': q_tri, 'Davenport': q_dav, 'SVD': q_svd}
-    orientations[0] = initial_quats[method]
-    for i in range(1, len(imu_time)):
-        dt = imu_time[i] - imu_time[i-1]
-        dq = quat_from_rate(gyro_body_corrected[method][i], dt)
-        orientations[i] = quat_multiply(orientations[i-1], dq)
-        orientations[i] /= np.linalg.norm(orientations[i])
-    
-    def quat_to_euler(q):
-        w, x, y, z = q
-        roll = np.arctan2(2*(w*x + y*z), 1 - 2*(x*x + y*y))
-        pitch = np.arcsin(2*(w*y - z*x))
-        yaw = np.arctan2(2*(w*z + x*y), 1 - 2*(y*y + z*z))
-        return np.degrees([roll, pitch, yaw])
-    
-    attitude_angles = np.array([quat_to_euler(q) for q in orientations])
+
+    attitude_angles = np.rad2deg(euler_all[method])
     
     # --------------------------------
     # Subtask 5.7: Handle Event at 5000s (if needed)
@@ -1323,6 +1373,25 @@ def main():
     plt.close()
     logging.info(f"Subtask 5.8.2: {method} plot saved as '{out_pdf}'")
     print(f"# Subtask 5.8.2: {method} plotting completed. Saved as '{out_pdf}'.")
+
+    # Plot pre-fit innovations
+    fig_innov, ax_innov = plt.subplots(3, 1, sharex=True, figsize=(8, 6))
+    labels = ['North', 'East', 'Down']
+    innov_pos = innov_pos_all[method]
+    innov_vel = innov_vel_all[method]
+    for i in range(3):
+        ax_innov[i].plot(innov_pos[:, i], label='Position')
+        ax_innov[i].plot(innov_vel[:, i], label='Velocity', linestyle='--')
+        ax_innov[i].set_ylabel(f'{labels[i]} residual')
+        ax_innov[i].grid(True)
+    ax_innov[0].legend(loc='upper right')
+    ax_innov[-1].set_xlabel('GNSS update index')
+    fig_innov.suptitle('Pre-fit Innovations (GNSS – prediction)')
+    fig_innov.tight_layout()
+    innov_pdf = f"results/{tag}_{method.lower()}_innovations.pdf"
+    if not args.no_plots:
+        plt.savefig(innov_pdf)
+    plt.close()
     
     # Plot residuals of position and velocity
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
@@ -1342,14 +1411,15 @@ def main():
     plt.close()
     
     # Plot attitude angles over time
-    fig, ax = plt.subplots(3, 1, figsize=(8, 10), sharex=True)
-    labels = ['Roll', 'Pitch', 'Yaw']
+    fig2, ax2 = plt.subplots(3, 1, sharex=True, figsize=(8, 6))
+    labels = ['Roll (\u03c6)', 'Pitch (\u03b8)', 'Yaw (\u03c8)']
     for i in range(3):
-        ax[i].plot(imu_time, attitude_angles[:, i])
-        ax[i].set_ylabel(f'{labels[i]} (deg)')
-        ax[i].set_title(f'{labels[i]} vs Time')
-    ax[-1].set_xlabel('Time (s)')
-    plt.tight_layout()
+        ax2[i].plot(np.rad2deg(euler_all[method][:, i]))
+        ax2[i].set_ylabel(labels[i] + ' [deg]')
+        ax2[i].grid(True)
+    ax2[-1].set_xlabel('IMU epoch')
+    fig2.suptitle('Attitude Time History')
+    fig2.tight_layout()
     att_pdf = f"results/{tag}_{method.lower()}_attitude_angles.pdf"
     if not args.no_plots:
         plt.savefig(att_pdf)
@@ -1367,6 +1437,7 @@ def main():
         f'{tag}_task4_all_body.pdf': 'Integrated data in body frame',
         f'{tag}_task5_results_{method}.pdf': f'Kalman filter results using {method}',
         f'{tag}_{method.lower()}_residuals.pdf': 'Position and velocity residuals',
+        f'{tag}_{method.lower()}_innovations.pdf': 'Pre-fit innovations',
         f'{tag}_{method.lower()}_attitude_angles.pdf': 'Attitude angles over time'
     }
     summary_path = os.path.join("results", f"{tag}_plot_summary.md")
@@ -1380,6 +1451,9 @@ def main():
     np.savez(
         f"results/{tag}_kf_output.npz",
         summary=dict(rmse_pos=rmse_pos, final_pos=final_pos),
+        innov_pos=innov_pos_all[method],
+        innov_vel=innov_vel_all[method],
+        euler=euler_all[method],
     )
 
     print(
