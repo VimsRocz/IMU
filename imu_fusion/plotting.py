@@ -38,10 +38,7 @@ def plot_residuals(time: Iterable, residuals: Sequence[Sequence[float]], title: 
 
 def plot_attitude(time: Iterable, yaw: Sequence[float], pitch: Sequence[float], roll: Sequence[float], title: str, outfile: str) -> None:
     """Plot attitude angles over time."""
-    plt.figure()
-    plt.plot(time, roll, label="Roll")
-    plt.plot(time, pitch, label="Pitch")
-    plt.plot(time, yaw, label="Yaw")
+
     _setup_plot(title, "Time (s)", "Angle (deg)")
     plt.legend()
     plt.tight_layout()
