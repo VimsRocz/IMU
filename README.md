@@ -2,6 +2,8 @@
 
 IMU data processing and initialization tools in Python for experimenting with attitude initialization and GNSS/IMU fusion.
 
+For a step-by-step explanation of the demonstration workflow see **TASKS.md**.
+
 ## Installation
 
 Install dependencies with:
