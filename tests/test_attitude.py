@@ -1,6 +1,7 @@
 import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import numpy as np
+import imu_fusion.attitude as attitude
 from imu_fusion.attitude import (
     compute_C_ECEF_to_NED,
     rot_to_quaternion,
@@ -8,6 +9,7 @@ from imu_fusion.attitude import (
     quat_normalize,
 
     estimate_initial_orientation,
+    estimate_initial_orientation_triad,
 )
 import pandas as pd
 
@@ -45,6 +47,15 @@ def test_estimate_initial_orientation_identity_yaw():
         "VZ_ECEF_mps": [0.0],
     })
     q = estimate_initial_orientation(imu, gnss)
+    expected = np.array([1.0, 0.0, 0.0, 0.0])
+    assert np.allclose(q, expected)
+
+
+def test_estimate_initial_orientation_triad_normalizes_gravity():
+    accel = np.repeat([[0.0, 0.0, -12.0]], 100, axis=0)
+    gyro = np.repeat([[7.2921159e-5, 0.0, 0.0]], 100, axis=0)
+    gnss = pd.DataFrame({"Latitude_deg": [0.0], "Longitude_deg": [0.0]})
+    q = attitude.estimate_initial_orientation_triad(accel, gyro, gnss, samples=100)
     expected = np.array([1.0, 0.0, 0.0, 0.0])
     assert np.allclose(q, expected)
 
