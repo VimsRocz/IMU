@@ -132,6 +132,8 @@ def estimate_initial_orientation(gnss: pd.DataFrame, imu: np.ndarray) -> tuple[n
     acc_mean = np.mean(acc[:N_static], axis=0)
     gyro_mean = np.mean(gyro[:N_static], axis=0)
     g_body = -acc_mean
+    if np.linalg.norm(g_body) > 1e-3:
+        g_body = 9.81 * g_body / np.linalg.norm(g_body)
     omega_body = gyro_mean
 
     C_b_n = triad(g_body, omega_body, g_ned, omega_ned)

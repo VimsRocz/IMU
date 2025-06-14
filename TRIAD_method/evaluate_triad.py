@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 from imu_fusion.data import load_gnss_csv, load_imu_dat
 from imu_fusion.wahba import triad_method
 from imu_fusion.attitude import (
