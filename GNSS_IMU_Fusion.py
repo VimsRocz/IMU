@@ -11,6 +11,9 @@ import pandas as pd
 from filterpy.kalman import KalmanFilter
 from scipy.signal import butter, filtfilt
 
+import argparse, pathlib, json, numpy as np
+TAG = "{imu}_{gnss}_{method}".format  # helper
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -45,39 +48,30 @@ def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):
 
 def main():
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description="IMU/GNSS fusion")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--imu-file", required=True)
+    parser.add_argument("--gnss-file", required=True)
     parser.add_argument(
         "--method",
-        choices=["TRIAD", "Davenport", "SVD", "ALL"],
         default="Davenport",
-        help="Attitude initialization method",
+        choices=["TRIAD", "SVD", "Davenport", "ALL"],
     )
     parser.add_argument(
-        "--gnss-file",
-        default="GNSS_X001.csv",
-        help="Path to GNSS CSV file",
-    )
-    parser.add_argument(
-        "--imu-file",
-        default="IMU_X001.dat",
-        help="Path to IMU DAT file",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="results",
-        help="Directory to write plots and numeric outputs",
+        "--no-plots",
+        action="store_true",
+        help="Skip matplotlib savefig to speed up CI runs",
     )
     args = parser.parse_args()
+
     method_choice = args.method
     gnss_file = args.gnss_file
     imu_file = args.imu_file
-    output_dir = args.output_dir
 
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs("results", exist_ok=True)
 
-    imu_stem = Path(imu_file).stem
-    gnss_stem = Path(gnss_file).stem
-    tag = f"{imu_stem}_{gnss_stem}_{method_choice}"
+    imu_stem = pathlib.Path(args.imu_file).stem
+    gnss_stem = pathlib.Path(args.gnss_file).stem
+    tag = TAG(imu=imu_stem, gnss=gnss_stem, method=args.method)
 
     logging.info(f"Running attitude-estimation method: {method_choice}")
     
@@ -199,7 +193,8 @@ def main():
     
     # Set plot title and save
     plt.title("Initial Location on Earth Map")
-    plt.savefig(os.path.join(output_dir, f"{tag}_location_map.pdf"))
+    if not args.no_plots:
+        plt.savefig(f"results/{tag}_location_map.pdf")
     plt.close()
 
     logging.info("Location map saved")
@@ -629,7 +624,8 @@ def main():
     axes[1].legend()
     
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, f"{tag}_task3_errors_comparison.pdf"))
+    if not args.no_plots:
+        plt.savefig(f"results/{tag}_task3_errors_comparison.pdf")
     plt.close()
     logging.info("Error comparison plot saved")
     
@@ -660,7 +656,8 @@ def main():
     ax.legend()
     
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, f"{tag}_task3_quaternions_comparison.pdf"))
+    if not args.no_plots:
+        plt.savefig(f"results/{tag}_task3_quaternions_comparison.pdf")
     plt.close()
     logging.info("Quaternion comparison plot saved")
     
@@ -908,7 +905,8 @@ def main():
         ax.set_ylabel('Acceleration (m/s²)')
         ax.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, f"{tag}_task4_comparison_ned.pdf"))
+    if not args.no_plots:
+        plt.savefig(f"results/{tag}_task4_comparison_ned.pdf")
     plt.close()
     logging.info("Comparison plot in NED frame saved")
     
@@ -935,7 +933,8 @@ def main():
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, f"{tag}_task4_mixed_frames.pdf"))
+    if not args.no_plots:
+        plt.savefig(f"results/{tag}_task4_mixed_frames.pdf")
     plt.close()
     logging.info("Mixed frames plot saved")
     
@@ -961,7 +960,8 @@ def main():
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, f"{tag}_task4_all_ned.pdf"))
+    if not args.no_plots:
+        plt.savefig(f"results/{tag}_task4_all_ned.pdf")
     plt.close()
     logging.info("All data in NED frame plot saved")
     
@@ -988,7 +988,8 @@ def main():
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, f"{tag}_task4_all_ecef.pdf"))
+    if not args.no_plots:
+        plt.savefig(f"results/{tag}_task4_all_ecef.pdf")
     plt.close()
     logging.info("All data in ECEF frame plot saved")
     
@@ -1015,7 +1016,8 @@ def main():
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, f"{tag}_task4_all_body.pdf"))
+    if not args.no_plots:
+        plt.savefig(f"results/{tag}_task4_all_body.pdf")
     plt.close()
     logging.info("All data in body frame plot saved")
     
@@ -1305,8 +1307,9 @@ def main():
         )
     
     plt.tight_layout()
-    out_pdf = os.path.join(output_dir, f"{tag}_task5_results_{method_choice}.pdf")
-    plt.savefig(out_pdf)
+    out_pdf = f"results/{tag}_task5_results_{method_choice}.pdf"
+    if not args.no_plots:
+        plt.savefig(out_pdf)
     plt.close()
     logging.info(f"Subtask 5.8.2: {method_choice} plot saved as '{out_pdf}'")
     print(f"# Subtask 5.8.2: {method_choice} plotting completed. Saved as '{out_pdf}'.")
@@ -1323,8 +1326,9 @@ def main():
         axes[1, j].set_xlabel('Time (s)')
         axes[1, j].set_ylabel('Residual (m/s)')
     plt.tight_layout()
-    res_pdf = os.path.join(output_dir, f"{tag}_{method_choice.lower()}_residuals.pdf")
-    plt.savefig(res_pdf)
+    res_pdf = f"results/{tag}_{method_choice.lower()}_residuals.pdf"
+    if not args.no_plots:
+        plt.savefig(res_pdf)
     plt.close()
     
     # Plot attitude angles over time
@@ -1336,8 +1340,9 @@ def main():
         ax[i].set_title(f'{labels[i]} vs Time')
     ax[-1].set_xlabel('Time (s)')
     plt.tight_layout()
-    att_pdf = os.path.join(output_dir, f"{tag}_{method_choice.lower()}_attitude_angles.pdf")
-    plt.savefig(att_pdf)
+    att_pdf = f"results/{tag}_{method_choice.lower()}_attitude_angles.pdf"
+    if not args.no_plots:
+        plt.savefig(att_pdf)
     plt.close()
     
     # Create plot summary
@@ -1354,20 +1359,17 @@ def main():
         f'{tag}_{method_choice.lower()}_residuals.pdf': 'Position and velocity residuals',
         f'{tag}_{method_choice.lower()}_attitude_angles.pdf': 'Attitude angles over time'
     }
-    summary_path = os.path.join(output_dir, f"{tag}_plot_summary.md")
+    summary_path = os.path.join("results", f"{tag}_plot_summary.md")
     with open(summary_path, 'w') as f:
         for name, desc in summary.items():
             f.write(f'- **{name}**: {desc}\n')
 
     np.savez(
-        os.path.join(output_dir, f"{tag}_kf_output.npz"),
-        fused_pos=fused_pos[method_choice],
-        fused_vel=fused_vel[method_choice],
-        residual_pos=residual_pos,
-        residual_vel=residual_vel,
-        acc_bias=acc_biases.get(method_choice),
-        gyro_bias=gyro_biases.get(method_choice),
-        attitude_angles=attitude_angles,
+        f"results/{tag}_kf_output.npz",
+        summary=dict(
+            initial_north_jump=fused_pos[method_choice][0, 0],
+            final_alignment_error=float(np.linalg.norm(residual_pos[-1])),
+        ),
     )
 
     # Print short summary line for easy grep
