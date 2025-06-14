@@ -10,7 +10,11 @@ Install dependencies with:
 
 ```bash
 pip install -r requirements.txt
-```
+Three directories (`triad_workflow`, `davenport_workflow`, `svd_workflow`) each
+contain a self-contained `workflow.py` script. These replicate the full
+processing pipeline but solve Wahba's problem using only one algorithm
+(TRIAD, Davenport or SVD respectively). Run the script inside the chosen
+folder to execute the complete workflow and generate the diagnostic PDFs.
 
 ## Expected datasets
 

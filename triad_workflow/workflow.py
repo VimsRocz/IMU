@@ -15,7 +15,7 @@ project development into a single file.  It performs the following:
 Running the script will produce a collection of PDF figures in the
 working directory summarising each stage.  Example usage::
 
-    python full_project_workflow.py
+    python workflow.py
 
 The script expects the GNSS and IMU example data files distributed with
 this repository (``GNSS_X001.csv``, ``IMU_X001.dat`` etc.) to be
@@ -291,3 +291,106 @@ plt.legend()
 plt.tight_layout()
 plt.savefig("5_Fusion_Residuals.pdf")
 plt.close()
+
+# ---------------------------------------------------------------------
+# Additional evaluation: residual statistics and attitude estimation
+# ---------------------------------------------------------------------
+
+t_rel_gnss = gnss_data["Posix_Time"].values - gnss_data["Posix_Time"].values[0]
+t_rel_imu = imu_time - imu_time[0]
+
+# Interpolate GNSS data to IMU timestamps for residual analysis
+gnss_pos_ned_interp = np.zeros((len(imu_time), 3))
+gnss_vel_ned_interp = np.zeros((len(imu_time), 3))
+for j in range(3):
+    gnss_pos_ned_interp[:, j] = np.interp(imu_time, gnss_data["Posix_Time"].values, pos_ned[:, j])
+    gnss_vel_ned_interp[:, j] = np.interp(imu_time, gnss_data["Posix_Time"].values, vel_ned[:, j])
+
+# Residuals between fused and GNSS measurements
+fused_pos = xs[:, 0:3]
+fused_vel = xs[:, 3:6]
+gnss_pos_ned_interp = gnss_pos_ned_interp[: len(fused_pos)]
+gnss_vel_ned_interp = gnss_vel_ned_interp[: len(fused_vel)]
+pos_residual = fused_pos - gnss_pos_ned_interp
+vel_residual = fused_vel - gnss_vel_ned_interp
+
+fig, axes = plt.subplots(2, 1, figsize=(10, 8))
+for j, lab in enumerate(["North", "East", "Down"]):
+    axes[0].plot(t_rel_gnss[: len(pos_residual)], pos_residual[:, j], label=lab)
+axes[0].set_title("Position Residuals")
+axes[0].set_xlabel("Time (s)")
+axes[0].set_ylabel("ΔPosition (m)")
+axes[0].legend()
+
+for j, lab in enumerate(["North", "East", "Down"]):
+    axes[1].plot(t_rel_gnss[: len(vel_residual)], vel_residual[:, j], label=lab)
+axes[1].set_title("Velocity Residuals")
+axes[1].set_xlabel("Time (s)")
+axes[1].set_ylabel("ΔVelocity (m/s)")
+axes[1].legend()
+
+plt.tight_layout()
+plt.savefig("5_Filter_Residuals_TRIAD.pdf")
+plt.close()
+
+
+def small_angle_quat(omega: np.ndarray, dt: float) -> np.ndarray:
+    """Quaternion from small-angle approximation."""
+    theta = np.linalg.norm(omega) * dt
+    if theta < 1e-12:
+        return np.array([1.0, 0.0, 0.0, 0.0])
+    axis = omega / np.linalg.norm(omega)
+    q = np.hstack([np.cos(theta / 2), axis * np.sin(theta / 2)])
+    return q / np.linalg.norm(q)
+
+
+def quat_mult(q1: np.ndarray, q2: np.ndarray) -> np.ndarray:
+    w1, x1, y1, z1 = q1
+    w2, x2, y2, z2 = q2
+    return np.array([
+        w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+        w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+        w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+        w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+    ])
+
+
+def quat_to_euler(q: np.ndarray) -> np.ndarray:
+    w, x, y, z = q
+    t0 = 2 * (w * x + y * z)
+    t1 = 1 - 2 * (x * x + y * y)
+    roll = np.arctan2(t0, t1)
+    t2 = 2 * (w * y - z * x)
+    t2 = np.clip(t2, -1.0, 1.0)
+    pitch = np.arcsin(t2)
+    t3 = 2 * (w * z + x * y)
+    t4 = 1 - 2 * (y * y + z * z)
+    yaw = np.arctan2(t3, t4)
+    return np.degrees([roll, pitch, yaw])
+
+
+# Integrate gyroscope data to estimate attitude over time
+qts = np.zeros((len(imu_time), 4))
+R0 = R_tri
+qw = np.sqrt(1 + np.trace(R0)) / 2
+qx = (R0[2, 1] - R0[1, 2]) / (4 * qw)
+qy = (R0[0, 2] - R0[2, 0]) / (4 * qw)
+qz = (R0[1, 0] - R0[0, 1]) / (4 * qw)
+qts[0] = [qw, qx, qy, qz]
+for k in range(1, len(imu_time)):
+    dq = small_angle_quat(gyro_body[k], dt_imu)
+    qts[k] = quat_mult(qts[k - 1], dq)
+
+euler = np.array([quat_to_euler(q) for q in qts])
+
+fig, ax = plt.subplots(3, 1, figsize=(10, 8))
+for idx, name in enumerate(["Roll", "Pitch", "Yaw"]):
+    ax[idx].plot(t_rel_imu, euler[:, idx], label=name)
+    ax[idx].set_ylabel(f"{name} (°)")
+    ax[idx].legend()
+ax[2].set_xlabel("Time (s)")
+fig.suptitle("Task 5: TRIAD Attitude Angles Over Time")
+plt.tight_layout(rect=[0, 0, 1, 0.96])
+plt.savefig("5_Attitude_TRIAD.pdf")
+plt.close()
+
