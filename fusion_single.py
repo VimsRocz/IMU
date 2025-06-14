@@ -20,6 +20,7 @@ from imu_fusion.wahba import (
 )
 
 
+
 # ---------------------------------------------------------------------------
 # Data loading helpers
 # ---------------------------------------------------------------------------
@@ -287,17 +288,14 @@ def _initial_quaternion(gnss: pd.DataFrame, imu: np.ndarray, method: str) -> np.
 
     if method == "TRIAD":
         R = triad(g_body, omega_body, g_ned, omega_ie)
-    elif method == "Davenport":
-        R = davenport_q_method(g_body, omega_body, g_ned, omega_ie)
-    else:
-        R = svd_method(g_body, omega_body, g_ned, omega_ie)
-    return rot_to_quaternion(R)
 
-
-def run_pair(gnss_file: str, imu_file: str, label: str, method: str = "TRIAD"):
     """Run filter on one GNSS/IMU pair and return plotting data."""
-    gnss = load_gnss_csv(gnss_file)
-    imu = load_imu_dat(imu_file)
+    gnss_raw = load_gnss_csv(gnss_file)
+    imu_raw = load_imu_dat(imu_file)
+
+    gnss = smooth_gnss(gnss_raw, smooth_window)
+    imu, gyro_bias, acc_bias = remove_imu_bias(imu_raw, bias_samples)
+    print(f"{label}: gyro bias {gyro_bias}, acc bias {acc_bias}")
 
     q = _initial_quaternion(gnss, imu, method)
     lat_deg = float(gnss.iloc[0].get("Latitude_deg", 0.0))
@@ -357,10 +355,7 @@ def main() -> None:
     parser.add_argument("--imu-file", default="IMU_X001.dat", help="IMU dat file")
     parser.add_argument(
         "--init-method",
-        choices=["TRIAD", "Davenport", "SVD", "ALL"],
-        default="TRIAD",
-        help="Attitude initialization method",
-    )
+
     args = parser.parse_args()
 
     if args.all:
@@ -374,12 +369,12 @@ def main() -> None:
 
     methods = [args.init_method]
     if args.init_method == "ALL":
-        methods = ["TRIAD", "Davenport", "SVD"]
+
 
     results = []
     for g, i, l in pairs:
         for m in methods:
-            results.append(run_pair(g, i, f"{l}_{m}", m))
+
 
     for r in results:
         base = r["label"]
