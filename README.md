@@ -26,6 +26,14 @@ Use `run_all_methods.py` to execute the fusion script with TRIAD, Davenport, SVD
 python run_all_methods.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
 ```
 
+## Running all data sets
+
+To process every IMU/GNSS pair defined in `run_all_datasets.py`, simply run:
+
+```bash
+python run_all_datasets.py
+```
+
 ## Tests
 
 Run the unit tests with `pytest`:
