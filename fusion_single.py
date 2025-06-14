@@ -1,7 +1,10 @@
 import argparse
+import os
 import numpy as np
 import pandas as pd
 from scipy.signal import butter, filtfilt
+from scipy.spatial.transform import Rotation as R
+import matplotlib.pyplot as plt
 from kalman import GNSSIMUKalman, rts_smoother
 
 
@@ -63,6 +66,8 @@ def main():
     parser.add_argument('--static_window', type=int, default=400)
     parser.add_argument('--smoother', action='store_true')
     args = parser.parse_args()
+
+    os.makedirs('results', exist_ok=True)
 
     gnss = pd.read_csv(args.gnss_file)
     imu = np.loadtxt(args.imu_file)
@@ -139,6 +144,14 @@ def main():
     Q_list=[]
     q_cur=q.copy()
 
+    # containers for analysis
+    pos_res = []
+    vel_res = []
+    norm_pos_res = []
+    norm_vel_res = []
+    upd_times = []
+    quats = []
+
     gnss_idx=0
     for i in range(N):
         if i>0:
@@ -149,10 +162,17 @@ def main():
         dq=quat_from_rate(omega,dt)
         q_cur=quat_mult(q_cur,dq)
         q_cur/=np.linalg.norm(q_cur)
+        quats.append(q_cur.copy())
         R_bn=quat_to_rot(q_cur)
         kf.predict(dt,R_bn,acc[i])
         if gnss_idx<len(gnss_time)-1 and abs(imu[i,1]- (gnss_time[gnss_idx]-gnss_time[0]))<dt_imu/2:
-            kf.update_gnss(pos_ned[gnss_idx],vel_ned[gnss_idx])
+            x_upd, resid, S = kf.update_gnss(pos_ned[gnss_idx],vel_ned[gnss_idx])
+            upd_times.append(imu[i,1])
+            pos_res.append(resid[0:3])
+            vel_res.append(resid[3:6])
+            std = np.sqrt(np.diag(S))
+            norm_pos_res.append(resid[0:3]/std[0:3])
+            norm_vel_res.append(resid[3:6]/std[3:6])
             gnss_idx+=1
         x_hist[i]=kf.kf.x
         P_hist[i]=kf.kf.P
@@ -165,6 +185,59 @@ def main():
 
     north_jump=x_hist[0,0]
     print(f"Plotted Davenport position North: First = {north_jump:.4f}")
+
+    # convert logs to arrays
+    pos_res = np.asarray(pos_res)
+    vel_res = np.asarray(vel_res)
+    norm_pos_res = np.asarray(norm_pos_res)
+    norm_vel_res = np.asarray(norm_vel_res)
+    upd_times = np.asarray(upd_times)
+    quats = np.asarray(quats)
+
+    # attitude angles
+    if len(quats) > 0:
+        rot = R.from_quat(quats[:, [1,2,3,0]])
+        euler = rot.as_euler('xyz', degrees=True)
+        t = imu[:len(quats),1]
+
+        fig, ax = plt.subplots(3,1,sharex=True)
+        lbl = ['roll','pitch','yaw']
+        for i in range(3):
+            ax[i].plot(t, euler[:,i], label=lbl[i])
+            ax[i].set_ylabel('deg')
+            ax[i].legend()
+        ax[-1].set_xlabel('Time (s)')
+        plt.tight_layout()
+        plt.savefig('results/attitude_angles.pdf')
+        plt.close()
+
+    if len(pos_res) > 0:
+        labels = ['North','East','Down']
+        fig, ax = plt.subplots(2,1,sharex=True)
+        for i in range(3):
+            ax[0].plot(upd_times, pos_res[:,i], label=labels[i])
+            ax[1].plot(upd_times, vel_res[:,i], label=labels[i])
+        ax[0].set_ylabel('Pos residual (m)')
+        ax[1].set_ylabel('Vel residual (m/s)')
+        ax[1].set_xlabel('Time (s)')
+        ax[0].legend(); ax[1].legend()
+        plt.tight_layout()
+        plt.savefig('results/residual_timeseries.pdf')
+        plt.close()
+
+        fig, axs = plt.subplots(2,3, figsize=(12,6))
+        for i in range(3):
+            axs[0,i].hist(pos_res[:,i], bins=50)
+            axs[0,i].set_title(f'Pos {labels[i]}')
+            axs[1,i].hist(vel_res[:,i], bins=50)
+            axs[1,i].set_title(f'Vel {labels[i]}')
+        plt.tight_layout()
+        plt.savefig('results/residual_hist.pdf')
+        plt.close()
+
+        for name, data in [('Pos N', pos_res[:,0]),('Pos E', pos_res[:,1]),('Pos D', pos_res[:,2]),
+                           ('Vel N', vel_res[:,0]),('Vel E', vel_res[:,1]),('Vel D', vel_res[:,2])]:
+            print(f"{name}: mean={data.mean():.3f}, std={data.std():.3f}")
 
 if __name__=='__main__':
     main()
