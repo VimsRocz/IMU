@@ -1,7 +1,15 @@
 import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import numpy as np
-from imu_fusion.attitude import compute_C_ECEF_to_NED, rot_to_quaternion, quat_multiply, quat_normalize
+from imu_fusion.attitude import (
+    compute_C_ECEF_to_NED,
+    rot_to_quaternion,
+    quat_multiply,
+    quat_normalize,
+
+    estimate_initial_orientation,
+)
+import pandas as pd
 
 
 def test_compute_C_ECEF_to_NED_identity_lat_lon_zero():
@@ -24,3 +32,19 @@ def test_quaternion_helpers_roundtrip():
     q2 = quat_multiply(q, q)
     q2n = quat_normalize(q2)
     assert np.allclose(q2n, expected)
+
+
+
+def test_estimate_initial_orientation_identity_yaw():
+    imu = np.zeros((1, 6))
+    gnss = pd.DataFrame({
+        "Latitude_deg": [0.0],
+        "Longitude_deg": [0.0],
+        "VX_ECEF_mps": [1.0],
+        "VY_ECEF_mps": [0.0],
+        "VZ_ECEF_mps": [0.0],
+    })
+    q = estimate_initial_orientation(imu, gnss)
+    expected = np.array([1.0, 0.0, 0.0, 0.0])
+    assert np.allclose(q, expected)
+
