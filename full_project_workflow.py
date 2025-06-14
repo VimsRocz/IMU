@@ -22,6 +22,7 @@ this repository (``GNSS_X001.csv``, ``IMU_X001.dat`` etc.) to be
 available in the current directory.
 """
 
+import argparse
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -91,237 +92,257 @@ def rot_to_quaternion(R: np.ndarray) -> np.ndarray:
     return q / np.linalg.norm(q)
 
 
-# ---------------------------------------------------------------------
-# Task 1: reference vectors from GNSS
-# ---------------------------------------------------------------------
+def run_workflow(gnss_file: str, imu_file: str):
+    """Execute the full workflow for the given dataset pair."""
+    logging.info("TASK 1: Define reference vectors in NED frame")
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s",
-                    datefmt="%Y-%m-%d %H:%M:%S")
-logging.info("TASK 1: Define reference vectors in NED frame")
+    gnss_data = pd.read_csv(gnss_file)
+    valid_rows = gnss_data[(gnss_data["X_ECEF_m"] != 0) |
+                           (gnss_data["Y_ECEF_m"] != 0) |
+                           (gnss_data["Z_ECEF_m"] != 0)]
+    if valid_rows.empty:
+        raise ValueError("No valid ECEF coordinates found in GNSS data")
 
-try:
-    gnss_data = pd.read_csv("GNSS_X002.csv")
-except Exception as exc:
-    logging.error("Failed to load GNSS data file: %s", exc)
-    raise
+    row0 = valid_rows.iloc[0]
+    lat_deg, lon_deg, _alt = ecef_to_geodetic(float(row0["X_ECEF_m"]),
+                                              float(row0["Y_ECEF_m"]),
+                                              float(row0["Z_ECEF_m"]))
+    lat = np.deg2rad(lat_deg)
+    lon = np.deg2rad(lon_deg)
 
-valid_rows = gnss_data[(gnss_data["X_ECEF_m"] != 0) |
-                       (gnss_data["Y_ECEF_m"] != 0) |
-                       (gnss_data["Z_ECEF_m"] != 0)]
-if valid_rows.empty:
-    raise ValueError("No valid ECEF coordinates found in GNSS data")
+    logging.info("Initial location: %.6f deg %.6f deg", lat_deg, lon_deg)
 
-row0 = valid_rows.iloc[0]
-lat_deg, lon_deg, _alt = ecef_to_geodetic(float(row0["X_ECEF_m"]),
-                                          float(row0["Y_ECEF_m"]),
-                                          float(row0["Z_ECEF_m"]))
-lat = np.deg2rad(lat_deg)
-lon = np.deg2rad(lon_deg)
+    g_NED = np.array([0.0, 0.0, 9.81])
+    omega_E = 7.2921159e-5
+    omega_ie_NED = omega_E * np.array([np.cos(lat), 0.0, -np.sin(lat)])
 
-logging.info("Initial location: %.6f deg %.6f deg", lat_deg, lon_deg)
+    print("==== Reference Vectors in NED Frame ====")
+    print("Gravity vector (NED):", g_NED)
+    print("Earth rotation rate (NED):", omega_ie_NED)
+    print(f"Latitude: {lat_deg:.4f} deg, Longitude: {lon_deg:.4f} deg")
 
-g_NED = np.array([0.0, 0.0, 9.81])
-omega_E = 7.2921159e-5
-omega_ie_NED = omega_E * np.array([np.cos(lat), 0.0, -np.sin(lat)])
+    # Small map showing the point
+    fig = plt.figure(figsize=(8, 4))
+    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+    ax.stock_img()
+    ax.set_extent([lon_deg - 5, lon_deg + 5, lat_deg - 5, lat_deg + 5],
+                  crs=ccrs.PlateCarree())
+    ax.plot(lon_deg, lat_deg, "ro", markersize=8, transform=ccrs.PlateCarree())
+    ax.text(lon_deg + 1, lat_deg,
+            f"Lat {lat_deg:.2f}\nLon {lon_deg:.2f}",
+            transform=ccrs.PlateCarree())
+    plt.title("Initial Location")
+    plt.savefig("1_Initial_Location_Map.pdf")
+    plt.close()
 
-print("==== Reference Vectors in NED Frame ====")
-print("Gravity vector (NED):", g_NED)
-print("Earth rotation rate (NED):", omega_ie_NED)
-print(f"Latitude: {lat_deg:.4f} deg, Longitude: {lon_deg:.4f} deg")
+    # ------------------------------------------------------------------
+    # Task 2: measure vectors in body frame
+    # ------------------------------------------------------------------
+    logging.info("TASK 2: Measure the vectors in the body frame")
+    imu = np.loadtxt(imu_file)
 
-# Small map showing the point
-fig = plt.figure(figsize=(8, 4))
-ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-ax.stock_img()
-ax.set_extent([lon_deg - 5, lon_deg + 5, lat_deg - 5, lat_deg + 5], crs=ccrs.PlateCarree())
-ax.plot(lon_deg, lat_deg, "ro", markersize=8, transform=ccrs.PlateCarree())
-ax.text(lon_deg + 1, lat_deg, f"Lat {lat_deg:.2f}\nLon {lon_deg:.2f}", transform=ccrs.PlateCarree())
-plt.title("Initial Location")
-plt.savefig("1_Initial_Location_Map.pdf")
-plt.close()
+    acc = imu[:, 5:8]
+    gyro = imu[:, 2:5]
+    dt_imu = 1.0 / 400.0
+    acc = acc / dt_imu
+    gyro = gyro / dt_imu
+    N_static = min(4000, len(acc))
+    static_acc = np.mean(acc[:N_static], axis=0)
+    static_gyro = np.mean(gyro[:N_static], axis=0)
 
-# ---------------------------------------------------------------------
-# Task 2: measure vectors in body frame
-# ---------------------------------------------------------------------
+    g_body = -static_acc
+    omega_ie_body = static_gyro
 
-logging.info("TASK 2: Measure the vectors in the body frame")
-try:
-    imu = np.loadtxt("IMU_X002.dat")
-except Exception as exc:
-    logging.error("Failed to load IMU data file: %s", exc)
-    raise
+    print("==== Measured Vectors in Body Frame ====")
+    print("Gravity vector (body):", g_body)
+    print("Earth rotation (body):", omega_ie_body)
 
-acc = imu[:, 5:8]
-gyro = imu[:, 2:5]
-dt_imu = 1.0 / 400.0
-acc = acc / dt_imu
-gyro = gyro / dt_imu
-N_static = min(4000, len(acc))
-static_acc = np.mean(acc[:N_static], axis=0)
-static_gyro = np.mean(gyro[:N_static], axis=0)
+    # ------------------------------------------------------------------
+    # Task 3: Wahba's problem
+    # ------------------------------------------------------------------
+    logging.info("TASK 3: Solve Wahba's problem")
 
-g_body = -static_acc
-omega_ie_body = static_gyro
+    v1_B = g_body / np.linalg.norm(g_body)
+    v2_B = omega_ie_body / np.linalg.norm(omega_ie_body)
+    v1_N = g_NED / np.linalg.norm(g_NED)
+    v2_N = omega_ie_NED / np.linalg.norm(omega_ie_NED)
 
-print("==== Measured Vectors in Body Frame ====")
-print("Gravity vector (body):", g_body)
-print("Earth rotation (body):", omega_ie_body)
+    # --- TRIAD ---
+    t1_b = v1_B
+    t2_b = np.cross(v1_B, v2_B)
+    t2_b /= np.linalg.norm(t2_b)
+    t3_b = np.cross(t1_b, t2_b)
 
-# ---------------------------------------------------------------------
-# Task 3: Wahba's problem
-# ---------------------------------------------------------------------
+    t1_n = v1_N
+    t2_n = np.cross(v1_N, v2_N)
+    t2_n /= np.linalg.norm(t2_n)
+    t3_n = np.cross(t1_n, t2_n)
 
-logging.info("TASK 3: Solve Wahba's problem")
+    R_tri = (np.column_stack((t1_n, t2_n, t3_n)) @
+             np.column_stack((t1_b, t2_b, t3_b)).T)
 
-v1_B = g_body / np.linalg.norm(g_body)
-v2_B = omega_ie_body / np.linalg.norm(omega_ie_body)
-v1_N = g_NED / np.linalg.norm(g_NED)
-v2_N = omega_ie_NED / np.linalg.norm(omega_ie_NED)
+    # --- Davenport ---
+    w_g = 0.9999
+    w_o = 0.0001
+    B = w_g * np.outer(v1_N, v1_B) + w_o * np.outer(v2_N, v2_B)
+    Sigma = np.trace(B)
+    S = B + B.T
+    Z = np.array([B[1, 2] - B[2, 1], B[2, 0] - B[0, 2], B[0, 1] - B[1, 0]])
+    K = np.zeros((4, 4))
+    K[0, 0] = Sigma
+    K[0, 1:] = Z
+    K[1:, 0] = Z
+    K[1:, 1:] = S - Sigma * np.eye(3)
+    vals, vecs = np.linalg.eigh(K)
+    q_dav = vecs[:, np.argmax(vals)]
+    if q_dav[0] < 0:
+        q_dav = -q_dav
+    q_dav = np.array([q_dav[0], -q_dav[1], -q_dav[2], -q_dav[3]])
+    qw, qx, qy, qz = q_dav
+    R_dav = np.array([
+        [1 - 2 * (qy ** 2 + qz ** 2), 2 * (qx * qy - qw * qz),
+         2 * (qx * qz + qw * qy)],
+        [2 * (qx * qy + qw * qz), 1 - 2 * (qx ** 2 + qz ** 2),
+         2 * (qy * qz - qw * qx)],
+        [2 * (qx * qz - qw * qy), 2 * (qy * qz + qw * qx),
+         1 - 2 * (qx ** 2 + qy ** 2)],
+    ])
 
-# --- TRIAD ---
-t1_b = v1_B
-t2_b = np.cross(v1_B, v2_B)
-t2_b /= np.linalg.norm(t2_b)
-t3_b = np.cross(t1_b, t2_b)
+    # --- SVD ---
+    M = w_g * np.outer(v1_N, v1_B) + w_o * np.outer(v2_N, v2_B)
+    U, _, Vt = np.linalg.svd(M)
+    R_svd = U @ np.diag([1, 1, np.linalg.det(U) * np.linalg.det(Vt)]) @ Vt
 
-t1_n = v1_N
-t2_n = np.cross(v1_N, v2_N)
-t2_n /= np.linalg.norm(t2_n)
-t3_n = np.cross(t1_n, t2_n)
+    q_tri = rot_to_quaternion(R_tri)
+    q_dav = rot_to_quaternion(R_dav)
+    q_svd = rot_to_quaternion(R_svd)
 
-R_tri = np.column_stack((t1_n, t2_n, t3_n)) @ np.column_stack((t1_b, t2_b, t3_b)).T
+    print("\nRotation quaternions (body to NED):")
+    print("TRIAD:", q_tri)
+    print("Davenport:", q_dav)
+    print("SVD:", q_svd)
 
-# --- Davenport ---
-w_g = 0.9999
-w_o = 0.0001
-B = w_g * np.outer(v1_N, v1_B) + w_o * np.outer(v2_N, v2_B)
-Sigma = np.trace(B)
-S = B + B.T
-Z = np.array([B[1,2] - B[2,1], B[2,0] - B[0,2], B[0,1] - B[1,0]])
-K = np.zeros((4,4))
-K[0,0] = Sigma
-K[0,1:] = Z
-K[1:,0] = Z
-K[1:,1:] = S - Sigma * np.eye(3)
-vals, vecs = np.linalg.eigh(K)
-q_dav = vecs[:, np.argmax(vals)]
-if q_dav[0] < 0:
-    q_dav = -q_dav
-q_dav = np.array([q_dav[0], -q_dav[1], -q_dav[2], -q_dav[3]])
-qw, qx, qy, qz = q_dav
-R_dav = np.array([
-    [1 - 2*(qy**2 + qz**2), 2*(qx*qy - qw*qz), 2*(qx*qz + qw*qy)],
-    [2*(qx*qy + qw*qz), 1 - 2*(qx**2 + qz**2), 2*(qy*qz - qw*qx)],
-    [2*(qx*qz - qw*qy), 2*(qy*qz + qw*qx), 1 - 2*(qx**2 + qy**2)],
-])
+    # ------------------------------------------------------------------
+    # Task 4: GNSS and IMU integration
+    # ------------------------------------------------------------------
+    logging.info("TASK 4: GNSS and IMU Data Integration")
 
-# --- SVD ---
-M = w_g * np.outer(v1_N, v1_B) + w_o * np.outer(v2_N, v2_B)
-U, _, Vt = np.linalg.svd(M)
-R_svd = U @ np.diag([1, 1, np.linalg.det(U) * np.linalg.det(Vt)]) @ Vt
+    gnss_data = pd.read_csv(gnss_file)
+    imu_data = pd.read_csv(imu_file, sep="\s+", header=None)
 
-q_tri = rot_to_quaternion(R_tri)
-q_dav = rot_to_quaternion(R_dav)
-q_svd = rot_to_quaternion(R_svd)
+    C_ECEF_to_NED = compute_C_ECEF_to_NED(np.deg2rad(lat_deg),
+                                          np.deg2rad(lon_deg))
+    C_NED_to_ECEF = C_ECEF_to_NED.T
 
-print("\nRotation quaternions (body to NED):")
-print("TRIAD:", q_tri)
-print("Davenport:", q_dav)
-print("SVD:", q_svd)
+    # GNSS to NED
+    pos_ecef = gnss_data[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].values
+    vel_ecef = gnss_data[["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]].values
+    pos_ned = np.array([C_ECEF_to_NED @ (r - pos_ecef[0]) for r in pos_ecef])
+    vel_ned = np.array([C_ECEF_to_NED @ v for v in vel_ecef])
 
-# ---------------------------------------------------------------------
-# Task 4: GNSS and IMU integration
-# ---------------------------------------------------------------------
+    # IMU bias correction
+    imu_time = np.arange(len(imu_data)) * dt_imu + gnss_data["Posix_Time"].values[0]
+    acc_body = imu_data[[5, 6, 7]].values / dt_imu
+    gyro_body = imu_data[[2, 3, 4]].values / dt_imu
+    static_acc = np.mean(acc_body[:N_static], axis=0)
+    static_gyro = np.mean(gyro_body[:N_static], axis=0)
 
-logging.info("TASK 4: GNSS and IMU Data Integration")
+    bias_acc = static_acc + (R_tri.T @ g_NED)
+    bias_gyro = static_gyro - (R_tri.T @ omega_ie_NED)
+    acc_body -= bias_acc
+    gyro_body -= bias_gyro
 
-gnss_data = pd.read_csv("GNSS_X001.csv")
-imu_data = pd.read_csv("IMU_X001.dat", sep="\s+", header=None)
+    # Integrate specific force
+    vel_est = np.zeros((len(acc_body), 3))
+    pos_est = np.zeros((len(acc_body), 3))
+    for i in range(1, len(acc_body)):
+        dt = dt_imu
+        f_ned = R_tri @ acc_body[i]
+        a_ned = f_ned + g_NED
+        vel_est[i] = vel_est[i - 1] + a_ned * dt
+        pos_est[i] = pos_est[i - 1] + vel_est[i] * dt
 
-C_ECEF_to_NED = compute_C_ECEF_to_NED(np.deg2rad(lat_deg), np.deg2rad(lon_deg))
-C_NED_to_ECEF = C_ECEF_to_NED.T
+    # ------------------------------------------------------------------
+    # Task 5: simple Kalman filter
+    # ------------------------------------------------------------------
+    logging.info("TASK 5: Sensor Fusion with Kalman Filter")
 
-# GNSS to NED
-pos_ecef = gnss_data[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].values
-vel_ecef = gnss_data[["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]].values
-pos_ned = np.array([C_ECEF_to_NED @ (r - pos_ecef[0]) for r in pos_ecef])
-vel_ned = np.array([C_ECEF_to_NED @ v for v in vel_ecef])
+    time_gnss = gnss_data["Posix_Time"].values
+    z = np.hstack((pos_ned, vel_ned))
 
-# IMU bias correction
-imu_time = np.arange(len(imu_data)) * dt_imu + gnss_data["Posix_Time"].values[0]
-acc_body = imu_data[[5,6,7]].values / dt_imu
-gyro_body = imu_data[[2,3,4]].values / dt_imu
-static_acc = np.mean(acc_body[:N_static], axis=0)
-static_gyro = np.mean(gyro_body[:N_static], axis=0)
+    kf = KalmanFilter(dim_x=6, dim_z=6)
+    kf.x = z[0]
+    kf.P = np.eye(6)
+    kf.H = np.eye(6)
+    kf.Q = np.eye(6) * 0.01
+    kf.R = np.eye(6) * 0.1
 
-bias_acc = static_acc + (R_tri.T @ g_NED)
-bias_gyro = static_gyro - (R_tri.T @ omega_ie_NED)
-acc_body -= bias_acc
-gyro_body -= bias_gyro
+    xs = [kf.x.copy()]
+    residuals = [np.zeros(6)]
+    next_idx = 1
+    for i in range(1, len(imu_time)):
+        dt = dt_imu
+        F = np.eye(6)
+        F[0:3, 3:6] = np.eye(3) * dt
+        kf.F = F
+        kf.predict()
+        t_abs = imu_time[i]
+        while next_idx < len(time_gnss) and t_abs >= time_gnss[next_idx]:
+            residual = z[next_idx] - (kf.H @ kf.x)
+            kf.update(z[next_idx])
+            xs.append(kf.x.copy())
+            residuals.append(residual)
+            next_idx += 1
 
-# Integrate specific force
-vel_est = np.zeros((len(acc_body), 3))
-pos_est = np.zeros((len(acc_body), 3))
-for i in range(1, len(acc_body)):
-    dt = dt_imu
-    f_ned = R_tri @ acc_body[i]
-    a_ned = f_ned + g_NED
-    vel_est[i] = vel_est[i-1] + a_ned * dt
-    pos_est[i] = pos_est[i-1] + vel_est[i] * dt
+    xs = np.array(xs)
+    residuals = np.array(residuals)
 
-# ---------------------------------------------------------------------
-# Task 5: simple Kalman filter
-# ---------------------------------------------------------------------
 
-logging.info("TASK 5: Sensor Fusion with Kalman Filter")
+    t = time_gnss[: len(xs)] - time_gnss[0]
+    return t, xs, residuals
 
-time_gnss = gnss_data["Posix_Time"].values
-z = np.hstack((pos_ned, vel_ned))
 
-kf = KalmanFilter(dim_x=6, dim_z=6)
-kf.x = z[0]
-kf.P = np.eye(6)
-kf.H = np.eye(6)
-kf.Q = np.eye(6) * 0.01
-kf.R = np.eye(6) * 0.1
+def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    parser = argparse.ArgumentParser(description="Compare clean and noisy datasets")
+    parser.add_argument("--clean-gnss", default="GNSS_X001.csv")
+    parser.add_argument("--clean-imu", default="IMU_X001.dat")
+    parser.add_argument("--noisy-gnss", default="GNSS_X002.csv")
+    parser.add_argument("--noisy-imu", default="IMU_X003.dat")
+    args = parser.parse_args()
 
-xs = [kf.x.copy()]
-residuals = [np.zeros(6)]
-next_idx = 1
-for i in range(1, len(imu_time)):
-    dt = dt_imu
-    F = np.eye(6)
-    F[0:3, 3:6] = np.eye(3) * dt
-    kf.F = F
-    kf.predict()
-    t_abs = imu_time[i]
-    while next_idx < len(time_gnss) and t_abs >= time_gnss[next_idx]:
-        residual = z[next_idx] - (kf.H @ kf.x)
-        kf.update(z[next_idx])
-        xs.append(kf.x.copy())
-        residuals.append(residual)
-        next_idx += 1
+    t_clean, xs_clean, res_clean = run_workflow(args.clean_gnss, args.clean_imu)
+    t_noisy, xs_noisy, res_noisy = run_workflow(args.noisy_gnss, args.noisy_imu)
 
-xs = np.array(xs)
-residuals = np.array(residuals)
+    # Combined position plot
+    plt.figure()
+    for j, lab in enumerate("NED"):
+        plt.plot(t_clean, xs_clean[:, j], label=f"clean {lab}")
+        plt.plot(t_noisy, xs_noisy[:, j], linestyle="--", label=f"noisy {lab}")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Position (m)")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("5_Fusion_Positions_Compare.pdf")
+    plt.close()
 
-# Plot results
-plt.figure()
-for j, lab in enumerate("NED"):
-    plt.plot(time_gnss[:len(xs)] - time_gnss[0], xs[:, j], label=f"KF {lab}")
-plt.xlabel("Time (s)")
-plt.ylabel("Position (m)")
-plt.legend()
-plt.tight_layout()
-plt.savefig("5_Fusion_Positions.pdf")
-plt.close()
+    # Combined residual plot
+    plt.figure()
+    comps = ["North", "East", "Down"]
+    for j in range(3):
+        plt.plot(t_clean, res_clean[:, j], label=f"clean pos {comps[j]}")
+        plt.plot(t_noisy, res_noisy[:, j], linestyle="--", label=f"noisy pos {comps[j]}")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Residual")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("5_Fusion_Residuals_Compare.pdf")
+    plt.close()
 
-plt.figure()
-for j, lab in enumerate(["North", "East", "Down"]):
-    plt.plot(time_gnss[:len(residuals)] - time_gnss[0], residuals[:, j], label=f"pos {lab}")
-plt.xlabel("Time (s)")
-plt.ylabel("Residual")
-plt.legend()
-plt.tight_layout()
-plt.savefig("5_Fusion_Residuals.pdf")
-plt.close()
+
+if __name__ == "__main__":
+    main()
