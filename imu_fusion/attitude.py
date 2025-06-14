@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 def compute_C_ECEF_to_NED(lat: float, lon: float) -> np.ndarray:
@@ -59,6 +60,30 @@ def quat_multiply(q: np.ndarray, r: np.ndarray) -> np.ndarray:
 
 def quat_normalize(q: np.ndarray) -> np.ndarray:
     return q / np.linalg.norm(q)
+
+
+def estimate_initial_orientation(imu: np.ndarray, gnss: pd.DataFrame) -> np.ndarray:
+    """Estimate initial body-to-NED quaternion from GNSS velocity."""
+    lat = np.deg2rad(float(gnss.iloc[0].get("Latitude_deg", 0.0)))
+    lon = np.deg2rad(float(gnss.iloc[0].get("Longitude_deg", 0.0)))
+    vel_cols = ["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]
+    if set(vel_cols) <= set(gnss.columns):
+        v_ecef = gnss.iloc[0][vel_cols].to_numpy(float)
+    else:
+        v_ecef = np.zeros(3)
+    C = compute_C_ECEF_to_NED(lat, lon)
+    v_ned = C @ v_ecef
+    yaw = float(np.arctan2(v_ned[1], v_ned[0]))
+    cy = np.cos(yaw)
+    sy = np.sin(yaw)
+    R = np.array(
+        [
+            [cy, sy, 0.0],
+            [-sy, cy, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    return rot_to_quaternion(R)
 
 
 def triad(v1_b: np.ndarray, v2_b: np.ndarray, v1_n: np.ndarray, v2_n: np.ndarray) -> np.ndarray:

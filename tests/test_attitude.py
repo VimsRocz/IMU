@@ -9,7 +9,9 @@ from imu_fusion.attitude import (
     triad,
     davenport_q_method,
     svd_method,
+    estimate_initial_orientation,
 )
+import pandas as pd
 
 
 def test_compute_C_ECEF_to_NED_identity_lat_lon_zero():
@@ -48,3 +50,18 @@ def test_triad_davenport_svd_identity():
     assert np.allclose(R_tri, I)
     assert np.allclose(R_dav, I)
     assert np.allclose(R_svd, I)
+
+
+def test_estimate_initial_orientation_identity_yaw():
+    imu = np.zeros((1, 6))
+    gnss = pd.DataFrame({
+        "Latitude_deg": [0.0],
+        "Longitude_deg": [0.0],
+        "VX_ECEF_mps": [1.0],
+        "VY_ECEF_mps": [0.0],
+        "VZ_ECEF_mps": [0.0],
+    })
+    q = estimate_initial_orientation(imu, gnss)
+    expected = np.array([1.0, 0.0, 0.0, 0.0])
+    assert np.allclose(q, expected)
+
