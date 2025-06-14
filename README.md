@@ -41,6 +41,13 @@ methods, compares IMU and GNSS data and runs a basic Kalman filter. Run the
 script without arguments to process the example datasets and generate the PDF
 figures described below.
 
+## Utility functions
+
+The `imu_fusion.data` module provides `estimate_acc_bias` for computing a
+robust accelerometer bias from the first seconds of data. It applies a
+simple low-pass filter and returns the median vector, helping to
+initialize filters when raw measurements contain spikes.
+
 
 ## Running `GNSS_IMU_Fusion.py`
 
