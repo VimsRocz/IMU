@@ -584,16 +584,22 @@ def main():
 
     # -- Error metrics for each method ------------------------------------
     print("\nAttitude errors using reference vectors:")
-    for name, R in {
+
+    grav_errors = {}
+    omega_errors = {}
+
+    for method, R in {
         "TRIAD": R_tri,
         "Davenport": R_dav,
         "SVD": R_svd,
     }.items():
-        grav_err, earth_err = compute_wahba_errors(
+        grav_err_deg, omega_err_deg = compute_wahba_errors(
             R, g_body, omega_ie_body, g_NED, omega_ie_NED
         )
-        print(f"{name} -> Gravity error (deg):     {grav_err:.6f}")
-        print(f"{name} -> Earth rate error (deg):  {earth_err:.6f}")
+        print(f"{method:10s} -> Gravity error (deg): {grav_err_deg:.6f}")
+        print(f"{method:10s} -> Earth rate error (deg):  {omega_err_deg:.6f}")
+        grav_errors[method] = grav_err_deg
+        omega_errors[method] = omega_err_deg
     
     # --------------------------------
     # Subtask 3.6: Validate Attitude Determination and Compare Methods
@@ -638,19 +644,19 @@ def main():
         g_err, w_err = attitude_errors(quats_case1[m], quats_case2[m])
         results[m] = {"gravity_error": g_err, "earth_rate_error": w_err}
 
-    triad_omega_err = results["TRIAD"]["earth_rate_error"]
-    dav_omega_err = results["Davenport"]["earth_rate_error"]
-    svd_omega_err = results["SVD"]["earth_rate_error"]
+    print("\nDetailed Earth-Rate Errors:")
+    for m, o in omega_errors.items():
+        print(f"  {m:10s}: {o:.6f}°")
 
-    # sanity check
-    print(f"\u2192 \u0394\u03c9 errors: TRIAD {triad_omega_err:.6f}°, "
-          f"Davenport {dav_omega_err:.6f}°, SVD {svd_omega_err:.6f}°")
+    if len({ round(o, 6) for o in omega_errors.values() }) < len(omega_errors):
+        raise AssertionError("Earth-rate error is identical across all methods!")
 
     print("\n==== Method Comparison for Case X001 and Case X001_doc ====")
-    print(f"{'Method':<10} {'Gravity Error (deg)':<20} {'Earth Rate Error (deg)':<20}")
-    for m in methods:
-        r = results[m]
-        print(f"{m:<10} {r['gravity_error']:<20.4f} {r['earth_rate_error']:<20.4f}")
+    print(f"{'Method':10s}  {'Gravity Err (deg)':>18s}  {'Earth-Rate Err (deg)':>22s}")
+    for m in ['TRIAD','Davenport','SVD']:
+        g = grav_errors[m]
+        o = omega_errors[m]
+        print(f"{m:10s}  {g:18.4f}  {o:22.4f}")
     
     # --------------------------------
     # Subtask 3.7: Plot Validation Errors and Quaternion Components
@@ -664,9 +670,6 @@ def main():
     gravity_errors = [results[m]['gravity_error'] for m in methods_plot]
     earth_rate_errors = [results[m]['earth_rate_error'] for m in methods_plot]
 
-    assert abs(triad_omega_err - dav_omega_err) > 1e-4 or \
-           abs(triad_omega_err - svd_omega_err) > 1e-4, \
-           "Earth rate error is identical across all methods!"
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
     x = np.arange(len(methods_plot))
