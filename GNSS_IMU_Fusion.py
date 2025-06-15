@@ -4,6 +4,7 @@ import sys
 import os
 from pathlib import Path
 
+
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +14,19 @@ from scipy.signal import butter, filtfilt
 from typing import Tuple
 
 import argparse, pathlib, json, numpy as np
+
+try:
+    from rich.console import Console
+except ImportError:
+    print("\u2757  Missing dependency: install with `pip install rich`")
+    sys.exit(1)
+
+try:
+    console = Console()
+    log = console.log
+except Exception:
+    logging.basicConfig(level=logging.INFO)
+    log = logging.info
 TAG = "{imu}_{gnss}_{method}".format  # helper
 
 # Colour palette for plotting per attitude-initialisation method
@@ -101,6 +115,7 @@ def main():
         action="store_true",
         help="Skip matplotlib savefig to speed up CI runs",
     )
+
     args = parser.parse_args()
 
     method = args.method

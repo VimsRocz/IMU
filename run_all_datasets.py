@@ -5,7 +5,18 @@ Writes one log file per run in ./logs and prints a short SUMMARY line
 that `summarise_runs.py` can aggregate later.
 """
 
-import pathlib, subprocess, datetime, itertools, sys
+import pathlib
+import subprocess
+import datetime
+import itertools
+import sys
+import argparse
+import re
+import time
+
+from rich.console import Console
+from rich.table import Table
+from tqdm import tqdm
 
 HERE     = pathlib.Path(__file__).resolve().parent
 SCRIPT   = HERE / "GNSS_IMU_Fusion.py"
@@ -20,31 +31,66 @@ DATASETS = [
 
 METHODS  = ["TRIAD", "Davenport", "SVD"]
 
-def run_one(imu, gnss, method):
+SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
+
+def run_one(imu, gnss, method, verbose=False):
     ts    = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log   = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
     cmd   = [
-        sys.executable, SCRIPT,
-        "--imu-file",  imu,
-        "--gnss-file", gnss,
-        "--method",    method
+        sys.executable,
+        SCRIPT,
+        "--imu-file",
+        imu,
+        "--gnss-file",
+        gnss,
+        "--method",
+        method,
     ]
-    print(f"\n─── Running {imu}/{gnss}  with  {method} ───")
+    if verbose:
+        cmd.append("--verbose")
+    summary_line = None
     with log.open("w") as fh:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        for line in proc.stdout:                 # live-stream to console & file
+        for line in proc.stdout:  # live-stream to console & file
             print(line, end="")
             fh.write(line)
+            m = SUMMARY_RE.search(line)
+            if m:
+                summary_line = m.group(1)
     if proc.wait() != 0:
         raise RuntimeError(f"{cmd} failed, see {log}")
+    return summary_line
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--verbose", action="store_true", help="Print detailed debug info")
+    args = parser.parse_args()
+
     here_files = {p.name for p in HERE.iterdir()}
-    for imu, gnss in DATASETS:
+    cases = [(imu, gnss, m) for (imu, gnss) in DATASETS for m in METHODS]
+    console = Console()
+    table = Table(title="Fusion Results")
+    table.add_column("Method")
+    table.add_column("RMSE (m)", justify="right")
+    table.add_column("Final Error (m)", justify="right")
+    table.add_column("Runtime (s)", justify="right")
+
+    for imu, gnss, method in tqdm(cases, desc="All cases"):
         if imu not in here_files or gnss not in here_files:
             raise FileNotFoundError(f"Missing {imu} or {gnss} in {HERE}")
-        for method in METHODS:
-            run_one(imu, gnss, method)
+        start = time.time()
+        summary = run_one(imu, gnss, method, verbose=args.verbose)
+        runtime = time.time() - start
+        if summary:
+            kv = dict(pair.split("=", 1) for pair in summary.split())
+            table.add_row(
+                kv.get("method", method),
+                kv.get("rmse_pos", "n/a").replace("m", ""),
+                kv.get("final_pos", "n/a").replace("m", ""),
+                f"{runtime:.1f}"
+            )
+
+    console.print(table)
 
 if __name__ == "__main__":
     main()
