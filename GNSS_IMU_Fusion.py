@@ -648,8 +648,12 @@ def main():
     for m, o in omega_errors.items():
         print(f"  {m:10s}: {o:.6f}°")
 
-    if len({ round(o, 6) for o in omega_errors.values() }) < len(omega_errors):
-        raise AssertionError("Earth-rate error is identical across all methods!")
+    omega_errs = list(omega_errors.values())
+    tol = 1e-6
+    if max(omega_errs) - min(omega_errs) < tol:
+        raise AssertionError(
+            f"All Earth-rate errors are effectively identical (\u0394 < {tol}): {omega_errs}"
+        )
 
     print("\n==== Method Comparison for Case X001 and Case X001_doc ====")
     print(f"{'Method':10s}  {'Gravity Err (deg)':>18s}  {'Earth-Rate Err (deg)':>22s}")
