@@ -3,7 +3,6 @@ import logging
 import sys
 import os
 from pathlib import Path
-from tqdm import tqdm
 
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
@@ -23,13 +22,12 @@ COLORS = {
     "SVD": "tab:green",
 }
 
-# Setup logging in main()
-def setup_logging(level=logging.INFO):
-    logging.basicConfig(
-        level=level,
-        format="%(message)s",
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
 
 def average_rotation_matrices(rotations):
     """Average a list of rotation matrices and re-orthonormalise."""
@@ -103,20 +101,7 @@ def main():
         action="store_true",
         help="Skip matplotlib savefig to speed up CI runs",
     )
-    parser.add_argument(
-        "--log-level",
-        default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Logging level",
-    )
-    parser.add_argument(
-        "--progress",
-        action="store_true",
-        help="Show progress bars during long operations",
-    )
     args = parser.parse_args()
-
-    setup_logging(getattr(logging, args.log_level))
 
     method = args.method
     gnss_file = args.gnss_file
@@ -132,10 +117,10 @@ def main():
     logging.info(f"Running attitude-estimation method: {method}")
     
     if not os.path.exists(gnss_file):
-        logging.error(f"GNSS file not found: {gnss_file}")
+        print(f"[ERROR] GNSS file not found: {gnss_file}", file=sys.stderr)
         raise FileNotFoundError(f"{gnss_file} not found")
     if not os.path.exists(imu_file):
-        logging.error(f"IMU file not found: {imu_file}")
+        print(f"[ERROR] IMU file not found: {imu_file}", file=sys.stderr)
         raise FileNotFoundError(f"{imu_file} not found")
     
     # Function to convert ECEF to geodetic coordinates
@@ -166,15 +151,15 @@ def main():
     try:
         gnss_data = pd.read_csv(gnss_file)
     except FileNotFoundError:
-        logging.error(f"GNSS file not found: {gnss_file}")
+        print(f"[ERROR] GNSS file not found: {gnss_file}", file=sys.stderr)
         raise
     except Exception as e:
         logging.error(f"Failed to load GNSS data file: {e}")
         raise
     
     # Debug: Print column names and first few rows of ECEF coordinates
-    logging.debug("GNSS data columns: %s", gnss_data.columns.tolist())
-    logging.debug("First rows of ECEF:\n%s", gnss_data[['X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m']].head())
+    print("GNSS data columns:", gnss_data.columns.tolist())
+    print("First few rows of ECEF coordinates:\n", gnss_data[['X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m']].head())
     
     # Find first row with non-zero ECEF coordinates
     valid_rows = gnss_data[(gnss_data['X_ECEF_m'] != 0) | (gnss_data['Y_ECEF_m'] != 0) | (gnss_data['Z_ECEF_m'] != 0)]
@@ -187,6 +172,7 @@ def main():
         lat = np.deg2rad(lat_deg)
         lon = np.deg2rad(lon_deg)
         logging.info(f"Computed initial latitude: {lat_deg:.6f}°, longitude: {lon_deg:.6f}° from ECEF coordinates.")
+        print(f"Initial latitude: {lat_deg:.6f}°, Initial longitude: {lon_deg:.6f}°")
     else:
         raise ValueError("No valid ECEF coordinates found in GNSS data.")
     
@@ -222,11 +208,12 @@ def main():
     assert np.isclose(omega_ie_NED[1], 0), "Earth rate should have no East component in NED."
     logging.info("Reference vectors validated successfully.")
     
-    logging.debug("==== Reference Vectors in NED Frame ====")
-    logging.debug(f"Gravity vector (NED):        {g_NED} m/s^2")
-    logging.debug(f"Earth rotation rate (NED):   {omega_ie_NED} rad/s")
-    logging.debug(f"Latitude (deg):              {lat_deg:.6f}")
-    logging.debug(f"Longitude (deg):             {lon_deg:.6f}")
+    # Print reference vectors
+    print("==== Reference Vectors in NED Frame ====")
+    print(f"Gravity vector (NED):        {g_NED} m/s^2")
+    print(f"Earth rotation rate (NED):   {omega_ie_NED} rad/s")
+    print(f"Latitude (deg):              {lat_deg:.6f}")
+    print(f"Longitude (deg):             {lon_deg:.6f}")
     
     # --------------------------------
     # Subtask 1.5: Plot Location on Earth Map
@@ -266,7 +253,7 @@ def main():
     try:
         data = np.loadtxt(imu_file)
     except FileNotFoundError:
-        logging.error(f"IMU file not found: {imu_file}")
+        print(f"[ERROR] IMU file not found: {imu_file}", file=sys.stderr)
         raise
     except Exception as e:
         logging.error(f"Failed to load IMU data file: {e}")
@@ -280,6 +267,7 @@ def main():
         raise ValueError("Invalid IMU data format.")
 
     logging.info(f"IMU data loaded: {data.shape[0]} samples")
+    print(f"IMU data loaded: {data.shape[0]} samples")
 
     # Estimate IMU sampling period from time column if available
     if data.shape[0] > 1:
@@ -343,10 +331,10 @@ def main():
     acc *= scale_factor
     static_acc *= scale_factor
     g_norm *= scale_factor
-    logging.debug(f"Static accelerometer mean: {static_acc}")
-    logging.debug(f"Static gyroscope mean: {static_gyro}")
-    logging.debug(f"Gravity magnitude: {g_norm:.4f} m/s²")
-    logging.debug(f"Earth rotation magnitude: {omega_norm:.6e} rad/s")
+    print(f"Static accelerometer mean: {static_acc}")
+    print(f"Static gyroscope mean: {static_gyro}")
+    print(f"Gravity magnitude: {g_norm:.4f} m/s²")
+    print(f"Earth rotation magnitude: {omega_norm:.6e} rad/s")
     
     # --------------------------------
     # Subtask 2.3: Define Gravity and Earth Rate in Body Frame
@@ -356,8 +344,8 @@ def main():
     omega_ie_body = static_gyro
     logging.info(f"Gravity vector in body frame (g_body): {g_body} m/s^2")
     logging.info(f"Earth rotation rate in body frame (omega_ie_body): {omega_ie_body} rad/s")
-    logging.debug(f"Gravity vector (g_body): {g_body} m/s^2")
-    logging.debug(f"Earth rotation rate (omega_ie_body): {omega_ie_body} rad/s")
+    print(f"Gravity vector (g_body): {g_body} m/s^2")
+    print(f"Earth rotation rate (omega_ie_body): {omega_ie_body} rad/s")
     
     # --------------------------------
     # Subtask 2.4: Validate and Print Body-Frame Vectors
@@ -374,12 +362,14 @@ def main():
         logging.warning("Earth rotation rate is low; check gyroscope or static assumption.")
     logging.info(f"Magnitude of g_body: {g_norm:.6f} m/s^2 (expected ~9.81 m/s^2)")
     logging.info(f"Magnitude of omega_ie_body: {omega_norm:.6e} rad/s (expected ~7.29e-5 rad/s)")
-    logging.debug("==== Measured Vectors in the Body Frame ====")
-    logging.debug(f"Measured gravity vector (g_body): {g_body} m/s^2")
-    logging.debug(f"Measured Earth rotation (omega_ie_body): {omega_ie_body} rad/s")
-    logging.debug("Note: These are the same physical vectors as in NED, but expressed in the body frame (sensor axes).")
-    logging.debug("From accelerometer (assuming static IMU): a_body = -g_body")
-    logging.debug("From gyroscope: ω_ie,body")
+    print("==== Measured Vectors in the Body Frame ====")
+    print(f"Measured gravity vector (g_body): {g_body} m/s^2")
+    print(f"Measured Earth rotation (omega_ie_body): {omega_ie_body} rad/s")
+    print("\nNote: These are the same physical vectors as in NED, but expressed in the body frame (sensor axes).")
+    print("From accelerometer (assuming static IMU):")
+    print("    a_body = -g_body")
+    print("From gyroscope:")
+    print("    ω_ie,body")
     
     # ================================
     # TASK 3: Solve Wahba’s Problem
@@ -433,7 +423,9 @@ def main():
         t2_ned = t2_ned_temp / np.linalg.norm(t2_ned_temp)
     t3_ned = np.cross(t1_ned, t2_ned)
     R_tri = np.column_stack((t1_ned, t2_ned, t3_ned)) @ np.column_stack((t1_body, t2_body, t3_body)).T
-    logging.debug("Rotation matrix (TRIAD method, Case 1):\n%s", R_tri)
+    logging.info("Rotation matrix (TRIAD method, Case 1):\n%s", R_tri)
+    print("Rotation matrix (TRIAD method, Case 1):")
+    print(R_tri)
     
     # Case 2
     t2_ned_temp_doc = np.cross(v1_N, v2_N_doc)
@@ -444,7 +436,9 @@ def main():
         t2_ned_doc = t2_ned_temp_doc / np.linalg.norm(t2_ned_temp_doc)
     t3_ned_doc = np.cross(t1_ned, t2_ned_doc)
     R_tri_doc = np.column_stack((t1_ned, t2_ned_doc, t3_ned_doc)) @ np.column_stack((t1_body, t2_body, t3_body)).T
-    logging.debug("Rotation matrix (TRIAD method, Case 2):\n%s", R_tri_doc)
+    logging.info("Rotation matrix (TRIAD method, Case 2):\n%s", R_tri_doc)
+    print("Rotation matrix (TRIAD method, Case 2):")
+    print(R_tri_doc)
     
     # --------------------------------
     # Subtask 3.3: Davenport’s Q-Method
@@ -474,8 +468,11 @@ def main():
         [2*(qx*qy + qw*qz), 1 - 2*(qx**2 + qz**2), 2*(qy*qz - qw*qx)],
         [2*(qx*qz - qw*qy), 2*(qy*qz + qw*qx), 1 - 2*(qx**2 + qy**2)]
     ])
-    logging.debug("Rotation matrix (Davenport’s Q-Method, Case 1):\n%s", R_dav)
-    logging.debug("Davenport quaternion (q_w, q_x, q_y, q_z, Case 1): %s", q_dav)
+    logging.info("Rotation matrix (Davenport’s Q-Method, Case 1):\n%s", R_dav)
+    logging.info("Davenport quaternion (q_w, q_x, q_y, q_z, Case 1): %s", q_dav)
+    print("Rotation matrix (Davenport’s Q-Method, Case 1):")
+    print(R_dav)
+    print(f"Davenport quaternion (Case 1): {q_dav}")
     
     # Case 2
     B_doc = w_gravity * np.outer(v1_N, v1_B) + w_omega * np.outer(v2_N_doc, v2_B)
@@ -498,8 +495,11 @@ def main():
         [2*(qx*qy + qw*qz), 1 - 2*(qx**2 + qz**2), 2*(qy*qz - qw*qx)],
         [2*(qx*qz - qw*qy), 2*(qy*qz + qw*qx), 1 - 2*(qx**2 + qy**2)]
     ])
-    logging.debug("Rotation matrix (Davenport’s Q-Method, Case 2):\n%s", R_dav_doc)
-    logging.debug("Davenport quaternion (q_w, q_x, q_y, q_z, Case 2): %s", q_dav_doc)
+    logging.info("Rotation matrix (Davenport’s Q-Method, Case 2):\n%s", R_dav_doc)
+    logging.info("Davenport quaternion (q_w, q_x, q_y, q_z, Case 2): %s", q_dav_doc)
+    print("Rotation matrix (Davenport’s Q-Method, Case 2):")
+    print(R_dav_doc)
+    print(f"Davenport quaternion (Case 2): {q_dav_doc}")
     
     # --------------------------------
     # Subtask 3.4: SVD Method
@@ -509,13 +509,17 @@ def main():
     M = w_gravity * np.outer(v1_N, v1_B) + w_omega * np.outer(v2_N, v2_B)
     U, _, Vt = np.linalg.svd(M)
     R_svd = U @ np.diag([1, 1, np.linalg.det(U) * np.linalg.det(Vt)]) @ Vt
-    logging.debug("Rotation matrix (SVD method, Case 1):\n%s", R_svd)
+    logging.info("Rotation matrix (SVD method, Case 1):\n%s", R_svd)
+    print("Rotation matrix (SVD method, Case 1):")
+    print(R_svd)
     
     # Case 2
     M_doc = w_gravity * np.outer(v1_N, v1_B) + w_omega * np.outer(v2_N_doc, v2_B)
     U_doc, _, Vt_doc = np.linalg.svd(M_doc)
     R_svd_doc = U_doc @ np.diag([1, 1, np.linalg.det(U_doc) * np.linalg.det(Vt_doc)]) @ Vt_doc
-    logging.debug("Rotation matrix (SVD method, Case 2):\n%s", R_svd_doc)
+    logging.info("Rotation matrix (SVD method, Case 2):\n%s", R_svd_doc)
+    print("Rotation matrix (SVD method, Case 2):")
+    print(R_svd_doc)
     
     # --------------------------------
     # Subtask 3.5: Convert TRIAD and SVD DCMs to Quaternions
@@ -569,12 +573,17 @@ def main():
     if q_all[0] < 0:
         q_all = -q_all
 
-    logging.debug(f"Quaternion (TRIAD, Case 1): {q_tri}")
-    logging.debug(f"Quaternion (SVD, Case 1): {q_svd}")
-    logging.debug(f"Quaternion (TRIAD, Case 2): {q_tri_doc}")
-    logging.debug(f"Quaternion (SVD, Case 2): {q_svd_doc}")
+    logging.info(f"Quaternion (TRIAD, Case 1): {q_tri}")
+    print(f"Quaternion (TRIAD, Case 1): {q_tri}")
+    logging.info(f"Quaternion (SVD, Case 1): {q_svd}")
+    print(f"Quaternion (SVD, Case 1): {q_svd}")
+    logging.info(f"Quaternion (TRIAD, Case 2): {q_tri_doc}")
+    print(f"Quaternion (TRIAD, Case 2): {q_tri_doc}")
+    logging.info(f"Quaternion (SVD, Case 2): {q_svd_doc}")
+    print(f"Quaternion (SVD, Case 2): {q_svd_doc}")
 
     # -- Error metrics for each method ------------------------------------
+    print("\nAttitude errors using reference vectors:")
 
     grav_errors = {}
     omega_errors = {}
@@ -587,8 +596,8 @@ def main():
         grav_err_deg, omega_err_deg = compute_wahba_errors(
             R, g_body, omega_ie_body, g_NED, omega_ie_NED
         )
-        logging.debug(f"{method:10s} -> Gravity error (deg): {grav_err_deg:.6f}")
-        logging.debug(f"{method:10s} -> Earth rate error (deg):  {omega_err_deg:.6f}")
+        print(f"{method:10s} -> Gravity error (deg): {grav_err_deg:.6f}")
+        print(f"{method:10s} -> Earth rate error (deg):  {omega_err_deg:.6f}")
         grav_errors[method] = grav_err_deg
         omega_errors[method] = omega_err_deg
     
@@ -635,9 +644,9 @@ def main():
         g_err, w_err = attitude_errors(quats_case1[m], quats_case2[m])
         results[m] = {"gravity_error": g_err, "earth_rate_error": w_err}
 
-    logging.debug("Detailed Earth-Rate Errors:")
+    print("\nDetailed Earth-Rate Errors:")
     for m, o in omega_errors.items():
-        logging.debug(f"  {m:10s}: {o:.6f}°")
+        print(f"  {m:10s}: {o:.6f}°")
 
     # Relaxed Earth-rate error check --------------------------------------
 
@@ -650,10 +659,10 @@ def main():
     tol = 1e-5   # allow up to 0.00001° of spread without complaint
 
     # always print them so you can see the tiny spreads at runtime
-    logging.debug("Earth-rate errors by method:")
+    print("\nEarth-rate errors by method:")
     for name, err in omega_errs.items():
-        logging.debug(f"  {name:10s}: {err:.9f}°")
-    logging.debug(f"  Δ = {diff:.2e}° (tolerance = {tol:.1e})")
+        print(f"  {name:10s}: {err:.9f}°")
+    print(f"  Δ = {diff:.2e}° (tolerance = {tol:.1e})\n")
 
     if diff < tol:
         logging.warning(
@@ -661,12 +670,12 @@ def main():
             f"are within {tol:.1e}°"
         )
 
-    logging.debug("==== Method Comparison for Case X001 and Case X001_doc ====")
-    logging.debug(f"{'Method':10s}  {'Gravity Err (deg)':>18s}  {'Earth-Rate Err (deg)':>22s}")
+    print("\n==== Method Comparison for Case X001 and Case X001_doc ====")
+    print(f"{'Method':10s}  {'Gravity Err (deg)':>18s}  {'Earth-Rate Err (deg)':>22s}")
     for m in ['TRIAD','Davenport','SVD']:
         g = grav_errors[m]
         o = omega_errors[m]
-        logging.debug(f"{m:10s}  {g:18.4f}  {o:22.4f}")
+        print(f"{m:10s}  {g:18.4f}  {o:22.4f}")
     
     # --------------------------------
     # Subtask 3.7: Plot Validation Errors and Quaternion Components
@@ -872,9 +881,11 @@ def main():
             acc_biases[m] = acc_bias
             gyro_biases[m] = gyro_bias
 
-            logging.debug(f"Method {m}: Accelerometer bias: {acc_bias}")
-            logging.debug(f"Method {m}: Gyroscope bias: {gyro_bias}")
-            logging.debug(f"Method {m}: Accelerometer scale factor: {scale:.4f}")
+            logging.info(f"Method {m}: Accelerometer bias: {acc_bias}")
+            logging.info(f"Method {m}: Gyroscope bias: {gyro_bias}")
+            logging.info(f"Method {m}: Accelerometer scale factor: {scale:.4f}")
+            print(f"Method {m}: Accelerometer bias: {acc_bias}")
+            print(f"Method {m}: Gyroscope bias: {gyro_bias}")
         
         logging.info("IMU data corrected for bias for each method.")
     except Exception as e:
@@ -907,10 +918,7 @@ def main():
         pos = np.zeros((len(imu_time), 3))
         vel = np.zeros((len(imu_time), 3))
         acc = np.zeros((len(imu_time), 3))
-        iter_range = range(1, len(imu_time))
-        if args.progress:
-            iter_range = tqdm(iter_range, desc=f"Integrating {m}")
-        for i in iter_range:
+        for i in range(1, len(imu_time)):
             dt = imu_time[i] - imu_time[i-1]
             f_ned = C_B_N @ acc_body_corrected[m][i]
             a_ned = f_ned + g_NED
@@ -934,18 +942,10 @@ def main():
         logging.warning(f"IMU time range too short: {t_rel_ilu.max():.2f} seconds")
     if t_rel_gnss.max() < 1000:
         logging.warning(f"GNSS time range too short: {t_rel_gnss.max():.2f} seconds")
-    logging.debug(
-        f"gnss_time range: {gnss_time.min():.2f} to {gnss_time.max():.2f}"
-    )
-    logging.debug(
-        f"imu_time range: {imu_time.min():.2f} to {imu_time.max():.2f}"
-    )
-    logging.debug(
-        f"t_rel_gnss range: {t_rel_gnss.min():.2f} to {t_rel_gnss.max():.2f}"
-    )
-    logging.debug(
-        f"t_rel_ilu range: {t_rel_ilu.min():.2f} to {t_rel_ilu.max():.2f}"
-    )
+    print(f"gnss_time range: {gnss_time.min():.2f} to {gnss_time.max():.2f}")
+    print(f"imu_time range: {imu_time.min():.2f} to {imu_time.max():.2f}")
+    print(f"t_rel_gnss range: {t_rel_gnss.min():.2f} to {t_rel_gnss.max():.2f}")
+    print(f"t_rel_ilu range: {t_rel_ilu.min():.2f} to {t_rel_ilu.max():.2f}")
 
     missing = [m for m in methods if m not in pos_integ]
     if missing:
@@ -1138,7 +1138,7 @@ def main():
         imu_data = pd.read_csv(imu_file, sep='\s+', header=None)
     except FileNotFoundError as e:
         missing = 'GNSS' if 'csv' in str(e) else 'IMU'
-        logging.error(f"{missing} file not found: {e.filename}")
+        print(f"[ERROR] {missing} file not found: {e.filename}", file=sys.stderr)
         raise
     except Exception as e:
         logging.error(f"Failed to load data: {e}")
@@ -1202,10 +1202,7 @@ def main():
         C_B_N = C_B_N_methods[m]
         imu_pos[m][0] = gnss_pos_ned[0]
         imu_vel[m][0] = gnss_vel_ned[0]
-        iter_range = range(1, len(imu_time))
-        if args.progress:
-            iter_range = tqdm(iter_range, desc=f"IMU integrate {m}")
-        for i in iter_range:
+        for i in range(1, len(imu_time)):
             dt = imu_time[i] - imu_time[i-1]
             f_ned = C_B_N @ acc_body_corrected[m][i]
             a_ned = f_ned + g_NED
@@ -1294,10 +1291,7 @@ def main():
 
         
         # Run Kalman Filter
-        iter_range = range(1, len(imu_time))
-        if args.progress:
-            iter_range = tqdm(iter_range, desc=f"Kalman {m}")
-        for i in iter_range:
+        for i in range(1, len(imu_time)):
             dt = imu_time[i] - imu_time[i-1]
 
             # propagate quaternion using gyro measurement
@@ -1384,14 +1378,16 @@ def main():
     gnss_acc_ned_interp = np.zeros((len(imu_time), 3))
     for j in range(3):
         gnss_acc_ned_interp[:, j] = np.interp(imu_time, gnss_time, gnss_acc_ned[:, j])
-        logging.debug(
-            f"Interpolated GNSS acceleration {directions[j]}: First={gnss_acc_ned_interp[0, j]:.4f}, "
-            f"Last={gnss_acc_ned_interp[-1, j]:.4f}"
-        )
+        logging.info(f"Interpolated GNSS acceleration for {directions[j]} direction: "
+                     f"First value = {gnss_acc_ned_interp[0, j]:.4f}, "
+                     f"Last value = {gnss_acc_ned_interp[-1, j]:.4f}")
+        print(f"# Interpolated GNSS acceleration {directions[j]}: "
+              f"First = {gnss_acc_ned_interp[0, j]:.4f}, Last = {gnss_acc_ned_interp[-1, j]:.4f}")
     
     
     # Subtask 5.8.2: Plotting Results for selected method
     logging.info(f"Subtask 5.8.2: Plotting results for {method}.")
+    print(f"# Subtask 5.8.2: Starting to plot results for {method}.")
     fig, axes = plt.subplots(3, 3, figsize=(15, 10))
     
     # Davenport - Position
@@ -1404,8 +1400,13 @@ def main():
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Position (m)')
         ax.legend()
-        logging.debug(
-            f"Plotted {method} position {directions[j]}: First={fused_pos[method][0, j]:.4f}, Last={fused_pos[method][-1, j]:.4f}"
+        logging.info(
+            f"Subtask 5.8.2: Plotted {method} position {directions[j]}: "
+            f"First = {fused_pos[method][0, j]:.4f}, Last = {fused_pos[method][-1, j]:.4f}"
+        )
+        print(
+            f"# Plotted {method} position {directions[j]}: "
+            f"First = {fused_pos[method][0, j]:.4f}, Last = {fused_pos[method][-1, j]:.4f}"
         )
     
     # Davenport - Velocity
@@ -1418,8 +1419,13 @@ def main():
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Velocity (m/s)')
         ax.legend()
-        logging.debug(
-            f"Plotted {method} velocity {directions[j]}: First={fused_vel[method][0, j]:.4f}, Last={fused_vel[method][-1, j]:.4f}"
+        logging.info(
+            f"Subtask 5.8.2: Plotted {method} velocity {directions[j]}: "
+            f"First = {fused_vel[method][0, j]:.4f}, Last = {fused_vel[method][-1, j]:.4f}"
+        )
+        print(
+            f"# Plotted {method} velocity {directions[j]}: "
+            f"First = {fused_vel[method][0, j]:.4f}, Last = {fused_vel[method][-1, j]:.4f}"
         )
     
     # Davenport - Acceleration
@@ -1432,8 +1438,13 @@ def main():
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Acceleration (m/s²)')
         ax.legend()
-        logging.debug(
-            f"Plotted {method} acceleration {directions[j]}: First={fused_acc[method][0, j]:.4f}, Last={fused_acc[method][-1, j]:.4f}"
+        logging.info(
+            f"Subtask 5.8.2: Plotted {method} acceleration {directions[j]}: "
+            f"First = {fused_acc[method][0, j]:.4f}, Last = {fused_acc[method][-1, j]:.4f}"
+        )
+        print(
+            f"# Plotted {method} acceleration {directions[j]}: "
+            f"First = {fused_acc[method][0, j]:.4f}, Last = {fused_acc[method][-1, j]:.4f}"
         )
     
     plt.tight_layout()
@@ -1442,6 +1453,7 @@ def main():
         plt.savefig(out_pdf)
     plt.close()
     logging.info(f"Subtask 5.8.2: {method} plot saved as '{out_pdf}'")
+    print(f"# Subtask 5.8.2: {method} plotting completed. Saved as '{out_pdf}'.")
 
     # Plot pre-fit innovations
     fig_innov, ax_innov = plt.subplots(3, 1, sharex=True, figsize=(8, 6))

@@ -4,4 +4,3 @@ matplotlib
 cartopy
 filterpy
 scipy
-tqdm
