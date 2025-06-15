@@ -14,6 +14,7 @@ from scipy.signal import butter, filtfilt
 from typing import Tuple
 
 import argparse, pathlib, json, numpy as np
+from rich.console import Console
 
 console = Console()
 TAG = "{imu}_{gnss}_{method}".format  # helper
@@ -104,6 +105,8 @@ def main():
         action="store_true",
         help="Skip matplotlib savefig to speed up CI runs",
     )
+
+    args = parser.parse_args()
 
     method = args.method
     gnss_file = args.gnss_file

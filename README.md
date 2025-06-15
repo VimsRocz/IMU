@@ -66,3 +66,14 @@ Run the unit tests with `pytest`:
 ```bash
 pytest -q
 ```
+
+## Next Steps
+
+- **Logging:** Extend the built-in `logging` with the `rich` console handler to
+  get colourful status messages during long runs.
+- **Documentation:** The devcontainer includes Sphinx and MkDocs. Generate the
+  API docs with `sphinx-build` and publish user guides with `mkdocs`.
+- **CI:** Set up a simple GitHub Actions workflow that installs
+  `requirements.txt`, runs `flake8` and the `pytest` suite on every pull
+  request.
+
