@@ -14,9 +14,19 @@ from scipy.signal import butter, filtfilt
 from typing import Tuple
 
 import argparse, pathlib, json, numpy as np
-from rich.console import Console
 
-console = Console()
+try:
+    from rich.console import Console
+except ImportError:
+    print("\u2757  Missing dependency: install with `pip install rich`")
+    sys.exit(1)
+
+try:
+    console = Console()
+    log = console.log
+except Exception:
+    logging.basicConfig(level=logging.INFO)
+    log = logging.info
 TAG = "{imu}_{gnss}_{method}".format  # helper
 
 # Colour palette for plotting per attitude-initialisation method

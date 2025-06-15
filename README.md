@@ -12,10 +12,10 @@ pip install -r requirements.txt
 ### Codespaces
 
 Open the repository in GitHub Codespaces to get a pre-configured
-development container. The `.devcontainer/` folder sets up Python 3.11
-and installs all requirements automatically. After the container is
-ready, run the **Test** task or execute `pytest` to verify the
-environment.
+development container. The `.devcontainer/` folder builds on the
+`mcr.microsoft.com/vscode/devcontainers/python:0-3.10` image and
+installs all requirements automatically. After the container is ready
+run the **Test** task or execute `pytest` to verify the environment.
 
 ## Notes
 
@@ -42,6 +42,17 @@ To process every IMU/GNSS pair defined in `run_all_datasets.py`, simply run:
 ```bash
 python run_all_datasets.py
 ```
+The script shows a progress bar and finishes with a small summary table:
+
+```
+All cases: 100%|##########| 9/9 [00:12<00:00,  1.31s/it]
+┏━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Method  ┃ RMSE (m) ┃ Final Error (m) ┃ Runtime (s) ┃
+┡━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+┃ TRIAD   ┃  12.4    ┃  8.7         ┃   1.2      ┃
+┃ ...     ┃  ...     ┃  ...         ┃   ...      ┃
+└─────────┴──────────┴──────────────┴───────────┘
+```
 
 After all runs complete you can compare the datasets side by side:
 
@@ -58,6 +69,9 @@ set of plots and a summary table of metrics for each batch run.  Integrate
 these helpers into your own batch script to automatically export the six
 "must‑have" figures (tasks 3–5 and validation plots) and a CSV/LaTeX table of
 RMSE and innovation statistics.
+
+Interactive exploration lives in the `notebooks/` folder. Open
+`notebooks/demo.ipynb` to try the plotting utilities in Jupyter.
 
 ## Tests
 

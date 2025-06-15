@@ -5,6 +5,8 @@ matplotlib
 pyproj
 pynmea2
 rich  # colourful console output
+tqdm
+click
 black
 flake8
 pytest
