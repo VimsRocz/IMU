@@ -1,27 +1,17 @@
-FROM python:3.11-slim
+# Use the official VS Code Python devcontainer image
+FROM mcr.microsoft.com/vscode/devcontainers/python:0-3.10
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    build-essential \
-    libatlas-base-dev \
-    && rm -rf /var/lib/apt/lists/*
+# [Optional] If you need system packages (e.g. for Proj/GDAL), install here
+# RUN apt-get update && apt-get install -y proj-bin
 
-# Create a non-root user for Codespaces
-ARG USER=vscode
-ARG UID=1000
-RUN useradd -m --uid $UID $USER \
-    && mkdir -p /home/$USER/.local \
-    && chown -R $USER:$USER /home/$USER
-
-# Switch to non-root
-USER $USER
+# Set working directory
 WORKDIR /workspace
 
-# Install Python deps
-COPY --chown=vscode:vscode requirements.txt .
-RUN pip install --user --upgrade pip setuptools wheel \
-    && pip install --user --no-cache-dir -r requirements.txt
+# Copy your dependency lists
+COPY requirements.txt /workspace/
 
-# Add ~/.local/bin to PATH
-ENV PATH=/home/$USER/.local/bin:$PATH
+# Install Python deps
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Ensure your scripts are executable
+RUN chmod +x /workspace/*.py

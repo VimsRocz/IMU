@@ -1,0 +1,13 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/vscode/devcontainers/python:0-3.10
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Run smoke tests
+        run: pytest --maxfail=1 --disable-warnings -q
