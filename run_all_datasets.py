@@ -82,7 +82,9 @@ def main():
         summary = run_one(imu, gnss, method, verbose=args.verbose)
         runtime = time.time() - start
         if summary:
-            kv = dict(pair.split("=", 1) for pair in summary.split())
+            # split on key=value pairs allowing spaces after '=' for
+            # formatted numbers like "final_pos=  10.84m"
+            kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
             table.add_row(
                 kv.get("method", method),
                 kv.get("rmse_pos", "n/a").replace("m", ""),
