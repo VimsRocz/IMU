@@ -5,7 +5,12 @@ Writes one log file per run in ./logs and prints a short SUMMARY line
 that `summarise_runs.py` can aggregate later.
 """
 
-import pathlib, subprocess, datetime, itertools, sys
+import pathlib
+import subprocess
+import datetime
+import itertools
+import sys
+import argparse
 
 HERE     = pathlib.Path(__file__).resolve().parent
 SCRIPT   = HERE / "GNSS_IMU_Fusion.py"
@@ -20,7 +25,7 @@ DATASETS = [
 
 METHODS  = ["TRIAD", "Davenport", "SVD"]
 
-def run_one(imu, gnss, method):
+def run_one(imu, gnss, method, verbose=False):
     ts    = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log   = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
     cmd   = [
@@ -29,6 +34,8 @@ def run_one(imu, gnss, method):
         "--gnss-file", gnss,
         "--method",    method
     ]
+    if verbose:
+        cmd.append("--verbose")
     print(f"\n─── Running {imu}/{gnss}  with  {method} ───")
     with log.open("w") as fh:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -39,12 +46,16 @@ def run_one(imu, gnss, method):
         raise RuntimeError(f"{cmd} failed, see {log}")
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--verbose", action="store_true", help="Print detailed debug info")
+    args = parser.parse_args()
+
     here_files = {p.name for p in HERE.iterdir()}
     for imu, gnss in DATASETS:
         if imu not in here_files or gnss not in here_files:
             raise FileNotFoundError(f"Missing {imu} or {gnss} in {HERE}")
         for method in METHODS:
-            run_one(imu, gnss, method)
+            run_one(imu, gnss, method, verbose=args.verbose)
 
 if __name__ == "__main__":
     main()

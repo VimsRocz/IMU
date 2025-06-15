@@ -4,6 +4,7 @@ import sys
 import os
 from pathlib import Path
 
+
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +14,8 @@ from scipy.signal import butter, filtfilt
 from typing import Tuple
 
 import argparse, pathlib, json, numpy as np
+
+console = Console()
 TAG = "{imu}_{gnss}_{method}".format  # helper
 
 # Colour palette for plotting per attitude-initialisation method
@@ -101,7 +104,6 @@ def main():
         action="store_true",
         help="Skip matplotlib savefig to speed up CI runs",
     )
-    args = parser.parse_args()
 
     method = args.method
     gnss_file = args.gnss_file

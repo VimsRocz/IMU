@@ -9,6 +9,14 @@ Install dependencies with:
 pip install -r requirements.txt
 ```
 
+### Codespaces
+
+Open the repository in GitHub Codespaces to get a pre-configured
+development container. The `.devcontainer/` folder sets up Python 3.11
+and installs all requirements automatically. After the container is
+ready, run the **Test** task or execute `pytest` to verify the
+environment.
+
 ## Notes
 
 `GNSS_IMU_Fusion.py` now detects a low-motion interval in the IMU data to
@@ -25,6 +33,7 @@ Use `run_all_methods.py` to execute the fusion script with TRIAD, Davenport and 
 ```bash
 python run_all_methods.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
 ```
+
 
 ## Running all data sets
 
