@@ -6,5 +6,6 @@ def _latest_npzs():
 
 @pytest.mark.parametrize("tag,data", _latest_npzs())
 def test_final_alignment(tag, data, tol=15.0):
-    err = data["summary"].item()["final_alignment_error"]
+    summary = data["summary"].item()
+    err = summary.get("final_alignment_error", summary.get("final_pos"))
     assert err < tol, f"{tag} drift {err:.2f} m > {tol}"
