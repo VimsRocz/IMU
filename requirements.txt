@@ -5,3 +5,13 @@ cartopy
 filterpy
 scipy
 tqdm
+pyproj
+pynmea2
+rich
+black
+flake8
+pytest
+sphinx
+sphinx_rtd_theme
+mkdocs
+mkdocs-material

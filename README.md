@@ -25,8 +25,10 @@ Use `run_all_methods.py` to execute the fusion script with TRIAD, Davenport and 
 ```bash
 python run_all_methods.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
 ```
-The fusion script now supports `--log-level` (e.g. `DEBUG`) and `--progress`
-flags to control verbosity and show progress bars during long integrations.
+The fusion script now supports the `--log-level` and `--progress` flags to
+control verbosity and display progress bars during long operations. A convenient
+`--verbose` shortcut sets the log level to `DEBUG` and enables additional
+diagnostic tables.
 
 ## Running all data sets
 
@@ -59,3 +61,15 @@ Run the unit tests with `pytest`:
 ```bash
 pytest -q
 ```
+
+## Codespace quickstart
+
+Open the repository in GitHub Codespaces to get a ready-to-run environment. The
+`.devcontainer` folder defines a lightweight Python image with all
+requirements installed. After the container builds simply run:
+
+```bash
+pytest -q
+```
+
+or use the VS Code tasks to execute the full pipeline.

@@ -110,13 +110,22 @@ def main():
         help="Logging level",
     )
     parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Shortcut for --log-level DEBUG with extra diagnostics",
+    )
+    parser.add_argument(
         "--progress",
         action="store_true",
         help="Show progress bars during long operations",
     )
     args = parser.parse_args()
-
+    if args.verbose:
+        args.log_level = "DEBUG"
     setup_logging(getattr(logging, args.log_level))
+    import time
+    start_time = time.perf_counter()
+    timings = {}
 
     method = args.method
     gnss_file = args.gnss_file
@@ -347,6 +356,14 @@ def main():
     logging.debug(f"Static gyroscope mean: {static_gyro}")
     logging.debug(f"Gravity magnitude: {g_norm:.4f} m/s²")
     logging.debug(f"Earth rotation magnitude: {omega_norm:.6e} rad/s")
+
+    logging.info("=== IMU Calibration ===")
+    logging.info(f"Accel bias [m/s²]:    {(-static_acc).tolist()}")
+    logging.info(f"Gyro bias  [rad/s]:   {static_gyro.tolist()}")
+    logging.info(f"Accel scale factor:   {scale_factor:.4f}")
+    logging.info(
+        f"Static interval:      samples {start_idx}–{end_idx} (Δt={N_static*dt_imu:.1f} s)"
+    )
     
     # --------------------------------
     # Subtask 2.3: Define Gravity and Earth Rate in Body Frame
@@ -380,10 +397,11 @@ def main():
     logging.debug("Note: These are the same physical vectors as in NED, but expressed in the body frame (sensor axes).")
     logging.debug("From accelerometer (assuming static IMU): a_body = -g_body")
     logging.debug("From gyroscope: ω_ie,body")
-    
+
     # ================================
     # TASK 3: Solve Wahba’s Problem
     # ================================
+    t_prev = time.perf_counter()
     
     
     # ================================
@@ -415,11 +433,13 @@ def main():
     # Subtask 3.2: TRIAD Method
     # --------------------------------
     logging.info("Subtask 3.2: Computing rotation matrix using TRIAD method.")
+    degenerate_cases = 0
     # Case 1
     t1_body = v1_B
     t2_body_temp = np.cross(v1_B, v2_B)
     if np.linalg.norm(t2_body_temp) < 1e-10:
         logging.warning("Case 1 - Vectors are collinear, TRIAD may fail.")
+        degenerate_cases += 1
         t2_body = np.array([1.0, 0.0, 0.0]) if abs(v1_B[0]) < abs(v1_B[1]) else np.array([0.0, 1.0, 0.0])
     else:
         t2_body = t2_body_temp / np.linalg.norm(t2_body_temp)
@@ -428,6 +448,7 @@ def main():
     t2_ned_temp = np.cross(v1_N, v2_N)
     if np.linalg.norm(t2_ned_temp) < 1e-10:
         logging.warning("Case 1 - NED vectors are collinear, TRIAD may fail.")
+        degenerate_cases += 1
         t2_ned = np.array([1.0, 0.0, 0.0])
     else:
         t2_ned = t2_ned_temp / np.linalg.norm(t2_ned_temp)
@@ -439,6 +460,7 @@ def main():
     t2_ned_temp_doc = np.cross(v1_N, v2_N_doc)
     if np.linalg.norm(t2_ned_temp_doc) < 1e-10:
         logging.warning("Case 2 - NED vectors are collinear, TRIAD may fail.")
+        degenerate_cases += 1
         t2_ned_doc = np.array([1.0, 0.0, 0.0])
     else:
         t2_ned_doc = t2_ned_temp_doc / np.linalg.norm(t2_ned_temp_doc)
@@ -463,6 +485,7 @@ def main():
     K[0, 1:] = Z
     K[1:, 0] = Z
     K[1:, 1:] = S - sigma * np.eye(3)
+    cond_K = np.linalg.cond(K)
     eigvals, eigvecs = np.linalg.eigh(K)
     q_dav = eigvecs[:, np.argmax(eigvals)]
     if q_dav[0] < 0:
@@ -476,6 +499,7 @@ def main():
     ])
     logging.debug("Rotation matrix (Davenport’s Q-Method, Case 1):\n%s", R_dav)
     logging.debug("Davenport quaternion (q_w, q_x, q_y, q_z, Case 1): %s", q_dav)
+    logging.info(f"Davenport K matrix cond.: {cond_K:.2e}")
     
     # Case 2
     B_doc = w_gravity * np.outer(v1_N, v1_B) + w_omega * np.outer(v2_N_doc, v2_B)
@@ -591,6 +615,13 @@ def main():
         logging.debug(f"{method:10s} -> Earth rate error (deg):  {omega_err_deg:.6f}")
         grav_errors[method] = grav_err_deg
         omega_errors[method] = omega_err_deg
+
+    logging.info("--- Attitude Diagnostics ---")
+    for m in ["TRIAD", "Davenport", "SVD"]:
+        logging.info(
+            f"{m:9s} | Gravity error: {grav_errors[m]:.4f}° | Earth-rate error: {omega_errors[m]:.4f}°"
+        )
+    logging.info(f"Degenerate cases detected: {degenerate_cases}")
     
     # --------------------------------
     # Subtask 3.6: Validate Attitude Determination and Compare Methods
@@ -743,6 +774,8 @@ def main():
         'SVD': {'R': R_svd}
     }
     logging.info("Task 3 results stored in memory: %s", list(task3_results.keys()))
+    timings['task3'] = time.perf_counter() - t_prev
+    t_prev = time.perf_counter()
         
     # ================================
     # TASK 4: GNSS and IMU Data Integration and Comparison
@@ -771,6 +804,15 @@ def main():
     except Exception as e:
         logging.error(f"Failed to load GNSS data file: {e}")
         raise
+    if {'HDOP','PDOP'}.issubset(gnss_data.columns):
+        hdop = gnss_data['HDOP']
+        pdop = gnss_data['PDOP']
+        logging.info(
+            f"GNSS HDOP → mean {hdop.mean():.2f} / max {hdop.max():.2f}"
+        )
+        logging.info(
+            f"GNSS PDOP → mean {pdop.mean():.2f} / max {pdop.max():.2f}"
+        )
     
     # --------------------------------
     # Subtask 4.4: Extract Relevant Columns
@@ -1108,9 +1150,10 @@ def main():
         plt.savefig(f"results/{tag}_task4_all_body.pdf")
     plt.close()
     logging.info("All data in body frame plot saved")
-    
-    
-    
+
+    timings['task4'] = time.perf_counter() - t_prev
+    t_prev = time.perf_counter()
+
     
     # ================================
     # Task 5: Sensor Fusion with Kalman Filter
@@ -1220,12 +1263,15 @@ def main():
     logging.info("Subtask 5.5: Applying Zero-Velocity Updates (ZUPT) for each method.")
     stationary_threshold = 0.01
     t_rel_ilu = imu_time - gnss_time[0]
+    zupt_events = 0
     for m in methods:
         for i in range(len(imu_time)):
             if t_rel_ilu[i] < 5000 and np.linalg.norm(imu_vel[m][i]) < stationary_threshold:
                 imu_vel[m][i] = np.zeros(3)
                 imu_pos[m][i] = imu_pos[m][i-1]
+                zupt_events += 1
         logging.info(f"Method {m}: ZUPT applied.")
+    logging.info(f"ZUPT events: {zupt_events}")
     
     # --------------------------------
     # Subtask 5.6: Kalman Filter for Sensor Fusion for Each Method
@@ -1539,6 +1585,31 @@ def main():
     fname = pathlib.Path("results") / f"{summary_tag}_{method}_compare.pkl.gz"
     with gzip.open(fname, "wb") as f:
         pickle.dump(pack, f)
+
+    # Save trajectory error time series
+    err_pos = np.linalg.norm(residual_pos, axis=1)
+    err_vel = np.linalg.norm(residual_vel, axis=1)
+    err_csv = pathlib.Path("results") / f"{tag}_error_series.csv"
+    np.savetxt(
+        err_csv,
+        np.column_stack((imu_time, err_pos, err_vel)),
+        delimiter=",",
+        header="t[s],err_pos[m],err_vel[m/s]",
+        comments="",
+    )
+
+    timings['task5'] = time.perf_counter() - t_prev
+    total_time = time.perf_counter() - start_time
+    logging.info(
+        " | ".join(
+            [
+                f"Task 3: {timings.get('task3',0):.2f} s",
+                f"Task 4: {timings.get('task4',0):.2f} s",
+                f"Task 5: {timings.get('task5',0):.2f} s",
+                f"Total: {total_time:.2f} s",
+            ]
+        )
+    )
 
     print(
         f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file)} gnss={os.path.basename(gnss_file)} "

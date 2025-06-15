@@ -1,0 +1,22 @@
+{
+  "name": "IMU-GNSS Codespace",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "settings": {
+    "python.pythonPath": "/home/vscode/.local/bin/python",
+    "python.formatting.provider": "black",
+    "python.linting.flake8Enabled": true,
+    "python.linting.enabled": true,
+    "jupyter.enableScriptExplorer": true
+  },
+  "extensions": [
+    "ms-python.python",
+    "ms-toolsai.jupyter",
+    "njpwerner.autodocstring",
+    "eamodio.gitlens",
+    "gruntfuggly.todo-tree"
+  ],
+  "postCreateCommand": "pip install --user -e .",
+  "remoteUser": "vscode"
+}

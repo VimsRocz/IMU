@@ -35,3 +35,13 @@ with open("summary.md", "w") as fh:
         fh.write(" | ".join(r.values()) + "\n")
 
 print("Created summary.csv and summary.md")
+
+if rows:
+    widths = [8, 10, 10, 10, 10]
+    header = ["method", "imu", "gnss", "RMSEpos", "End-Error"]
+    print("\n" + " ".join(h.ljust(w) for h, w in zip(header, widths)))
+    print(" ".join("-" * w for w in widths))
+    for r in rows:
+        vals = [r.get("method"), r.get("imu"), r.get("gnss"), r.get("rmse_pos"), r.get("final_pos")]
+        print(" ".join(v.ljust(w) for v, w in zip(vals, widths)))
+
