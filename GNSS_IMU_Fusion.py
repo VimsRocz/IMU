@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
 from scipy.signal import butter, filtfilt
+from typing import Tuple
 
 import argparse, pathlib, json, numpy as np
 TAG = "{imu}_{gnss}_{method}".format  # helper
@@ -75,7 +76,7 @@ def compute_wahba_errors(
     omega_ie_body: np.ndarray,
     g_ref_ned: np.ndarray,
     omega_ref_ned: np.ndarray,
-) -> tuple[float, float]:
+) -> Tuple[float, float]:
     """Return gravity and Earth-rate angle errors for a DCM."""
 
     g_pred_ned = C_bn @ g_body
