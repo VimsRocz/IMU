@@ -4,6 +4,7 @@ import sys
 import os
 from pathlib import Path
 from tqdm import tqdm
+from rich.console import Console
 
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
@@ -14,6 +15,8 @@ from scipy.signal import butter, filtfilt
 from typing import Tuple
 
 import argparse, pathlib, json, numpy as np
+
+console = Console()
 TAG = "{imu}_{gnss}_{method}".format  # helper
 
 # Colour palette for plotting per attitude-initialisation method
@@ -110,13 +113,21 @@ def main():
         help="Logging level",
     )
     parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print detailed debug info",
+    )
+    parser.add_argument(
         "--progress",
         action="store_true",
         help="Show progress bars during long operations",
     )
     args = parser.parse_args()
 
-    setup_logging(getattr(logging, args.log_level))
+    log_level = logging.DEBUG if args.verbose else getattr(logging, args.log_level)
+    if args.verbose:
+        console.log("[bold green]Verbose mode ON[/bold green]")
+    setup_logging(log_level)
 
     method = args.method
     gnss_file = args.gnss_file
