@@ -4,7 +4,7 @@ pandas
 matplotlib
 pyproj
 pynmea2
-rich
+rich  # colourful console output
 black
 flake8
 pytest

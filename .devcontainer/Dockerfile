@@ -21,7 +21,7 @@ WORKDIR /workspace
 # Install Python deps
 COPY --chown=vscode:vscode requirements.txt .
 RUN pip install --user --upgrade pip setuptools wheel \
-    && pip install --user -r requirements.txt
+    && pip install --user --no-cache-dir -r requirements.txt
 
 # Add ~/.local/bin to PATH
 ENV PATH=/home/$USER/.local/bin:$PATH
