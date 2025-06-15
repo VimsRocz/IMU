@@ -33,10 +33,7 @@ Use `run_all_methods.py` to execute the fusion script with TRIAD, Davenport and 
 ```bash
 python run_all_methods.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
 ```
-The fusion script now supports `--log-level` (e.g. `DEBUG`) and `--progress`
-flags to control verbosity and show progress bars during long integrations.
-For convenience, pass `--verbose` to enable debug logging and extra
-console output.
+
 
 ## Running all data sets
 
