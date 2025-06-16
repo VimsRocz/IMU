@@ -6,3 +6,4 @@ filterpy
 scipy
 rich
 tabulate
+tqdm
