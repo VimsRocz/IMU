@@ -13,6 +13,7 @@ import sys
 import argparse
 import re
 import time
+from tabulate import tabulate
 
 from tqdm import tqdm
 
@@ -100,18 +101,18 @@ def main():
                 "runtime"  : runtime,
             })
 
-    # --- print a full ASCII table for every dataset×method in fusion_results ---
-    print("┏─────────┳─────────┳───────────┳───────────┳─────────────┓")
-    print("│ Dataset │ Method  │  RMSEpos  │ End-Error │  Runtime    │")
-    print("┣─────────┿─────────┿───────────┿───────────┿─────────────┫")
-    for e in fusion_results:
-        ds = e["dataset"]
-        m  = e["method"]
-        r  = e["rmse_pos"]
-        f_ = e["final_pos"]
-        t  = e["runtime"]
-        print(f"│ {ds:7} │ {m:7} │ {r:9.2f} │ {f_:9.2f} │ {t:11.1f} │")
-    print("┗─────────┻─────────┻───────────┻───────────┻─────────────┛")
+    # --- nicely formatted summary table --------------------------------------
+    key_order = {m: i for i, m in enumerate(["TRIAD", "Davenport", "SVD"])}
+    fusion_results.sort(key=lambda r: (r["dataset"], key_order[r["method"]]))
+    rows = [
+        [e["dataset"], e["method"], e["rmse_pos"], e["final_pos"], e["runtime"]]
+        for e in fusion_results
+    ]
+    print(tabulate(
+        rows,
+        headers=["Dataset", "Method", "RMSEpos [m]", "End-Error [m]", "Runtime [s]"],
+        floatfmt=".2f",
+    ))
 
 if __name__ == "__main__":
     main()
