@@ -1,20 +1,16 @@
 {
-  "name": "IMU-GNSS Fusion",
+  "name": "IMU-GNSS Fusion (last-working)",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."
   },
+  "workspaceFolder": "/workspace",
   "settings": {
-    "python.pythonPath": "/usr/local/bin/python",
-    "python.formatting.provider": "black"
+    "python.defaultInterpreterPath": "/usr/local/bin/python"
   },
   "extensions": [
-    "ms-python.python",
-    "ms-python.vscode-pylance",
-    "eamodio.gitlens",
-    "ms-vscode.cpptools"
+    "ms-python.python"
   ],
-  "postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt",
-  "forwardPorts": [],
+  "postCreateCommand": "pip install --no-cache-dir -r requirements.txt",
   "remoteUser": "vscode"
 }

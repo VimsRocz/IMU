@@ -1,19 +1,6 @@
 numpy
-scipy
 pandas
 matplotlib
-pyproj
-pynmea2
-rich  # colourful console output
-tqdm
-click
-black
-flake8
-pytest
-sphinx
-sphinx_rtd_theme
-mkdocs
-mkdocs-material
 cartopy
 filterpy
-
+scipy
