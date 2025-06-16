@@ -16,6 +16,7 @@ from typing import Tuple
 import argparse, pathlib, json, numpy as np
 from scripts.plot_utils import save_plot, plot_attitude
 from scripts.validate_filter import compute_residuals, plot_residuals
+from scipy.spatial.transform import Rotation as R
 
 try:
     from rich.console import Console
@@ -1532,6 +1533,40 @@ def main():
     rmse_pos = np.sqrt(np.mean(np.sum((gnss_pos_ned_interp - fused_pos[method])**2, axis=1)))
     final_pos = np.linalg.norm(gnss_pos_ned_interp[-1] - fused_pos[method][-1])
 
+    # --- Additional residual metrics ---------------------------------------
+    pos_interp = np.vstack([
+        np.interp(gnss_time, imu_time, fused_pos[method][:, i])
+        for i in range(3)
+    ]).T
+    vel_interp = np.vstack([
+        np.interp(gnss_time, imu_time, fused_vel[method][:, i])
+        for i in range(3)
+    ]).T
+    resid_pos = pos_interp - gnss_pos_ned
+    resid_vel = vel_interp - gnss_vel_ned
+
+    rms_resid_pos = np.sqrt(np.mean(resid_pos ** 2))
+    rms_resid_vel = np.sqrt(np.mean(resid_vel ** 2))
+    max_resid_pos = np.max(np.linalg.norm(resid_pos, axis=1))
+    max_resid_vel = np.max(np.linalg.norm(resid_vel, axis=1))
+
+    accel_bias = acc_biases.get(method, np.zeros(3))
+    gyro_bias = gyro_biases.get(method, np.zeros(3))
+
+    # --- Attitude angles ----------------------------------------------------
+    euler = R.from_quat(attitude_q_all[method]).as_euler('xyz', degrees=True)
+    if not args.no_plots:
+        plt.figure()
+        plt.plot(imu_time, euler[:, 0], label='Roll')
+        plt.plot(imu_time, euler[:, 1], label='Pitch')
+        plt.plot(imu_time, euler[:, 2], label='Yaw')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Angle (deg)')
+        plt.legend()
+        plt.title(f'{tag} Attitude Angles')
+        plt.savefig(f'results/{tag}_{method}_attitude_angles.png')
+        plt.close()
+
     np.savez(
         f"results/{tag}_kf_output.npz",
         summary=dict(rmse_pos=rmse_pos, final_pos=final_pos),
@@ -1560,7 +1595,10 @@ def main():
 
     print(
         f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file)} gnss={os.path.basename(gnss_file)} "
-        f"rmse_pos={rmse_pos:7.2f}m final_pos={final_pos:7.2f}m"
+        f"rmse_pos={rmse_pos:7.2f}m final_pos={final_pos:7.2f}m "
+        f"rms_resid_pos={rms_resid_pos:7.2f}m max_resid_pos={max_resid_pos:7.2f}m "
+        f"rms_resid_vel={rms_resid_vel:7.2f}m max_resid_vel={max_resid_vel:7.2f}m "
+        f"accel_bias={np.linalg.norm(accel_bias):.4f} gyro_bias={np.linalg.norm(gyro_bias):.4f}"
     )
     
 
