@@ -1257,10 +1257,9 @@ def main():
     innov_vel_all = {}
     attitude_q_all = {}
     euler_all = {}
-    innov_pos_all = {}
-    innov_vel_all = {}
-    attitude_q_all = {}
-    euler_all = {}
+    res_pos_all = {}
+    res_vel_all = {}
+    time_res_all = {}
 
     def quat_multiply(q, r):
         w0, x0, y0, z0 = q
@@ -1279,6 +1278,20 @@ def main():
         axis = omega / np.linalg.norm(omega)
         half = theta / 2.0
         return np.array([np.cos(half), *(np.sin(half) * axis)])
+
+    def quat2euler(q):
+        """Return roll, pitch, yaw (rad) from w-x-y-z quaternion."""
+        w, x, y, z = q
+        t2 = +2.0 * (w * y - z * x)
+        t2 = np.clip(t2, -1.0, 1.0)
+        pitch = np.arcsin(t2)
+        t0 = +2.0 * (w * x + y * z)
+        t1 = +1.0 - 2.0 * (x * x + y * y)
+        roll = np.arctan2(t0, t1)
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw = np.arctan2(t3, t4)
+        return roll, pitch, yaw
     for m in methods:
         kf = KalmanFilter(dim_x=9, dim_z=6)
         kf.x = np.hstack((imu_pos[m][0], imu_vel[m][0], imu_acc[m][0]))
@@ -1295,6 +1308,8 @@ def main():
         innov_pos = []      # GNSS - predicted position
         innov_vel = []      # GNSS - predicted velocity
         attitude_q = []     # quaternion history
+        res_pos_list, res_vel_list, time_res = [], [], []
+        euler_list = []
 
         # attitude initialisation for logging
         orientations = np.zeros((len(imu_time), 4))
@@ -1328,6 +1343,11 @@ def main():
             innov = np.hstack((gnss_pos_ned_interp[i], gnss_vel_ned_interp[i])) - pred
             innov_pos.append(innov[0:3])
             innov_vel.append(innov[3:6])
+            res_pos_list.append(innov[0:3])
+            res_vel_list.append(innov[3:6])
+            time_res.append(imu_time[i])
+            roll, pitch, yaw = quat2euler(q_cur)
+            euler_list.append([roll, pitch, yaw])
 
             # Update step
             z = np.hstack((gnss_pos_ned_interp[i], gnss_vel_ned_interp[i]))
@@ -1343,31 +1363,23 @@ def main():
         innov_pos = np.vstack(innov_pos)
         innov_vel = np.vstack(innov_vel)
         attitude_q = np.vstack(attitude_q)
-
-        def quat2euler(q):
-            """Return roll, pitch, yaw (rad) from w-x-y-z quaternion."""
-            w, x, y, z = q
-            t2 = +2.0 * (w * y - z * x)
-            t2 = np.clip(t2, -1.0, 1.0)
-            pitch = np.arcsin(t2)
-            t0 = +2.0 * (w * x + y * z)
-            t1 = +1.0 - 2.0 * (x * x + y * y)
-            roll = np.arctan2(t0, t1)
-            t3 = +2.0 * (w * z + x * y)
-            t4 = +1.0 - 2.0 * (y * y + z * z)
-            yaw = np.arctan2(t3, t4)
-            return roll, pitch, yaw
-
-        euler = np.apply_along_axis(quat2euler, 1, attitude_q)
+        res_pos = np.vstack(res_pos_list)
+        res_vel = np.vstack(res_vel_list)
+        euler = np.vstack(euler_list)
+        time_res_arr = np.array(time_res)
 
         innov_pos_all[m] = innov_pos
         innov_vel_all[m] = innov_vel
         attitude_q_all[m] = attitude_q
         euler_all[m] = euler
+        res_pos_all[m] = res_pos
+        res_vel_all[m] = res_vel
+        time_res_all[m] = time_res_arr
     
     # Compute residuals for the selected method
-    residual_pos = fused_pos[method] - gnss_pos_ned_interp
-    residual_vel = fused_vel[method] - gnss_vel_ned_interp
+    residual_pos = res_pos_all[method]
+    residual_vel = res_vel_all[method]
+    time_residuals = time_res_all[method]
 
     attitude_angles = np.rad2deg(euler_all[method])
     
@@ -1492,11 +1504,11 @@ def main():
     # Plot residuals of position and velocity
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
     for j in range(3):
-        axes[0, j].plot(imu_time, residual_pos[:, j])
+        axes[0, j].plot(time_residuals, residual_pos[:, j])
         axes[0, j].set_title(f'Position Residual {directions[j]}')
         axes[0, j].set_xlabel('Time (s)')
         axes[0, j].set_ylabel('Residual (m)')
-        axes[1, j].plot(imu_time, residual_vel[:, j])
+        axes[1, j].plot(time_residuals, residual_vel[:, j])
         axes[1, j].set_title(f'Velocity Residual {directions[j]}')
         axes[1, j].set_xlabel('Time (s)')
         axes[1, j].set_ylabel('Residual (m/s)')
@@ -1510,10 +1522,10 @@ def main():
     fig2, ax2 = plt.subplots(3, 1, sharex=True, figsize=(8, 6))
     labels = ['Roll (\u03c6)', 'Pitch (\u03b8)', 'Yaw (\u03c8)']
     for i in range(3):
-        ax2[i].plot(np.rad2deg(euler_all[method][:, i]))
+        ax2[i].plot(time_residuals, attitude_angles[:, i])
         ax2[i].set_ylabel(labels[i] + ' [deg]')
         ax2[i].grid(True)
-    ax2[-1].set_xlabel('IMU epoch')
+    ax2[-1].set_xlabel('Time (s)')
     fig2.suptitle('Attitude Time History')
     fig2.tight_layout()
     att_pdf = f"results/{tag}_{method.lower()}_attitude_angles.pdf"
@@ -1550,6 +1562,9 @@ def main():
         innov_pos=innov_pos_all[method],
         innov_vel=innov_vel_all[method],
         euler=euler_all[method],
+        residual_pos=res_pos_all[method],
+        residual_vel=res_vel_all[method],
+        time_residuals=time_res_all[method],
     )
 
     # --- Persist for cross-dataset comparison ------------------------------
