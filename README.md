@@ -18,6 +18,13 @@ pip install cython
 pip install filterpy
 ```
 
+On a fresh Ubuntu installation you may need to install `pip` first:
+
+```bash
+sudo apt update && sudo apt install python3-pip
+pip3 install filterpy
+```
+
 ## 🚀 Developing & Debugging in GitHub Codespaces
 
 1. **Open in Codespace**  

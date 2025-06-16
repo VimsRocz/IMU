@@ -1,6 +1,8 @@
 {
-  "name": "IMU-GNSS Analysis",
-  "build": { "dockerfile": "Dockerfile" },
+  "name": "IMU-GNSS Fusion",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "settings": {
     "terminal.integrated.shell.linux": "/bin/bash"
   },
@@ -8,7 +10,5 @@
     "ms-python.python",
     "ms-python.vscode-pylance"
   ],
-  "postCreateCommand": "pip install -r requirements.txt",
-  "forwardPorts": [8888],
-  "remoteUser": "vscode"
+  "postCreateCommand": "pip3 install -r requirements.txt"
 }
