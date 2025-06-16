@@ -116,6 +116,16 @@ All cases: 100%|##########| 9/9 [00:12<00:00,  1.31s/it]
 └─────────┴──────────┴──────────────┴───────────┘
 ```
 
+## Running only the TRIAD method
+
+If you want to process all datasets using just the TRIAD initialisation method, run the helper script `run_triad_only.py`:
+
+```bash
+python run_triad_only.py
+```
+This is equivalent to running `run_all_datasets.py --method TRIAD`.
+
+
 After all runs complete you can compare the datasets side by side:
 
 ```bash
