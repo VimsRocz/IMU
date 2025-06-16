@@ -7,3 +7,5 @@ scipy
 rich
 tabulate
 tqdm
+pyyaml
+jupyter

@@ -88,8 +88,8 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Print detailed debug info")
     parser.add_argument("--datasets", default="ALL",
                         help="Comma separated dataset IDs (e.g. X001,X002) or ALL")
-    parser.add_argument("--methods", default="ALL",
-                        help="Comma separated method names or ALL")
+    parser.add_argument('--method', choices=['TRIAD','Davenport','SVD'],
+                        default='Davenport')
     args = parser.parse_args()
 
     here_files = {p.name for p in HERE.iterdir()}
@@ -100,12 +100,8 @@ def main():
         ids = {d.strip() for d in args.datasets.split(',')}
         datasets = [p for p in DATASETS if pathlib.Path(p[0]).stem.split('_')[1] in ids]
 
-    if args.methods.upper() == "ALL":
-        methods = METHODS
-    else:
-        methods = [m.strip() for m in args.methods.split(',')]
-
-    cases = [(imu, gnss, m) for (imu, gnss) in datasets for m in methods]
+    method = args.method
+    cases = [(imu, gnss, method) for (imu, gnss) in datasets]
     fusion_results = []
 
     for imu, gnss, method in tqdm(cases, desc="All cases"):
