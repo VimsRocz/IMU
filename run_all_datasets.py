@@ -46,7 +46,7 @@ def run_one(imu, gnss, method, verbose=False):
     ]
     if verbose:
         cmd.append("--verbose")
-    summary_line = None
+    summary_lines = []
     with log.open("w") as fh:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         for line in proc.stdout:  # live-stream to console & file
@@ -54,10 +54,10 @@ def run_one(imu, gnss, method, verbose=False):
             fh.write(line)
             m = SUMMARY_RE.search(line)
             if m:
-                summary_line = m.group(1)
+                summary_lines.append(m.group(1))
     if proc.wait() != 0:
         raise RuntimeError(f"{cmd} failed, see {log}")
-    return summary_line
+    return summary_lines
 
 def main():
     parser = argparse.ArgumentParser()
@@ -88,9 +88,9 @@ def main():
         if imu not in here_files or gnss not in here_files:
             raise FileNotFoundError(f"Missing {imu} or {gnss} in {HERE}")
         start = time.time()
-        summary = run_one(imu, gnss, method, verbose=args.verbose)
+        summaries = run_one(imu, gnss, method, verbose=args.verbose)
         runtime = time.time() - start
-        if summary:
+        for summary in summaries:
             kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
             fusion_results.append({
                 "dataset"  : pathlib.Path(imu).stem.split("_")[1],
