@@ -14,6 +14,8 @@ from scipy.signal import butter, filtfilt
 from typing import Tuple
 
 import argparse, pathlib, json, numpy as np
+from scripts.plot_utils import save_plot, plot_attitude
+from scripts.validate_filter import compute_residuals, plot_residuals
 
 try:
     from rich.console import Console
@@ -1477,8 +1479,7 @@ def main():
     plt.tight_layout()
     out_pdf = f"results/{tag}_task5_results_{method}.pdf"
     if not args.no_plots:
-        plt.savefig(out_pdf)
-    plt.close()
+        save_plot(fig, out_pdf, f"Kalman Filter Results — {tag}")
     logging.info(f"Subtask 5.8.2: {method} plot saved as '{out_pdf}'")
     print(f"# Subtask 5.8.2: {method} plotting completed. Saved as '{out_pdf}'.")
 
@@ -1498,40 +1499,15 @@ def main():
     fig_innov.tight_layout()
     innov_pdf = f"results/{tag}_{method.lower()}_innovations.pdf"
     if not args.no_plots:
-        plt.savefig(innov_pdf)
-    plt.close()
+        save_plot(fig_innov, innov_pdf, 'Pre-fit Innovations')
     
-    # Plot residuals of position and velocity
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-    for j in range(3):
-        axes[0, j].plot(time_residuals, residual_pos[:, j])
-        axes[0, j].set_title(f'Position Residual {directions[j]}')
-        axes[0, j].set_xlabel('Time (s)')
-        axes[0, j].set_ylabel('Residual (m)')
-        axes[1, j].plot(time_residuals, residual_vel[:, j])
-        axes[1, j].set_title(f'Velocity Residual {directions[j]}')
-        axes[1, j].set_xlabel('Time (s)')
-        axes[1, j].set_ylabel('Residual (m/s)')
-    plt.tight_layout()
-    res_pdf = f"results/{tag}_{method.lower()}_residuals.pdf"
+    # Plot residuals and attitude using helper functions
     if not args.no_plots:
-        plt.savefig(res_pdf)
-    plt.close()
-    
-    # Plot attitude angles over time
-    fig2, ax2 = plt.subplots(3, 1, sharex=True, figsize=(8, 6))
-    labels = ['Roll (\u03c6)', 'Pitch (\u03b8)', 'Yaw (\u03c8)']
-    for i in range(3):
-        ax2[i].plot(time_residuals, attitude_angles[:, i])
-        ax2[i].set_ylabel(labels[i] + ' [deg]')
-        ax2[i].grid(True)
-    ax2[-1].set_xlabel('Time (s)')
-    fig2.suptitle('Attitude Time History')
-    fig2.tight_layout()
-    att_pdf = f"results/{tag}_{method.lower()}_attitude_angles.pdf"
-    if not args.no_plots:
-        plt.savefig(att_pdf)
-    plt.close()
+        res = compute_residuals(gnss_time, gnss_pos_ned, imu_time, fused_pos[method])
+        plot_residuals(gnss_time, res,
+                       f"results/residuals_{tag}_{method}.pdf")
+        plot_attitude(imu_time, attitude_q_all[method],
+                      f"results/attitude_angles_{tag}_{method}.pdf")
     
     # Create plot summary
     summary = {

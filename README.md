@@ -11,6 +11,13 @@ dependencies manually with:
 pip install -r requirements.txt
 ```
 
+If installation of `filterpy` fails on Ubuntu due to a Cython compile error run:
+
+```bash
+pip install cython
+pip install filterpy
+```
+
 ## 🚀 Developing & Debugging in GitHub Codespaces
 
 1. **Open in Codespace**  
