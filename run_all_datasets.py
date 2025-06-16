@@ -137,5 +137,11 @@ def main():
         floatfmt=".2f",
     ))
 
+    # Optional CSV export for easier analysis
+    import pandas as pd
+    df = pd.DataFrame(rows, columns=["Dataset", "Method", "RMSEpos_m", "EndErr_m", "Runtime_s"])
+    df.to_csv(HERE / "results" / "summary.csv", index=False)
+
+
 if __name__ == "__main__":
     main()
