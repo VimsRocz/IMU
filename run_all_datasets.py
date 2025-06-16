@@ -120,6 +120,12 @@ def main():
                 "method"   : kv.get("method", method),
                 "rmse_pos" : float(kv.get("rmse_pos", "nan").replace("m", "")),
                 "final_pos": float(kv.get("final_pos", "nan").replace("m", "")),
+                "rms_resid_pos": float(kv.get("rms_resid_pos", "nan").replace("m", "")),
+                "max_resid_pos": float(kv.get("max_resid_pos", "nan").replace("m", "")),
+                "rms_resid_vel": float(kv.get("rms_resid_vel", "nan").replace("m", "")),
+                "max_resid_vel": float(kv.get("max_resid_vel", "nan").replace("m", "")),
+                "accel_bias": float(kv.get("accel_bias", "nan")),
+                "gyro_bias": float(kv.get("gyro_bias", "nan")),
                 "runtime"  : runtime,
             })
 
@@ -127,18 +133,57 @@ def main():
     key_order = {m: i for i, m in enumerate(["TRIAD", "Davenport", "SVD"])}
     fusion_results.sort(key=lambda r: (r["dataset"], key_order[r["method"]]))
     rows = [
-        [e["dataset"], e["method"], e["rmse_pos"], e["final_pos"], e["runtime"]]
+        [
+            e["dataset"],
+            e["method"],
+            e["rmse_pos"],
+            e["final_pos"],
+            e["rms_resid_pos"],
+            e["max_resid_pos"],
+            e["rms_resid_vel"],
+            e["max_resid_vel"],
+            e["accel_bias"],
+            e["gyro_bias"],
+            e["runtime"],
+        ]
         for e in fusion_results
     ]
     print(tabulate(
         rows,
-        headers=["Dataset", "Method", "RMSEpos [m]", "End-Error [m]", "Runtime [s]"],
+        headers=[
+            "Dataset",
+            "Method",
+            "RMSEpos [m]",
+            "End-Error [m]",
+            "RMSresidPos [m]",
+            "MaxresidPos [m]",
+            "RMSresidVel [m/s]",
+            "MaxresidVel [m/s]",
+            "AccelBiasNorm",
+            "GyroBiasNorm",
+            "Runtime [s]",
+        ],
         floatfmt=".2f",
     ))
 
     # Optional CSV export for easier analysis
     import pandas as pd
-    df = pd.DataFrame(rows, columns=["Dataset", "Method", "RMSEpos_m", "EndErr_m", "Runtime_s"])
+    df = pd.DataFrame(
+        rows,
+        columns=[
+            "Dataset",
+            "Method",
+            "RMSEpos_m",
+            "EndErr_m",
+            "RMSresidPos_m",
+            "MaxresidPos_m",
+            "RMSresidVel_mps",
+            "MaxresidVel_mps",
+            "AccelBiasNorm",
+            "GyroBiasNorm",
+            "Runtime_s",
+        ],
+    )
     df.to_csv(HERE / "results" / "summary.csv", index=False)
 
 
