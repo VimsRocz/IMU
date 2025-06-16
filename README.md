@@ -92,6 +92,9 @@ To process every IMU/GNSS pair defined in `run_all_datasets.py`, simply run:
 ```bash
 python run_all_datasets.py
 ```
+By default this processes each dataset with the TRIAD, Davenport and SVD
+initialisation methods. To limit the run to a single method pass
+`--method METHODNAME`.
 The script shows a progress bar and finishes with a small summary table:
 
 ```
