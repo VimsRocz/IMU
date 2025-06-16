@@ -223,7 +223,6 @@ def main():
     ))
 
     # Optional CSV export for easier analysis
-    import pandas as pd
     df = pd.DataFrame(
         rows,
         columns=[
