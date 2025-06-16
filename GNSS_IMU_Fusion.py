@@ -603,7 +603,7 @@ def main():
     grav_errors = {}
     omega_errors = {}
 
-    for method, R in {
+    for m, R in {
         "TRIAD": R_tri,
         "Davenport": R_dav,
         "SVD": R_svd,
@@ -611,10 +611,10 @@ def main():
         grav_err_deg, omega_err_deg = compute_wahba_errors(
             R, g_body, omega_ie_body, g_NED, omega_ie_NED
         )
-        print(f"{method:10s} -> Gravity error (deg): {grav_err_deg:.6f}")
-        print(f"{method:10s} -> Earth rate error (deg):  {omega_err_deg:.6f}")
-        grav_errors[method] = grav_err_deg
-        omega_errors[method] = omega_err_deg
+        print(f"{m:10s} -> Gravity error (deg): {grav_err_deg:.6f}")
+        print(f"{m:10s} -> Earth rate error (deg):  {omega_err_deg:.6f}")
+        grav_errors[m] = grav_err_deg
+        omega_errors[m] = omega_err_deg
     
     # --------------------------------
     # Subtask 3.6: Validate Attitude Determination and Compare Methods
