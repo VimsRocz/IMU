@@ -606,13 +606,13 @@ def main():
     grav_errors = {}
     omega_errors = {}
 
-    for m, R in {
+    for m, rot_matrix in {
         "TRIAD": R_tri,
         "Davenport": R_dav,
         "SVD": R_svd,
     }.items():
         grav_err_deg, omega_err_deg = compute_wahba_errors(
-            R, g_body, omega_ie_body, g_NED, omega_ie_NED
+            rot_matrix, g_body, omega_ie_body, g_NED, omega_ie_NED
         )
         print(f"{m:10s} -> Gravity error (deg): {grav_err_deg:.6f}")
         print(f"{m:10s} -> Earth rate error (deg):  {omega_err_deg:.6f}")
