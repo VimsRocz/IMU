@@ -107,6 +107,9 @@ def main():
     cases = [(imu, gnss, m) for (imu, gnss) in datasets for m in method_list]
     fusion_results = []
 
+    results_dir = HERE / "results"
+    results_dir.mkdir(exist_ok=True)
+
     for imu, gnss, method in tqdm(cases, desc="All cases"):
         if imu not in here_files or gnss not in here_files:
             raise FileNotFoundError(f"Missing {imu} or {gnss} in {HERE}")
@@ -126,6 +129,18 @@ def main():
                 "max_resid_vel": float(kv.get("max_resid_vel", "nan").replace("m", "")),
                 "accel_bias": float(kv.get("accel_bias", "nan")),
                 "gyro_bias": float(kv.get("gyro_bias", "nan")),
+                "grav_mean_deg": float(kv.get("GravErrMean_deg", "nan")),
+                "grav_max_deg": float(kv.get("GravErrMax_deg", "nan")),
+                "earth_mean_deg": float(kv.get("EarthRateErrMean_deg", "nan")),
+                "earth_max_deg": float(kv.get("EarthRateErrMax_deg", "nan")),
+                "q0_w"      : float(kv.get("q0_w", "nan")),
+                "q0_x"      : float(kv.get("q0_x", "nan")),
+                "q0_y"      : float(kv.get("q0_y", "nan")),
+                "q0_z"      : float(kv.get("q0_z", "nan")),
+                "Pxx"       : float(kv.get("Pxx", "nan")),
+                "Pyy"       : float(kv.get("Pyy", "nan")),
+                "Pzz"       : float(kv.get("Pzz", "nan")),
+                "ZUPT_count": int(kv.get("ZUPT_count", "0")),
                 "runtime"  : runtime,
             })
 
@@ -144,6 +159,18 @@ def main():
             e["max_resid_vel"],
             e["accel_bias"],
             e["gyro_bias"],
+            e.get("grav_mean_deg", float('nan')),
+            e.get("grav_max_deg", float('nan')),
+            e.get("earth_mean_deg", float('nan')),
+            e.get("earth_max_deg", float('nan')),
+            e.get("q0_w", float('nan')),
+            e.get("q0_x", float('nan')),
+            e.get("q0_y", float('nan')),
+            e.get("q0_z", float('nan')),
+            e.get("Pxx", float('nan')),
+            e.get("Pyy", float('nan')),
+            e.get("Pzz", float('nan')),
+            e.get("ZUPT_count", float('nan')),
             e["runtime"],
         ]
         for e in fusion_results
@@ -161,6 +188,18 @@ def main():
             "MaxresidVel [m/s]",
             "AccelBiasNorm",
             "GyroBiasNorm",
+            "GravErrMean [deg]",
+            "GravErrMax [deg]",
+            "EarthRateMean [deg]",
+            "EarthRateMax [deg]",
+            "q0_w",
+            "q0_x",
+            "q0_y",
+            "q0_z",
+            "Pxx",
+            "Pyy",
+            "Pzz",
+            "ZUPTcnt",
             "Runtime [s]",
         ],
         floatfmt=".2f",
@@ -181,10 +220,22 @@ def main():
             "MaxresidVel_mps",
             "AccelBiasNorm",
             "GyroBiasNorm",
+            "GravErrMean_deg",
+            "GravErrMax_deg",
+            "EarthRateErrMean_deg",
+            "EarthRateErrMax_deg",
+            "q0_w",
+            "q0_x",
+            "q0_y",
+            "q0_z",
+            "Pxx",
+            "Pyy",
+            "Pzz",
+            "ZUPT_count",
             "Runtime_s",
         ],
     )
-    df.to_csv(HERE / "results" / "summary.csv", index=False)
+    df.to_csv(results_dir / "summary.csv", index=False)
 
 
 if __name__ == "__main__":
