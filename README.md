@@ -62,6 +62,19 @@ static accelerometer vector is used to compute a simple scale factor so that the
 measured gravity is close to 9.81 m/s². This improves the attitude
 initialisation when the first samples are not perfectly static or the sensor
 scale is slightly off.
+## Verifying Earth Rotation Rate
+
+Run any dataset with the `--verbose` flag to print the **Earth rotation magnitude** measured from the static gyroscope data.
+It should be close to `7.29e-5` rad/s. You can compute the nominal value with:
+
+```bash
+python - <<"EOF"
+import numpy as np; print(2*np.pi/86400)
+EOF
+```
+
+If the measured magnitude differs by more than a few percent, the IMU may not be completely still or needs calibration.
+
 
 ## Running all methods
 
