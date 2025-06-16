@@ -9,13 +9,41 @@ Install dependencies with:
 pip install -r requirements.txt
 ```
 
-### Codespaces
+## 🚀 Developing & Debugging in GitHub Codespaces
 
-Open the repository in GitHub Codespaces to get a pre-configured
-development container. The `.devcontainer/` folder builds on the
-`mcr.microsoft.com/vscode/devcontainers/python:0-3.10` image and
-installs all requirements automatically. After the container is ready
-run the **Test** task or execute `pytest` to verify the environment.
+1. **Open in Codespace**  
+   Click **Code → Open with Codespaces** on the repo.
+
+2. **Install dependencies**  
+   Codespaces will automatically build the container (per `.devcontainer/`), install Python & your `requirements.txt`.
+
+3. **Enable verbose diagnostics**  
+   We’ve added a `--verbose` flag to `run_all_datasets.py` that enables all the extra tables and timing you requested.
+
+4. **Run with diagnostics**  
+   In the integrated terminal:
+   ```bash
+   python run_all_datasets.py --verbose 2>&1 | tee debug_output.log
+   ```
+
+This will print:
+	•	Static-Calibration Summary
+
+=== IMU Calibration ===
+Accel bias [m/s²]:    [ 0.5687, -6.9884,  0.9356 ]
+Gyro bias  [rad/s]:   [ -1e-08, 6.6e-09, -3.1e-09 ]
+Accel scale factor:   1.0000
+Static interval:      samples 234–634 (Δt=1 s)
+
+	•	Attitude-Determination Diagnostics for each method (gravity/Earth-rate errors, condition numbers, degeneracies)
+	•	GNSS Quality Metrics (HDOP/PDOP statistics, satellite counts)
+	•	ZUPT & KF events summary (counts, total ZUPT time, final covariance)
+	•	Trajectory-Error Time Series (t, pos-error, vel-error)
+	•	Timing & Performance per task + total
+	•	Final Comparison Table across datasets & methods
+
+	5.	Copy & paste
+Once it finishes, open debug_output.log, copy the console dump and paste it back here so we can verify and iterate.
 
 ## Notes
 

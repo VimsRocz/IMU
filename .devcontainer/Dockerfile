@@ -1,6 +1,19 @@
-# Use the official VS Code Python devcontainer image
-ARG VARIANT="3.9"
-FROM mcr.microsoft.com/vscode/devcontainers/python:0-${VARIANT}
+# Use an official Python runtime as a parent image
+FROM python:3.10-slim
+
+# Install any system dependencies here (e.g. for plotting)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
-# (Add any apt-get installs here if your old setup needed them.)
+
+# Copy only requirements first to leverage Docker cache
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the code
+COPY . .
+
+# Default to bash
+CMD [ "bash" ]
