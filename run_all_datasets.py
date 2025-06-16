@@ -14,8 +14,6 @@ import argparse
 import re
 import time
 
-from rich.console import Console
-from rich.table import Table
 from tqdm import tqdm
 
 HERE     = pathlib.Path(__file__).resolve().parent
@@ -64,16 +62,27 @@ def run_one(imu, gnss, method, verbose=False):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", action="store_true", help="Print detailed debug info")
+    parser.add_argument("--datasets", default="ALL",
+                        help="Comma separated dataset IDs (e.g. X001,X002) or ALL")
+    parser.add_argument("--methods", default="ALL",
+                        help="Comma separated method names or ALL")
     args = parser.parse_args()
 
     here_files = {p.name for p in HERE.iterdir()}
-    cases = [(imu, gnss, m) for (imu, gnss) in DATASETS for m in METHODS]
-    console = Console()
-    table = Table(title="Fusion Results")
-    table.add_column("Method")
-    table.add_column("RMSE (m)", justify="right")
-    table.add_column("Final Error (m)", justify="right")
-    table.add_column("Runtime (s)", justify="right")
+
+    if args.datasets.upper() == "ALL":
+        datasets = DATASETS
+    else:
+        ids = {d.strip() for d in args.datasets.split(',')}
+        datasets = [p for p in DATASETS if pathlib.Path(p[0]).stem.split('_')[1] in ids]
+
+    if args.methods.upper() == "ALL":
+        methods = METHODS
+    else:
+        methods = [m.strip() for m in args.methods.split(',')]
+
+    cases = [(imu, gnss, m) for (imu, gnss) in datasets for m in methods]
+    fusion_results = []
 
     for imu, gnss, method in tqdm(cases, desc="All cases"):
         if imu not in here_files or gnss not in here_files:
@@ -82,17 +91,27 @@ def main():
         summary = run_one(imu, gnss, method, verbose=args.verbose)
         runtime = time.time() - start
         if summary:
-            # split on key=value pairs allowing spaces after '=' for
-            # formatted numbers like "final_pos=  10.84m"
             kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
-            table.add_row(
-                kv.get("method", method),
-                kv.get("rmse_pos", "n/a").replace("m", ""),
-                kv.get("final_pos", "n/a").replace("m", ""),
-                f"{runtime:.1f}"
-            )
+            fusion_results.append({
+                "dataset"  : pathlib.Path(imu).stem.split("_")[1],
+                "method"   : kv.get("method", method),
+                "rmse_pos" : float(kv.get("rmse_pos", "nan").replace("m", "")),
+                "final_pos": float(kv.get("final_pos", "nan").replace("m", "")),
+                "runtime"  : runtime,
+            })
 
-    console.print(table)
+    # --- print a full ASCII table for every dataset×method in fusion_results ---
+    print("┏─────────┳─────────┳───────────┳───────────┳─────────────┓")
+    print("│ Dataset │ Method  │  RMSEpos  │ End-Error │  Runtime    │")
+    print("┣─────────┿─────────┿───────────┿───────────┿─────────────┫")
+    for e in fusion_results:
+        ds = e["dataset"]
+        m  = e["method"]
+        r  = e["rmse_pos"]
+        f_ = e["final_pos"]
+        t  = e["runtime"]
+        print(f"│ {ds:7} │ {m:7} │ {r:9.2f} │ {f_:9.2f} │ {t:11.1f} │")
+    print("┗─────────┻─────────┻───────────┻───────────┻─────────────┛")
 
 if __name__ == "__main__":
     main()
