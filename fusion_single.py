@@ -61,7 +61,8 @@ def main():
     parser.add_argument('--imu-file', default='IMU_X001.dat')
     parser.add_argument('--gnss-file', default='GNSS_X001.csv')
     parser.add_argument('--gnss_weight', type=float, default=1.0)
-    parser.add_argument('--bias_noise', type=float, default=1e-5)
+    parser.add_argument('--accel_bias_noise', type=float, default=1e-5)
+    parser.add_argument('--gyro_bias_noise', type=float, default=1e-5)
     parser.add_argument('--accel_noise', type=float, default=0.1)
     parser.add_argument('--static_window', type=int, default=400)
     parser.add_argument('--smoother', action='store_true')
@@ -134,7 +135,12 @@ def main():
     acc_bias = static_acc + Cbn@g_ned
     gyro_bias = static_gyro - Cbn@omega_ned
 
-    kf = GNSSIMUKalman(args.gnss_weight,args.accel_noise,args.bias_noise)
+    kf = GNSSIMUKalman(
+        args.gnss_weight,
+        accel_noise=args.accel_noise,
+        accel_bias_noise=args.accel_bias_noise,
+        gyro_bias_noise=args.gyro_bias_noise,
+    )
     kf.init_state(pos_ned[0], vel_ned[0], acc_bias, gyro_bias)
 
     N = len(imu)

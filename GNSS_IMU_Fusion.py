@@ -52,6 +52,16 @@ def average_rotation_matrices(rotations):
     U, _, Vt = np.linalg.svd(A)
     return U @ Vt
 
+def svd_alignment(body_vecs, ref_vecs, weights=None):
+    """Return body->NED rotation using SVD for an arbitrary number of vector pairs."""
+    if weights is None:
+        weights = np.ones(len(body_vecs))
+    B = sum(w * np.outer(r / np.linalg.norm(r), b / np.linalg.norm(b))
+            for b, r, w in zip(body_vecs, ref_vecs, weights))
+    U, _, Vt = np.linalg.svd(B)
+    M = np.diag([1, 1, np.sign(np.linalg.det(U @ Vt))])
+    return U @ M @ Vt
+
 def compute_C_ECEF_to_NED(lat, lon):
     """Compute rotation matrix from ECEF to NED frame."""
     sin_phi = np.sin(lat)
@@ -113,6 +123,15 @@ def main():
         default="Davenport",
         choices=["TRIAD", "SVD", "Davenport"],
     )
+    parser.add_argument("--mag-file", help="CSV file with magnetometer data")
+    parser.add_argument(
+        "--use-gnss-heading",
+        action="store_true",
+        help="Use initial GNSS velocity for yaw if no magnetometer",
+    )
+    parser.add_argument("--accel-noise", type=float, default=0.1)
+    parser.add_argument("--accel-bias-noise", type=float, default=1e-5)
+    parser.add_argument("--gyro-bias-noise", type=float, default=1e-5)
     parser.add_argument(
         "--no-plots",
         action="store_true",
@@ -189,6 +208,9 @@ def main():
         lat_deg, lon_deg, alt = ecef_to_geodetic(x_ecef, y_ecef, z_ecef)
         lat = np.deg2rad(lat_deg)
         lon = np.deg2rad(lon_deg)
+        initial_vel = initial_row[['VX_ECEF_mps', 'VY_ECEF_mps', 'VZ_ECEF_mps']].values
+        C_e2n_init = compute_C_ECEF_to_NED(lat, lon)
+        initial_vel_ned = C_e2n_init @ initial_vel
         logging.info(f"Computed initial latitude: {lat_deg:.6f}°, longitude: {lon_deg:.6f}° from ECEF coordinates.")
         print(f"Initial latitude: {lat_deg:.6f}°, Initial longitude: {lon_deg:.6f}°")
     else:
@@ -213,6 +235,18 @@ def main():
     omega_E = 7.2921159e-5
     omega_ie_NED = omega_E * np.array([np.cos(lat), 0.0, -np.sin(lat)])
     logging.info(f"Earth rotation rate in NED: {omega_ie_NED} rad/s (North, East, Down)")
+
+    mag_NED = None
+    if args.mag_file:
+        try:
+            from datetime import date
+            import geomag.geomag as gm
+            gm_model = gm.GeoMag()
+            res = gm_model.GeoMag(lat_deg, lon_deg, alt, date.today())
+            mag_NED = np.array([res.bx, res.by, res.bz])
+            logging.info(f"Magnetic field in NED: {mag_NED} nT")
+        except Exception as e:
+            logging.error(f"Failed to compute magnetic field: {e}")
     
     # --------------------------------
     # Subtask 1.4: Validate and Print Reference Vectors
@@ -364,6 +398,19 @@ def main():
     logging.info(f"Earth rotation rate in body frame (omega_ie_body): {omega_ie_body} rad/s")
     print(f"Gravity vector (g_body): {g_body} m/s^2")
     print(f"Earth rotation rate (omega_ie_body): {omega_ie_body} rad/s")
+
+    mag_body = None
+    if args.mag_file:
+        try:
+            mag_data = np.loadtxt(args.mag_file, delimiter=",")
+        except Exception as e:
+            logging.error(f"Failed to load magnetometer file: {e}")
+            mag_data = None
+        if mag_data is not None and mag_data.ndim == 2 and mag_data.shape[1] >= 3:
+            mag_data = butter_lowpass_filter(mag_data[:, :3])
+            m_start, m_end = find_static_interval(mag_data)
+            mag_body = np.mean(mag_data[m_start:m_end], axis=0)
+            logging.info(f"Static magnetometer vector: {mag_body}")
     
     # --------------------------------
     # Subtask 2.4: Validate and Print Body-Frame Vectors
@@ -523,21 +570,22 @@ def main():
     # Subtask 3.4: SVD Method
     # --------------------------------
     logging.info("Subtask 3.4: Computing rotation matrix using SVD method.")
-    # Case 1
-    M = w_gravity * np.outer(v1_N, v1_B) + w_omega * np.outer(v2_N, v2_B)
-    U, _, Vt = np.linalg.svd(M)
-    R_svd = U @ np.diag([1, 1, np.linalg.det(U) * np.linalg.det(Vt)]) @ Vt
-    logging.info("Rotation matrix (SVD method, Case 1):\n%s", R_svd)
-    print("Rotation matrix (SVD method, Case 1):")
+    body_vecs = [g_body, omega_ie_body]
+    ref_vecs = [g_NED, omega_ie_NED]
+    if mag_body is not None and mag_NED is not None:
+        body_vecs.append(mag_body)
+        ref_vecs.append(mag_NED)
+    elif args.use_gnss_heading:
+        speed = np.linalg.norm(initial_vel_ned)
+        if speed > 0.2:
+            body_vecs.append(np.array([1.0, 0.0, 0.0]))
+            ref_vecs.append(initial_vel_ned / speed)
+
+    R_svd = svd_alignment(body_vecs, ref_vecs)
+    logging.info("Rotation matrix (SVD method):\n%s", R_svd)
+    print("Rotation matrix (SVD method):")
     print(R_svd)
-    
-    # Case 2
-    M_doc = w_gravity * np.outer(v1_N, v1_B) + w_omega * np.outer(v2_N_doc, v2_B)
-    U_doc, _, Vt_doc = np.linalg.svd(M_doc)
-    R_svd_doc = U_doc @ np.diag([1, 1, np.linalg.det(U_doc) * np.linalg.det(Vt_doc)]) @ Vt_doc
-    logging.info("Rotation matrix (SVD method, Case 2):\n%s", R_svd_doc)
-    print("Rotation matrix (SVD method, Case 2):")
-    print(R_svd_doc)
+    R_svd_doc = R_svd
     
     # --------------------------------
     # Subtask 3.5: Convert TRIAD and SVD DCMs to Quaternions

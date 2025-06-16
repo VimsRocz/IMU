@@ -2,12 +2,31 @@ import numpy as np
 from filterpy.kalman import KalmanFilter
 
 class GNSSIMUKalman:
-    """Simple GNSS/IMU Kalman filter with bias states."""
+    """Simple GNSS/IMU Kalman filter with bias states.
 
-    def __init__(self, gnss_weight=1.0, accel_noise=0.1, bias_noise=1e-5):
+    Parameters
+    ----------
+    gnss_weight : float
+        Scaling applied to the GNSS measurement covariance.
+    accel_noise : float
+        Process noise standard deviation for acceleration.
+    accel_bias_noise : float
+        Random-walk noise for accelerometer bias states.
+    gyro_bias_noise : float
+        Random-walk noise for gyroscope bias states.
+    """
+
+    def __init__(
+        self,
+        gnss_weight: float = 1.0,
+        accel_noise: float = 0.1,
+        accel_bias_noise: float = 1e-5,
+        gyro_bias_noise: float = 1e-5,
+    ) -> None:
         self.gnss_weight = gnss_weight
         self.accel_noise = accel_noise
-        self.bias_noise = bias_noise
+        self.accel_bias_noise = accel_bias_noise
+        self.gyro_bias_noise = gyro_bias_noise
         self.kf = KalmanFilter(dim_x=12, dim_z=6)
 
     def init_state(self, position, velocity, acc_bias, gyro_bias):
@@ -25,9 +44,10 @@ class GNSSIMUKalman:
         Q = np.zeros((12, 12))
         q_acc = (self.accel_noise ** 2) * dt
         Q[3:6, 3:6] = np.eye(3) * q_acc
-        q_bias = (self.bias_noise ** 2) * dt
-        Q[6:9, 6:9] = np.eye(3) * q_bias
-        Q[9:12, 9:12] = np.eye(3) * q_bias
+        q_abias = (self.accel_bias_noise ** 2) * dt
+        q_gbias = (self.gyro_bias_noise ** 2) * dt
+        Q[6:9, 6:9] = np.eye(3) * q_abias
+        Q[9:12, 9:12] = np.eye(3) * q_gbias
         self.kf.F = F
         self.kf.Q = Q
         self.kf.predict()
