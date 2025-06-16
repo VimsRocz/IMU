@@ -107,7 +107,7 @@ def plot_residuals(res_df: pd.DataFrame, out_dir: str) -> None:
     ax[-1].set_xlabel('Time (s)')
     fig.suptitle('Position Residuals')
     fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, 'p_residuals.png'), dpi=150)
+    fig.savefig(os.path.join(out_dir, 'p_residuals.pdf'))
     plt.close(fig)
 
     fig, ax = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
@@ -118,7 +118,7 @@ def plot_residuals(res_df: pd.DataFrame, out_dir: str) -> None:
     ax[-1].set_xlabel('Time (s)')
     fig.suptitle('Velocity Residuals')
     fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, 'v_residuals.png'), dpi=150)
+    fig.savefig(os.path.join(out_dir, 'v_residuals.pdf'))
     plt.close(fig)
 
     fig, ax = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
@@ -129,7 +129,47 @@ def plot_residuals(res_df: pd.DataFrame, out_dir: str) -> None:
     ax[-1].set_xlabel('Time (s)')
     fig.suptitle('Attitude Angles')
     fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, 'attitude_angles.png'), dpi=150)
+    fig.savefig(os.path.join(out_dir, 'attitude_angles.pdf'))
+    plt.close(fig)
+
+
+def plot_residuals_new(gnss_times: np.ndarray,
+                       positions_pred: np.ndarray,
+                       positions_meas: np.ndarray,
+                       velocities_pred: np.ndarray,
+                       velocities_meas: np.ndarray,
+                       dataset: str,
+                       method: str) -> None:
+    """Plot position and velocity residuals and save as PDF."""
+    res_pos = positions_meas - positions_pred
+    res_vel = velocities_meas - velocities_pred
+
+    fig, axs = plt.subplots(2, 1, figsize=(8, 6))
+    axs[0].plot(gnss_times, res_pos)
+    axs[0].set_title('Position Residuals (N, E, D)')
+    axs[1].plot(gnss_times, res_vel)
+    axs[1].set_title('Velocity Residuals (N, E, D)')
+    axs[1].set_xlabel('Time (s)')
+    fig.suptitle(f'Residuals: {dataset} - {method}')
+    out = f'results/{dataset}_{method}_residuals.pdf'
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
+def plot_attitude(time: np.ndarray, quaternions: np.ndarray, dataset: str,
+                  method: str) -> None:
+    """Plot roll/pitch/yaw attitude angles over time."""
+    from filterpy.common import q_to_euler
+    rpy = np.array([q_to_euler(q) for q in quaternions])
+
+    fig, axs = plt.subplots(3, 1, figsize=(8, 8))
+    for i, label in enumerate(['Roll', 'Pitch', 'Yaw']):
+        axs[i].plot(time, rpy[:, i])
+        axs[i].set_title(f'{label} over Time')
+    fig.suptitle(f'Attitude Angles: {dataset} - {method}')
+    fig.tight_layout()
+    fig.savefig(f'results/{dataset}_{method}_attitude.pdf')
     plt.close(fig)
 
 
@@ -151,9 +191,59 @@ def main() -> None:
     args = ap.parse_args()
 
     est, gnss = load_data(args.estimates, args.gnss)
-    res_df, _ = compute_residuals(est, gnss)
+    res_df, times = compute_residuals(est, gnss)
     print_stats(res_df)
     plot_residuals(res_df, args.output)
+
+    # Derive dataset/method names from file paths
+    dataset = os.path.splitext(os.path.basename(args.gnss))[0]
+    method = os.path.splitext(os.path.basename(args.estimates))[0]
+
+    # Recompute predictions and measurements for new helper plots
+    pos_cols_est = _find_cols(est, [
+        ['x', 'y', 'z'],
+        ['px', 'py', 'pz'],
+        ['pos_x', 'pos_y', 'pos_z'],
+    ])
+    vel_cols_est = _find_cols(est, [
+        ['vx', 'vy', 'vz'],
+        ['vel_x', 'vel_y', 'vel_z'],
+    ])
+    quat_cols = _find_cols(est, [
+        ['qw', 'qx', 'qy', 'qz'],
+        ['q0', 'q1', 'q2', 'q3'],
+    ])
+    pos_cols_gnss = _find_cols(gnss, [
+        ['x', 'y', 'z'],
+        ['X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m'],
+        ['pos_x', 'pos_y', 'pos_z'],
+    ])
+    vel_cols_gnss = _find_cols(gnss, [
+        ['vx', 'vy', 'vz'],
+        ['VX_ECEF_mps', 'VY_ECEF_mps', 'VZ_ECEF_mps'],
+        ['vel_x', 'vel_y', 'vel_z'],
+    ])
+
+    est_sorted = est.sort_values('time')
+    gnss_sorted = gnss.sort_values('time')
+    merged = pd.merge_asof(gnss_sorted, est_sorted, on='time', direction='nearest')
+
+    positions_pred = merged[pos_cols_est].to_numpy()
+    positions_meas = merged[pos_cols_gnss].to_numpy()
+    velocities_pred = merged[vel_cols_est].to_numpy()
+    velocities_meas = merged[vel_cols_gnss].to_numpy()
+    quats = merged[quat_cols].to_numpy()
+
+    plot_residuals_new(
+        merged['time'].to_numpy(),
+        positions_pred,
+        positions_meas,
+        velocities_pred,
+        velocities_meas,
+        dataset,
+        method,
+    )
+    plot_attitude(merged['time'].to_numpy(), quats, dataset, method)
 
 
 if __name__ == '__main__':

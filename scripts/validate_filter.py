@@ -17,11 +17,17 @@ def plot_residuals(gnss_times, res, outpath):
     axs[0].plot(gnss_times, res[:, 1], label='East')
     axs[0].plot(gnss_times, res[:, 2], label='Down')
     axs[0].set_ylabel('Position residual (m)')
+    axs[0].set_title('Position Residuals (N, E, D)')
     axs[0].legend()
-    axs[1].plot(gnss_times[:-1],
-                np.diff(res, axis=0) / np.diff(gnss_times)[:, None])
+
+    axs[1].plot(
+        gnss_times[:-1],
+        np.diff(res, axis=0) / np.diff(gnss_times)[:, None]
+    )
     axs[1].set_ylabel('Velocity residual (m/s)')
+    axs[1].set_title('Velocity Residuals (N, E, D)')
     axs[1].set_xlabel('Time (s)')
+
     fig.suptitle('Position & Velocity Residuals')
     fig.tight_layout(rect=[0, 0, 1, 0.96])
     fig.savefig(outpath)
