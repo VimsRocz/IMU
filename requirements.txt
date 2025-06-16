@@ -5,3 +5,4 @@ cartopy
 filterpy
 scipy
 rich
+tabulate
