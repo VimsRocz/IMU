@@ -13,7 +13,12 @@ import sys
 import argparse
 import re
 import time
-from tabulate import tabulate
+try:
+    from tabulate import tabulate
+except ModuleNotFoundError:  # pragma: no cover - friendly message for manual runs
+    print("Missing required dependency 'tabulate'.")
+    print("Please install dependencies with 'pip install -r requirements.txt'.")
+    sys.exit(1)
 
 from tqdm import tqdm
 
