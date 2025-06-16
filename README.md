@@ -3,7 +3,9 @@ IMU data processing and initialization tools (Python)
 
 ## Installation
 
-Install dependencies with:
+`run_all_datasets.py` installs the required packages automatically the first
+time you run it. If you'd rather set them up beforehand, install the
+dependencies manually with:
 
 ```bash
 pip install -r requirements.txt
