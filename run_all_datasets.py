@@ -13,13 +13,31 @@ import sys
 import argparse
 import re
 import time
-try:
-    from tabulate import tabulate
-except ModuleNotFoundError:  # pragma: no cover - friendly message for manual runs
-    print("Missing required dependency 'tabulate'.")
-    print("Please install dependencies with 'pip install -r requirements.txt'.")
-    sys.exit(1)
 
+HERE = pathlib.Path(__file__).resolve().parent
+
+
+def ensure_dependencies():
+    """Install required packages if they're missing."""
+    try:  # check a couple of external deps
+        import tabulate  # noqa: F401
+        import tqdm  # noqa: F401
+    except ModuleNotFoundError:
+        print("Installing Python dependencies ...")
+        req = HERE / "requirements.txt"
+        subprocess.check_call([
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "-r",
+            str(req),
+        ])
+
+
+ensure_dependencies()
+
+from tabulate import tabulate
 from tqdm import tqdm
 
 HERE     = pathlib.Path(__file__).resolve().parent
