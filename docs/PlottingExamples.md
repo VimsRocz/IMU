@@ -14,28 +14,27 @@ import matplotlib.pyplot as plt
 # threshold: float         - variance threshold for the static detector
 # window_size: int         - length of the moving window
 
-def plot_zupt_variance(accel, zupt_mask, dt, threshold, window_size=50):
+def plot_zupt_and_variance(accel, zupt_mask, dt, threshold, window_size=100):
+    t = np.arange(accel.shape[0]) * dt
     accel_norm = np.linalg.norm(accel, axis=1)
-    accel_norm_mean = np.mean(accel_norm)
-    accel_var = np.convolve((accel_norm - accel_norm_mean)**2,
-                            np.ones(window_size)/window_size, mode='same')
+    mean_conv = np.ones(window_size) / window_size
+    var = np.convolve(accel_norm**2, mean_conv, mode='same') - \
+          np.convolve(accel_norm, mean_conv, mode='same')**2
 
-    time = np.arange(accel.shape[0]) * dt
-
-    plt.figure(figsize=(12, 5))
-    plt.plot(time, accel_var, label='Accel Variance (Norm, moving window)')
-    plt.axhline(threshold, color='r', linestyle='--', label='Static Threshold')
-    plt.fill_between(time, 0, np.max(accel_var), where=zupt_mask,
-                     color='lime', alpha=0.3, label='ZUPT Detected')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Accelerometer Variance')
-    plt.title('ZUPT Detection & Accelerometer Variance')
-    plt.legend()
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.plot(t, var, label='Accel Norm Variance', color='tab:blue')
+    ax.axhline(threshold, color='gray', linestyle='--', label='ZUPT threshold')
+    ax.fill_between(t, 0, np.max(var), where=zupt_mask,
+                    color='tab:orange', alpha=0.3, label='ZUPT Detected')
+    ax.set_xlabel('Time [s]')
+    ax.set_ylabel('Variance')
+    ax.set_title('ZUPT Detected Intervals & Accelerometer Variance')
+    ax.legend()
     plt.tight_layout()
     plt.show()
 ```
 
-Call `plot_zupt_variance()` for each dataset after computing your ZUPT mask.
+Call `plot_zupt_and_variance()` for each dataset after computing your ZUPT mask.
 
 ## Plot Euler Angles for Each Dataset
 
@@ -47,23 +46,22 @@ import matplotlib.pyplot as plt
 # rotmats: list of (3,3) rotation matrices from body to navigation frame
 # labels: list of dataset names, e.g. ['X001', 'X002', 'X003']
 
-def plot_initial_eulers(rotmats, labels):
-    eulers_deg = []
+def plot_triad_euler(rotmats, labels):
+    eulers = []
     for mat in rotmats:
         r = R.from_matrix(mat)
-        eulers_deg.append(r.as_euler('zyx', degrees=True))  # yaw, pitch, roll
+        eulers.append(r.as_euler('zyx', degrees=True))
 
-    eulers_deg = np.array(eulers_deg)
-    angles = ['Yaw (ψ)', 'Pitch (θ)', 'Roll (φ)']
-
+    eulers = np.array(eulers)
     plt.figure(figsize=(8, 4))
-    for i in range(3):
-        plt.plot(labels, eulers_deg[:, i], 'o-', label=angles[i])
+    plt.plot(labels, eulers[:, 2], 'o-', label='Roll [°]')
+    plt.plot(labels, eulers[:, 1], 'o-', label='Pitch [°]')
+    plt.plot(labels, eulers[:, 0], 'o-', label='Yaw [°]')
     plt.xlabel('Dataset')
     plt.ylabel('Angle [deg]')
-    plt.title('TRIAD Initialization: Euler Angles per Dataset')
-    plt.legend()
+    plt.title('TRIAD Attitude Initialization (Euler Angles)')
     plt.grid()
+    plt.legend()
     plt.tight_layout()
     plt.show()
 ```
