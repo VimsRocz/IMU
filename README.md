@@ -11,6 +11,19 @@ dependencies manually with:
 pip install -r requirements.txt
 ```
 
+For a minimal setup you can also install the packages individually:
+
+```bash
+pip install numpy matplotlib filterpy
+```
+
+If you run into issues with filterpy on Ubuntu:
+
+```bash
+pip install --upgrade pip setuptools
+pip install filterpy
+```
+
 ### Installing FilterPy on Ubuntu
 
 If installation of `filterpy` fails (for example due to missing build tools) run:
