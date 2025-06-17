@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
+from typing import List
 
 
 def save_plot(fig, outpath, title):
@@ -122,7 +123,7 @@ def plot_zupt_and_variance(accel: np.ndarray, zupt_mask: np.ndarray, dt: float,
     return fig
 
 
-def plot_triad_euler(triad_rotmats: list[np.ndarray], dataset_names: list[str]):
+def plot_triad_euler(triad_rotmats: List[np.ndarray], dataset_names: List[str]):
     """Plot TRIAD initial Euler angles (roll, pitch, yaw) for multiple datasets."""
     eulers = [R.from_matrix(Rm).as_euler("zyx", degrees=True) for Rm in triad_rotmats]
     eulers = np.asarray(eulers)
