@@ -158,6 +158,7 @@ RMSE and innovation statistics.
 Interactive exploration lives in the `notebooks/` folder. Open
 `notebooks/demo.ipynb` to try the plotting utilities in Jupyter.
 Additional plotting examples and a results template are available in [docs/PlottingExamples.md](docs/PlottingExamples.md).
+A codex-style plotting checklist is available in [docs/PlottingChecklist.md](docs/PlottingChecklist.md).
 
 ## Tests
 
