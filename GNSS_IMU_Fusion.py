@@ -1436,7 +1436,10 @@ def main():
                 kf.P = (np.eye(9) - K @ H_z) @ kf.P
                 zupt_count += 1
                 zupt_events.append((i - win + 1, i))
-                logging.info(
+                # This log was previously INFO but produced excessive output
+                # during long runs. Use DEBUG level so it only appears when
+                # explicitly requested.
+                logging.debug(
                     f"ZUPT applied at {imu_time[i]:.2f}s (window {i-win+1}-{i})"
                 )
 
