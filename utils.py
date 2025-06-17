@@ -62,3 +62,43 @@ def is_static(accel_win, gyro_win, accel_var_thresh=0.01, gyro_var_thresh=1e-6):
     """Check if the current IMU window is static."""
     return (np.max(np.var(accel_win, axis=0)) < accel_var_thresh and
             np.max(np.var(gyro_win, axis=0)) < gyro_var_thresh)
+
+# Additional utilities for logging and thresholding
+import logging
+
+
+def log_static_zupt_params(static_start: int, static_end: int,
+                           zupt_count: int, threshold: float,
+                           static_detected: bool = True) -> None:
+    """Log details about the detected static window and ZUPT events."""
+    if not static_detected:
+        logging.warning("No static segment detected!")
+    else:
+        logging.info(
+            f"Static window: {static_start} to {static_end} "
+            f"({static_end-static_start} samples)"
+        )
+    logging.info(f"ZUPT threshold used: {threshold}")
+    logging.info(f"Total ZUPT events: {zupt_count}")
+
+
+def save_static_zupt_params(filename: str, static_start: int, static_end: int,
+                             zupt_count: int, threshold: float) -> None:
+    """Save static/ZUPT parameters to a text file."""
+    with open(filename, 'w') as f:
+        f.write(f"Static start: {static_start}\n")
+        f.write(f"Static end: {static_end}\n")
+        f.write(f"Static length: {static_end-static_start}\n")
+        f.write(f"ZUPT threshold: {threshold}\n")
+        f.write(f"Total ZUPT events: {zupt_count}\n")
+
+
+def adaptive_zupt_threshold(accel_data: np.ndarray, gyro_data: np.ndarray,
+                            factor: float = 3.0) -> tuple[float, float]:
+    """Return adaptive thresholds based on early-sample statistics."""
+    norm_accel = np.linalg.norm(accel_data, axis=1)
+    norm_gyro = np.linalg.norm(gyro_data, axis=1)
+    base = min(400, len(norm_accel))
+    accel_thresh = np.mean(norm_accel[:base]) + factor * np.std(norm_accel[:base])
+    gyro_thresh = np.mean(norm_gyro[:base]) + factor * np.std(norm_gyro[:base])
+    return accel_thresh, gyro_thresh
