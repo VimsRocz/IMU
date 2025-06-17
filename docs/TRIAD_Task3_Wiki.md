@@ -45,4 +45,4 @@ Optional comparison plots
 
 ## Result
 
-Task 3 outputs the rotation matrix and quaternion describing the initial attitude. The error and quaternion plots are saved to the `results/` folder and listed in `plot_summary.md`. Use `run_triad_only.py` to process all datasets and generate these figures.
+Task 3 outputs the rotation matrix and quaternion describing the initial attitude. The error and quaternion plots are saved to the `results/` folder and listed in `plot_summary.md`. Use `run_triad_only.py` to process all datasets and generate these figures. The attitude estimate serves as the starting point for the IMU/GNSS comparison in **Task 4** and the subsequent Kalman filter fusion in **Task 5**.

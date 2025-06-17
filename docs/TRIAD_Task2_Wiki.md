@@ -61,4 +61,4 @@ axes before continuing with the TRIAD attitude initialisation.
 
 ## Result
 
-After completing Task 2 the script has estimates for gravity and the Earth rotation rate in the body frame. These measured vectors, together with the reference vectors from Task 1, form the input to the TRIAD algorithm in Task 3.
+After completing Task 2 the script has estimates for gravity and the Earth rotation rate in the body frame. These measured vectors, together with the reference vectors from Task 1, form the input to the TRIAD algorithm in **Task 3**. The resulting attitude is then used for IMU integration in **Task 4** and for the Kalman filter fusion in **Task 5**.
