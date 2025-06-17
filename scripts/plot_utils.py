@@ -70,3 +70,70 @@ def plot_initial_attitude(triad_rotation_matrices: dict):
             f"Pitch={euler_deg[1]:.2f}°, Roll={euler_deg[2]:.2f}°"
         )
     return results
+
+
+def plot_zupt_and_variance(accel: np.ndarray, zupt_mask: np.ndarray, dt: float,
+                           threshold: float, window_size: int = 100):
+    """Plot rolling variance of the acceleration norm with ZUPT intervals.
+
+    Parameters
+    ----------
+    accel:
+        Raw accelerometer samples ``(N,3)``.
+    zupt_mask:
+        Boolean mask marking detected ZUPT intervals.
+    dt:
+        Sampling period in seconds.
+    threshold:
+        Variance threshold used for detection.
+    window_size:
+        Length of the moving window in samples.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The generated figure.
+    """
+    t = np.arange(accel.shape[0]) * dt
+    accel_norm = np.linalg.norm(accel, axis=1)
+    mean_conv = np.ones(window_size) / window_size
+    var = (
+        np.convolve(accel_norm ** 2, mean_conv, mode="same")
+        - np.convolve(accel_norm, mean_conv, mode="same") ** 2
+    )
+
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.plot(t, var, label="Accel Norm Variance", color="tab:blue")
+    ax.axhline(threshold, color="gray", linestyle="--", label="ZUPT threshold")
+    ax.fill_between(
+        t,
+        0,
+        np.max(var),
+        where=zupt_mask,
+        color="tab:orange",
+        alpha=0.3,
+        label="ZUPT Detected",
+    )
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Variance")
+    ax.set_title("ZUPT Detected Intervals & Accelerometer Variance")
+    ax.legend()
+    fig.tight_layout()
+    return fig
+
+
+def plot_triad_euler(triad_rotmats: list[np.ndarray], dataset_names: list[str]):
+    """Plot TRIAD initial Euler angles (roll, pitch, yaw) for multiple datasets."""
+    eulers = [R.from_matrix(Rm).as_euler("zyx", degrees=True) for Rm in triad_rotmats]
+    eulers = np.asarray(eulers)
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(dataset_names, eulers[:, 2], marker="o", label="Roll [°]")
+    ax.plot(dataset_names, eulers[:, 1], marker="o", label="Pitch [°]")
+    ax.plot(dataset_names, eulers[:, 0], marker="o", label="Yaw [°]")
+    ax.set_ylabel("Angle [deg]")
+    ax.set_title("TRIAD Attitude Initialization (Euler Angles)")
+    ax.grid(True)
+    ax.legend()
+    fig.tight_layout()
+    return fig
