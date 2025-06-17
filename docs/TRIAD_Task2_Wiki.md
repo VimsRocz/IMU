@@ -39,6 +39,9 @@ axes before continuing with the TRIAD attitude initialisation.
 - Optionally apply a scale factor so the gravity magnitude is close to `9.81 m/s²`.
 - Print the means and magnitudes of the accelerometer and gyroscope vectors so
   the operator can confirm that the IMU was indeed stationary.
+- Save a diagnostic plot of the detected static window using
+  `plot_zupt_and_variance()`. The file is stored as
+  `results/<tag>_ZUPT_variance.pdf` and summarised in `plot_summary.md`.
 
 ### 2.3 Define Gravity and Earth Rate in Body Frame
 - The measured accelerometer mean is negated to give `g_body`.
