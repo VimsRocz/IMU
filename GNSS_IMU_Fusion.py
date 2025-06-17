@@ -15,6 +15,7 @@ from typing import Tuple
 
 import argparse, pathlib, json, numpy as np
 from scripts.plot_utils import save_plot, plot_attitude
+from utils import detect_static_interval, is_static
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
 
@@ -345,23 +346,22 @@ def main():
     acc = butter_lowpass_filter(acc)
     gyro = butter_lowpass_filter(gyro)
 
-    # --- Detect a static interval automatically ---
-    def find_static_interval(accel, window_size=400, std_threshold=0.05):
-        mags = np.linalg.norm(accel, axis=1)
-        n = len(accel)
-        win = window_size
-        stds = np.array([mags[i : i + win].std() for i in range(0, n - win)])
-        idx = np.where(stds < std_threshold)[0]
-        if idx.size > 0:
-            start = idx[0]
-            return start, start + win
-        # fallback: use first window
-        return 0, min(win, n)
-
-    start_idx, end_idx = find_static_interval(acc)
+    # --- Detect a static interval automatically using variance thresholds ---
+    start_idx, end_idx = detect_static_interval(
+        acc,
+        gyro,
+        window_size=80,
+        accel_var_thresh=0.01,
+        gyro_var_thresh=1e-6,
+        min_length=80,
+    )
     N_static = end_idx - start_idx
     static_acc = np.mean(acc[start_idx:end_idx], axis=0)
     static_gyro = np.mean(gyro[start_idx:end_idx], axis=0)
+    acc_var = np.var(acc[start_idx:end_idx], axis=0)
+    gyro_var = np.var(gyro[start_idx:end_idx], axis=0)
+    start_t = start_idx * dt_imu
+    end_t = end_idx * dt_imu
     logging.info(
         f"Static interval: {start_idx} to {end_idx} (length {N_static} samples)"
     )
@@ -371,6 +371,17 @@ def main():
     logging.info(
         f"Static gyroscope vector (mean over {N_static} samples): {static_gyro}"
     )
+    logging.info(
+        f"Window time: {start_t:.3f}s to {end_t:.3f}s | "
+        f"Accel var: {acc_var} | Gyro var: {gyro_var}"
+    )
+
+    with open("triad_init_log.txt", "a") as logf:
+        logf.write(
+            f"{imu_file}: window {start_idx}-{end_idx} (t={start_t:.3f}-{end_t:.3f}s)\n"
+        )
+        logf.write(f"acc_mean={static_acc} acc_var={acc_var}\n")
+        logf.write(f"gyro_mean={static_gyro} gyro_var={gyro_var}\n")
     g_norm = np.linalg.norm(static_acc)
     omega_norm = np.linalg.norm(static_gyro)
     logging.info(f"Estimated gravity magnitude from IMU: {g_norm:.4f} m/s² (expected ~9.81)")
@@ -641,6 +652,14 @@ def main():
 
     logging.info(f"Quaternion (TRIAD, Case 1): {q_tri}")
     print(f"Quaternion (TRIAD, Case 1): {q_tri}")
+    euler_tri = R.from_matrix(R_tri).as_euler('xyz', degrees=True)
+    logging.info(
+        f"TRIAD initial attitude (deg): roll={euler_tri[0]:.3f} pitch={euler_tri[1]:.3f} yaw={euler_tri[2]:.3f}"
+    )
+    with open("triad_init_log.txt", "a") as logf:
+        logf.write(
+            f"{imu_file}: init_euler_deg={euler_tri}\n"
+        )
     logging.info(f"Quaternion (SVD, Case 1): {q_svd}")
     print(f"Quaternion (SVD, Case 1): {q_svd}")
     logging.info(f"Quaternion (TRIAD, Case 2): {q_tri_doc}")
@@ -1277,18 +1296,7 @@ def main():
             imu_pos[m][i] = imu_pos[m][i-1] + 0.5 * (imu_vel[m][i] + imu_vel[m][i-1]) * dt
         logging.info(f"Method {m}: IMU data integrated.")
     
-    # --------------------------------
-    # Subtask 5.5: Apply Zero-Velocity Updates (ZUPT) for Each Method
-    # --------------------------------
-    logging.info("Subtask 5.5: Applying Zero-Velocity Updates (ZUPT) for each method.")
-    stationary_threshold = 0.01
-    t_rel_ilu = imu_time - gnss_time[0]
-    for m in methods:
-        for i in range(len(imu_time)):
-            if t_rel_ilu[i] < 5000 and np.linalg.norm(imu_vel[m][i]) < stationary_threshold:
-                imu_vel[m][i] = np.zeros(3)
-                imu_pos[m][i] = imu_pos[m][i-1]
-        logging.info(f"Method {m}: ZUPT applied.")
+    # ZUPT handled dynamically during Kalman filtering
     
     # --------------------------------
     # Subtask 5.6: Kalman Filter for Sensor Fusion for Each Method
@@ -1311,6 +1319,7 @@ def main():
     res_pos_all = {}
     res_vel_all = {}
     time_res_all = {}
+    zupt_counts = {}
 
     def quat_multiply(q, r):
         w0, x0, y0, z0 = q
@@ -1362,6 +1371,12 @@ def main():
         res_pos_list, res_vel_list, time_res = [], [], []
         euler_list = []
 
+        win = 80
+        acc_win = []
+        gyro_win = []
+        zupt_count = 0
+        zupt_events = []
+
         # attitude initialisation for logging
         orientations = np.zeros((len(imu_time), 4))
         initial_quats = {'TRIAD': q_tri, 'Davenport': q_dav, 'SVD': q_svd}
@@ -1404,11 +1419,36 @@ def main():
             z = np.hstack((gnss_pos_ned_interp[i], gnss_vel_ned_interp[i]))
             kf.update(z)
 
+            # --- ZUPT check with rolling variance ---
+            acc_win.append(acc_body_corrected[m][i])
+            gyro_win.append(gyro_body_corrected[m][i])
+            if len(acc_win) > win:
+                acc_win.pop(0)
+                gyro_win.pop(0)
+            if len(acc_win) == win and is_static(np.array(acc_win), np.array(gyro_win)):
+                H_z = np.zeros((3, 9))
+                H_z[:, 3:6] = np.eye(3)
+                R_z = np.eye(3) * 1e-4
+                pred_v = H_z @ kf.x
+                S = H_z @ kf.P @ H_z.T + R_z
+                K = kf.P @ H_z.T @ np.linalg.inv(S)
+                kf.x += K @ (-pred_v)
+                kf.P = (np.eye(9) - K @ H_z) @ kf.P
+                zupt_count += 1
+                zupt_events.append((i - win + 1, i))
+                logging.info(
+                    f"ZUPT applied at {imu_time[i]:.2f}s (window {i-win+1}-{i})"
+                )
+
             fused_pos[m][i] = kf.x[0:3]
             fused_vel[m][i] = kf.x[3:6]
             fused_acc[m][i] = imu_acc[m][i]  # Use integrated acceleration
 
-        logging.info(f"Method {m}: Kalman Filter completed.")
+        logging.info(f"Method {m}: Kalman Filter completed. ZUPTcnt={zupt_count}")
+        with open("triad_init_log.txt", "a") as logf:
+            for s, e in zupt_events:
+                logf.write(f"{imu_file}: ZUPT {s}-{e}\n")
+        zupt_counts[m] = zupt_count
 
         # stack log lists
         innov_pos = np.vstack(innov_pos)
@@ -1646,7 +1686,8 @@ def main():
         f"rmse_pos={rmse_pos:7.2f}m final_pos={final_pos:7.2f}m "
         f"rms_resid_pos={rms_resid_pos:7.2f}m max_resid_pos={max_resid_pos:7.2f}m "
         f"rms_resid_vel={rms_resid_vel:7.2f}m max_resid_vel={max_resid_vel:7.2f}m "
-        f"accel_bias={np.linalg.norm(accel_bias):.4f} gyro_bias={np.linalg.norm(gyro_bias):.4f}"
+        f"accel_bias={np.linalg.norm(accel_bias):.4f} gyro_bias={np.linalg.norm(gyro_bias):.4f} "
+        f"ZUPT_count={zupt_counts.get(method,0)}"
     )
     
 

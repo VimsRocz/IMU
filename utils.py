@@ -48,10 +48,14 @@ def detect_static_interval(accel_data, gyro_data, window_size=200,
             i0 = g[0][0]
             i1 = g[-1][0] + window_size
             groups.append((i0, i1))
+
+    # pick the longest static group that satisfies the minimum length
+    longest = (0, window_size)
     for i0, i1 in groups:
-        if i1 - i0 >= min_length:
-            return i0, i1
-    return 0, window_size
+        if i1 - i0 >= min_length and i1 - i0 > longest[1] - longest[0]:
+            longest = (i0, i1)
+
+    return longest
 
 
 def is_static(accel_win, gyro_win, accel_var_thresh=0.01, gyro_var_thresh=1e-6):
