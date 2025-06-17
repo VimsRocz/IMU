@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Tuple
 
 
 def detect_static_interval(accel_data, gyro_data, window_size=200,
@@ -94,7 +95,7 @@ def save_static_zupt_params(filename: str, static_start: int, static_end: int,
 
 
 def adaptive_zupt_threshold(accel_data: np.ndarray, gyro_data: np.ndarray,
-                            factor: float = 3.0) -> tuple[float, float]:
+                            factor: float = 3.0) -> Tuple[float, float]:
     """Return adaptive thresholds based on early-sample statistics."""
     norm_accel = np.linalg.norm(accel_data, axis=1)
     norm_gyro = np.linalg.norm(gyro_data, axis=1)
