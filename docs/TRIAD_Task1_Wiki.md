@@ -42,6 +42,7 @@ Optional magnetic field if a magnetometer file is provided
 - Produce a small map centred on the derived latitude/longitude using the `PlateCarree` projection from `cartopy`.
 - The position is marked with a red dot and labelled with latitude and longitude.
 - The figure is saved as `results/<tag>_location_map.pdf` (unless `--no-plots` is used).
+- This PDF is listed in `plot_summary.md` as part of the standard results set.
 
 ## Result
 
