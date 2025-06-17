@@ -46,5 +46,5 @@ Optional magnetic field if a magnetometer file is provided
 
 ## Result
 
-After completing Task 1 the script prints the reference vectors and saves the optional location map. Subsequent tasks (measurement in the body frame and the TRIAD solution) rely on these vectors to initialise the attitude.
+After completing Task 1 the script prints the reference vectors and saves the optional location map. Subsequent tasks use these vectors when measuring the body-frame quantities in **Task 2** and solving the TRIAD attitude in **Task 3**. They also carry through to the IMU/GNSS integration in **Task 4** and the Kalman filter fusion in **Task 5**.
 
