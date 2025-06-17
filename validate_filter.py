@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from typing import Sequence
+from typing import Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -27,7 +27,7 @@ def _find_cols(df: pd.DataFrame, options: Sequence[Sequence[str]]) -> Sequence[s
     raise KeyError(f"None of the column sets {options!r} found in {list(df.columns)}")
 
 
-def load_data(est_path: str, gnss_path: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+def load_data(est_path: str, gnss_path: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
     est = pd.read_csv(est_path)
     gnss = pd.read_csv(gnss_path)
 
@@ -45,7 +45,7 @@ def load_data(est_path: str, gnss_path: str) -> tuple[pd.DataFrame, pd.DataFrame
     return est, gnss
 
 
-def compute_residuals(est: pd.DataFrame, gnss: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
+def compute_residuals(est: pd.DataFrame, gnss: pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray]:
     """Merge filter estimates with GNSS and return residual arrays."""
     pos_cols_est = _find_cols(est, [
         ['x', 'y', 'z'],
