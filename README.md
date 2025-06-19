@@ -168,6 +168,17 @@ Run the unit tests with `pytest`:
 pytest -q
 ```
 
+## MATLAB Compatibility
+
+Each run now exports a MATLAB `.mat` file alongside the NPZ results. Use the
+scripts in the new `MATLAB/` folder to recreate the final plots or validate the
+filter against ground truth data. Example:
+
+```matlab
+plot_results('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat');
+validate_3sigma('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat', 'STATE_X001.txt');
+```
+
 ## Next Steps
 
 - **Logging:** Extend the built-in `logging` with the `rich` console handler to

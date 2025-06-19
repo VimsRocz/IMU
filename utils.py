@@ -103,3 +103,9 @@ def adaptive_zupt_threshold(accel_data: np.ndarray, gyro_data: np.ndarray,
     accel_thresh = np.mean(norm_accel[:base]) + factor * np.std(norm_accel[:base])
     gyro_thresh = np.mean(norm_gyro[:base]) + factor * np.std(norm_gyro[:base])
     return accel_thresh, gyro_thresh
+
+
+def save_mat(filename: str, data: dict) -> None:
+    """Save *data* dictionary to a MATLAB ``.mat`` file."""
+    from scipy.io import savemat
+    savemat(filename, data)
