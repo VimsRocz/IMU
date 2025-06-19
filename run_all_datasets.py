@@ -15,6 +15,7 @@ import re
 import time
 import pandas as pd
 import numpy as np
+import yaml
 
 HERE = pathlib.Path(__file__).resolve().parent
 
@@ -47,13 +48,16 @@ SCRIPT   = HERE / "GNSS_IMU_Fusion.py"
 LOG_DIR  = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-DATASETS = [
+DEFAULT_DATASETS = [
     ("IMU_X001.dat", "GNSS_X001.csv"),
     ("IMU_X002.dat", "GNSS_X002.csv"),
     ("IMU_X003.dat", "GNSS_X002.csv"),   # <- note the GNSS swap
 ]
 
-METHODS  = ["TRIAD", "Davenport", "SVD"]
+DEFAULT_METHODS  = ["TRIAD", "Davenport", "SVD"]
+
+DATASETS = DEFAULT_DATASETS.copy()
+METHODS = DEFAULT_METHODS.copy()
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
@@ -92,9 +96,19 @@ def main():
                         help="Comma separated dataset IDs (e.g. X001,X002) or ALL")
     parser.add_argument('--method', choices=['TRIAD','Davenport','SVD','ALL'],
                         default='ALL')
+    parser.add_argument('--config', help='YAML configuration file')
     args = parser.parse_args()
 
     here_files = {p.name for p in HERE.iterdir()}
+
+    if args.config:
+        with open(args.config) as fh:
+            cfg = yaml.safe_load(fh) or {}
+        global DATASETS, METHODS
+        if 'datasets' in cfg:
+            DATASETS = [(ds['imu'], ds['gnss']) for ds in cfg['datasets']]
+        if 'methods' in cfg:
+            METHODS = cfg['methods']
 
     if args.datasets.upper() == "ALL":
         datasets = DATASETS

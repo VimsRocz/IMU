@@ -1669,6 +1669,22 @@ def main():
         time_residuals=time_res_all[method],
     )
 
+    # Also export results as MATLAB-compatible .mat for post-processing
+    from scipy.io import savemat
+    savemat(
+        f"results/{tag}_kf_output.mat",
+        {
+            "rmse_pos": np.array([rmse_pos]),
+            "final_pos": np.array([final_pos]),
+            "innov_pos": innov_pos_all[method],
+            "innov_vel": innov_vel_all[method],
+            "euler": euler_all[method],
+            "residual_pos": res_pos_all[method],
+            "residual_vel": res_vel_all[method],
+            "time_residuals": time_res_all[method],
+        },
+    )
+
     # --- Persist for cross-dataset comparison ------------------------------
     import pickle, gzip
     pack = {
