@@ -12,6 +12,16 @@ function TRIAD(imuFile, gnssFile, varargin)
 %
 %   See docs/TRIAD_Task*.md for a detailed description of the algorithm.
 
+% Detect accidental execution as a script. When run with the `run` command
+% the file is evaluated line-by-line and `nargin` cannot be called,
+% producing the cryptic "You can only call nargin/nargout from within a
+% MATLAB function" error.  Use `dbstack` to detect that situation and emit
+% a clearer message before reaching the nargin check below.
+if numel(dbstack) <= 1
+    error(['TRIAD must be called as a function with two file names. Example:\n', ...
+           '    TRIAD(''IMU_X001.dat'', ''GNSS_X001.csv'');']);
+end
+
 if nargin < 2
     error('Usage: TRIAD(''IMUFILE'',''GNSSFILE'')');
 end
