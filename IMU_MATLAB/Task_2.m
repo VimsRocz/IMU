@@ -1,15 +1,24 @@
+
+function Task_2(imuFile, gnssFile)
 % =========================================================================
 % TASK 2: Measure the Vectors in the Body Frame
-% 
-% This script translates Task 2 from the Python file GNSS_IMU_Fusion.py
-% into a single, self-contained MATLAB script.
+%
+% This function translates Task 2 from the Python file GNSS_IMU_Fusion.py
+% into MATLAB.
 % =========================================================================
 
 
 fprintf('TASK 2: Measure the vectors in the body frame\n');
 
 % --- Configuration ---
-imu_file = 'IMU_X001.dat'; % IMPORTANT: Replace with your actual IMU file name
+if ~exist('results','dir')
+    mkdir('results');
+end
+[~, imu_name, ~] = fileparts(imuFile);
+[~, gnss_name, ~] = fileparts(gnssFile);
+tag = [imu_name '_' gnss_name];
+
+imu_file = get_data_file(imuFile);
 
 %% ================================
 % Subtask 2.1: Load and Parse IMU Data
@@ -174,3 +183,9 @@ fprintf('Measured Earth rotation (omega_ie_body): [%.4e, %.4e, %.4e]'' rad/s\n',
 fprintf('\nNote: These are physical vectors expressed in the body frame (sensor axes).\n');
 fprintf('From accelerometer (assuming static IMU): a_measured = -g_body \n');
 fprintf('From gyroscope (assuming static IMU):     w_measured = omega_ie_body \n');
+
+% Save results for later tasks
+save(fullfile('results', ['Task2_body_' tag '.mat']), 'g_body', 'omega_ie_body');
+fprintf('Body-frame vectors saved to %s\n', fullfile('results', ['Task2_body_' tag '.mat']));
+
+end
