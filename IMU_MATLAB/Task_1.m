@@ -11,8 +11,12 @@ function Task_1()
     opts = detectImportOptions(get_data_file('GNSS_X001.csv'), 'NumHeaderLines', 0);
     gnss = readtable(get_data_file('GNSS_X001.csv'), opts);
     X0 = gnss.X_ECEF_m(1); Y0 = gnss.Y_ECEF_m(1); Z0 = gnss.Z_ECEF_m(1);
+    % use ecef2lla which returns a 3-element vector [lat lon alt]
+    % older MATLAB versions may not support the ellipsoid argument with
+    % multiple outputs, so extract the components manually
     wgs84 = wgs84Ellipsoid('meter');
-    [lat, lon, h] = ecef2lla([X0 Y0 Z0], wgs84);
+    lla = ecef2lla([X0 Y0 Z0], wgs84);
+    lat = lla(1); lon = lla(2); h = lla(3);
     fprintf('Computed initial latitude: %.6f\u00B0, longitude: %.6f\u00B0\n', lat, lon);
 
     %% Subtask 1.2: Defining gravity vector in NED frame
