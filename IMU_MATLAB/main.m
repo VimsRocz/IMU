@@ -7,10 +7,17 @@ end
 
 fprintf('Running IMU+GNSS Initialization Pipeline (MATLAB Version)\n');
 
-Task_1();
-Task_2();
-Task_3();
-Task_4();
-Task_5();
+datasets = {
+    'IMU_X001.dat','GNSS_X001.csv';
+    'IMU_X002.dat','GNSS_X002.csv';
+    'IMU_X003.dat','GNSS_X002.csv'};
+for k = 1:size(datasets,1)
+    [imu, gnss] = datasets{k,:};
+    Task_1(imu, gnss);
+    Task_2(imu, gnss);
+    Task_3(imu, gnss);
+    Task_4(imu, gnss);
+    Task_5(imu, gnss);
+end
 
 fprintf('All tasks completed!\n');

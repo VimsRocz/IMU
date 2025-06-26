@@ -1,4 +1,4 @@
-function Task_1()
+function Task_1(imuFile, gnssFile)
     % TASK 1: Define reference vectors in NED frame
     fprintf("\nTASK 1: Define reference vectors in NED frame\n");
 
@@ -6,10 +6,13 @@ function Task_1()
     if ~exist('results','dir')
         mkdir('results');
     end
+    [~, imu_name, ~] = fileparts(imuFile);
+    [~, gnss_name, ~] = fileparts(gnssFile);
+    tag = [imu_name '_' gnss_name];
 
     %% Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data
-    opts = detectImportOptions(get_data_file('GNSS_X001.csv'), 'NumHeaderLines', 0);
-    gnss = readtable(get_data_file('GNSS_X001.csv'), opts);
+    opts = detectImportOptions(get_data_file(gnssFile), 'NumHeaderLines', 0);
+    gnss = readtable(get_data_file(gnssFile), opts);
     X0 = gnss.X_ECEF_m(1); Y0 = gnss.Y_ECEF_m(1); Z0 = gnss.Z_ECEF_m(1);
     % use ecef2lla which returns a 3-element vector [lat lon alt]
     % older MATLAB versions may not support the ellipsoid argument with
@@ -42,8 +45,8 @@ function Task_1()
     geoscatter(lat, lon, 'r', 'filled');
     title('Initial Location (from GNSS ECEF)');
     geobasemap('satellite');
-    saveas(gcf, fullfile('results','Task1_location_map.png'));
+    saveas(gcf, fullfile('results', ['Task1_location_map_' tag '.png']));
     close;
 
-    save(fullfile('results','Task1_init.mat'), 'lat', 'lon', 'g_NED', 'omega_NED');
+    save(fullfile('results', ['Task1_init_' tag '.mat']), 'lat', 'lon', 'g_NED', 'omega_NED');
 end
