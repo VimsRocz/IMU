@@ -12,7 +12,9 @@ function Task_5()
     pos_ecef = [T.X_ECEF_m T.Y_ECEF_m T.Z_ECEF_m];
     C = ecef2ned_matrix(deg2rad(lat), deg2rad(lon));
     r0 = pos_ecef(1,:)';
-    pos_ned = (C*(pos_ecef - r0)')';
+    % convert GNSS ECEF coordinates to NED relative to the start point
+    % use r0' to broadcast the origin across all rows
+    pos_ned = (C*(pos_ecef - r0')')';
 
     imu = load(get_data_file('IMU_X001.dat'));
     dt = mean(diff(imu(1:100,2))); if dt<=0, dt=1/400; end
