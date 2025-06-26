@@ -10,15 +10,38 @@ function Task_2()
     acc = acc / dt;      % m/s^2
     gyro = gyro / dt;    % rad/s
 
-    Nstatic = min(4000, size(data,1));
-    static_acc = mean(acc(1:Nstatic,:),1);
-    static_gyro = mean(gyro(1:Nstatic,:),1);
+    % Low-pass filter to match Python implementation
+    [b,a] = butter(4, 5/(0.5/dt));
+    acc = filtfilt(b,a,acc);
+    gyro = filtfilt(b,a,gyro);
+
+    win = 80;  % sliding window length
+    accel_var = movvar(acc, [win-1 0], 1);
+    gyro_var  = movvar(gyro, [win-1 0], 1);
+    max_accel = max(accel_var,[],2);
+    max_gyro  = max(gyro_var,[],2);
+    static_mask = (max_accel < 0.01) & (max_gyro < 1e-6);
+    d = diff([0; static_mask; 0]);
+    starts = find(d==1); ends = find(d==-1)-1;
+    lens = ends - starts + 1;
+    lens(lens < 80) = 0;
+    [~,idx] = max(lens);
+    start_idx = starts(idx); end_idx = ends(idx);
+
+    static_acc = mean(acc(start_idx:end_idx,:),1);
+    static_gyro = mean(gyro(start_idx:end_idx,:),1);
+
+    g_norm = norm(static_acc);
+    scale = 9.81 / g_norm;
+    acc = acc * scale;
+    static_acc = static_acc * scale;
 
     g_body = -static_acc';
     omega_ie_body = static_gyro';
 
-    fprintf('Static accelerometer mean: [%g %g %g]\n', static_acc);
-    fprintf('Static gyroscope mean: [%g %g %g]\n', static_gyro);
+    fprintf('Static window: %d-%d\n', start_idx, end_idx);
+    fprintf('Static accelerometer mean: [% .8f % .8f % .8f]\n', static_acc);
+    fprintf('Static gyroscope mean: [% .8f % .8f % .8f]\n', static_gyro);
 
     save(fullfile('results','Task2_body.mat'),'g_body','omega_ie_body');
 end

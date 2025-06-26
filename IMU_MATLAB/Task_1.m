@@ -8,12 +8,12 @@ function Task_1()
     end
 
     %% Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data
-    gnss = readmatrix(get_data_file('GNSS_X001.csv'));
-    col_x = 11; col_y = 12; col_z = 13; % ECEF columns
-    x_ecef = gnss(:,col_x); y_ecef = gnss(:,col_y); z_ecef = gnss(:,col_z);
-    X0 = x_ecef(1); Y0 = y_ecef(1); Z0 = z_ecef(1);
-    [lat, lon, h] = ecef2geodetic_custom(X0, Y0, Z0);
-    fprintf('Initial latitude: %.6f%c, Initial longitude: %.6f%c\n', lat, char(176), lon, char(176));
+    opts = detectImportOptions(get_data_file('GNSS_X001.csv'), 'NumHeaderLines', 0);
+    gnss = readtable(get_data_file('GNSS_X001.csv'), opts);
+    X0 = gnss.X_ECEF_m(1); Y0 = gnss.Y_ECEF_m(1); Z0 = gnss.Z_ECEF_m(1);
+    wgs84 = wgs84Ellipsoid('meter');
+    [lat, lon, h] = ecef2lla([X0 Y0 Z0], wgs84);
+    fprintf('Computed initial latitude: %.6f\u00B0, longitude: %.6f\u00B0\n', lat, lon);
 
     %% Subtask 1.2: Defining gravity vector in NED frame
     g_NED = [0;0;9.81];
@@ -42,17 +42,4 @@ function Task_1()
     close;
 
     save(fullfile('results','Task1_init.mat'), 'lat', 'lon', 'g_NED', 'omega_NED');
-end
-
-function [lat, lon, h] = ecef2geodetic_custom(X, Y, Z)
-    a = 6378137.0; e = 8.1819190842622e-2;
-    b = sqrt(a^2 * (1 - e^2));
-    ep = sqrt((a^2 - b^2) / b^2);
-    p = sqrt(X^2 + Y^2);
-    th = atan2(a*Z, b*p);
-    lon = atan2(Y, X);
-    lat = atan2(Z + ep^2*b*sin(th).^3, p - e^2*a*cos(th).^3);
-    N = a ./ sqrt(1 - e^2 .* sin(lat).^2);
-    h = p ./ cos(lat) - N;
-    lat = rad2deg(lat); lon = rad2deg(lon);
 end

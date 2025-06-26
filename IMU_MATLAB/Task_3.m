@@ -12,20 +12,26 @@ function Task_3()
     v1_N = g_NED / norm(g_NED);
     v2_N = omega_NED / norm(omega_NED);
 
-    % TRIAD
-    t1b = v1_B; t2b = cross(v1_B, v2_B); t2b = t2b/norm(t2b); t3b = cross(t1b,t2b);
-    t1n = v1_N; t2n = cross(v1_N, v2_N); t2n = t2n/norm(t2n); t3n = cross(t1n,t2n);
+    % TRIAD (body to NED)
+    t1b = v1_B;
+    t2b = cross(v1_B, v2_B); t2b = t2b / norm(t2b);
+    t3b = cross(t1b, t2b);
+    t1n = v1_N;
+    t2n = cross(v1_N, v2_N); t2n = t2n / norm(t2n);
+    t3n = cross(t1n, t2n);
     R_tri = [t1n t2n t3n] * [t1b t2b t3b]';
     q_tri = rotm2quat(R_tri);
+    if q_tri(1) < 0, q_tri = -q_tri; end
 
-    % SVD
+    % SVD alignment
     B = v1_N*v1_B' + v2_N*v2_B';
     [U,~,V] = svd(B);
     R_svd = U*diag([1 1 det(U*V')])*V';
     q_svd = rotm2quat(R_svd);
+    if q_svd(1) < 0, q_svd = -q_svd; end
 
-    fprintf('Quaternion TRIAD: [%g %g %g %g]\n', q_tri);
-    fprintf('Quaternion SVD:   [%g %g %g %g]\n', q_svd);
+    fprintf('Quaternion TRIAD: [% .8f % .8f % .8f % .8f]\n', q_tri);
+    fprintf('Quaternion SVD:   [% .8f % .8f % .8f % .8f]\n', q_svd);
 
     save(fullfile('results','Task3_attitude.mat'), 'R_tri', 'R_svd', 'q_tri', 'q_svd');
 end
