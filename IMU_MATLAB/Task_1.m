@@ -3,7 +3,7 @@ function Task_1()
     fprintf("\nTASK 1: Define reference vectors in NED frame\n");
 
     %% Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data
-    gnss = readmatrix(fullfile('data','GNSS_X001.csv'));
+    gnss = readmatrix(get_data_file('GNSS_X001.csv'));
     col_x = 11; col_y = 12; col_z = 13; % ECEF columns
     x_ecef = gnss(:,col_x); y_ecef = gnss(:,col_y); z_ecef = gnss(:,col_z);
     X0 = x_ecef(1); Y0 = y_ecef(1); Z0 = z_ecef(1);

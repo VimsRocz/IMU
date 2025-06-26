@@ -7,14 +7,14 @@ function Task_5()
     lat = S1.lat; lon = S1.lon; g_NED = S1.g_NED;
     R_BN = S3.R_tri;
 
-    T = readtable(fullfile('data','GNSS_X001.csv'));
+    T = readtable(get_data_file('GNSS_X001.csv'));
     gnss_t = T.Posix_Time - T.Posix_Time(1);
     pos_ecef = [T.X_ECEF_m T.Y_ECEF_m T.Z_ECEF_m];
     C = ecef2ned_matrix(deg2rad(lat), deg2rad(lon));
     r0 = pos_ecef(1,:)';
     pos_ned = (C*(pos_ecef - r0)')';
 
-    imu = load(fullfile('data','IMU_X001.dat'));
+    imu = load(get_data_file('IMU_X001.dat'));
     dt = mean(diff(imu(1:100,2))); if dt<=0, dt=1/400; end
     acc_body = imu(:,6:8)/dt;
     acc_ned = (R_BN*acc_body')' + g_NED';
