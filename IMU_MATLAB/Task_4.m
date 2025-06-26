@@ -14,7 +14,7 @@ function Task_4()
 
     C = ecef2ned_matrix(deg2rad(lat), deg2rad(lon));
     r0 = pos_ecef(1,:)';
-    pos_ned = (C*(pos_ecef - r0)')';
+    pos_ned = (C*(pos_ecef - r0')')';
     vel_ned = (C*vel_ecef')';
 
     data = load(get_data_file('IMU_X001.dat'));
