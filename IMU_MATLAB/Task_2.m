@@ -2,7 +2,7 @@ function Task_2()
     % TASK 2: Measure the vectors in the body frame (static interval)
     fprintf('\nTASK 2: Measure the vectors in the body frame\n');
 
-    data = load(fullfile('data','IMU_X001.dat'));
+    data = load(get_data_file('IMU_X001.dat'));
     acc = data(:,6:8);  % velocity increments
     gyro = data(:,3:5); % angular increments
     dt = mean(diff(data(1:100,2)));

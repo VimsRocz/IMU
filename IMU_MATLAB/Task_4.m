@@ -7,7 +7,7 @@ function Task_4()
     lat = S1.lat; lon = S1.lon; g_NED = S1.g_NED;
     R_BN = S2.R_tri; % use TRIAD result
 
-    T = readtable(fullfile('data','GNSS_X001.csv'));
+    T = readtable(get_data_file('GNSS_X001.csv'));
     time = T.Posix_Time - T.Posix_Time(1);
     pos_ecef = [T.X_ECEF_m T.Y_ECEF_m T.Z_ECEF_m];
     vel_ecef = [T.VX_ECEF_mps T.VY_ECEF_mps T.VZ_ECEF_mps];
@@ -17,7 +17,7 @@ function Task_4()
     pos_ned = (C*(pos_ecef - r0)')';
     vel_ned = (C*vel_ecef')';
 
-    data = load(fullfile('data','IMU_X001.dat'));
+    data = load(get_data_file('IMU_X001.dat'));
     dt = mean(diff(data(1:100,2))); if dt<=0, dt=1/400; end
     acc_body = data(:,6:8)/dt;
     acc_ned = (R_BN * acc_body')' + g_NED';
