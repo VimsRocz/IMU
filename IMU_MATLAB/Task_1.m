@@ -8,7 +8,7 @@ fprintf('TASK 1: Define reference vectors in NED frame\n');
 
 % --- Configuration ---
 % IMPORTANT: Replace with your actual file name
-gnss_file = 'your_gnss_data.csv'; 
+gnss_file = 'GNSS_X001.csv'; 
 results_dir = 'results';
 tag = 'matlab_gnss_data'; % Example tag for output files
 
