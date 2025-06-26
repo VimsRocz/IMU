@@ -27,6 +27,7 @@ function Task_5()
     Q = eye(6)*0.01; Rm = eye(3)*1;
     gnss_idx = 1;
     fused_pos = zeros(N,3); fused_vel = zeros(N,3);
+    zupt_count = 0;
     for i=2:N
         dti = imu_t(i) - imu_t(i-1);
         F = [eye(3) eye(3)*dti; zeros(3) eye(3)];
@@ -43,6 +44,9 @@ function Task_5()
             P = (eye(6)-K*H)*P;
             gnss_idx = gnss_idx + 1;
         end
+        if all(abs(acc_body(i,:)) < 0.05) && all(abs(gyro(i,:)) < 1e-3)
+            zupt_count = zupt_count + 1;
+        end
         fused_pos(i,:) = x(1:3)';
         fused_vel(i,:) = x(4:6)';
     end
@@ -52,6 +56,10 @@ function Task_5()
     subplot(2,1,2); plot(imu_t,fused_vel); ylabel('Velocity (m/s)'); xlabel('Time (s)');
     saveas(gcf, fullfile('results','Task5_fused.png')); close;
 
+    rmse_pos = sqrt(mean((pos_ned(1:length(fused_pos))-fused_pos).^2,'all'));
+    final_pos_err = norm(fused_pos(end,:) - pos_ned(end,:));
+    fprintf('[SUMMARY] method=TRIAD imu=%s gnss=%s rmse_pos=%6.2f final_pos=%6.2f ZUPTcnt=%d\n',...
+        'IMU_X001.dat','GNSS_X001.csv', rmse_pos, final_pos_err, zupt_count);
     save(fullfile('results','Task5_fused.mat'),'fused_pos','fused_vel');
 end
 

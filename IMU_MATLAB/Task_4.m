@@ -7,7 +7,8 @@ function Task_4()
     lat = S1.lat; lon = S1.lon; g_NED = S1.g_NED;
     R_BN = S2.R_tri; % use TRIAD result
 
-    T = readtable(get_data_file('GNSS_X001.csv'));
+    opts = detectImportOptions(get_data_file('GNSS_X001.csv'), 'NumHeaderLines',0);
+    T = readtable(get_data_file('GNSS_X001.csv'), opts);
     time = T.Posix_Time - T.Posix_Time(1);
     pos_ecef = [T.X_ECEF_m T.Y_ECEF_m T.Z_ECEF_m];
     vel_ecef = [T.VX_ECEF_mps T.VY_ECEF_mps T.VZ_ECEF_mps];
@@ -23,6 +24,12 @@ function Task_4()
     acc_ned = (R_BN * acc_body')' + g_NED';
     vel_est = cumtrapz(dt, acc_ned);
     pos_est = cumtrapz(dt, vel_est);
+
+    % Interpolate GNSS to IMU time for comparison
+    imu_t = (0:size(acc_ned,1)-1)*dt;
+    pos_gnss_interp = interp1(time, pos_ned, imu_t, 'linear', 'extrap');
+    diff_max = max(abs(pos_gnss_interp - pos_est), [], 'all');
+    fprintf('Max NED position diff vs GNSS: %.6f m\n', diff_max);
 
     figure; subplot(3,1,1); plot(time,pos_ned(:,1),'k'); hold on; plot((0:length(pos_est)-1)*dt,pos_est(:,1),'r'); ylabel('North (m)');
     subplot(3,1,2); plot(time,pos_ned(:,2),'k'); hold on; plot((0:length(pos_est)-1)*dt,pos_est(:,2),'r'); ylabel('East (m)');
