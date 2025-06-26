@@ -1,9 +1,16 @@
-function Task_3()
+function Task_3(imuFile, gnssFile)
     % TASK 3: Solve Wahba's problem (attitude determination)
     fprintf('\nTASK 3: Solve Wahba''s problem\n');
 
-    S1 = load(fullfile('results','Task1_init.mat'));
-    S2 = load(fullfile('results','Task2_body.mat'));
+    if ~exist('results','dir')
+        mkdir('results');
+    end
+    [~, imu_name, ~] = fileparts(imuFile);
+    [~, gnss_name, ~] = fileparts(gnssFile);
+    tag = [imu_name '_' gnss_name];
+
+    S1 = load(fullfile('results', ['Task1_init_' tag '.mat']));
+    S2 = load(fullfile('results', ['Task2_body_' tag '.mat']));
     g_NED = S1.g_NED; omega_NED = S1.omega_NED;
     g_body = S2.g_body; omega_ie_body = S2.omega_ie_body;
 
@@ -33,5 +40,5 @@ function Task_3()
     fprintf('Quaternion TRIAD: [% .8f % .8f % .8f % .8f]\n', q_tri);
     fprintf('Quaternion SVD:   [% .8f % .8f % .8f % .8f]\n', q_svd);
 
-    save(fullfile('results','Task3_attitude.mat'), 'R_tri', 'R_svd', 'q_tri', 'q_svd');
+    save(fullfile('results', ['Task3_attitude_' tag '.mat']), 'R_tri', 'R_svd', 'q_tri', 'q_svd');
 end

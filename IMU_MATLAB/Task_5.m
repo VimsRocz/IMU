@@ -1,13 +1,20 @@
-function Task_5()
+function Task_5(imuFile, gnssFile)
     % TASK 5: Kalman filter sensor fusion
     fprintf('\nTASK 5: Kalman filter sensor fusion\n');
 
-    S1 = load(fullfile('results','Task1_init.mat'));
-    S3 = load(fullfile('results','Task3_attitude.mat'));
+    if ~exist('results','dir')
+        mkdir('results');
+    end
+    [~, imu_name, ~] = fileparts(imuFile);
+    [~, gnss_name, ~] = fileparts(gnssFile);
+    tag = [imu_name '_' gnss_name];
+
+    S1 = load(fullfile('results', ['Task1_init_' tag '.mat']));
+    S3 = load(fullfile('results', ['Task3_attitude_' tag '.mat']));
     lat = S1.lat; lon = S1.lon; g_NED = S1.g_NED;
     R_BN = S3.R_tri;
 
-    T = readtable(get_data_file('GNSS_X001.csv'));
+    T = readtable(get_data_file(gnssFile));
     gnss_t = T.Posix_Time - T.Posix_Time(1);
     pos_ecef = [T.X_ECEF_m T.Y_ECEF_m T.Z_ECEF_m];
     C = ecef2ned_matrix(deg2rad(lat), deg2rad(lon));
@@ -16,7 +23,7 @@ function Task_5()
     % use r0' to broadcast the origin across all rows
     pos_ned = (C*(pos_ecef - r0')')';
 
-    imu = load(get_data_file('IMU_X001.dat'));
+    imu = load(get_data_file(imuFile));
     dt = mean(diff(imu(1:100,2))); if dt<=0, dt=1/400; end
     acc_body = imu(:,6:8)/dt;
     gyro_body = imu(:,3:5)/dt;
@@ -55,13 +62,13 @@ function Task_5()
     figure; subplot(2,1,1); plot(imu_t,fused_pos); hold on; plot(gnss_t,pos_ned,'k.');
     legend('x','y','z','GNSS'); ylabel('Position (m)');
     subplot(2,1,2); plot(imu_t,fused_vel); ylabel('Velocity (m/s)'); xlabel('Time (s)');
-    saveas(gcf, fullfile('results','Task5_fused.png')); close;
+    saveas(gcf, fullfile('results', ['Task5_fused_' tag '.png'])); close;
 
     rmse_pos = sqrt(mean((pos_ned(1:length(fused_pos))-fused_pos).^2,'all'));
     final_pos_err = norm(fused_pos(end,:) - pos_ned(end,:));
     fprintf('[SUMMARY] method=TRIAD imu=%s gnss=%s rmse_pos=%6.2f final_pos=%6.2f ZUPTcnt=%d\n',...
-        'IMU_X001.dat','GNSS_X001.csv', rmse_pos, final_pos_err, zupt_count);
-    save(fullfile('results','Task5_fused.mat'),'fused_pos','fused_vel');
+        imuFile, gnssFile, rmse_pos, final_pos_err, zupt_count);
+    save(fullfile('results', ['Task5_fused_' tag '.mat']),'fused_pos','fused_vel');
 end
 
 function C = ecef2ned_matrix(lat, lon)

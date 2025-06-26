@@ -1,8 +1,15 @@
-function Task_2()
+function Task_2(imuFile, gnssFile)
     % TASK 2: Measure the vectors in the body frame (static interval)
     fprintf('\nTASK 2: Measure the vectors in the body frame\n');
 
-    data = load(get_data_file('IMU_X001.dat'));
+    if ~exist('results','dir')
+        mkdir('results');
+    end
+    [~, imu_name, ~] = fileparts(imuFile);
+    [~, gnss_name, ~] = fileparts(gnssFile);
+    tag = [imu_name '_' gnss_name];
+
+    data = load(get_data_file(imuFile));
     acc = data(:,6:8);  % velocity increments
     gyro = data(:,3:5); % angular increments
     dt = mean(diff(data(1:100,2)));
@@ -43,5 +50,5 @@ function Task_2()
     fprintf('Static accelerometer mean: [% .8f % .8f % .8f]\n', static_acc);
     fprintf('Static gyroscope mean: [% .8f % .8f % .8f]\n', static_gyro);
 
-    save(fullfile('results','Task2_body.mat'),'g_body','omega_ie_body');
+    save(fullfile('results', ['Task2_body_' tag '.mat']),'g_body','omega_ie_body');
 end
