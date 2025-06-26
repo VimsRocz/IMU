@@ -7,7 +7,7 @@ This folder contains a MATLAB translation of the Python pipeline.
 ```
 IMU_MATLAB/
     main.m
-    Task_1.m
+    Task_1.m   % function
     Task_2.m
     Task_3.m
     Task_4.m
@@ -32,6 +32,11 @@ main('IMU_X002.dat','GNSS_X002.csv')
 for each of the attitude initialisation methods (`TRIAD`, `Davenport` and
 `SVD`). Output files include the method name so results are preserved for
 every run.
+
+`Task_1` is now a function, so you can also call it directly as
+```matlab
+Task_1('IMU_X001.dat','GNSS_X001.csv')
+```
 
 ### Compatibility notes
 
