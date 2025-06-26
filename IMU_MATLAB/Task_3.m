@@ -1,8 +1,42 @@
 
-%% ========================================================================
-% TASK 3: Solve Wahba’s Problem
-% =========================================================================
-fprintf('\nTASK 3: Solve Wahba’s problem (find initial attitude from body to NED)\n');
+function task3_results = Task_3(imuFile, gnssFile, method)
+% TASK 3: Solve Wahba's Problem
+% This function estimates the initial body-to-NED attitude using several
+% approaches (TRIAD, Davenport, SVD). It loads the reference and measured
+% vectors saved by Tasks 1 and 2 and stores the resulting rotation
+% matrices for later tasks.
+
+if nargin < 1 || isempty(imuFile)
+    imuFile = 'IMU_X001.dat';
+end
+if nargin < 2 || isempty(gnssFile)
+    gnssFile = 'GNSS_X001.csv';
+end
+if nargin < 3
+    method = ''; %#ok<NASGU>  % unused but kept for API compatibility
+end
+
+if ~exist('results','dir')
+    mkdir('results');
+end
+[~, imu_name, ~] = fileparts(imuFile);
+[~, gnss_name, ~] = fileparts(gnssFile);
+tag = [imu_name '_' gnss_name];
+results_dir = 'results';
+
+% Load vectors produced by Task 1 and Task 2
+init_data = load(fullfile(results_dir, ['Task1_init_' tag '.mat']));
+body_data = load(fullfile(results_dir, ['Task2_body_' tag '.mat']));
+
+g_NED = init_data.g_NED;
+omega_ie_NED = init_data.omega_NED;
+lat = deg2rad(init_data.lat);
+g_body = body_data.g_body;
+omega_ie_body = body_data.omega_ie_body;
+
+omega_E = 7.2921159e-5; % Earth rotation rate [rad/s]
+
+fprintf('\nTASK 3: Solve Wahba\x2019s problem (find initial attitude from body to NED)\n');
 
 %% ========================================================================
 % Subtask 3.1: Prepare Vector Pairs for Attitude Determination
