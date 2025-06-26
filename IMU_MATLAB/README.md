@@ -20,7 +20,18 @@ Place your `.dat` and `.csv` data files inside the `data/` folder. If the folder
 missing, the scripts will also look for the files in the repository root. The
 scripts save outputs and plots in `results/`.
 
-Run the entire pipeline from MATLAB by executing `main.m`.
+Run the entire pipeline from MATLAB by executing `main.m`. The script now
+accepts optional file names so you can run:
+
+```matlab
+main                 % uses IMU\_X001.dat and GNSS\_X001.csv
+main('IMU_X002.dat','GNSS_X002.csv')
+```
+
+`main` executes `Task_1` and `Task_2` once and then runs `Task_3`–`Task_5`
+for each of the attitude initialisation methods (`TRIAD`, `Davenport` and
+`SVD`). Output files include the method name so results are preserved for
+every run.
 
 ### Compatibility notes
 

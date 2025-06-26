@@ -1,6 +1,9 @@
-function Task_4(imuFile, gnssFile)
+function Task_4(imuFile, gnssFile, method)
     % TASK 4: GNSS + IMU data comparison
-    fprintf('\nTASK 4: GNSS and IMU data comparison\n');
+    if nargin < 3
+        method = 'TRIAD';
+    end
+    fprintf('\nTASK 4 (%s): GNSS and IMU data comparison\n', method);
 
     if ~exist('results','dir')
         mkdir('results');
@@ -10,9 +13,9 @@ function Task_4(imuFile, gnssFile)
     tag = [imu_name '_' gnss_name];
 
     S1 = load(fullfile('results', ['Task1_init_' tag '.mat']));
-    S2 = load(fullfile('results', ['Task3_attitude_' tag '.mat']));
+    S2 = load(fullfile('results', ['Task3_attitude_' method '_' tag '.mat']));
     lat = S1.lat; lon = S1.lon; g_NED = S1.g_NED;
-    R_BN = S2.R_tri; % use TRIAD result
+    R_BN = S2.R;
 
     opts = detectImportOptions(get_data_file(gnssFile), 'NumHeaderLines',0);
     T = readtable(get_data_file(gnssFile), opts);
@@ -41,9 +44,9 @@ function Task_4(imuFile, gnssFile)
     figure; subplot(3,1,1); plot(time,pos_ned(:,1),'k'); hold on; plot((0:length(pos_est)-1)*dt,pos_est(:,1),'r'); ylabel('North (m)');
     subplot(3,1,2); plot(time,pos_ned(:,2),'k'); hold on; plot((0:length(pos_est)-1)*dt,pos_est(:,2),'r'); ylabel('East (m)');
     subplot(3,1,3); plot(time,pos_ned(:,3),'k'); hold on; plot((0:length(pos_est)-1)*dt,pos_est(:,3),'r'); ylabel('Down (m)'); xlabel('Time (s)'); legend('GNSS','IMU');
-    saveas(gcf, fullfile('results', ['Task4_compare_' tag '.png'])); close;
+    saveas(gcf, fullfile('results', ['Task4_compare_' method '_' tag '.png'])); close;
 
-    save(fullfile('results', ['Task4_compare_' tag '.mat']), 'pos_ned','pos_est');
+    save(fullfile('results', ['Task4_compare_' method '_' tag '.mat']), 'pos_ned','pos_est');
 end
 
 function C = ecef2ned_matrix(lat, lon)

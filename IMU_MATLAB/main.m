@@ -1,4 +1,16 @@
-clc; clear; close all;
+function main(imuFile, gnssFile)
+%MAIN Run the IMU+GNSS initialization pipeline on a single dataset.
+%   main()                      - use the default sample files
+%   main('imu.dat','gnss.csv') - run with custom data files
+
+if nargin < 1 || isempty(imuFile)
+    imuFile = 'IMU_X001.dat';
+end
+if nargin < 2 || isempty(gnssFile)
+    gnssFile = 'GNSS_X001.csv';
+end
+
+clc; close all;
 
 % ensure output directory exists before running tasks
 if ~exist('results','dir')
@@ -7,17 +19,16 @@ end
 
 fprintf('Running IMU+GNSS Initialization Pipeline (MATLAB Version)\n');
 
-datasets = {
-    'IMU_X001.dat','GNSS_X001.csv';
-    'IMU_X002.dat','GNSS_X002.csv';
-    'IMU_X003.dat','GNSS_X002.csv'};
-for k = 1:size(datasets,1)
-    [imu, gnss] = datasets{k,:};
-    Task_1(imu, gnss);
-    Task_2(imu, gnss);
-    Task_3(imu, gnss);
-    Task_4(imu, gnss);
-    Task_5(imu, gnss);
+Task_1(imuFile, gnssFile);
+Task_2(imuFile, gnssFile);
+
+methods = {'TRIAD','Davenport','SVD'};
+for i = 1:numel(methods)
+    method = methods{i};
+    Task_3(imuFile, gnssFile, method);
+    Task_4(imuFile, gnssFile, method);
+    Task_5(imuFile, gnssFile, method);
 end
 
 fprintf('All tasks completed!\n');
+end
