@@ -1,5 +1,10 @@
 clc; clear; close all;
 
+% ensure output directory exists before running tasks
+if ~exist('results','dir')
+    mkdir('results');
+end
+
 fprintf('Running IMU+GNSS Initialization Pipeline (MATLAB Version)\n');
 
 Task_1();

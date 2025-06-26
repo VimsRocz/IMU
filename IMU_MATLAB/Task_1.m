@@ -2,13 +2,18 @@ function Task_1()
     % TASK 1: Define reference vectors in NED frame
     fprintf("\nTASK 1: Define reference vectors in NED frame\n");
 
+    % ensure results directory exists relative to the current folder
+    if ~exist('results','dir')
+        mkdir('results');
+    end
+
     %% Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data
     gnss = readmatrix(get_data_file('GNSS_X001.csv'));
     col_x = 11; col_y = 12; col_z = 13; % ECEF columns
     x_ecef = gnss(:,col_x); y_ecef = gnss(:,col_y); z_ecef = gnss(:,col_z);
     X0 = x_ecef(1); Y0 = y_ecef(1); Z0 = z_ecef(1);
     [lat, lon, h] = ecef2geodetic_custom(X0, Y0, Z0);
-    fprintf('Initial latitude: %.6f\u00B0, Initial longitude: %.6f\u00B0\n', lat, lon);
+    fprintf('Initial latitude: %.6f%c, Initial longitude: %.6f%c\n', lat, char(176), lon, char(176));
 
     %% Subtask 1.2: Defining gravity vector in NED frame
     g_NED = [0;0;9.81];
