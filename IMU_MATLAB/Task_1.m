@@ -1,21 +1,21 @@
+function Task_1(imuFile, gnssFile)
 % TASK 1: Define Reference Vectors in NED Frame
-% This script translates Task 1 from the Python file GNSS_IMU_Fusion.py
+% This function translates Task 1 from the Python file GNSS_IMU_Fusion.py
 % into MATLAB.
 
-clear; clc; close all;
+% Remove command-line side effects to behave like a normal function
+
+if ~exist('results','dir')
+    mkdir('results');
+end
 
 fprintf('TASK 1: Define reference vectors in NED frame\n');
 
 % --- Configuration ---
-% IMPORTANT: Replace with your actual file name
-gnss_file = 'GNSS_X001.csv'; 
 results_dir = 'results';
-tag = 'matlab_gnss_data'; % Example tag for output files
-
-% Create results directory if it doesn't exist
-if ~exist(results_dir, 'dir')
-   mkdir(results_dir);
-end
+[~, imu_name, ~] = fileparts(imuFile);
+[~, gnss_name, ~] = fileparts(gnssFile);
+tag = [imu_name '_' gnss_name];
 
 
 % ================================
@@ -23,16 +23,19 @@ end
 % ================================
 fprintf('\nSubtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.\n');
 
+% Resolve the GNSS file path
+gnss_path = get_data_file(gnssFile);
+
 % Check if the GNSS file exists
-if ~isfile(gnss_file)
-    error('GNSS file not found: %s', gnss_file);
+if ~isfile(gnss_path)
+    error('GNSS file not found: %s', gnss_path);
 end
 
 % Load GNSS data using readtable
 try
-    gnss_data = readtable(gnss_file);
+    gnss_data = readtable(gnss_path);
 catch e
-    error('Failed to load GNSS data file: %s\n%s', gnss_file, e.message);
+    error('Failed to load GNSS data file: %s\n%s', gnss_path, e.message);
 end
 
 % Display column names and first few rows for debugging
@@ -140,3 +143,12 @@ output_filename = fullfile(results_dir, sprintf('%s_location_map.pdf', tag));
 saveas(gcf, output_filename);
 fprintf('Location map saved to %s\n', output_filename);
 % close(gcf); % Uncomment to close the figure after saving
+
+% Save results for later tasks
+lat = lat_deg; %#ok<NASGU>
+lon = lon_deg; %#ok<NASGU>
+omega_NED = omega_ie_NED; %#ok<NASGU>
+save(fullfile(results_dir, ['Task1_init_' tag '.mat']), 'lat', 'lon', 'g_NED', 'omega_NED');
+fprintf('Initial data saved to %s\n', fullfile(results_dir, ['Task1_init_' tag '.mat']));
+
+end
