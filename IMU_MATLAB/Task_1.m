@@ -26,7 +26,7 @@ function Task_1()
     %% Subtask 1.3: Defining Earth rotation rate vector in NED frame
     w_ie = 7.292115e-5; % rad/s
     lat_rad = deg2rad(lat);
-    omega_NED = [w_ie * cos(lat_rad); 0; w_ie * sin(lat_rad)];
+    omega_NED = [w_ie * cos(lat_rad); 0; -w_ie * sin(lat_rad)];
     fprintf('Earth rotation rate in NED: [%e %e %e] rad/s\n', omega_NED);
 
     %% Subtask 1.4: Validating reference vectors
