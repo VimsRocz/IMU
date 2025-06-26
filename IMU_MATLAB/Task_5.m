@@ -1,77 +1,177 @@
-function Task_5(imuFile, gnssFile, method)
-    % TASK 5: Kalman filter sensor fusion
-    if nargin < 3
-        method = 'TRIAD';
-    end
-    fprintf('\nTASK 5 (%s): Kalman filter sensor fusion\n', method);
 
-    if ~exist('results','dir')
-        mkdir('results');
-    end
-    [~, imu_name, ~] = fileparts(imuFile);
-    [~, gnss_name, ~] = fileparts(gnssFile);
-    tag = [imu_name '_' gnss_name];
 
-    S1 = load(fullfile('results', ['Task1_init_' tag '.mat']));
-    S3 = load(fullfile('results', ['Task3_attitude_' method '_' tag '.mat']));
-    lat = S1.lat; lon = S1.lon; g_NED = S1.g_NED;
-    R_BN = S3.R;
+%% ========================================================================
+% TASK 5: Sensor Fusion with Kalman Filter
+% =========================================================================
+fprintf('\nTASK 5: Sensor Fusion with Kalman Filter\n');
 
-    T = readtable(get_data_file(gnssFile));
-    gnss_t = T.Posix_Time - T.Posix_Time(1);
-    pos_ecef = [T.X_ECEF_m T.Y_ECEF_m T.Z_ECEF_m];
-    C = ecef2ned_matrix(deg2rad(lat), deg2rad(lon));
-    r0 = pos_ecef(1,:)';
-    % convert GNSS ECEF coordinates to NED relative to the start point
-    % use r0' to broadcast the origin across all rows
-    pos_ned = (C*(pos_ecef - r0')')';
+%% ========================================================================
+% Subtask 5.1-5.5: Configure and Initialize 9-State Filter
+% =========================================================================
+fprintf('\nSubtask 5.1-5.5: Configuring and Initializing 9-State Kalman Filter.\n');
+% State vector x: [pos; vel; acc]' (9x1)
+x = zeros(9, 1);
+x(1:3) = gnss_pos_ned(1,:)';
+x(4:6) = gnss_vel_ned(1,:)';
+% Initial acceleration is assumed to be zero
+P = eye(9) * 1.0; % Covariance matrix (9x9)
+Q = eye(9) * 0.01; % Process noise covariance (9x9)
+R = eye(6) * 0.1;  % Measurement noise covariance (6x6 for pos & vel)
+H = [eye(6), zeros(6,3)]; % Measurement matrix (6x9)
 
-    imu = load(get_data_file(imuFile));
-    dt = mean(diff(imu(1:100,2))); if dt<=0, dt=1/400; end
-    acc_body = imu(:,6:8)/dt;
-    gyro_body = imu(:,3:5)/dt;
-    acc_ned = (R_BN*acc_body')' + g_NED';
-    imu_t = (0:size(acc_ned,1)-1)*dt;
+% --- Attitude Initialization ---
+q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
 
-    N = length(imu_t);
-    x = zeros(6,1); P = eye(6);
-    Q = eye(6)*0.01; Rm = eye(3)*1;
-    gnss_idx = 1;
-    fused_pos = zeros(N,3); fused_vel = zeros(N,3);
-    zupt_count = 0;
-    for i=2:N
-        dti = imu_t(i) - imu_t(i-1);
-        F = [eye(3) eye(3)*dti; zeros(3) eye(3)];
-        B = [0.5*dti^2*eye(3); dti*eye(3)];
-        x = F*x + B*acc_ned(i,:)';
-        P = F*P*F' + Q;
-        if gnss_idx <= length(gnss_t) && abs(imu_t(i)-gnss_t(gnss_idx)) < dti/2
-            z = pos_ned(gnss_idx,:)';
-            H = [eye(3) zeros(3)];
-            y = z - H*x;
-            S = H*P*H' + Rm;
-            K = P*H'/S;
-            x = x + K*y;
-            P = (eye(6)-K*H)*P;
-            gnss_idx = gnss_idx + 1;
-        end
-        if all(abs(acc_body(i,:)) < 0.05) && all(abs(gyro_body(i,:)) < 1e-3)
+% --- Pre-allocate Log Arrays ---
+num_imu_samples = length(imu_time);
+x_log = zeros(9, num_imu_samples);
+euler_log = zeros(3, num_imu_samples);
+zupt_log = zeros(1, num_imu_samples);
+zupt_count = 0;
+fprintf('-> 9-State filter initialized.\n');
+
+%% ========================================================================
+% Subtask 5.6: Kalman Filter for Sensor Fusion
+% =========================================================================
+fprintf('\nSubtask 5.6: Running Kalman Filter for sensor fusion.\n');
+
+% Interpolate GNSS measurements to IMU timestamps
+gnss_pos_interp = interp1(gnss_time, gnss_pos_ned, imu_time, 'linear', 'extrap');
+gnss_vel_interp = interp1(gnss_time, gnss_vel_ned, imu_time, 'linear', 'extrap');
+
+% --- Main Filter Loop ---
+fprintf('-> Starting filter loop over %d IMU samples...\n', num_imu_samples);
+for i = 1:num_imu_samples
+    % --- 1. State Propagation (Prediction) ---
+    F = eye(9);
+    F(1:3, 4:6) = eye(3) * dt_imu;
+    F(4:6, 7:9) = eye(3) * dt_imu;
+    
+    x = F * x;
+    P = F * P * F' + Q * dt_imu;
+    
+    % --- 2. Attitude Propagation ---
+    w_b = gyro_body_raw(i,:)'; % Using raw gyro for propagation
+    q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
+    
+    % --- 3. Measurement Update (Correction) ---
+    z = [gnss_pos_interp(i,:)'; gnss_vel_interp(i,:)'];
+    y = z - H * x;
+    S = H * P * H' + R;
+    K = (P * H') / S;
+    x = x + K * y;
+    P = (eye(9) - K * H) * P;
+    
+    % --- 4. Zero-Velocity Update (ZUPT) ---
+    win_size = 80;
+    if i > win_size
+        acc_win = acc_body_raw(i-win_size+1:i, :);
+        gyro_win = gyro_body_raw(i-win_size+1:i, :);
+        if is_static(acc_win, gyro_win)
             zupt_count = zupt_count + 1;
+            zupt_log(i) = 1;
+            H_z = [zeros(3), eye(3), zeros(3)]; % Measurement model for velocity in 9-state vector
+            R_z = eye(3) * 1e-4;
+            y_z = zeros(3, 1) - H_z * x;
+            S_z = H_z * P * H_z' + R_z;
+            K_z = (P * H_z') / S_z;
+            x = x + K_z * y_z;
+            P = (eye(9) - K_z * H_z) * P;
         end
-        fused_pos(i,:) = x(1:3)';
-        fused_vel(i,:) = x(4:6)';
     end
 
-    figure; subplot(2,1,1); plot(imu_t,fused_pos); hold on; plot(gnss_t,pos_ned,'k.');
-    legend('x','y','z','GNSS'); ylabel('Position (m)');
-    subplot(2,1,2); plot(imu_t,fused_vel); ylabel('Velocity (m/s)'); xlabel('Time (s)');
-    saveas(gcf, fullfile('results', ['Task5_fused_' method '_' tag '.png'])); close;
+    % --- Log State and Attitude ---
+    x_log(:, i) = x;
+    euler_log(:, i) = quat_to_euler(q_b_n);
+end
+fprintf('-> Filter loop complete. Total ZUPT applications: %d\n', zupt_count);
 
+%% ========================================================================
+% Subtask 5.7: Handle Event at 5000s
+% =========================================================================
+fprintf('\nSubtask 5.7: No event handling needed as time < 5000s.\n');
 
-    save(fullfile('results', ['Task5_fused_' method '_' tag '.mat']), 'fused_pos','fused_vel');
+%% ========================================================================
+% Subtask 5.8: Plotting Results
+% =========================================================================
+fprintf('\nSubtask 5.8: Plotting Kalman filter results.\n');
+
+% --- Plot 1: Position Comparison ---
+figure('Name', 'KF Results: Position', 'Position', [100 100 1200 600]);
+labels = {'North', 'East', 'Down'};
+for i = 1:3
+    subplot(3, 1, i); hold on;
+    plot(gnss_time, gnss_pos_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
+    plot(imu_time, x_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
+    hold off; grid on; legend; ylabel('[m]'); title(['Position: ' labels{i}]);
+end
+xlabel('Time (s)'); sgtitle('Kalman Filter Fused Position vs. GNSS');
+saveas(gcf, fullfile(results_dir, [tag '_position.pdf']));
+fprintf('-> Position plot saved.\n');
+
+% --- Plot 2: Velocity Comparison ---
+figure('Name', 'KF Results: Velocity', 'Position', [150 150 1200 600]);
+for i = 1:3
+    subplot(3, 1, i); hold on;
+    plot(gnss_time, gnss_vel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
+    plot(imu_time, x_log(i+3,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
+    zupt_indices = find(zupt_log);
+    if ~isempty(zupt_indices), plot(imu_time(zupt_indices), x_log(i+3,zupt_indices), 'ro', 'MarkerSize', 3, 'DisplayName', 'ZUPT'); end
+    hold off; grid on; legend; ylabel('[m/s]'); title(['Velocity: ' labels{i}]);
+end
+xlabel('Time (s)'); sgtitle('Kalman Filter Fused Velocity vs. GNSS');
+saveas(gcf, fullfile(results_dir, [tag '_velocity.pdf']));
+fprintf('-> Velocity plot saved.\n');
+
+% --- Plot 3: Attitude (Euler Angles) ---
+figure('Name', 'KF Results: Attitude', 'Position', [200 200 1200 600]);
+euler_labels = {'Roll', 'Pitch', 'Yaw'};
+for i = 1:3
+    subplot(3, 1, i);
+    plot(imu_time, rad2deg(euler_log(i,:)), 'b-');
+    grid on; ylabel('[deg]'); title([euler_labels{i} ' Angle']);
+end
+xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
+saveas(gcf, fullfile(results_dir, [tag '_attitude.pdf']));
+fprintf('-> Attitude plot saved.\n');
+
+end % End of main function
+
+%% ========================================================================
+%  LOCAL HELPER FUNCTIONS
+% =========================================================================
+function q_new = propagate_quaternion(q_old, w, dt)
+    w_norm = norm(w);
+    if w_norm > 1e-9, axis = w/w_norm; angle = w_normdt; dq = [cos(angle/2); axissin(angle/2)];
+    else, dq = [1; 0; 0; 0]; end
+    q_new = quat_multiply(q_old, dq);
+end
+function q_out = quat_multiply(q1, q2)
+    w1=q1(1);x1=q1(2);y1=q1(3);z1=q1(4); w2=q2(1);x2=q2(2);y2=q2(3);z2=q2(4);
+    q_out=[w1w2-x1x2-y1y2-z1z2; w1x2+x1w2+y1z2-z1y2; w1y2-x1z2+y1w2+z1x2; w1z2+x1y2-y1x2+z1w2];
+end
+function euler = quat_to_euler(q)
+    w=q(1);x=q(2);y=q(3);z=q(4);
+    sinr_cosp=2*(wx+yz);cosr_cosp=1-2*(xx+yy);roll=atan2(sinr_cosp,cosr_cosp);
+    sinp=2*(wy-zx);if abs(sinp)>=1,pitch=copysign(pi/2,sinp);else,pitch=asin(sinp);end
+    siny_cosp=2*(wz+xy);cosy_cosp=1-2*(yy+zz);yaw=atan2(siny_cosp,cosy_cosp);
+    euler=[roll;pitch;yaw];
+end
+function R = quat_to_rot(q)
+    qw=q(1);qx=q(2);qy=q(3);qz=q(4);
+    R=[1-2*(qy^2+qz^2),2*(qxqy-qwqz),2*(qxqz+qwqy);2*(qxqy+qwqz),1-2*(qx^2+qz^2),2*(qyqz-qwqx);2*(qxqz-qwqy),2*(qyqz+qwqx),1-2*(qx^2+qy^2)];
+end
+function q = rot_to_quaternion(R)
+    tr=trace(R);
+    if tr>0,S=sqrt(tr+1.0)2;qw=0.25S;qx=(R(3,2)-R(2,3))/S;qy=(R(1,3)-R(3,1))/S;qz=(R(2,1)-R(1,2))/S;
+    elseif(R(1,1)>R(2,2))&&(R(1,1)>R(3,3)),S=sqrt(1.0+R(1,1)-R(2,2)-R(3,3))2;qw=(R(3,2)-R(2,3))/S;qx=0.25S;qy=(R(1,2)+R(2,1))/S;qz=(R(1,3)+R(3,1))/S;
+    elseif R(2,2)>R(3,3),S=sqrt(1.0+R(2,2)-R(1,1)-R(3,3))2;qw=(R(1,3)-R(3,1))/S;qx=(R(1,2)+R(2,1))/S;qy=0.25S;qz=(R(2,3)+R(3,2))/S;
+    else,S=sqrt(1.0+R(3,3)-R(1,1)-R(2,2))2;qw=(R(2,1)-R(1,2))/S;qx=(R(1,3)+R(3,1))/S;qy=(R(2,3)+R(3,2))/S;qz=0.25S;
+    end
+    q=[qw;qx;qy;qz];if q(1)<0,q=-q;end;q=q/norm(q);
+end
+function is_stat=is_static(acc,gyro)
+    acc_thresh=0.01;gyro_thresh=1e-6;
+    is_stat=all(var(acc,0,1)<acc_thresh)&&all(var(gyro,0,1)<gyro_thresh);
 end
 
-function C = ecef2ned_matrix(lat, lon)
-    sphi = sin(lat); cphi = cos(lat); sl = sin(lon); cl = cos(lon);
-    C = [ -sphi*cl -sphi*sl cphi; -sl cl 0; -cphi*cl -cphi*sl -sphi];
-end
