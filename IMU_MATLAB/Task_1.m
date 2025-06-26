@@ -1,16 +1,23 @@
+function Task_1(imuFile, gnssFile)
 % TASK 1: Define Reference Vectors in NED Frame
-% This script translates Task 1 from the Python file GNSS_IMU_Fusion.py
-% into MATLAB.
+% This function translates Task 1 from the Python file GNSS_IMU_Fusion.py
+% into MATLAB. It loads the GNSS data and defines reference vectors in the
+% navigation frame.
 
-clear; clc; close all;
+if nargin < 1 || isempty(imuFile)
+    imuFile = 'IMU_X001.dat'; %#ok<NASGU>
+end
+if nargin < 2 || isempty(gnssFile)
+    gnssFile = 'GNSS_X001.csv';
+end
 
 fprintf('TASK 1: Define reference vectors in NED frame\n');
 
 % --- Configuration ---
-% IMPORTANT: Replace with your actual file name
-gnss_file = 'GNSS_X001.csv'; 
 results_dir = 'results';
-tag = 'matlab_gnss_data'; % Example tag for output files
+[~, imu_name, ~] = fileparts(imuFile);
+[~, gnss_name, ~] = fileparts(gnssFile);
+tag = [imu_name '_' gnss_name];
 
 % Create results directory if it doesn't exist
 if ~exist(results_dir, 'dir')
@@ -24,15 +31,15 @@ end
 fprintf('\nSubtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.\n');
 
 % Check if the GNSS file exists
-if ~isfile(gnss_file)
-    error('GNSS file not found: %s', gnss_file);
+if ~isfile(gnssFile)
+    error('GNSS file not found: %s', gnssFile);
 end
 
 % Load GNSS data using readtable
 try
-    gnss_data = readtable(gnss_file);
+    gnss_data = readtable(gnssFile);
 catch e
-    error('Failed to load GNSS data file: %s\n%s', gnss_file, e.message);
+    error('Failed to load GNSS data file: %s\n%s', gnssFile, e.message);
 end
 
 % Display column names and first few rows for debugging
@@ -140,3 +147,9 @@ output_filename = fullfile(results_dir, sprintf('%s_location_map.pdf', tag));
 saveas(gcf, output_filename);
 fprintf('Location map saved to %s\n', output_filename);
 % close(gcf); % Uncomment to close the figure after saving
+
+% Save variables for later tasks
+save(fullfile(results_dir, ['Task1_init_' tag '.mat']), ...
+    'g_NED', 'omega_ie_NED', 'lat_deg', 'lon_deg');
+
+end

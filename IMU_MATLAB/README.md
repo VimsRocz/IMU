@@ -28,6 +28,10 @@ main                 % uses IMU\_X001.dat and GNSS\_X001.csv
 main('IMU_X002.dat','GNSS_X002.csv')
 ```
 
+`Task_1` and `Task_2` are implemented as functions that accept the IMU and GNSS
+file names. They generate intermediate `.mat` files inside `results/` which are
+used by the later tasks.
+
 `main` executes `Task_1` and `Task_2` once and then runs `Task_3`–`Task_5`
 for each of the attitude initialisation methods (`TRIAD`, `Davenport` and
 `SVD`). Output files include the method name so results are preserved for
