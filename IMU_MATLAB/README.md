@@ -22,6 +22,16 @@ scripts save outputs and plots in `results/`.
 
 Run the entire pipeline from MATLAB by executing `main.m`.
 
+### Compatibility notes
+
+Some older MATLAB releases expect the ellipsoid name for `ecef2lla` as a
+character vector rather than as an ellipsoid object. If you see an error like
+```
+World model type is not a character vector.
+```
+ensure you are using the `'WGS84'` string in `Task_1.m` when calling
+`ecef2lla`.
+
 ## GitHub Usage
 
 1. Clone or open this repository.
