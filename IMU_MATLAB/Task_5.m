@@ -1,18 +1,21 @@
-function Task_5(imuFile, gnssFile)
+function Task_5(imuFile, gnssFile, method)
     % TASK 5: Kalman filter sensor fusion
     fprintf('\nTASK 5: Kalman filter sensor fusion\n');
 
     if ~exist('results','dir')
         mkdir('results');
     end
+    if nargin < 3 || isempty(method)
+        method = 'TRIAD';
+    end
     [~, imu_name, ~] = fileparts(imuFile);
     [~, gnss_name, ~] = fileparts(gnssFile);
     tag = [imu_name '_' gnss_name];
 
     S1 = load(fullfile('results', ['Task1_init_' tag '.mat']));
-    S3 = load(fullfile('results', ['Task3_attitude_' tag '.mat']));
+    S3 = load(fullfile('results', ['Task3_attitude_' method '_' tag '.mat']));
     lat = S1.lat; lon = S1.lon; g_NED = S1.g_NED;
-    R_BN = S3.R_tri;
+    R_BN = S3.R_BN;
 
     T = readtable(get_data_file(gnssFile));
     gnss_t = T.Posix_Time - T.Posix_Time(1);
@@ -62,10 +65,10 @@ function Task_5(imuFile, gnssFile)
     figure; subplot(2,1,1); plot(imu_t,fused_pos); hold on; plot(gnss_t,pos_ned,'k.');
     legend('x','y','z','GNSS'); ylabel('Position (m)');
     subplot(2,1,2); plot(imu_t,fused_vel); ylabel('Velocity (m/s)'); xlabel('Time (s)');
-    saveas(gcf, fullfile('results', ['Task5_fused_' tag '.png'])); close;
+    saveas(gcf, fullfile('results', ['Task5_fused_' method '_' tag '.png'])); close;
 
 
-    save(fullfile('results', ['Task5_fused_' tag '.mat']),'fused_pos','fused_vel');
+    save(fullfile('results', ['Task5_fused_' method '_' tag '.mat']),'fused_pos','fused_vel');
 end
 
 function C = ecef2ned_matrix(lat, lon)
