@@ -1,58 +1,142 @@
-function init = Task_1(imuFile, gnssFile)
-    % TASK 1: Define reference vectors in NED frame
-    fprintf("\nTASK 1: Define reference vectors in NED frame\n");
+% TASK 1: Define Reference Vectors in NED Frame
+% This script translates Task 1 from the Python file GNSS_IMU_Fusion.py
+% into MATLAB.
 
-    % ensure results directory exists relative to the current folder
-    if ~exist('results','dir')
-        mkdir('results');
-    end
-    [~, imu_name, ~] = fileparts(imuFile);
-    [~, gnss_name, ~] = fileparts(gnssFile);
-    tag = [imu_name '_' gnss_name];
+clear; clc; close all;
 
-    %% Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data
-    opts = detectImportOptions(get_data_file(gnssFile), 'NumHeaderLines', 0);
-    gnss = readtable(get_data_file(gnssFile), opts);
-    X0 = gnss.X_ECEF_m(1); Y0 = gnss.Y_ECEF_m(1); Z0 = gnss.Z_ECEF_m(1);
-    % use ecef2lla which returns a 3-element vector [lat lon alt]
-    % older MATLAB versions may not support the ellipsoid argument with
-    % multiple outputs, so extract the components manually
-    % Some MATLAB releases expect the ellipsoid as a character vector rather
-    % than an object. Use 'WGS84' to avoid errors from `worldparams`.
-    lla = ecef2lla([X0 Y0 Z0], 'WGS84');
-    lat = lla(1); lon = lla(2); h = lla(3);
-    fprintf('Computed initial latitude: %.6f%c, longitude: %.6f%c\n', ...
-        rad2deg(lat), char(176), rad2deg(lon), char(176));
+fprintf('TASK 1: Define reference vectors in NED frame\n');
 
-    %% Subtask 1.2: Defining gravity vector in NED frame
-    g_NED = [0;0;9.81];
-    fprintf('Gravity vector in NED: [%0.2f %0.2f %0.2f] m/s^2\n', g_NED);
+% --- Configuration ---
+% IMPORTANT: Replace with your actual file name
+gnss_file = 'your_gnss_data.csv'; 
+results_dir = 'results';
+tag = 'matlab_gnss_data'; % Example tag for output files
 
-    %% Subtask 1.3: Defining Earth rotation rate vector in NED frame
-    w_ie = 7.292115e-5; % rad/s
-    lat_rad = deg2rad(lat);
-    omega_NED = [w_ie * cos(lat_rad); 0; -w_ie * sin(lat_rad)];
-    fprintf('Earth rotation rate in NED: [%e %e %e] rad/s\n', omega_NED);
-
-    %% Subtask 1.4: Validating reference vectors
-    if abs(norm(g_NED) - 9.81) < 1e-2
-        disp('Gravity vector validated.');
-    end
-    if abs(norm(omega_NED) - w_ie) < 1e-7
-        disp('Earth rotation vector validated.');
-    end
-
-    %% Subtask 1.5: Plotting location on Earth map
-    figure;
-    geoscatter(lat, lon, 'r', 'filled');
-    title('Initial Location (from GNSS ECEF)');
-    geobasemap('satellite');
-    saveas(gcf, fullfile('results', ['Task1_location_map_' tag '.png']));
-    close;
-
-    init.lat = lat;
-    init.lon = lon;
-    init.g_NED = g_NED;      % renamed from g_ned
-    init.omega_NED = omega_NED;  % renamed from omega_ned
-    save(fullfile('results', ['Task1_init_' tag '.mat']), '-struct', 'init');
+% Create results directory if it doesn't exist
+if ~exist(results_dir, 'dir')
+   mkdir(results_dir);
 end
+
+
+% ================================
+% Subtask 1.1: Set Initial Latitude and Longitude from GNSS ECEF Data
+% ================================
+fprintf('\nSubtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.\n');
+
+% Check if the GNSS file exists
+if ~isfile(gnss_file)
+    error('GNSS file not found: %s', gnss_file);
+end
+
+% Load GNSS data using readtable
+try
+    gnss_data = readtable(gnss_file);
+catch e
+    error('Failed to load GNSS data file: %s\n%s', gnss_file, e.message);
+end
+
+% Display column names and first few rows for debugging
+disp('GNSS data columns:');
+disp(gnss_data.Properties.VariableNames');
+disp('First few rows of ECEF coordinates:');
+disp(head(gnss_data(:, {'X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m'})));
+
+% Find the first row with non-zero ECEF coordinates
+valid_idx = find((gnss_data.X_ECEF_m ~= 0) | ...
+                 (gnss_data.Y_ECEF_m ~= 0) | ...
+                 (gnss_data.Z_ECEF_m ~= 0), 1, 'first');
+
+if ~isempty(valid_idx)
+    initial_row = gnss_data(valid_idx, :);
+    x_ecef = initial_row.X_ECEF_m;
+    y_ecef = initial_row.Y_ECEF_m;
+    z_ecef = initial_row.Z_ECEF_m;
+    
+    % Convert ECEF to geodetic coordinates using the helper function
+    [lat_deg, lon_deg, ~] = ecef_to_geodetic(x_ecef, y_ecef, z_ecef);
+    
+    % Convert degrees to radians for calculations
+    lat = deg2rad(lat_deg);
+    
+    fprintf('Computed initial latitude: %.6f°, longitude: %.6f° from ECEF coordinates.\n', lat_deg, lon_deg);
+    fprintf('Initial latitude: %.6f°, Initial longitude: %.6f°\n', lat_deg, lon_deg);
+else
+    error('No valid ECEF coordinates found in GNSS data.');
+end
+
+
+% ================================
+% Subtask 1.2: Define Gravity Vector in NED
+% ================================
+fprintf('\nSubtask 1.2: Defining gravity vector in NED frame.\n');
+
+g = 9.81; % Approximate gravity magnitude
+g_NED = [0; 0; g]; % Gravity vector in NED (North, East, Down)
+
+fprintf('Gravity vector in NED: [%.2f, %.2f, %.2f] m/s^2 (Down positive, magnitude g = %.2f m/s^2)\n', g_NED(1), g_NED(2), g_NED(3), g);
+
+
+% ================================
+% Subtask 1.3: Define Earth Rotation Rate Vector in NED
+% ================================
+fprintf('\nSubtask 1.3: Defining Earth rotation rate vector in NED frame.\n');
+
+% Earth rotation rate in rad/s
+omega_E = 7.2921159e-5;
+
+% Earth rotation rate vector in NED frame: ω_ie,NED = ω_E * [cos(φ); 0; -sin(φ)]
+omega_ie_NED = omega_E * [cos(lat); 0; -sin(lat)];
+
+fprintf('Earth rotation rate in NED: [%.2e, %.2e, %.2e] rad/s (North, East, Down)\n', omega_ie_NED(1), omega_ie_NED(2), omega_ie_NED(3));
+
+
+% ================================
+% Subtask 1.4: Validate and Print Reference Vectors
+% ================================
+fprintf('\nSubtask 1.4: Validating reference vectors.\n');
+
+% Validate vector shapes and components (MATLAB uses column vectors by convention)
+assert(isequal(size(g_NED), [3, 1]), 'Gravity vector must be a 3x1 vector.');
+assert(isequal(size(omega_ie_NED), [3, 1]), 'Earth rotation rate vector must be a 3x1 vector.');
+assert(abs(g_NED(1)) < 1e-9 && abs(g_NED(2)) < 1e-9, 'Gravity should have no North/East component.');
+assert(abs(omega_ie_NED(2)) < 1e-9, 'Earth rate should have no East component in NED.');
+
+fprintf('Reference vectors validated successfully.\n');
+
+% Print reference vectors
+fprintf('\n==== Reference Vectors in NED Frame ====\n');
+fprintf('Gravity vector (NED):        [%.4f, %.4f, %.4f] m/s^2\n', g_NED);
+fprintf('Earth rotation rate (NED):   [%.4e, %.4e, %.4e] rad/s\n', omega_ie_NED);
+fprintf('Latitude (deg):              %.6f\n', lat_deg);
+fprintf('Longitude (deg):             %.6f\n', lon_deg);
+
+
+% ================================
+% Subtask 1.5: Plot Location on Earth Map
+% ================================
+fprintf('\nSubtask 1.5: Plotting location on Earth map.\n');
+
+% Create a geographic plot (requires Mapping Toolbox)
+figure('Name', 'Initial Location on Earth Map', 'Position', [100, 100, 1000, 500]);
+geobasemap satellite; % Use satellite imagery as the basemap
+
+% Set map limits to focus on the location
+geolimits([lat_deg - 2, lat_deg + 2], [lon_deg - 2, lon_deg + 2]);
+
+% Plot the initial location with a red marker
+hold on;
+geoplot(lat_deg, lon_deg, 'ro', 'MarkerSize', 10, 'MarkerFaceColor', 'r');
+
+% Add a text label
+text_str = sprintf('Lat: %.4f°, Lon: %.4f°', lat_deg, lon_deg);
+text(lon_deg + 0.1, lat_deg, text_str, 'Color', 'white', 'FontSize', 12, 'FontWeight', 'bold');
+hold off;
+
+% Set plot title
+title('Initial Location on Earth Map');
+
+% Save the plot
+output_filename = fullfile(results_dir, sprintf('%s_location_map.pdf', tag));
+saveas(gcf, output_filename);
+fprintf('Location map saved to %s\n', output_filename);
+% close(gcf); % Uncomment to close the figure after saving
