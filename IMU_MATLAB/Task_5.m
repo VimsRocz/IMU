@@ -19,6 +19,7 @@ function Task_5()
     imu = load(get_data_file('IMU_X001.dat'));
     dt = mean(diff(imu(1:100,2))); if dt<=0, dt=1/400; end
     acc_body = imu(:,6:8)/dt;
+    gyro_body = imu(:,3:5)/dt;
     acc_ned = (R_BN*acc_body')' + g_NED';
     imu_t = (0:size(acc_ned,1)-1)*dt;
 
@@ -44,7 +45,7 @@ function Task_5()
             P = (eye(6)-K*H)*P;
             gnss_idx = gnss_idx + 1;
         end
-        if all(abs(acc_body(i,:)) < 0.05) && all(abs(gyro(i,:)) < 1e-3)
+        if all(abs(acc_body(i,:)) < 0.05) && all(abs(gyro_body(i,:)) < 1e-3)
             zupt_count = zupt_count + 1;
         end
         fused_pos(i,:) = x(1:3)';
