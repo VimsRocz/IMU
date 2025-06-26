@@ -147,6 +147,22 @@ python plot_compare_all.py
 This creates one `all_datasets_<method>_comparison.pdf` per method in
 `results/`.
 
+## Running a single dataset
+
+Run `FINAL.py` to process just the first IMU/GNSS pair with all three
+initialisation methods.  The script calls the fusion routine directly, so no
+additional wrapper scripts are involved:
+
+```bash
+python FINAL.py
+```
+This produces the same logs and summary table as `run_all_datasets.py` but
+only for `IMU_X001.dat` and `GNSS_X001.csv`. You can still pass `--method` or a
+YAML config file just like with the batch runner.
+If your shell complains about `event not found` when you try running the
+shebang line directly, simply invoke the script with `python FINAL.py` or run it
+as `./FINAL.py` instead.
+
 ## Automated figure generation
 
 The module `auto_plots.py` contains helper routines for creating the standard

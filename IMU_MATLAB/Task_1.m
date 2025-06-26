@@ -17,8 +17,9 @@ function Task_1(imuFile, gnssFile)
     % use ecef2lla which returns a 3-element vector [lat lon alt]
     % older MATLAB versions may not support the ellipsoid argument with
     % multiple outputs, so extract the components manually
-    wgs84 = wgs84Ellipsoid('meter');
-    lla = ecef2lla([X0 Y0 Z0], wgs84);
+    % Some MATLAB releases expect the ellipsoid as a character vector rather
+    % than an object. Use 'WGS84' to avoid errors from `worldparams`.
+    lla = ecef2lla([X0 Y0 Z0], 'WGS84');
     lat = lla(1); lon = lla(2); h = lla(3);
     fprintf('Computed initial latitude: %.6f\u00B0, longitude: %.6f\u00B0\n', lat, lon);
 
