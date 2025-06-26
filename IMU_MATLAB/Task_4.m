@@ -223,19 +223,28 @@ function plot_comparison_in_frame(frame_name, t_gnss, t_imu, methods, C_B_N_meth
         % Position
         subplot(3, 3, i);
         hold on; plot(t_gnss, p_gnss(:, i), 'k--', 'LineWidth', 1.5, 'DisplayName', 'GNSS');
-        for m = 1:length(methods), method = methods{m}; plot(t_imu, p_imu.(method)(:, i), 'Color', colors.(method), 'DisplayName', ['IMU ' method]); end
+        for m = 1:length(methods)
+            method = methods{m};
+            plot(t_imu, p_imu.(method)(:, i), 'Color', colors.(method), 'DisplayName', ['IMU ' method]);
+        end
         hold off; grid on; legend; title(['Position ' dims_ned{i}]); xlabel('Time (s)'); ylabel('Position (m)');
         
         % Velocity
         subplot(3, 3, i + 3);
         hold on; plot(t_gnss, v_gnss(:, i), 'k--', 'LineWidth', 1.5, 'DisplayName', 'GNSS');
-        for m = 1:length(methods), method = methods{m}; plot(t_imu, v_imu.(method)(:, i), 'Color', colors.(method), 'DisplayName', ['IMU ' method]); end
+        for m = 1:length(methods)
+            method = methods{m};
+            plot(t_imu, v_imu.(method)(:, i), 'Color', colors.(method), 'DisplayName', ['IMU ' method]);
+        end
         hold off; grid on; legend; title(['Velocity ' dims_ned{i}]); xlabel('Time (s)'); ylabel('Velocity (m/s)');
         
         % Acceleration
         subplot(3, 3, i + 6);
         hold on; plot(t_gnss, a_gnss(:, i), 'k--', 'LineWidth', 1.5, 'DisplayName', 'GNSS (Derived)');
-        for m = 1:length(methods), method = methods{m}; plot(t_imu, a_imu.(method)(:, i), 'Color', colors.(method), 'DisplayName', ['IMU ' method]); end
+        for m = 1:length(methods)
+            method = methods{m};
+            plot(t_imu, a_imu.(method)(:, i), 'Color', colors.(method), 'DisplayName', ['IMU ' method]);
+        end
         hold off; grid on; legend; title(['Acceleration ' dims_ned{i}]); xlabel('Time (s)'); ylabel('Acceleration (m/s^2)');
     end
     sgtitle(['GNSS vs. IMU Integration Comparison in ' frame_name ' Frame']);
