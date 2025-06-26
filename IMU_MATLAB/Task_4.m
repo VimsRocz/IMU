@@ -1,6 +1,29 @@
-%% ========================================================================
-% TASK 4: GNSS and IMU Data Integration and Comparison
-% =========================================================================
+function Task_4(imu_file, gnss_file, method)
+%TASK_4 GNSS and IMU data integration and comparison
+%   Task_4(IMUFILE, GNSSFILE, METHOD) runs the GNSS/IMU integration
+%   using the attitude estimates from Task 3. METHOD is unused but kept
+%   for backwards compatibility with older scripts.
+
+if nargin < 1 || isempty(imu_file)
+    imu_file = 'IMU_X001.dat';
+end
+if nargin < 2 || isempty(gnss_file)
+    gnss_file = 'GNSS_X001.csv';
+end
+if nargin < 3
+    method = ''; %#ok<NASGU>
+end
+
+if ~exist('results','dir')
+    mkdir('results');
+end
+results_dir = 'results';
+[~, imu_name, ~] = fileparts(imu_file);
+[~, gnss_name, ~] = fileparts(gnss_file);
+tag = [imu_name '_' gnss_name];
+
+load(fullfile(results_dir, 'task3_results.mat'), 'task3_results');
+
 fprintf('\nTASK 4: GNSS and IMU Data Integration and Comparison\n');
 
 %% ========================================================================
@@ -179,10 +202,10 @@ function C = compute_C_ECEF_to_NED(lat_rad, lon_rad)
     % Compute rotation matrix from ECEF to NED frame.
     s_lat = sin(lat_rad); c_lat = cos(lat_rad);
     s_lon = sin(lon_rad); c_lon = cos(lon_rad);
-    
-    C = [-s_latc_lon, -s_lats_lon, c_lat;
-         -s_lon,         c_lon,        0;
-         -c_latc_lon, -c_lats_lon, -s_lat];
+
+    C = [-s_lat * c_lon, -s_lat * s_lon,  c_lat;
+         -s_lon,          c_lon,         0;
+         -c_lat * c_lon, -c_lat * s_lon, -s_lat];
 end
 
 function plot_comparison_in_frame(frame_name, t_gnss, t_imu, methods, C_B_N_methods, p_gnss, v_gnss, a_gnss, p_imu, v_imu, a_imu, f_b_corr, filename, r0_ecef, C_e2n)
