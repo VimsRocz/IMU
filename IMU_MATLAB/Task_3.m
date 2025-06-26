@@ -1,6 +1,6 @@
 function Task_3()
     % TASK 3: Solve Wahba's problem (attitude determination)
-    fprintf('\nTASK 3: Solve Wahba\'s problem\n');
+    fprintf('\nTASK 3: Solve Wahba''s problem\n');
 
     S1 = load(fullfile('results','Task1_init.mat'));
     S2 = load(fullfile('results','Task2_body.mat'));
