@@ -64,8 +64,12 @@ function Task_5(imuFile, gnssFile)
     subplot(2,1,2); plot(imu_t,fused_vel); ylabel('Velocity (m/s)'); xlabel('Time (s)');
     saveas(gcf, fullfile('results', ['Task5_fused_' tag '.png'])); close;
 
-    rmse_pos = sqrt(mean((pos_ned(1:length(fused_pos))-fused_pos).^2,'all'));
-    final_pos_err = norm(fused_pos(end,:) - pos_ned(end,:));
+    % compute RMSE of the fused position using the common length of
+    % the GNSS and fused position arrays
+    Npos = min(size(pos_ned,1), size(fused_pos,1));
+    rmse_pos = sqrt(mean((pos_ned(1:Npos,:) - fused_pos(1:Npos,:)).^2,'all'));
+    % record the final position error at the last common time step
+    final_pos_err = norm(fused_pos(Npos,:) - pos_ned(Npos,:));
     fprintf('[SUMMARY] method=TRIAD imu=%s gnss=%s rmse_pos=%6.2f final_pos=%6.2f ZUPTcnt=%d\n',...
         imuFile, gnssFile, rmse_pos, final_pos_err, zupt_count);
     save(fullfile('results', ['Task5_fused_' tag '.mat']),'fused_pos','fused_vel');
