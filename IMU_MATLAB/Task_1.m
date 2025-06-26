@@ -21,7 +21,8 @@ function Task_1(imuFile, gnssFile)
     % than an object. Use 'WGS84' to avoid errors from `worldparams`.
     lla = ecef2lla([X0 Y0 Z0], 'WGS84');
     lat = lla(1); lon = lla(2); h = lla(3);
-    fprintf('Computed initial latitude: %.6f\u00B0, longitude: %.6f\u00B0\n', lat, lon);
+    fprintf('Computed initial latitude: %.6f%c, longitude: %.6f%c\n', ...
+        rad2deg(lat), char(176), rad2deg(lon), char(176));
 
     %% Subtask 1.2: Defining gravity vector in NED frame
     g_NED = [0;0;9.81];
