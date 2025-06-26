@@ -59,8 +59,12 @@ function Task_5()
 
     rmse_pos = sqrt(mean((pos_ned(1:length(fused_pos))-fused_pos).^2,'all'));
     final_pos_err = norm(fused_pos(end,:) - pos_ned(end,:));
-    fprintf('[SUMMARY] method=TRIAD imu=%s gnss=%s rmse_pos=%6.2f final_pos=%6.2f ZUPTcnt=%d\n',...
-        'IMU_X001.dat','GNSS_X001.csv', rmse_pos, final_pos_err, zupt_count);
+
+    imuFile  = 'IMU_X001.dat';
+    gnssFile = 'GNSS_X001.csv';
+    summary  = sprintf('[SUMMARY] method=TRIAD imu=%s gnss=%s rmse_pos=%6.2f final_pos=%6.2f ZUPTcnt=%d\n', ...
+        imuFile, gnssFile, rmse_pos, final_pos_err, zupt_count);
+    fprintf(summary);
     save(fullfile('results','Task5_fused.mat'),'fused_pos','fused_vel');
 end
 
