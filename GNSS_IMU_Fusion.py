@@ -1390,6 +1390,8 @@ def main():
         orientations[0] = initial_quats[m]
         attitude_q.append(orientations[0])
         q_cur = orientations[0]
+        roll, pitch, yaw = quat2euler(q_cur)
+        euler_list.append([roll, pitch, yaw])
         
 
         
