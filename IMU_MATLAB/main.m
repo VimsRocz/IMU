@@ -6,8 +6,9 @@ if ~exist('results','dir')
 end
 
 fprintf('Running IMU+GNSS Initialization Pipeline (MATLAB Version)\n');
-
-Task_1();
+imuFile = get_data_file('IMU_X001.dat');
+gnssFile = get_data_file('GNSS_X001.csv');
+Task_1(imuFile, gnssFile);
 Task_2();
 Task_3();
 Task_4();

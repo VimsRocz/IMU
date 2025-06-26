@@ -171,7 +171,7 @@ pytest -q
 ## MATLAB Compatibility
 
 Each run now exports a MATLAB `.mat` file alongside the NPZ results. Use the
-scripts in the new `MATLAB/` folder to recreate the final plots or validate the
+scripts in the new `IMU_MATLAB/` folder to recreate the final plots or validate the
 filter against ground truth data. Example:
 
 ```matlab

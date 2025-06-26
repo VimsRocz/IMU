@@ -55,4 +55,6 @@ function refVectors = Task_1(imuFile, gnssFile)
     fprintf('omega_ned : [%g %g %g]\n', omega_ned);
 
     refVectors = struct('lat', lat, 'lon', lon, 'g_ned', g_ned, 'omega_ned', omega_ned);
+    if ~exist('results','dir'), mkdir('results'); end
+    save(fullfile('results','Task1_init.mat'),'lat','lon','g_ned','omega_ned');
 end
