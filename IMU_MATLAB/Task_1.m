@@ -1,4 +1,4 @@
-function Task_1(imuFile, gnssFile)
+function init = Task_1(imuFile, gnssFile)
     % TASK 1: Define reference vectors in NED frame
     fprintf("\nTASK 1: Define reference vectors in NED frame\n");
 
@@ -49,5 +49,9 @@ function Task_1(imuFile, gnssFile)
     saveas(gcf, fullfile('results', ['Task1_location_map_' tag '.png']));
     close;
 
-    save(fullfile('results', ['Task1_init_' tag '.mat']), 'lat', 'lon', 'g_NED', 'omega_NED');
+    init.lat = lat;
+    init.lon = lon;
+    init.g_NED = g_NED;      % renamed from g_ned
+    init.omega_NED = omega_NED;  % renamed from omega_ned
+    save(fullfile('results', ['Task1_init_' tag '.mat']), '-struct', 'init');
 end
