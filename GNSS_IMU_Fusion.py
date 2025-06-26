@@ -17,6 +17,12 @@ import argparse, pathlib, json, numpy as np
 from scripts.plot_utils import save_plot, plot_attitude
 from utils import detect_static_interval, is_static
 from scripts.validate_filter import compute_residuals, plot_residuals
+from scripts.final_plots import (
+    save_zupt_variance,
+    save_euler_angles,
+    save_residual_plots,
+    save_attitude_over_time,
+)
 from scipy.spatial.transform import Rotation as R
 
 try:
@@ -1320,6 +1326,7 @@ def main():
     res_vel_all = {}
     time_res_all = {}
     zupt_counts = {}
+    zupt_events_all = {}
 
     def quat_multiply(q, r):
         w0, x0, y0, z0 = q
@@ -1452,6 +1459,7 @@ def main():
             for s, e in zupt_events:
                 logf.write(f"{imu_file}: ZUPT {s}-{e}\n")
         zupt_counts[m] = zupt_count
+        zupt_events_all[m] = list(zupt_events)
 
         # stack log lists
         innov_pos = np.vstack(innov_pos)
@@ -1699,6 +1707,45 @@ def main():
     fname = pathlib.Path("results") / f"{summary_tag}_{method}_compare.pkl.gz"
     with gzip.open(fname, "wb") as f:
         pickle.dump(pack, f)
+
+    # --- Final plots -------------------------------------------------------
+    if not args.no_plots:
+        dataset_id = imu_stem.split("_")[1]
+        zupt_mask = np.zeros(len(imu_time), dtype=bool)
+        for s, e in zupt_events_all.get(method, []):
+            s = max(0, s)
+            e = min(len(imu_time) - 1, e)
+            zupt_mask[s:e+1] = True
+
+        save_zupt_variance(
+            acc_body_corrected[method],
+            zupt_mask,
+            dt_ilu,
+            dataset_id,
+            threshold=0.01,
+        )
+
+        euler_deg = np.rad2deg(euler_all[method])
+        save_euler_angles(imu_time, euler_deg, dataset_id)
+
+        pos_f = np.vstack([
+            np.interp(gnss_time, imu_time, fused_pos[method][:, i])
+            for i in range(3)
+        ]).T
+        vel_f = np.vstack([
+            np.interp(gnss_time, imu_time, fused_vel[method][:, i])
+            for i in range(3)
+        ]).T
+        save_residual_plots(
+            gnss_time,
+            pos_f,
+            gnss_pos_ned,
+            vel_f,
+            gnss_vel_ned,
+            dataset_id,
+        )
+
+        save_attitude_over_time(imu_time, euler_deg, dataset_id)
 
     print(
         f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file)} gnss={os.path.basename(gnss_file)} "
