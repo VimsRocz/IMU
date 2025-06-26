@@ -178,11 +178,16 @@ A codex-style plotting checklist is available in [docs/PlottingChecklist.md](doc
 
 ## Tests
 
-Run the unit tests with `pytest`:
+Run the unit tests with `pytest`. Make sure the Python dependencies are
+installed first:
 
 ```bash
+pip install -r requirements.txt
 pytest -q
 ```
+
+You can also simply run `make test` to install the requirements and execute the
+test suite in one command.
 
 ## MATLAB Compatibility
 
