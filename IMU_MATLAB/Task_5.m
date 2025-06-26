@@ -62,9 +62,8 @@ function Task_5()
 
     imuFile  = 'IMU_X001.dat';
     gnssFile = 'GNSS_X001.csv';
-    summary  = sprintf('[SUMMARY] method=TRIAD imu=%s gnss=%s rmse_pos=%6.2f final_pos=%6.2f ZUPTcnt=%d\n', ...
+    fprintf('[SUMMARY] method=TRIAD imu=%s gnss=%s rmse_pos=%6.2f final_pos=%6.2f ZUPTcnt=%d\n', ...
         imuFile, gnssFile, rmse_pos, final_pos_err, zupt_count);
-    fprintf(summary);
     save(fullfile('results','Task5_fused.mat'),'fused_pos','fused_vel');
 end
 
