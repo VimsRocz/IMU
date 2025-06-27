@@ -54,6 +54,8 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
         gnss_pos_ned = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
     end
     gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
+    dt_gnss = diff(gnss_time);
+    gnss_accel_ned = [zeros(1,3); diff(gnss_vel_ned) ./ dt_gnss];
 
     % Load IMU data
     imu_raw = readmatrix(imu_path);
@@ -197,8 +199,13 @@ for i = 1:3
     hold off; grid on; legend; ylabel('[m]'); title(['Position: ' labels{i}]);
 end
 xlabel('Time (s)'); sgtitle('Kalman Filter Fused Position vs. GNSS');
-saveas(gcf, fullfile(results_dir, [tag '_position.pdf']));
-fprintf('-> Position plot saved.\n');
+pos_file = fullfile(results_dir, sprintf('%s_Task5_Position.pdf', tag));
+set(gcf,'PaperPositionMode','auto');
+print(gcf, pos_file, '-dpdf', '-bestfit');
+fprintf('Saved plot: %s\n', pos_file);
+all_file = fullfile(results_dir, sprintf('%s_Task5_AllResults.pdf', tag));
+if exist(all_file, 'file'); delete(all_file); end
+exportgraphics(gcf, all_file, 'Append', true);
 
 % --- Plot 2: Velocity Comparison ---
 figure('Name', 'KF Results: Velocity', 'Position', [150 150 1200 600]);
@@ -211,10 +218,28 @@ for i = 1:3
     hold off; grid on; legend; ylabel('[m/s]'); title(['Velocity: ' labels{i}]);
 end
 xlabel('Time (s)'); sgtitle('Kalman Filter Fused Velocity vs. GNSS');
-saveas(gcf, fullfile(results_dir, [tag '_velocity.pdf']));
-fprintf('-> Velocity plot saved.\n');
+vel_file = fullfile(results_dir, sprintf('%s_Task5_Velocity.pdf', tag));
+set(gcf,'PaperPositionMode','auto');
+print(gcf, vel_file, '-dpdf', '-bestfit');
+fprintf('Saved plot: %s\n', vel_file);
+exportgraphics(gcf, all_file, 'Append', true);
 
-% --- Plot 3: Attitude (Euler Angles) ---
+% --- Plot 3: Acceleration Comparison ---
+figure('Name', 'KF Results: Acceleration', 'Position', [150 150 1200 600]);
+for i = 1:3
+    subplot(3, 1, i); hold on;
+    plot(gnss_time, gnss_accel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Derived)');
+    plot(imu_time, x_log(i+6,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
+    hold off; grid on; legend; ylabel('[m/s^2]'); title(['Acceleration: ' labels{i}]);
+end
+xlabel('Time (s)'); sgtitle('Kalman Filter Fused Acceleration vs. GNSS');
+acc_file = fullfile(results_dir, sprintf('%s_Task5_Acceleration.pdf', tag));
+set(gcf,'PaperPositionMode','auto');
+print(gcf, acc_file, '-dpdf', '-bestfit');
+fprintf('Saved plot: %s\n', acc_file);
+exportgraphics(gcf, all_file, 'Append', true);
+
+% --- Plot 4: Attitude (Euler Angles) ---
 figure('Name', 'KF Results: Attitude', 'Position', [200 200 1200 600]);
 euler_labels = {'Roll', 'Pitch', 'Yaw'};
 for i = 1:3
@@ -223,8 +248,11 @@ for i = 1:3
     grid on; ylabel('[deg]'); title([euler_labels{i} ' Angle']);
 end
 xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
-saveas(gcf, fullfile(results_dir, [tag '_attitude.pdf']));
-fprintf('-> Attitude plot saved.\n');
+att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
+set(gcf,'PaperPositionMode','auto');
+print(gcf, att_file, '-dpdf', '-bestfit');
+fprintf('Saved plot: %s\n', att_file);
+exportgraphics(gcf, all_file, 'Append', true);
 
 %% --- End-of-run summary statistics --------------------------------------
 pos_interp = interp1(imu_time, x_log(1:3,:)', gnss_time)';

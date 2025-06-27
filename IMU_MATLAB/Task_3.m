@@ -31,7 +31,13 @@ if ~isfile(imu_path)
 end
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
-tag = [imu_name '_' gnss_name];
+if isempty(method)
+    tag = [imu_name '_' gnss_name];
+    method_tag = 'AllMethods';
+else
+    tag = [imu_name '_' gnss_name '_' method];
+    method_tag = method;
+end
 results_dir = 'results';
 
 % Load vectors produced by Task 1 and Task 2
@@ -174,8 +180,10 @@ bar(omega_errors);
 set(gca, 'xticklabel', methods);
 title('Earth Rate Vector Error'); ylabel('Error (degrees)'); grid on;
 sgtitle('Attitude Initialization Method Errors (Case 1)');
-saveas(gcf, fullfile(results_dir, [tag '_errors_comparison.pdf']));
-fprintf('-> Error comparison plot saved.\n');
+err_file = fullfile(results_dir, sprintf('%s_%s_%s_Task3_ErrorComparison.pdf', imu_name, gnss_name, method_tag));
+set(gcf, 'PaperPositionMode','auto');
+print(gcf, err_file, '-dpdf', '-bestfit');
+fprintf('Saved plot: %s\n', err_file);
 
 % Plot 2: Quaternion components for both cases
 figure('Name', 'Quaternion Component Comparison', 'Position', [100, 600, 1000, 600]);
@@ -190,8 +198,10 @@ set(gca, 'xticklabel', labels);
 xtickangle(45);
 legend('q_w (scalar)', 'q_x', 'q_y', 'q_z');
 grid on;
-saveas(gcf, fullfile(results_dir, [tag '_quaternions_comparison.pdf']));
-fprintf('-> Quaternion comparison plot saved.\n');
+quat_file = fullfile(results_dir, sprintf('%s_%s_%s_Task3_QuaternionComparison.pdf', imu_name, gnss_name, method_tag));
+set(gcf, 'PaperPositionMode','auto');
+print(gcf, quat_file, '-dpdf', '-bestfit');
+fprintf('Saved plot: %s\n', quat_file);
 
 
 %% ========================================================================
