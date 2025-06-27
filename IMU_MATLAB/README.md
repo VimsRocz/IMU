@@ -64,12 +64,15 @@ To run only the TRIAD method use:
 
 
 ```matlab
-% use bundled sample files
+% use bundled sample files (paths resolved with get_data_file)
 result = TRIAD();
 
 % or specify your own files
 % result = TRIAD('IMU_X001.dat','GNSS_X001.csv');
 ```
+
+`TRIAD` resolves the file names with `get_data_file`, so the bundled logs are
+found even if you run the command from another folder.
 
 The returned struct matches the file `results/Result_IMU_X001_GNSS_X001_TRIAD.mat`.
 
