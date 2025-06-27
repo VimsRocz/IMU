@@ -171,40 +171,34 @@ end_idx   = min(479907, size(acc_body_filt,1));
 static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
 static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
 
-% Load biases estimated in Task 2
-task2_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
-if isfile(task2_file)
-    bdata = load(task2_file);
-    acc_bias = bdata.acc_bias;
-    gyro_bias = bdata.gyro_bias;
-    if isfield(bdata,'g_body_scaled')
-        g_body = bdata.g_body_scaled;
-    elseif isfield(bdata,'g_body')
-        g_body = bdata.g_body;
-    else
-        g_body = [0;0;0];
-    end
-else
-    warning('Task 2 results with biases not found. Estimating biases from fixed static interval.');
-    g_body_raw = -static_acc';
-    g_body = (g_body_raw / norm(g_body_raw)) * 9.81;
-    acc_bias = static_acc' + g_body;
-    gyro_bias = static_gyro';
-end
+% Gravity vector and Earth rotation in NED frame (Task 1 results)
 g_NED = [0; 0; 9.81];
+omega_E = 7.2921159e-5;                     % rad/s
+omega_ie_NED = omega_E * [cos(ref_lat); 0; -sin(ref_lat)];
 
+% Correct IMU measurements separately for each Wahba method
 acc_body_corrected  = struct();
 gyro_body_corrected = struct();
 for i = 1:length(methods)
     method = methods{i};
     C_B_N = C_B_N_methods.(method);
     C_N_B = C_B_N';
-    scale = 1.0;
 
-    acc_body_corrected.(method)  = (acc_body_filt - acc_bias') * scale;
+    % Expected gravity and Earth rate in the body frame
+    g_body_expected = C_N_B * g_NED;
+    omega_ie_body_expected = C_N_B * omega_ie_NED;
+
+    % Biases estimated from the static interval
+    acc_bias  = static_acc'  + g_body_expected;          % accelerometer bias
+    gyro_bias = static_gyro' - omega_ie_body_expected;   % gyroscope bias
+    scale = 9.81 / norm(static_acc' - acc_bias);         % accelerometer scale
+
+    % Apply bias and scale corrections
+    acc_body_corrected.(method)  = scale * (acc_body_filt - acc_bias');
     gyro_body_corrected.(method) = gyro_body_filt - gyro_bias';
-    fprintf('Method %s: Accel bias=[%.4f, %.4f, %.4f], Gyro bias=[%.6f, %.6f, %.6f]\n', ...
-            method, acc_bias, gyro_bias);
+
+    fprintf('Method %s: Accel bias=[%.4f, %.4f, %.4f], Gyro bias=[%.6f, %.6f, %.6f], Scale=%.4f\n', ...
+            method, acc_bias, gyro_bias, scale);
 end
 fprintf('-> IMU data corrected for bias and scale for each method.\n');
 
