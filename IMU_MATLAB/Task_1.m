@@ -135,29 +135,33 @@ fprintf('Longitude (deg):             %.6f\n', lon_deg);
 % ================================
 fprintf('\nSubtask 1.5: Plotting location on Earth map.\n');
 
-% Create a geographic plot (requires Mapping Toolbox)
-figure('Name', 'Initial Location on Earth Map', 'Position', [100, 100, 1000, 500]);
-geobasemap satellite; % Use satellite imagery as the basemap
+% Create a geographic plot if Mapping Toolbox is available
+if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
+    figure('Name', 'Initial Location on Earth Map', 'Position', [100, 100, 1000, 500]);
+    geobasemap satellite; % Use satellite imagery as the basemap
 
-% Set map limits to focus on the location
-geolimits([lat_deg - 2, lat_deg + 2], [lon_deg - 2, lon_deg + 2]);
+    % Set map limits to focus on the location
+    geolimits([lat_deg - 2, lat_deg + 2], [lon_deg - 2, lon_deg + 2]);
 
-% Plot the initial location with a red marker
-hold on;
-geoplot(lat_deg, lon_deg, 'ro', 'MarkerSize', 10, 'MarkerFaceColor', 'r');
+    % Plot the initial location with a red marker
+    hold on;
+    geoplot(lat_deg, lon_deg, 'ro', 'MarkerSize', 10, 'MarkerFaceColor', 'r');
 
-% Add a text label
-text_str = sprintf('Lat: %.4f°, Lon: %.4f°', lat_deg, lon_deg);
-text(lon_deg + 0.1, lat_deg, text_str, 'Color', 'white', 'FontSize', 12, 'FontWeight', 'bold');
-hold off;
+    % Add a text label
+    text_str = sprintf('Lat: %.4f°, Lon: %.4f°', lat_deg, lon_deg);
+    text(lon_deg + 0.1, lat_deg, text_str, 'Color', 'white', 'FontSize', 12, 'FontWeight', 'bold');
+    hold off;
 
-% Set plot title
-title('Initial Location on Earth Map');
+    % Set plot title
+    title('Initial Location on Earth Map');
 
-% Save the plot
-output_filename = fullfile(results_dir, sprintf('%s_location_map.pdf', tag));
-saveas(gcf, output_filename);
-fprintf('Location map saved to %s\n', output_filename);
+    % Save the plot
+    output_filename = fullfile(results_dir, sprintf('%s_location_map.pdf', tag));
+    saveas(gcf, output_filename);
+    fprintf('Location map saved to %s\n', output_filename);
+else
+    warning('Mapping Toolbox not found. Skipping geographic plot.');
+end
 % close(gcf); % Uncomment to close the figure after saving
 
 % Save results for later tasks
