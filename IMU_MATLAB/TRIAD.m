@@ -5,8 +5,12 @@ function result = TRIAD(imuFile, gnssFile)
 %   results are also saved in results/Result_IMU_GNSS_TRIAD.mat and the
 %   summary line printed to the console.
 
-if nargin < 2
-    error('Usage: TRIAD(''IMUFILE'',''GNSSFILE'')');
+if nargin == 0
+    imuFile = 'IMU_X001.dat';
+    gnssFile = 'GNSS_X001.csv';
+    fprintf('[INFO] No files provided. Using defaults: %s, %s\n', imuFile, gnssFile);
+elseif nargin ~= 2
+    error('Usage: TRIAD(''IMUFILE'',''GNSSFILE'') or TRIAD() for defaults');
 end
 
 Task_1(imuFile, gnssFile, 'TRIAD');
