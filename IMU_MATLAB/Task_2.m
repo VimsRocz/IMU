@@ -151,9 +151,10 @@ if start_idx == -1
     if size(acc_filt, 1) < end_idx, end_idx = size(acc_filt, 1); end
 end
 
-% Override with specified static interval to match Python pipeline
-start_idx = 297;
-end_idx   = min(479907, size(acc_filt,1));
+% Use the automatically detected static interval
+% The Python reference implementation selects a short early segment
+% where the device is stationary.  Re-using that here avoids
+% overestimating biases when the whole dataset is treated as static.
 
 % --- Calculate static vectors from the interval ---
 N_static = end_idx - start_idx + 1;
