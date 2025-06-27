@@ -98,9 +98,18 @@ cutoff = 5.0;
 order = 4;
 nyquist_freq = 0.5 * fs;
 normal_cutoff = cutoff / nyquist_freq;
-[b, a] = butter(order, normal_cutoff, 'low');
-acc_filt = filtfilt(b, a, acc);
-gyro_filt = filtfilt(b, a, gyro);
+
+if exist('filtfilt', 'file') == 2 && exist('butter', 'file') == 2 && license('test','Signal_Processing_Toolbox')
+    [b, a] = butter(order, normal_cutoff, 'low');
+    acc_filt = filtfilt(b, a, acc);
+    gyro_filt = filtfilt(b, a, gyro);
+else
+    warning('Signal Processing Toolbox not found. Using simple moving average filter.');
+    win = max(1, round(fs * 0.05));
+    kernel = ones(win,1) / win;
+    acc_filt = conv(acc, kernel, 'same');
+    gyro_filt = conv(gyro, kernel, 'same');
+end
 
 % --- Detect a static interval automatically (inlined logic) ---
 fprintf('Detecting static interval using variance thresholds...\n');
