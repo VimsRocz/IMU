@@ -21,18 +21,20 @@ missing, the scripts will also look for the files in the repository root. The
 scripts save outputs and plots in `results/`.
 
 Run the entire pipeline from MATLAB by executing `main.m`. The script now
-accepts optional file names so you can run:
+accepts optional file names **and** a list of methods so you can run:
 
 ```matlab
-main                 % uses IMU\_X001.dat and GNSS\_X001.csv
+main                 % uses all bundled datasets and all methods
 main('IMU_X002.dat','GNSS_X002.csv')
+main('IMU_X001.dat','GNSS_X001.csv','TRIAD')
+main({'IMU_X001.dat','IMU_X002.dat'}, {'GNSS_X001.csv','GNSS_X002.csv'}, {'SVD'})
 Task_4('IMU_X001.dat','GNSS_X001.csv')
 Task_5('IMU_X001.dat','GNSS_X001.csv', gnss_pos_ned)
 ```
 
-`main` executes `Task_1`–`Task_5` for each of the attitude initialisation
-methods (`TRIAD`, `Davenport` and `SVD`). Output files include the method
-name so results are preserved for every run.
+`main` executes `Task_1`–`Task_5` for each selected attitude initialisation
+method (TRIAD, Davenport and SVD by default). Output files include the
+method name so results are preserved for every run.
 
 `Task_4` expects the rotation matrices produced by `Task_3` to be saved as
 `results/task3_results.mat`. Make sure `Task_3` completes before running
