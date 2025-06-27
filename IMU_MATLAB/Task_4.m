@@ -12,7 +12,7 @@ if nargin < 2 || isempty(gnss_path)
     error('GNSS file not specified');
 end
 if nargin < 3
-    method = ''; %#ok<NASGU>
+    method = '';
 end
 
 if ~exist('results','dir')
@@ -31,7 +31,11 @@ end
 results_dir = 'results';
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
-tag = [imu_name '_' gnss_name];
+if isempty(method)
+    tag = [imu_name '_' gnss_name];
+else
+    tag = [imu_name '_' gnss_name '_' method];
+end
 
 % Load rotation matrices produced by Task 3
 results_file = fullfile(results_dir, 'task3_results.mat');
@@ -50,7 +54,12 @@ fprintf('\nTASK 4: GNSS and IMU Data Integration and Comparison\n');
 % Subtask 4.1: Access Rotation Matrices from Task 3
 % =========================================================================
 fprintf('\nSubtask 4.1: Accessing rotation matrices from Task 3.\n');
-methods = fieldnames(task3_results); % e.g., 'TRIAD', 'Davenport', 'SVD'
+all_methods = fieldnames(task3_results); % e.g., 'TRIAD', 'Davenport', 'SVD'
+if ~isempty(method)
+    methods = {method};
+else
+    methods = all_methods;
+end
 C_B_N_methods = struct();
 for i = 1:length(methods)
     method_name = methods{i};
@@ -112,6 +121,8 @@ fprintf('\nSubtask 4.7: Converting GNSS data to NED frame.\n');
 gnss_pos_ned = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
 gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
 fprintf('-> GNSS data transformed to NED frame.\n');
+fprintf('   GNSS NED pos first=[%.2f %.2f %.2f], last=[%.2f %.2f %.2f]\n', ...
+    gnss_pos_ned(1,:), gnss_pos_ned(end,:));
 
 
 %% ========================================================================
@@ -122,6 +133,7 @@ dt_gnss = diff(gnss_time);
 % Prepend a zero row to maintain size, as diff reduces length by 1
 gnss_accel_ned = [zeros(1,3); diff(gnss_vel_ned) ./ dt_gnss];
 fprintf('-> GNSS acceleration estimated in NED frame.\n');
+fprintf('   GNSS accel RMS = %.4f m/s^2\n', rms(gnss_accel_ned(:)) );
 
 
 %% ========================================================================
@@ -136,24 +148,45 @@ imu_time = (0:size(imu_raw_data,1)-1)' * dt_imu + gnss_time(1);
 acc_body_raw = imu_raw_data(:, 6:8) / dt_imu;
 acc_body_filt = butter_lowpass_filter(acc_body_raw, 5.0, 1/dt_imu);
 gyro_body_filt = butter_lowpass_filter(imu_raw_data(:, 3:5) / dt_imu, 5.0, 1/dt_imu);
+acc_rms  = sqrt(mean(acc_body_raw(:).^2));
+gyro_rms = sqrt(mean((imu_raw_data(:,3:5)/dt_imu).^2,'all'));
+fprintf('   Acc raw RMS=%.4f, Gyro raw RMS=%.6f\n', acc_rms, gyro_rms);
 
 [start_idx, end_idx] = detect_static_interval(acc_body_filt, gyro_body_filt);
-static_acc = mean(acc_body_filt(start_idx:end_idx, :), 1);
+static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
+static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
 g_NED = [0; 0; 9.81];
 
-acc_body_corrected = struct();
+acc_body_corrected  = struct();
+gyro_body_corrected = struct();
 for i = 1:length(methods)
     method = methods{i};
     C_B_N = C_B_N_methods.(method);
     C_N_B = C_B_N';
 
     g_body_expected = C_N_B * g_NED;
-    acc_bias = static_acc' + g_body_expected;
-    scale = 9.81 / norm(static_acc' - acc_bias);
-    acc_body_corrected.(method) = (acc_body_filt - acc_bias') * scale;
-    fprintf('Method %s: Accel bias=[%.4f, %.4f, %.4f], Scale=%.4f\n', method, acc_bias, scale);
+    acc_bias  = static_acc' + g_body_expected;
+    scale     = 9.81 / norm(static_acc' - acc_bias);
+
+    omega_ie = 7.2921159e-5;
+    omega_ie_NED = [omega_ie*cos(ref_lat); 0; -omega_ie*sin(ref_lat)];
+    gyro_body_expected = C_N_B * omega_ie_NED;
+    gyro_bias = static_gyro' - gyro_body_expected;
+
+    acc_body_corrected.(method)  = (acc_body_filt - acc_bias') * scale;
+    gyro_body_corrected.(method) = gyro_body_filt - gyro_bias';
+    fprintf('Method %s: Accel bias=[%.4f, %.4f, %.4f], Scale=%.4f, Gyro bias=[%.6f, %.6f, %.6f]\n', ...
+            method, acc_bias, scale, gyro_bias);
 end
 fprintf('-> IMU data corrected for bias and scale for each method.\n');
+
+%% ========================================================================
+% Subtask 4.10: Set IMU Parameters and Gravity Vector
+% =========================================================================
+fprintf('\nSubtask 4.10: Setting IMU parameters and gravity vector.\n');
+fprintf('-> IMU sample interval dt = %.6f s\n', dt_imu);
+fprintf('-> Gravity vector g_NED = [%.2f, %.2f, %.2f] m/s^2\n', g_NED);
+
 
 
 %% ========================================================================
@@ -209,7 +242,7 @@ plot_comparison_in_frame( ...
     pos_integ, vel_integ, acc_integ, acc_body_corrected, ...
     fullfile(results_dir, [tag '_comparison_ned.pdf']), ref_r0, C_ECEF_to_NED ...
 );
-fprintf('-> All data plots saved.\n');
+fprintf('-> All data plots saved as %s_comparison_ned.pdf\n', tag);
 
 % Save GNSS positions for use by Task 5
 task4_file = fullfile(results_dir, 'task4_results.mat');
@@ -218,6 +251,7 @@ if isfile(task4_file)
 else
     save(task4_file, 'gnss_pos_ned');
 end
+fprintf('GNSS NED positions saved to %s\n', task4_file);
 % Task 5 loads these positions when initialising the Kalman filter
 
 end % End of main function: run_task4
