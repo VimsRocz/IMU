@@ -202,9 +202,15 @@ omega_ie_body = static_gyro_row';
 static_acc  = static_acc_row';
 static_gyro = static_gyro_row';
 accel_bias  = static_acc  + g_body;
-gyro_bias   = static_gyro - omega_ie_body;
+orig_gyro_bias = static_gyro - omega_ie_body;  % Python-style gyro bias
 fprintf('Python-style accel_bias = [% .6f % .6f % .6f]\n', accel_bias);
-fprintf('Python-style gyro_bias  = [% .6e % .6e % .6e]\n', gyro_bias);
+fprintf('Python-style gyro_bias  = [% .6e % .6e % .6e]\n', orig_gyro_bias);
+% --- BIAS DEBUG & CORRECT ---
+corrected_gyro_bias = static_gyro;      % use the raw static mean
+fprintf('Orig gyro bias : [% .6e % .6e % .6e]\n', orig_gyro_bias);
+fprintf('New gyro bias  : [% .6e % .6e % .6e]\n', corrected_gyro_bias);
+gyro_bias = corrected_gyro_bias;        % overwrite for downstream tasks
+% --- END PATCH ---
 
 fprintf('Gravity vector in body frame (g_body):           [%.4f; %.4f; %.4f] m/s^2\n', g_body);
 fprintf('Earth rotation rate in body frame (omega_ie_body): [%.6e; %.6e; %.6e] rad/s\n', omega_ie_body);
