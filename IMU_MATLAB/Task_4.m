@@ -234,6 +234,7 @@ for i = 1:length(methods)
     method = methods{i};
     fprintf('-> Integrating IMU data using %s method.\n', method);
     C_B_N = C_B_N_methods.(method);
+    q_b_n = rot_to_quaternion(C_B_N); % Task 4.12 initial quaternion
     
     pos = zeros(size(imu_time,1), 3);
     vel = zeros(size(imu_time,1), 3);
@@ -244,6 +245,12 @@ for i = 1:length(methods)
     pos(1,:) = gnss_pos_ned(1,:);
     
     for k = 2:length(imu_time)
+        % Propagate attitude using corrected gyro measurements
+        w_b = gyro_body_corrected.(method)(k,:)';
+        q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
+        C_B_N = quat_to_rot(q_b_n);
+
+        % Rotate measured specific force to NED and add gravity
         f_ned = C_B_N * acc_body_corrected.(method)(k,:)';
         a_ned = f_ned + g_NED;
         acc(k,:) = a_ned';
@@ -516,4 +523,69 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     print(fig,fname,'-dpdf','-bestfit');
     fprintf('Saved plot: %s\n', fname);
     close(fig);
+end
+
+function q_new = propagate_quaternion(q_old, w, dt)
+    %PROPAGATE_QUATERNION Propagate quaternion using body angular rate.
+    w_norm = norm(w);
+    if w_norm > 1e-9
+        axis = w / w_norm;
+        angle = w_norm * dt;
+        dq = [cos(angle/2); axis * sin(angle/2)];
+    else
+        dq = [1; 0; 0; 0];
+    end
+    q_new = quat_multiply(q_old, dq);
+    q_new = q_new / norm(q_new);
+end
+
+function q_out = quat_multiply(q1, q2)
+    %QUAT_MULTIPLY Hamilton product of two quaternions.
+    w1=q1(1); x1=q1(2); y1=q1(3); z1=q1(4);
+    w2=q2(1); x2=q2(2); y2=q2(3); z2=q2(4);
+    q_out = [w1*w2 - x1*x2 - y1*y2 - z1*z2;
+             w1*x2 + x1*w2 + y1*z2 - z1*y2;
+             w1*y2 - x1*z2 + y1*w2 + z1*x2;
+             w1*z2 + x1*y2 - y1*x2 + z1*w2];
+end
+
+function R = quat_to_rot(q)
+    %QUAT_TO_ROT Convert quaternion to rotation matrix.
+    qw=q(1); qx=q(2); qy=q(3); qz=q(4);
+    R=[1-2*(qy^2+qz^2), 2*(qx*qy-qw*qz), 2*(qx*qz+qw*qy);
+       2*(qx*qy+qw*qz), 1-2*(qx^2+qz^2), 2*(qy*qz-qw*qx);
+       2*(qx*qz-qw*qy), 2*(qy*qz+qw*qx), 1-2*(qx^2+qy^2)];
+end
+
+function q = rot_to_quaternion(R)
+    %ROT_TO_QUATERNION Convert rotation matrix to quaternion.
+    tr = trace(R);
+    if tr > 0
+        S = sqrt(tr + 1.0) * 2;
+        qw = 0.25 * S;
+        qx = (R(3,2) - R(2,3)) / S;
+        qy = (R(1,3) - R(3,1)) / S;
+        qz = (R(2,1) - R(1,2)) / S;
+    elseif (R(1,1) > R(2,2)) && (R(1,1) > R(3,3))
+        S = sqrt(1.0 + R(1,1) - R(2,2) - R(3,3)) * 2;
+        qw = (R(3,2) - R(2,3)) / S;
+        qx = 0.25 * S;
+        qy = (R(1,2) + R(2,1)) / S;
+        qz = (R(1,3) + R(3,1)) / S;
+    elseif R(2,2) > R(3,3)
+        S = sqrt(1.0 + R(2,2) - R(1,1) - R(3,3)) * 2;
+        qw = (R(1,3) - R(3,1)) / S;
+        qx = (R(1,2) + R(2,1)) / S;
+        qy = 0.25 * S;
+        qz = (R(2,3) + R(3,2)) / S;
+    else
+        S = sqrt(1.0 + R(3,3) - R(1,1) - R(2,2)) * 2;
+        qw = (R(2,1) - R(1,2)) / S;
+        qx = (R(1,3) + R(3,1)) / S;
+        qy = (R(2,3) + R(3,2)) / S;
+        qz = 0.25 * S;
+    end
+    q = [qw; qx; qy; qz];
+    if q(1) < 0, q = -q; end
+    q = q / norm(q);
 end
