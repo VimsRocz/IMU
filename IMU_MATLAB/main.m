@@ -29,8 +29,15 @@ Task_2(imu_file, gnss_file);
 methods = {'TRIAD','Davenport','SVD'};
 for i = 1:numel(methods)
     method = methods{i};
-
+    fprintf('\n--- Running Tasks 3-5 for method: %s ---\n', method);
+    try
+        Task_3(imu_file, gnss_file, method);
+        Task_4(imu_file, gnss_file, method);
+        Task_5(imu_file, gnss_file, method);
+    catch ME
+        fprintf('Error with method %s: %s\n', method, ME.message);
+    end
 end
 
-fprintf('All tasks completed!\n');
+fprintf('\nAll tasks completed for all methods!\n');
 end
