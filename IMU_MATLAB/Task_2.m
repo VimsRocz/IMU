@@ -189,27 +189,17 @@ g_body_scaled = g_body;                  % explicitly store scaled gravity
 omega_ie_body = static_gyro_row';
 
 % Biases computed over the fixed static interval
-acc_bias = (static_acc_row' + g_body);
-gyro_bias = static_gyro_row';
-
-% --- DEBUG & CORRECT BIAS ESTIMATION ---
-orig_acc_bias = acc_bias;
-orig_gyro_bias = gyro_bias;
+% Compute biases using the same approach as the Python implementation
 static_acc  = static_acc_row';
 static_gyro = static_gyro_row';
-corrected_acc_bias  = static_acc  + g_body;
-corrected_gyro_bias = static_gyro - omega_ie_body;
-fprintf('Orig accel bias: [% .6f % .6f % .6f]\n', orig_acc_bias);
-fprintf('New accel bias : [% .6f % .6f % .6f]\n', corrected_acc_bias);
-fprintf('Orig gyro bias : [% .6e % .6e % .6e]\n', orig_gyro_bias);
-fprintf('New gyro bias  : [% .6e % .6e % .6e]\n', corrected_gyro_bias);
-acc_bias  = corrected_acc_bias;
-gyro_bias = corrected_gyro_bias;
-% --- END DEBUG & CORRECT ---
+accel_bias  = static_acc  + g_body;
+gyro_bias   = static_gyro - omega_ie_body;
+fprintf('Python-style accel_bias = [% .6f % .6f % .6f]\n', accel_bias);
+fprintf('Python-style gyro_bias  = [% .6e % .6e % .6e]\n', gyro_bias);
 
 fprintf('Gravity vector in body frame (g_body):           [%.4f; %.4f; %.4f] m/s^2\n', g_body);
 fprintf('Earth rotation rate in body frame (omega_ie_body): [%.6e; %.6e; %.6e] rad/s\n', omega_ie_body);
-fprintf('Estimated accelerometer bias: [%.4f %.4f %.4f] m/s^2\n', acc_bias);
+fprintf('Estimated accelerometer bias: [%.4f %.4f %.4f] m/s^2\n', accel_bias);
 fprintf('Estimated gyroscope bias:     [%.6e %.6e %.6e] rad/s\n', gyro_bias);
 
 %% ================================
@@ -239,7 +229,7 @@ fprintf('From accelerometer (assuming static IMU): a_measured = -g_body \n');
 fprintf('From gyroscope (assuming static IMU):     w_measured = omega_ie_body \n');
 
 % Save results for later tasks
-save(fullfile('results', ['Task2_body_' tag '.mat']), 'g_body', 'g_body_scaled', 'omega_ie_body', 'acc_bias', 'gyro_bias');
+save(fullfile('results', ['Task2_body_' tag '.mat']), 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
 fprintf('Body-frame vectors and biases saved to %s\n', fullfile('results', ['Task2_body_' tag '.mat']));
 
 end

@@ -62,7 +62,13 @@ else
     g_body = body_data.g_body;
 end
 omega_ie_body = body_data.omega_ie_body;
-if isfield(body_data,'acc_bias'); acc_bias = body_data.acc_bias; else; acc_bias = zeros(3,1); end
+if isfield(body_data,'accel_bias')
+    accel_bias = body_data.accel_bias;
+elseif isfield(body_data,'acc_bias')
+    accel_bias = body_data.acc_bias; % backward compatibility
+else
+    accel_bias = zeros(3,1);
+end
 if isfield(body_data,'gyro_bias'); gyro_bias = body_data.gyro_bias; else; gyro_bias = zeros(3,1); end
 
 omega_E = 7.2921159e-5; % Earth rotation rate [rad/s]
