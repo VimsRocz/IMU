@@ -19,6 +19,9 @@ Task_5(imuFile, gnssFile, 'TRIAD');
 [~, gnssName] = fileparts(gnssFile);
 res_file = fullfile('results', sprintf('%s_%s_TRIAD_task5_results.mat', ...
     imuName, gnssName));
+if ~isfile(res_file)
+    error('Expected Task 5 results %s not found', res_file);
+end
 result = load(res_file);
 
 save(fullfile('results', sprintf('Result_%s_%s_TRIAD.mat', imuName, gnssName)), ...
