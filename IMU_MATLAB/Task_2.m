@@ -107,8 +107,15 @@ else
     warning('Signal Processing Toolbox not found. Using simple moving average filter.');
     win = max(1, round(fs * 0.05));
     kernel = ones(win,1) / win;
-    acc_filt = conv(acc, kernel, 'same');
-    gyro_filt = conv(gyro, kernel, 'same');
+    % Apply the moving average filter to each axis separately to avoid
+    % the "A and B must be vectors" error when using conv on a matrix.
+    [numSamples, numAxes] = size(acc);
+    acc_filt = zeros(size(acc));
+    gyro_filt = zeros(size(gyro));
+    for ax = 1:numAxes
+        acc_filt(:,ax) = conv(acc(:,ax), kernel, 'same');
+        gyro_filt(:,ax) = conv(gyro(:,ax), kernel, 'same');
+    end
 end
 
 % --- Detect a static interval automatically (inlined logic) ---
