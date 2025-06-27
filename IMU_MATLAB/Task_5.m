@@ -307,7 +307,9 @@ res_pos = pos_interp - gnss_pos_ned;
 res_vel = vel_interp - gnss_vel_ned;
 rmse_pos = sqrt(mean(sum(res_pos.^2,2)));
 rmse_vel = sqrt(mean(sum(res_vel.^2,2)));
-final_pos_err = norm(x_log(1:3,end)'-gnss_pos_ned(end,:)');
+% Both vectors are 3x1 column vectors so avoid an extra transpose which
+% previously produced a 3x3 matrix due to implicit broadcasting.
+final_pos_err = norm(x_log(1:3,end) - gnss_pos_ned(end,:)');
 rms_resid_pos = sqrt(mean(res_pos.^2,'all'));
 rms_resid_vel = sqrt(mean(res_vel.^2,'all'));
 max_resid_pos = max(vecnorm(res_pos,2,2));
