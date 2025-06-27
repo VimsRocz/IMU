@@ -171,6 +171,13 @@ if isfile(task2_file)
     bdata = load(task2_file);
     acc_bias = bdata.acc_bias;
     gyro_bias = bdata.gyro_bias;
+    if isfield(bdata,'g_body_scaled')
+        g_body = bdata.g_body_scaled;
+    elseif isfield(bdata,'g_body')
+        g_body = bdata.g_body;
+    else
+        g_body = [0;0;0];
+    end
 else
     warning('Task 2 results with biases not found. Using zero biases.');
     acc_bias = zeros(3,1);
@@ -186,7 +193,7 @@ for i = 1:length(methods)
     C_N_B = C_B_N';
     scale = 1.0;
 
-    acc_body_corrected.(method)  = (acc_body_filt - acc_bias') * scale;
+    acc_body_corrected.(method)  = (acc_body_filt - acc_bias' - g_body') * scale;
     gyro_body_corrected.(method) = gyro_body_filt - gyro_bias';
     fprintf('Method %s: Accel bias=[%.4f, %.4f, %.4f], Gyro bias=[%.6f, %.6f, %.6f]\n', ...
             method, acc_bias, gyro_bias);
