@@ -122,6 +122,13 @@ H = [eye(6), zeros(6,3)]; % Measurement matrix (6x9)
 % --- Attitude Initialization ---
 q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
 
+% Gravity vector in NED frame
+g_NED = [0; 0; 9.81];
+
+% Trapezoidal integration state
+prev_a_ned = zeros(3,1);
+prev_vel = x(4:6);
+
 % --- Pre-allocate Log Arrays ---
 num_imu_samples = length(imu_time);
 x_log = zeros(9, num_imu_samples);
@@ -146,13 +153,25 @@ for i = 1:num_imu_samples
     F = eye(9);
     F(1:3, 4:6) = eye(3) * dt_imu;
     F(4:6, 7:9) = eye(3) * dt_imu;
-    
-    x = F * x;
+
     P = F * P * F' + Q * dt_imu;
-    
+
     % --- 2. Attitude Propagation ---
     w_b = gyro_body_raw(i,:)'; % Using raw gyro for propagation
     q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
+    C_B_N = quat_to_rot(q_b_n);
+    f_b = acc_body_raw(i,:)';
+    a_ned = C_B_N * f_b + g_NED;
+    if i > 1
+        vel_new = prev_vel + 0.5 * (a_ned + prev_a_ned) * dt_imu;
+        pos_new = x(1:3) + 0.5 * (vel_new + prev_vel) * dt_imu;
+    else
+        vel_new = x(4:6);
+        pos_new = x(1:3);
+    end
+    x(4:6) = vel_new;
+    x(1:3) = pos_new;
+    x(7:9) = a_ned;
     
     % --- 3. Measurement Update (Correction) ---
     z = [gnss_pos_interp(i,:)'; gnss_vel_interp(i,:)'];
@@ -161,6 +180,10 @@ for i = 1:num_imu_samples
     K = (P * H') / S;
     x = x + K * y;
     P = (eye(9) - K * H) * P;
+
+    % update integrator history after correction
+    prev_vel = x(4:6);
+    prev_a_ned = a_ned;
     
     % --- 4. Zero-Velocity Update (ZUPT) ---
     win_size = 80;
