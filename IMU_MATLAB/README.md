@@ -72,3 +72,26 @@ ensure you are using the `'WGS84'` string in `Task_1.m` when calling
    git commit -m "Update MATLAB pipeline"
    git push
    ```
+
+## Codex Integration Notes: Gravity, Bias and Metrics
+
+The MATLAB version mirrors the Python pipeline. Use the following steps when
+modifying or extending the code so both implementations stay aligned:
+
+1. **Scale Gravity in the Body Frame** – After detecting the static interval in
+   `Task_2`, normalise the mean accelerometer vector so its magnitude is exactly
+   `9.81` m/s². Save this vector (`g_body_scaled`) and print it.
+2. **Accelerometer Bias** – Compute the bias from the static accelerometer data
+   using `g_body_scaled`, subtract it from all IMU samples and store the values.
+3. **Gyroscope Bias** – Estimate the mean of the static gyroscope samples,
+   subtract it from the gyro data and print the bias.
+4. **Performance Metrics** – After the filtering step in `Task_5` compute
+   position/velocity RMSE and the final position error. Save these in a struct
+   called `results` along with the biases.
+5. **Result Logging** – Write the struct to
+   `results/IMU_GNSS_bias_and_performance.mat` and optionally append the printed
+   summary to `results/IMU_GNSS_summary.txt`.
+
+Add comments in the code where each step occurs (e.g. `% Task 2.3: Gravity and
+Bias`) to help future maintainers keep the MATLAB and Python versions
+consistent.
