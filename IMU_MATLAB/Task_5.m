@@ -1,9 +1,61 @@
+function Task_5(imuFile, gnssFile, method, gnss_pos_ned)
+%TASK_5  Run 9-state KF using IMU & GNSS NED positions
+    if nargin < 1 || isempty(imuFile)
+        imuFile = 'IMU_X001.dat';
+    end
+    if nargin < 2 || isempty(gnssFile)
+        gnssFile = 'GNSS_X001.csv';
+    end
+    if nargin < 3 || isempty(method)
+        method = 'TRIAD';
+    end
 
+    if ~exist('results','dir')
+        mkdir('results');
+    end
+    results_dir = 'results';
+    [~, imu_name, ~] = fileparts(imuFile);
+    [~, gnss_name, ~] = fileparts(gnssFile);
+    tag = [imu_name '_' gnss_name];
 
-%% ========================================================================
-% TASK 5: Sensor Fusion with Kalman Filter
-% =========================================================================
-fprintf('\nTASK 5: Sensor Fusion with Kalman Filter\n');
+    fprintf('\nTASK 5: Sensor Fusion with Kalman Filter\n');
+
+    % Load attitude estimate from Task 3 results
+    results_file = fullfile(results_dir, 'task3_results.mat');
+    data = load(results_file);
+    task3_results = data.task3_results;
+    if ~isfield(task3_results, method)
+        error('Method %s not found in task3_results', method);
+    end
+    C_B_N = task3_results.(method).R;
+
+    % Load GNSS data to obtain time and velocity
+    gnss_path = get_data_file(gnssFile);
+    gnss_tbl = readtable(gnss_path);
+    gnss_time = gnss_tbl.Posix_Time;
+    vel_cols = {'VX_ECEF_mps','VY_ECEF_mps','VZ_ECEF_mps'};
+    pos_cols = {'X_ECEF_m','Y_ECEF_m','Z_ECEF_m'};
+    gnss_pos_ecef = gnss_tbl{:, pos_cols};
+    gnss_vel_ecef = gnss_tbl{:, vel_cols};
+    first_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
+    ref_r0 = gnss_pos_ecef(first_idx, :)';
+    [lat_deg, lon_deg, ~] = ecef_to_geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
+    C_ECEF_to_NED = compute_C_ECEF_to_NED(deg2rad(lat_deg), deg2rad(lon_deg));
+    if nargin < 4 || isempty(gnss_pos_ned)
+        gnss_pos_ned = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
+    end
+    gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
+
+    % Load IMU data
+    imu_path = get_data_file(imuFile);
+    imu_raw = readmatrix(imu_path);
+    dt_imu = mean(diff(imu_raw(1:100,2)));
+    if dt_imu <= 0 || isnan(dt_imu)
+        dt_imu = 1/400;
+    end
+    imu_time = (0:size(imu_raw,1)-1)' * dt_imu + gnss_time(1);
+    gyro_body_raw = imu_raw(:,3:5) / dt_imu;
+    acc_body_raw = imu_raw(:,6:8) / dt_imu;
 
 %% ========================================================================
 % Subtask 5.1-5.5: Configure and Initialize 9-State Filter
@@ -140,86 +192,96 @@ end % End of main function
 %% ========================================================================
 %  LOCAL HELPER FUNCTIONS
 % =========================================================================
-function q_new = propagate_quaternion(q_old, w, dt)
-    w_norm = norm(w);
-    if w_norm > 1e-9
-        axis = w / w_norm;
-        angle = w_norm * dt;
-        dq = [cos(angle/2); axis * sin(angle/2)];
-    else
-        dq = [1; 0; 0; 0];
-    end
-    q_new = quat_multiply(q_old, dq);
-end
-
-function q_out = quat_multiply(q1, q2)
-    w1 = q1(1); x1 = q1(2); y1 = q1(3); z1 = q1(4);
-    w2 = q2(1); x2 = q2(2); y2 = q2(3); z2 = q2(4);
-    q_out = [w1*w2 - x1*x2 - y1*y2 - z1*z2;
-             w1*x2 + x1*w2 + y1*z2 - z1*y2;
-             w1*y2 - x1*z2 + y1*w2 + z1*x2;
-             w1*z2 + x1*y2 - y1*x2 + z1*w2];
-end
-
-function euler = quat_to_euler(q)
-    w = q(1); x = q(2); y = q(3); z = q(4);
-    sinr_cosp = 2 * (w * x + y * z);
-    cosr_cosp = 1 - 2 * (x * x + y * y);
-    roll = atan2(sinr_cosp, cosr_cosp);
-
-    sinp = 2 * (w * y - z * x);
-    if abs(sinp) >= 1
-        pitch = sign(sinp) * (pi/2);
-    else
-        pitch = asin(sinp);
+    function q_new = propagate_quaternion(q_old, w, dt)
+        w_norm = norm(w);
+        if w_norm > 1e-9
+            axis = w / w_norm;
+            angle = w_norm * dt;
+            dq = [cos(angle/2); axis * sin(angle/2)];
+        else
+            dq = [1; 0; 0; 0];
+        end
+        q_new = quat_multiply(q_old, dq);
     end
 
-    siny_cosp = 2 * (w * z + x * y);
-    cosy_cosp = 1 - 2 * (y * y + z * z);
-    yaw = atan2(siny_cosp, cosy_cosp);
-    euler = [roll; pitch; yaw];
-end
-
-function R = quat_to_rot(q)
-    qw = q(1); qx = q(2); qy = q(3); qz = q(4);
-    R = [1 - 2 * (qy^2 + qz^2), 2 * (qx*qy - qw*qz), 2 * (qx*qz + qw*qy);
-         2 * (qx*qy + qw*qz), 1 - 2 * (qx^2 + qz^2), 2 * (qy*qz - qw*qx);
-         2 * (qx*qz - qw*qy), 2 * (qy*qz + qw*qx), 1 - 2 * (qx^2 + qy^2)];
-end
-
-function q = rot_to_quaternion(R)
-    tr = trace(R);
-    if tr > 0
-        S = sqrt(tr + 1.0) * 2;
-        qw = 0.25 * S;
-        qx = (R(3,2) - R(2,3)) / S;
-        qy = (R(1,3) - R(3,1)) / S;
-        qz = (R(2,1) - R(1,2)) / S;
-    elseif (R(1,1) > R(2,2)) && (R(1,1) > R(3,3))
-        S = sqrt(1.0 + R(1,1) - R(2,2) - R(3,3)) * 2;
-        qw = (R(3,2) - R(2,3)) / S;
-        qx = 0.25 * S;
-        qy = (R(1,2) + R(2,1)) / S;
-        qz = (R(1,3) + R(3,1)) / S;
-    elseif R(2,2) > R(3,3)
-        S = sqrt(1.0 + R(2,2) - R(1,1) - R(3,3)) * 2;
-        qw = (R(1,3) - R(3,1)) / S;
-        qx = (R(1,2) + R(2,1)) / S;
-        qy = 0.25 * S;
-        qz = (R(2,3) + R(3,2)) / S;
-    else
-        S = sqrt(1.0 + R(3,3) - R(1,1) - R(2,2)) * 2;
-        qw = (R(2,1) - R(1,2)) / S;
-        qx = (R(1,3) + R(3,1)) / S;
-        qy = (R(2,3) + R(3,2)) / S;
-        qz = 0.25 * S;
+    function q_out = quat_multiply(q1, q2)
+        w1 = q1(1); x1 = q1(2); y1 = q1(3); z1 = q1(4);
+        w2 = q2(1); x2 = q2(2); y2 = q2(3); z2 = q2(4);
+        q_out = [w1*w2 - x1*x2 - y1*y2 - z1*z2;
+                 w1*x2 + x1*w2 + y1*z2 - z1*y2;
+                 w1*y2 - x1*z2 + y1*w2 + z1*x2;
+                 w1*z2 + x1*y2 - y1*x2 + z1*w2];
     end
-    q = [qw; qx; qy; qz];
-    if q(1) < 0, q = -q; end
-    q = q / norm(q);
-end
-function is_stat=is_static(acc,gyro)
-    acc_thresh=0.01;gyro_thresh=1e-6;
-    is_stat=all(var(acc,0,1)<acc_thresh)&&all(var(gyro,0,1)<gyro_thresh);
-end
+
+    function euler = quat_to_euler(q)
+        w = q(1); x = q(2); y = q(3); z = q(4);
+        sinr_cosp = 2 * (w * x + y * z);
+        cosr_cosp = 1 - 2 * (x * x + y * y);
+        roll = atan2(sinr_cosp, cosr_cosp);
+
+        sinp = 2 * (w * y - z * x);
+        if abs(sinp) >= 1
+            pitch = sign(sinp) * (pi/2);
+        else
+            pitch = asin(sinp);
+        end
+
+        siny_cosp = 2 * (w * z + x * y);
+        cosy_cosp = 1 - 2 * (y * y + z * z);
+        yaw = atan2(siny_cosp, cosy_cosp);
+        euler = [roll; pitch; yaw];
+    end
+
+    function R = quat_to_rot(q)
+        qw = q(1); qx = q(2); qy = q(3); qz = q(4);
+        R = [1 - 2 * (qy^2 + qz^2), 2 * (qx*qy - qw*qz), 2 * (qx*qz + qw*qy);
+             2 * (qx*qy + qw*qz), 1 - 2 * (qx^2 + qz^2), 2 * (qy*qz - qw*qx);
+             2 * (qx*qz - qw*qy), 2 * (qy*qz + qw*qx), 1 - 2 * (qx^2 + qy^2)];
+    end
+
+    function q = rot_to_quaternion(R)
+        tr = trace(R);
+        if tr > 0
+            S = sqrt(tr + 1.0) * 2;
+            qw = 0.25 * S;
+            qx = (R(3,2) - R(2,3)) / S;
+            qy = (R(1,3) - R(3,1)) / S;
+            qz = (R(2,1) - R(1,2)) / S;
+        elseif (R(1,1) > R(2,2)) && (R(1,1) > R(3,3))
+            S = sqrt(1.0 + R(1,1) - R(2,2) - R(3,3)) * 2;
+            qw = (R(3,2) - R(2,3)) / S;
+            qx = 0.25 * S;
+            qy = (R(1,2) + R(2,1)) / S;
+            qz = (R(1,3) + R(3,1)) / S;
+        elseif R(2,2) > R(3,3)
+            S = sqrt(1.0 + R(2,2) - R(1,1) - R(3,3)) * 2;
+            qw = (R(1,3) - R(3,1)) / S;
+            qx = (R(1,2) + R(2,1)) / S;
+            qy = 0.25 * S;
+            qz = (R(2,3) + R(3,2)) / S;
+        else
+            S = sqrt(1.0 + R(3,3) - R(1,1) - R(2,2)) * 2;
+            qw = (R(2,1) - R(1,2)) / S;
+            qx = (R(1,3) + R(3,1)) / S;
+            qy = (R(2,3) + R(3,2)) / S;
+            qz = 0.25 * S;
+        end
+        q = [qw; qx; qy; qz];
+        if q(1) < 0, q = -q; end
+        q = q / norm(q);
+    end
+
+    function is_stat = is_static(acc, gyro)
+        acc_thresh = 0.01; gyro_thresh = 1e-6;
+        is_stat = all(var(acc,0,1) < acc_thresh) && ...
+                   all(var(gyro,0,1) < gyro_thresh);
+    end
+
+    function C = compute_C_ECEF_to_NED(lat_rad, lon_rad)
+        s_lat = sin(lat_rad); c_lat = cos(lat_rad);
+        s_lon = sin(lon_rad); c_lon = cos(lon_rad);
+        C = [-s_lat * c_lon, -s_lat * s_lon,  c_lat;
+             -s_lon,          c_lon,         0;
+             -c_lat * c_lon, -c_lat * s_lon, -s_lat];
+    end
 
