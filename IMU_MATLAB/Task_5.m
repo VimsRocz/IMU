@@ -26,7 +26,7 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     results_dir = 'results';
     [~, imu_name, ~] = fileparts(imu_path);
     [~, gnss_name, ~] = fileparts(gnss_path);
-    tag = [imu_name '_' gnss_name];
+    tag = [imu_name '_' gnss_name '_' method];
 
     fprintf('\nTASK 5: Sensor Fusion with Kalman Filter\n');
 
@@ -64,6 +64,19 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     imu_time = (0:size(imu_raw,1)-1)' * dt_imu + gnss_time(1);
     gyro_body_raw = imu_raw(:,3:5) / dt_imu;
     acc_body_raw = imu_raw(:,6:8) / dt_imu;
+
+    % Estimate static biases using first 4000 samples
+    N_static = min(4000, size(acc_body_raw,1));
+    static_acc  = mean(acc_body_raw(1:N_static,:), 1);
+    static_gyro = mean(gyro_body_raw(1:N_static,:), 1);
+    C_N_B = C_B_N';
+    g_NED = [0;0;9.81];
+    acc_bias  = static_acc' + C_N_B * g_NED;
+    omega_ie = 7.2921159e-5;
+    omega_ie_NED = [omega_ie*cosd(lat_deg); 0; -omega_ie*sind(lat_deg)];
+    gyro_bias = static_gyro' - C_N_B * omega_ie_NED;
+    fprintf('Estimated accel bias: [%.4f %.4f %.4f]\n', acc_bias);
+    fprintf('Estimated gyro  bias: [%.6f %.6f %.6f]\n', gyro_bias);
 
 % Ensure Task 3 results are available
 results_dir = 'results';
@@ -213,10 +226,39 @@ xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
 saveas(gcf, fullfile(results_dir, [tag '_attitude.pdf']));
 fprintf('-> Attitude plot saved.\n');
 
+%% --- End-of-run summary statistics --------------------------------------
+pos_interp = interp1(imu_time, x_log(1:3,:)', gnss_time)';
+vel_interp = interp1(imu_time, x_log(4:6,:)', gnss_time)';
+res_pos = pos_interp - gnss_pos_ned;
+res_vel = vel_interp - gnss_vel_ned;
+rmse_pos = sqrt(mean(sum(res_pos.^2,2)));
+final_pos_err = norm(x_log(1:3,end)'-gnss_pos_ned(end,:)');
+rms_resid_pos = sqrt(mean(res_pos.^2,'all'));
+rms_resid_vel = sqrt(mean(res_vel.^2,'all'));
+max_resid_pos = max(vecnorm(res_pos,2,2));
+min_resid_pos = min(vecnorm(res_pos,2,2));
+max_resid_vel = max(vecnorm(res_vel,2,2));
+min_resid_vel = min(vecnorm(res_vel,2,2));
+summary_line = sprintf(['[SUMMARY] method=%s rmse_pos=%.2fm final_pos=%.2fm ' ...
+    'mean_resid_pos=%.2f rms_resid_pos=%.2f max_resid_pos=%.2f min_resid_pos=%.2f ' ...
+    'mean_resid_vel=%.2f rms_resid_vel=%.2f max_resid_vel=%.2f min_resid_vel=%.2f ' ...
+    'accel_bias=%.4f gyro_bias=%.4f ZUPT_count=%d'], ...
+    method, rmse_pos, final_pos_err, mean(vecnorm(res_pos,2,2)), rms_resid_pos, ...
+    max_resid_pos, min_resid_pos, mean(vecnorm(res_vel,2,2)), rms_resid_vel, ...
+    max_resid_vel, min_resid_vel, norm(acc_bias), norm(gyro_bias), zupt_count);
+fprintf('%s\n', summary_line);
+fid = fopen(fullfile(results_dir, [tag '_summary.txt']), 'w');
+fprintf(fid, '%s\n', summary_line);
+fclose(fid);
+
 % Persist core results for unit tests and further analysis
 results_file = fullfile(results_dir, 'task5_results.mat');
 save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'x_log', 'euler_log', 'zupt_log');
 fprintf('Results saved to %s\n', results_file);
+
+method_file = fullfile(results_dir, [tag '_task5_results.mat']);
+save(method_file, 'gnss_pos_ned', 'gnss_vel_ned', 'x_log', 'euler_log', 'zupt_log');
+fprintf('Method-specific results saved to %s\n', method_file);
 
 end % End of main function
 
