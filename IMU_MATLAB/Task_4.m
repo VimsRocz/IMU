@@ -1,14 +1,14 @@
-function Task_4(imu_file, gnss_file, method)
+function Task_4(imu_path, gnss_path, method)
 %TASK_4 GNSS and IMU data integration and comparison
 %   Task_4(IMUFILE, GNSSFILE, METHOD) runs the GNSS/IMU integration
 %   using the attitude estimates from Task 3. METHOD is unused but kept
 %   for backwards compatibility with older scripts.
 %   Requires that `Task_3` has already saved `results/task3_results.mat`.
 
-if nargin < 1 || isempty(imu_file)
+if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');
 end
-if nargin < 2 || isempty(gnss_file)
+if nargin < 2 || isempty(gnss_path)
     error('GNSS file not specified');
 end
 if nargin < 3
@@ -18,9 +18,19 @@ end
 if ~exist('results','dir')
     mkdir('results');
 end
+if ~isfile(gnss_path)
+    error('Task_4:GNSSFileNotFound', ...
+          'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
+          gnss_path);
+end
+if ~isfile(imu_path)
+    error('Task_4:IMUFileNotFound', ...
+          'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
+          imu_path);
+end
 results_dir = 'results';
-[~, imu_name, ~] = fileparts(imu_file);
-[~, gnss_name, ~] = fileparts(gnss_file);
+[~, imu_name, ~] = fileparts(imu_path);
+[~, gnss_name, ~] = fileparts(gnss_path);
 tag = [imu_name '_' gnss_name];
 
 % Load rotation matrices produced by Task 3
@@ -53,10 +63,6 @@ fprintf('-> Rotation matrices accessed for methods: %s\n', strjoin(methods, ', '
 % Subtask 4.3: Load GNSS Data
 % =========================================================================
 fprintf('\nSubtask 4.3: Loading GNSS data.\n');
-gnss_path = get_data_file(gnss_file);
-if ~isfile(gnss_path)
-    error('Task_4:MissingFile', 'GNSS file not found: %s', gnss_path);
-end
 try
     gnss_data = readtable(gnss_path);
 catch e
@@ -122,10 +128,6 @@ fprintf('-> GNSS acceleration estimated in NED frame.\n');
 % Subtask 4.9: Load IMU Data and Correct for Bias for Each Method
 % =========================================================================
 fprintf('\nSubtask 4.9: Loading IMU data and correcting for bias for each method.\n');
-imu_path = get_data_file(imu_file);
-if ~isfile(imu_path)
-    error('Task_4:MissingFile', 'IMU file not found: %s', imu_path);
-end
 imu_raw_data = readmatrix(imu_path);
 dt_imu = mean(diff(imu_raw_data(1:100,2)));
 if dt_imu <= 0 || isnan(dt_imu), dt_imu = 1/400; end

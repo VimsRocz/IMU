@@ -1,7 +1,18 @@
-function Task_1(imuFile, gnssFile)
+function Task_1(imu_path, gnss_path)
 % TASK 1: Define Reference Vectors in NED Frame
 % This function translates Task 1 from the Python file GNSS_IMU_Fusion.py
 % into MATLAB.
+
+if ~isfile(gnss_path)
+    error('Task_1:GNSSFileNotFound', ...
+          'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
+          gnss_path);
+end
+if ~isfile(imu_path)
+    error('Task_1:IMUFileNotFound', ...
+          'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
+          imu_path);
+end
 
 % Remove command-line side effects to behave like a normal function
 
@@ -13,8 +24,8 @@ fprintf('TASK 1: Define reference vectors in NED frame\n');
 
 % --- Configuration ---
 results_dir = 'results';
-[~, imu_name, ~] = fileparts(imuFile);
-[~, gnss_name, ~] = fileparts(gnssFile);
+[~, imu_name, ~] = fileparts(imu_path);
+[~, gnss_name, ~] = fileparts(gnss_path);
 tag = [imu_name '_' gnss_name];
 
 
@@ -22,14 +33,6 @@ tag = [imu_name '_' gnss_name];
 % Subtask 1.1: Set Initial Latitude and Longitude from GNSS ECEF Data
 % ================================
 fprintf('\nSubtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.\n');
-
-% Resolve the GNSS file path
-gnss_path = get_data_file(gnssFile);
-
-% Check if the GNSS file exists
-if ~isfile(gnss_path)
-    error('GNSS file not found: %s', gnss_path);
-end
 
 % Load GNSS data using readtable
 try

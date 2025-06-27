@@ -200,6 +200,16 @@ plot_results('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat');
 validate_3sigma('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat', 'STATE_X001.txt');
 ```
 
+### Running the MATLAB pipeline
+
+```matlab
+imu_path  = get_data_file('IMU_X001.dat');
+gnss_path = get_data_file('GNSS_X001.csv');
+main(imu_path, gnss_path);
+```
+
+`main.m` now takes the full paths to the IMU and GNSS files as arguments.
+
 ## Export to MATLAB (.mat) files
 To convert the saved Python results into MATLAB `.mat` files, run from the repo root:
 

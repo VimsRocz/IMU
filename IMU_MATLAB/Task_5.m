@@ -1,10 +1,10 @@
-function Task_5(imuFile, gnssFile, method, gnss_pos_ned)
+function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 %TASK_5  Run 9-state KF using IMU & GNSS NED positions
-    if nargin < 1 || isempty(imuFile)
-        imuFile = 'IMU_X001.dat';
+    if nargin < 1 || isempty(imu_path)
+        error('IMU path not specified');
     end
-    if nargin < 2 || isempty(gnssFile)
-        gnssFile = 'GNSS_X001.csv';
+    if nargin < 2 || isempty(gnss_path)
+        error('GNSS path not specified');
     end
     if nargin < 3 || isempty(method)
         method = 'TRIAD';
@@ -13,9 +13,19 @@ function Task_5(imuFile, gnssFile, method, gnss_pos_ned)
     if ~exist('results','dir')
         mkdir('results');
     end
+    if ~isfile(gnss_path)
+        error('Task_5:GNSSFileNotFound', ...
+              'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
+              gnss_path);
+    end
+    if ~isfile(imu_path)
+        error('Task_5:IMUFileNotFound', ...
+              'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
+              imu_path);
+    end
     results_dir = 'results';
-    [~, imu_name, ~] = fileparts(imuFile);
-    [~, gnss_name, ~] = fileparts(gnssFile);
+    [~, imu_name, ~] = fileparts(imu_path);
+    [~, gnss_name, ~] = fileparts(gnss_path);
     tag = [imu_name '_' gnss_name];
 
     fprintf('\nTASK 5: Sensor Fusion with Kalman Filter\n');
@@ -30,7 +40,6 @@ function Task_5(imuFile, gnssFile, method, gnss_pos_ned)
     C_B_N = task3_results.(method).R;
 
     % Load GNSS data to obtain time and velocity
-    gnss_path = get_data_file(gnssFile);
     gnss_tbl = readtable(gnss_path);
     gnss_time = gnss_tbl.Posix_Time;
     vel_cols = {'VX_ECEF_mps','VY_ECEF_mps','VZ_ECEF_mps'};
@@ -47,7 +56,6 @@ function Task_5(imuFile, gnssFile, method, gnss_pos_ned)
     gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
 
     % Load IMU data
-    imu_path = get_data_file(imuFile);
     imu_raw = readmatrix(imu_path);
     dt_imu = mean(diff(imu_raw(1:100,2)));
     if dt_imu <= 0 || isnan(dt_imu)
