@@ -6,10 +6,10 @@ function Task_4(imu_file, gnss_file, method)
 %   Requires that `Task_3` has already saved `results/task3_results.mat`.
 
 if nargin < 1 || isempty(imu_file)
-    imu_file = 'IMU_X001.dat';
+    error('IMU file not specified');
 end
 if nargin < 2 || isempty(gnss_file)
-    gnss_file = 'GNSS_X001.csv';
+    error('GNSS file not specified');
 end
 if nargin < 3
     method = ''; %#ok<NASGU>

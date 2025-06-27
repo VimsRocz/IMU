@@ -3,11 +3,15 @@ function main(imuFile, gnssFile)
 %   main()                      - use the default sample files
 %   main('imu.dat','gnss.csv') - run with custom data files
 
-if nargin < 1 || isempty(imuFile)
-    imuFile = 'IMU_X001.dat';
+% Resolve default data file paths
+imu_file  = get_data_file('IMU_X001');
+gnss_file = get_data_file('GNSS_X001');
+
+if nargin >= 1 && ~isempty(imuFile)
+    imu_file = imuFile;
 end
-if nargin < 2 || isempty(gnssFile)
-    gnssFile = 'GNSS_X001.csv';
+if nargin >= 2 && ~isempty(gnssFile)
+    gnss_file = gnssFile;
 end
 
 clc; close all;
@@ -19,15 +23,15 @@ end
 
 fprintf('Running IMU+GNSS Initialization Pipeline (MATLAB Version)\n');
 
-Task_1(imuFile, gnssFile);
-Task_2(imuFile, gnssFile);
+Task_1(imu_file, gnss_file);
+Task_2(imu_file, gnss_file);
 
 methods = {'TRIAD','Davenport','SVD'};
 for i = 1:numel(methods)
     method = methods{i};
-    Task_3(imuFile, gnssFile, method);
-    Task_4(imuFile, gnssFile, method);
-    Task_5(imuFile, gnssFile, method);
+    Task_3(imu_file, gnss_file, method);
+    Task_4(imu_file, gnss_file, method);
+    Task_5(imu_file, gnss_file, method);
 end
 
 fprintf('All tasks completed!\n');
