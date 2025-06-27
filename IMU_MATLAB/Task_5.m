@@ -28,7 +28,12 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     [~, gnss_name, ~] = fileparts(gnss_path);
     tag = [imu_name '_' gnss_name '_' method];
 
-    fprintf('\nTASK 5: Sensor Fusion with Kalman Filter\n');
+    if isempty(method)
+        log_tag = '';
+    else
+        log_tag = [' (' method ')'];
+    end
+    fprintf('\nTASK 5%s: Sensor Fusion with Kalman Filter\n', log_tag);
 
     % Load attitude estimate from Task 3 results
     results_file = fullfile(results_dir, 'task3_results.mat');

@@ -30,10 +30,9 @@ Task_4('IMU_X001.dat','GNSS_X001.csv')
 Task_5('IMU_X001.dat','GNSS_X001.csv', gnss_pos_ned)
 ```
 
-`main` executes `Task_1` and `Task_2` once and then runs `Task_3`–`Task_5`
-for each of the attitude initialisation methods (`TRIAD`, `Davenport` and
-`SVD`). Output files include the method name so results are preserved for
-every run.
+`main` executes `Task_1`–`Task_5` for each of the attitude initialisation
+methods (`TRIAD`, `Davenport` and `SVD`). Output files include the method
+name so results are preserved for every run.
 
 `Task_4` expects the rotation matrices produced by `Task_3` to be saved as
 `results/task3_results.mat`. Make sure `Task_3` completes before running
@@ -44,10 +43,11 @@ every run.
 `Task_5` looks for this file when started or you can pass `gnss_pos_ned`
 directly as an argument.
 
-`Task_1` and `Task_2` are now functions, so you can also call them directly as
+`Task_1` and `Task_2` are now functions that accept an optional method name,
+so you can call them directly as
 ```matlab
-Task_1('IMU_X001.dat','GNSS_X001.csv')
-Task_2('IMU_X001.dat','GNSS_X001.csv')
+Task_1('IMU_X001.dat','GNSS_X001.csv','TRIAD')
+Task_2('IMU_X001.dat','GNSS_X001.csv','TRIAD')
 ```
 
 ### Compatibility notes

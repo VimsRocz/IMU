@@ -1,7 +1,11 @@
-function Task_1(imu_path, gnss_path)
+function Task_1(imu_path, gnss_path, method)
 % TASK 1: Define Reference Vectors in NED Frame
 % This function translates Task 1 from the Python file GNSS_IMU_Fusion.py
 % into MATLAB.
+
+if nargin < 3 || isempty(method)
+    method = '';
+end
 
 if ~isfile(gnss_path)
     error('Task_1:GNSSFileNotFound', ...
@@ -20,13 +24,22 @@ if ~exist('results','dir')
     mkdir('results');
 end
 
-fprintf('TASK 1: Define reference vectors in NED frame\n');
+if isempty(method)
+    log_tag = '';
+else
+    log_tag = [' (' method ')'];
+end
+fprintf('TASK 1%s: Define reference vectors in NED frame\n', log_tag);
 
 % --- Configuration ---
 results_dir = 'results';
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
-tag = [imu_name '_' gnss_name];
+if isempty(method)
+    tag = [imu_name '_' gnss_name];
+else
+    tag = [imu_name '_' gnss_name '_' method];
+end
 
 
 % ================================

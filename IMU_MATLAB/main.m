@@ -23,14 +23,13 @@ end
 
 fprintf('Running IMU+GNSS Initialization Pipeline (MATLAB Version)\n');
 
-Task_1(imu_file, gnss_file);
-Task_2(imu_file, gnss_file);
-
 methods = {'TRIAD','Davenport','SVD'};
 for i = 1:numel(methods)
     method = methods{i};
-    fprintf('\n--- Running Tasks 3-5 for method: %s ---\n', method);
+    fprintf('\n=== Running pipeline for method: %s ===\n', method);
     try
+        Task_1(imu_file, gnss_file, method);
+        Task_2(imu_file, gnss_file, method);
         Task_3(imu_file, gnss_file, method);
         Task_4(imu_file, gnss_file, method);
         Task_5(imu_file, gnss_file, method);
