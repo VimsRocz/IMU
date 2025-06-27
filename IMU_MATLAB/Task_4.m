@@ -50,7 +50,12 @@ if ~isfield(data, 'task3_results')
 end
 task3_results = data.task3_results;
 
-fprintf('\nTASK 4: GNSS and IMU Data Integration and Comparison\n');
+if isempty(method)
+    log_tag = '';
+else
+    log_tag = [' (' method ')'];
+end
+fprintf('\nTASK 4%s: GNSS and IMU Data Integration and Comparison\n', log_tag);
 
 %% ========================================================================
 % Subtask 4.1: Access Rotation Matrices from Task 3

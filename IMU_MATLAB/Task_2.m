@@ -1,11 +1,15 @@
 
-function Task_2(imu_path, gnss_path)
+function Task_2(imu_path, gnss_path, method)
 % =========================================================================
 % TASK 2: Measure the Vectors in the Body Frame
 %
 % This function translates Task 2 from the Python file GNSS_IMU_Fusion.py
 % into MATLAB.
 % =========================================================================
+
+if nargin < 3 || isempty(method)
+    method = '';
+end
 
 if ~isfile(gnss_path)
     error('Task_2:GNSSFileNotFound', ...
@@ -19,7 +23,12 @@ if ~isfile(imu_path)
 end
 
 
-fprintf('TASK 2: Measure the vectors in the body frame\n');
+if isempty(method)
+    log_tag = '';
+else
+    log_tag = [' (' method ')'];
+end
+fprintf('TASK 2%s: Measure the vectors in the body frame\n', log_tag);
 
 % --- Configuration ---
 if ~exist('results','dir')
@@ -27,7 +36,11 @@ if ~exist('results','dir')
 end
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
-tag = [imu_name '_' gnss_name];
+if isempty(method)
+    tag = [imu_name '_' gnss_name];
+else
+    tag = [imu_name '_' gnss_name '_' method];
+end
 
 imu_file = imu_path;
 

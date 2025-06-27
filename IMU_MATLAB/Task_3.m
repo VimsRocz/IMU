@@ -60,7 +60,12 @@ omega_ie_body = body_data.omega_ie_body;
 
 omega_E = 7.2921159e-5; % Earth rotation rate [rad/s]
 
-fprintf('\nTASK 3: Solve Wahba\x2019s problem (find initial attitude from body to NED)\n');
+if isempty(method)
+    log_tag = '';
+else
+    log_tag = [' (' method ')'];
+end
+fprintf('\nTASK 3%s: Solve Wahba\x2019s problem (find initial attitude from body to NED)\n', log_tag);
 
 %% ========================================================================
 % Subtask 3.1: Prepare Vector Pairs for Attitude Determination
@@ -214,6 +219,10 @@ task3_results.Davenport.R = R_dav;
 task3_results.SVD.R = R_svd;
 save(fullfile(results_dir, 'task3_results.mat'), 'task3_results');
 fprintf('-> Task 3 results (Case 1) stored in memory and saved to file: task3_results.mat\n');
+
+% Also save a method-specific copy for later tasks
+method_results = task3_results.(method_tag);
+save(fullfile(results_dir, sprintf('Task3_results_%s.mat', tag)), 'method_results');
 
 end
 
