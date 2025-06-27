@@ -209,6 +209,9 @@ main(imu_path, gnss_path);
 ```
 
 `main.m` now takes the full paths to the IMU and GNSS files as arguments.
+The helper function `get_data_file` searches both the repository root and
+`IMU_MATLAB/data`, letting `TRIAD` and related scripts locate the bundled
+sample logs automatically when you pass just the file names.
 
 ## Export to MATLAB (.mat) files
 To convert the saved Python results into MATLAB `.mat` files, run from the repo root:
