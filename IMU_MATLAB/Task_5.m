@@ -61,6 +61,17 @@ function Task_5(imuFile, gnssFile, method, gnss_pos_ned)
 % Subtask 5.1-5.5: Configure and Initialize 9-State Filter
 % =========================================================================
 fprintf('\nSubtask 5.1-5.5: Configuring and Initializing 9-State Kalman Filter.\n');
+results4 = fullfile(results_dir,'task4_results.mat');
+if ~isfile(results4)
+    error('Task_5:MissingResults', ...
+          'Task 4 must run first and save gnss_pos_ned.');
+end
+S = load(results4,'gnss_pos_ned');
+if ~isfield(S,'gnss_pos_ned')
+    error('Task_5:BadMATfile', ...
+          '''gnss_pos_ned'' not found in %s', results4);
+end
+gnss_pos_ned = S.gnss_pos_ned;
 % State vector x: [pos; vel; acc]' (9x1)
 x = zeros(9, 1);
 x(1:3) = gnss_pos_ned(1,:)';
