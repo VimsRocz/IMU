@@ -5,7 +5,7 @@
       "name": "Run Script",
       "type": "python",
       "request": "launch",
-      "program": "${workspaceFolder}/run_all_datasets.py",
+      "program": "${workspaceFolder}/Python/run_all_datasets.py",
       "console": "integratedTerminal",
       "args": ["--verbose"]
     }

@@ -1,7 +1,7 @@
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import numpy as np
-from utils import detect_static_interval, is_static
+from Python.utils import detect_static_interval, is_static
 
 
 def test_detect_static_interval_basic():

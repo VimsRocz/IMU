@@ -1,5 +1,5 @@
 import os, numpy as np, scipy.io
-from utils import save_mat
+from Python.utils import save_mat
 
 def test_save_mat(tmp_path):
     data = {'a': np.array([1,2,3])}

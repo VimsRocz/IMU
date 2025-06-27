@@ -29,7 +29,7 @@ def ensure_dependencies():
         import tqdm  # noqa: F401
     except ModuleNotFoundError:
         print("Installing Python dependencies ...")
-        req = HERE / "requirements.txt"
+        req = HERE.parent / "requirements.txt"
         subprocess.check_call([
             sys.executable,
             "-m",
@@ -65,9 +65,9 @@ def run_one(imu, gnss, method, verbose=False):
     ts  = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log = LOG_DIR / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_{ts}.log"
 
-    fusion = importlib.import_module("GNSS_IMU_Fusion")
+    fusion = importlib.import_module("Python.GNSS_IMU_Fusion")
     argv = [
-        "GNSS_IMU_Fusion.py",
+        "Python/GNSS_IMU_Fusion.py",
         "--imu-file", imu,
         "--gnss-file", gnss,
         "--method", method,

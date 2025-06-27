@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from GNSS_IMU_Fusion import main
+from Python.GNSS_IMU_Fusion import main
 
 DATASETS = {
     'X001': ("IMU_X001.dat", "GNSS_X001.csv"),
@@ -22,7 +22,7 @@ def test_python_accuracy(monkeypatch, imu_file, gnss_file):
 
     monkeypatch.setattr(pd, "read_csv", head5000)
     args = ["--imu-file", imu_file, "--gnss-file", gnss_file, "--method", "TRIAD", "--no-plots"]
-    monkeypatch.setattr(sys, "argv", ["GNSS_IMU_Fusion.py"] + args)
+    monkeypatch.setattr(sys, "argv", ["Python/GNSS_IMU_Fusion.py"] + args)
     main()
 
     tag = f"{Path(imu_file).stem}_{Path(gnss_file).stem}_TRIAD"

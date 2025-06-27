@@ -14,9 +14,9 @@ from scipy.signal import butter, filtfilt
 from typing import Tuple
 
 import pathlib
-from scripts.plot_utils import save_plot, plot_attitude
-from utils import detect_static_interval, is_static
-from scripts.validate_filter import compute_residuals, plot_residuals
+from .scripts.plot_utils import save_plot, plot_attitude
+from .utils import detect_static_interval, is_static
+from .scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
 
 try:

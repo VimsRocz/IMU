@@ -1,7 +1,7 @@
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import numpy as np
-from utils import adaptive_zupt_threshold, save_static_zupt_params
+from Python.utils import adaptive_zupt_threshold, save_static_zupt_params
 
 
 def test_adaptive_zupt_threshold_constant():

@@ -3,7 +3,7 @@ IMU data processing and initialization tools (Python)
 
 ## Installation
 
-`run_all_datasets.py` installs the required packages automatically the first
+`Python/run_all_datasets.py` installs the required packages automatically the first
 time you run it. If you'd rather set them up beforehand, install the
 dependencies manually with:
 
@@ -49,12 +49,12 @@ pip3 install filterpy
    Codespaces will automatically build the container (per `.devcontainer/`), install Python & your `requirements.txt`.
 
 3. **Enable verbose diagnostics**  
-   We’ve added a `--verbose` flag to `run_all_datasets.py` that enables all the extra tables and timing you requested.
+   We’ve added a `--verbose` flag to `Python/run_all_datasets.py` that enables all the extra tables and timing you requested.
 
 4. **Run with diagnostics**  
    In the integrated terminal:
    ```bash
-   python run_all_datasets.py --verbose 2>&1 | tee debug_output.log
+   python Python/run_all_datasets.py --verbose 2>&1 | tee debug_output.log
    ```
 
 This will print:
@@ -100,19 +100,19 @@ If the measured magnitude differs by more than a few percent, the IMU may not be
 
 ## Running all methods
 
-Use `run_all_methods.py` to execute the fusion script with TRIAD, Davenport and SVD sequentially:
+Use `Python/run_all_methods.py` to execute the fusion script with TRIAD, Davenport and SVD sequentially:
 
 ```bash
-python run_all_methods.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
+python Python/run_all_methods.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
 ```
 
 
 ## Running all data sets
 
-To process every IMU/GNSS pair defined in `run_all_datasets.py`, simply run:
+To process every IMU/GNSS pair defined in `Python/run_all_datasets.py`, simply run:
 
 ```bash
-python run_all_datasets.py
+python Python/run_all_datasets.py
 ```
 By default this processes each dataset with the TRIAD, Davenport and SVD
 initialisation methods. To limit the run to a single method pass
@@ -131,12 +131,12 @@ All cases: 100%|##########| 9/9 [00:12<00:00,  1.31s/it]
 
 ## Running only the TRIAD method
 
-If you want to process all datasets using just the TRIAD initialisation method, run the helper script `run_triad_only.py`:
+If you want to process all datasets using just the TRIAD initialisation method, run the helper script `Python/run_triad_only.py`:
 
 ```bash
-python run_triad_only.py
+python Python/run_triad_only.py
 ```
-This is equivalent to running `run_all_datasets.py --method TRIAD`.
+This is equivalent to running `Python/run_all_datasets.py --method TRIAD`.
 
 
 After all runs complete you can compare the datasets side by side:
@@ -149,19 +149,19 @@ This creates one `all_datasets_<method>_comparison.pdf` per method in
 
 ## Running a single dataset
 
-Run `FINAL.py` to process just the first IMU/GNSS pair with all three
+Run `Python/FINAL.py` to process just the first IMU/GNSS pair with all three
 initialisation methods.  The script calls the fusion routine directly, so no
 additional wrapper scripts are involved:
 
 ```bash
-python FINAL.py
+python Python/FINAL.py
 ```
-This produces the same logs and summary table as `run_all_datasets.py` but
+This produces the same logs and summary table as `Python/run_all_datasets.py` but
 only for `IMU_X001.dat` and `GNSS_X001.csv`. You can still pass `--method` or a
 YAML config file just like with the batch runner.
 If your shell complains about `event not found` when you try running the
-shebang line directly, simply invoke the script with `python FINAL.py` or run it
-as `./FINAL.py` instead.
+shebang line directly, simply invoke the script with `python Python/FINAL.py` or run it
+as `./Python/FINAL.py` instead.
 
 ## Automated figure generation
 
@@ -210,14 +210,14 @@ main(imu_path, gnss_path);
 
 `main.m` now takes the full paths to the IMU and GNSS files as arguments.
 The helper function `get_data_file` searches both the repository root and
-`IMU_MATLAB/data`, letting `TRIAD` and related scripts locate the bundled
+`MATLAB/IMU_MATLAB/data`, letting `TRIAD` and related scripts locate the bundled
 sample logs automatically when you pass just the file names.
 
-### IMU_MATLAB vs MATLAB Scripts
+### MATLAB/IMU_MATLAB vs MATLAB Scripts
 
 Two sets of MATLAB code are provided:
 
-- **`IMU_MATLAB/`** replicates the Python pipeline via modular `Task_1`–`Task_5`
+- **`MATLAB/IMU_MATLAB/`** replicates the Python pipeline via modular `Task_1`–`Task_5`
   functions. Call `main.m` or the individual tasks when you need to debug or
   inspect each processing step in detail.
 - **`MATLAB/`** offers lightweight stand‑alone scripts (`TRIAD.m`, `FINAL.m`,
@@ -233,7 +233,7 @@ gnss = get_data_file('GNSS_X001.csv');
 TRIAD(imu, gnss);
 ```
 
-`get_data_file` searches `IMU_MATLAB/data/` first and falls back to the
+`get_data_file` searches `MATLAB/IMU_MATLAB/data/` first and falls back to the
 repository root, so the command works from any location.
 
 ### Sequential Task Execution
@@ -266,14 +266,14 @@ To convert the saved Python results into MATLAB `.mat` files, run from the repo 
 ```bash
 cd /path/to/IMU
 pip install numpy scipy
-python export_mat.py
+python Python/export_mat.py
 ```
 
 Or from *any* directory by giving the full path:
 
 ```bash
 pip install numpy scipy
-python /path/to/IMU/export_mat.py
+python /path/to/IMU/Python/export_mat.py
 ```
 
 ## Next Steps

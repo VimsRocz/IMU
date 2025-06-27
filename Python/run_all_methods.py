@@ -78,9 +78,10 @@ def main(argv=None):
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
         log_path = pathlib.Path("results") / f"{tag}.log"
         print(f"\u25B6 {tag}")
+        script = pathlib.Path(__file__).resolve().parent / "GNSS_IMU_Fusion.py"
         cmd = [
             sys.executable,
-            "GNSS_IMU_Fusion.py",
+            str(script),
             "--imu-file",
             imu,
             "--gnss-file",

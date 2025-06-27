@@ -27,7 +27,7 @@ def ensure_dependencies():
         import tqdm  # noqa: F401
     except ModuleNotFoundError:
         print("Installing Python dependencies ...")
-        req = HERE / "requirements.txt"
+        req = HERE.parent / "requirements.txt"
         subprocess.check_call([
             sys.executable,
             "-m",
