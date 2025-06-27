@@ -192,6 +192,21 @@ omega_ie_body = static_gyro_row';
 acc_bias = (static_acc_row' + g_body);
 gyro_bias = static_gyro_row';
 
+% --- DEBUG & CORRECT BIAS ESTIMATION ---
+orig_acc_bias = acc_bias;
+orig_gyro_bias = gyro_bias;
+static_acc  = static_acc_row';
+static_gyro = static_gyro_row';
+corrected_acc_bias  = static_acc  + g_body;
+corrected_gyro_bias = static_gyro - omega_ie_body;
+fprintf('Orig accel bias: [% .6f % .6f % .6f]\n', orig_acc_bias);
+fprintf('New accel bias : [% .6f % .6f % .6f]\n', corrected_acc_bias);
+fprintf('Orig gyro bias : [% .6e % .6e % .6e]\n', orig_gyro_bias);
+fprintf('New gyro bias  : [% .6e % .6e % .6e]\n', corrected_gyro_bias);
+acc_bias  = corrected_acc_bias;
+gyro_bias = corrected_gyro_bias;
+% --- END DEBUG & CORRECT ---
+
 fprintf('Gravity vector in body frame (g_body):           [%.4f; %.4f; %.4f] m/s^2\n', g_body);
 fprintf('Earth rotation rate in body frame (omega_ie_body): [%.6e; %.6e; %.6e] rad/s\n', omega_ie_body);
 fprintf('Estimated accelerometer bias: [%.4f %.4f %.4f] m/s^2\n', acc_bias);
