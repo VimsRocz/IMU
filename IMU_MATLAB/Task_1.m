@@ -1,4 +1,4 @@
-function Task_1(imu_path, gnss_path, method)
+function result = Task_1(imu_path, gnss_path, method)
 % TASK 1: Define Reference Vectors in NED Frame
 % This function translates Task 1 from the Python file GNSS_IMU_Fusion.py
 % into MATLAB.
@@ -161,10 +161,16 @@ fprintf('Location map saved to %s\n', output_filename);
 % close(gcf); % Uncomment to close the figure after saving
 
 % Save results for later tasks
+
 lat = lat_deg; %#ok<NASGU>
 lon = lon_deg; %#ok<NASGU>
 omega_NED = omega_ie_NED; %#ok<NASGU>
 save(fullfile(results_dir, ['Task1_init_' tag '.mat']), 'lat', 'lon', 'g_NED', 'omega_NED');
 fprintf('Initial data saved to %s\n', fullfile(results_dir, ['Task1_init_' tag '.mat']));
+
+% Return results and store in base workspace for interactive use
+result = struct('lat_deg', lat_deg, 'lon_deg', lon_deg, ...
+                'g_NED', g_NED, 'omega_ie_NED', omega_ie_NED);
+assignin('base', 'task1_results', result);
 
 end

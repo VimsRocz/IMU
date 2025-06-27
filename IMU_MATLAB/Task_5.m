@@ -1,4 +1,4 @@
-function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
+function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 %TASK_5  Run 9-state KF using IMU & GNSS NED positions
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
@@ -38,8 +38,12 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 
     % Load attitude estimate from Task 3 results
     results_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
-    data = load(results_file);
-    task3_results = data.task3_results;
+    if evalin('base','exist(''task3_results'',''var'')')
+        task3_results = evalin('base','task3_results');
+    else
+        data = load(results_file);
+        task3_results = data.task3_results;
+    end
     if ~isfield(task3_results, method)
         error('Method %s not found in task3_results', method);
     end
@@ -103,16 +107,22 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 % =========================================================================
 fprintf('\nSubtask 5.1-5.5: Configuring and Initializing 9-State Kalman Filter.\n');
 results4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-if ~isfile(results4)
-    error('Task_5:MissingResults', ...
-          'Task 4 must run first and save gnss_pos_ned.');
+if nargin < 4 || isempty(gnss_pos_ned)
+    if evalin('base','exist(''task4_results'',''var'')')
+        gnss_pos_ned = evalin('base','task4_results.gnss_pos_ned');
+    else
+        if ~isfile(results4)
+            error('Task_5:MissingResults', ...
+                  'Task 4 must run first and save gnss_pos_ned.');
+        end
+        S = load(results4,'gnss_pos_ned');
+        if ~isfield(S,'gnss_pos_ned')
+            error('Task_5:BadMATfile', ...
+                  '''gnss_pos_ned'' not found in %s', results4);
+        end
+        gnss_pos_ned = S.gnss_pos_ned;
+    end
 end
-S = load(results4,'gnss_pos_ned');
-if ~isfield(S,'gnss_pos_ned')
-    error('Task_5:BadMATfile', ...
-          '''gnss_pos_ned'' not found in %s', results4);
-end
-gnss_pos_ned = S.gnss_pos_ned;
 % State vector x: [pos; vel; acc]' (9x1)
 x = zeros(9, 1);
 x(1:3) = gnss_pos_ned(1,:)';
@@ -389,6 +399,10 @@ fprintf('Results saved to %s\n', results_file);
 method_file = fullfile(results_dir, [tag '_task5_results.mat']);
 save(method_file, 'gnss_pos_ned', 'gnss_vel_ned', 'x_log', 'euler_log', 'zupt_log');
 fprintf('Method-specific results saved to %s\n', method_file);
+
+% Return results structure and store in base workspace
+result = results;
+assignin('base', 'task5_results', result);
 
 end % End of main function
 

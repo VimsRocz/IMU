@@ -74,11 +74,16 @@ for dataIdx = 1:numel(imu_list)
         method = methods{mIdx};
         fprintf('\n=== Running pipeline for method: %s ===\n', method);
         try
-            Task_1(imu_file, gnss_file, method);
-            Task_2(imu_file, gnss_file, method);
-            Task_3(imu_file, gnss_file, method);
-            Task_4(imu_file, gnss_file, method);
-            Task_5(imu_file, gnss_file, method);
+            t1 = Task_1(imu_file, gnss_file, method);
+            t2 = Task_2(imu_file, gnss_file, method);
+            t3 = Task_3(imu_file, gnss_file, method);
+            t4 = Task_4(imu_file, gnss_file, method);
+            t5 = Task_5(imu_file, gnss_file, method);
+            assignin('base','task1_results',t1);
+            assignin('base','task2_results',t2);
+            assignin('base','task3_results',t3);
+            assignin('base','task4_results',t4);
+            assignin('base','task5_results',t5);
         catch ME
             fprintf('Error in method %s: %s\n', method, ME.message);
             continue;

@@ -1,4 +1,4 @@
-function Task_4(imu_path, gnss_path, method)
+function result = Task_4(imu_path, gnss_path, method)
 %TASK_4 GNSS and IMU data integration and comparison
 %   Task_4(IMUFILE, GNSSFILE, METHOD) runs the GNSS/IMU integration
 %   using the attitude estimates from Task 3. METHOD is unused but kept
@@ -43,14 +43,18 @@ end
 
 % Load rotation matrices produced by Task 3
 results_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
-if ~isfile(results_file)
-    error('Task 3 results not found: %s', results_file);
+if evalin('base','exist(''task3_results'',''var'')')
+    task3_results = evalin('base','task3_results');
+else
+    if ~isfile(results_file)
+        error('Task 3 results not found: %s', results_file);
+    end
+    data = load(results_file);
+    if ~isfield(data, 'task3_results')
+        error('Variable ''task3_results'' missing from %s', results_file);
+    end
+    task3_results = data.task3_results;
 end
-data = load(results_file);
-if ~isfield(data, 'task3_results')
-    error('Variable ''task3_results'' missing from %s', results_file);
-end
-task3_results = data.task3_results;
 
 if isempty(method)
     log_tag = '';
@@ -307,6 +311,11 @@ else
 end
 fprintf('GNSS NED positions saved to %s\n', task4_file);
 % Task 5 loads these positions when initialising the Kalman filter
+
+% Return results structure and store in base workspace
+result = struct('gnss_pos_ned', gnss_pos_ned, 'acc_biases', acc_biases, ...
+                'gyro_biases', gyro_biases, 'scale_factors', scale_factors);
+assignin('base', 'task4_results', result);
 
 end % End of main function: run_task4
 

@@ -1,5 +1,5 @@
 
-function Task_2(imu_path, gnss_path, method)
+function result = Task_2(imu_path, gnss_path, method)
 % =========================================================================
 % TASK 2: Measure the Vectors in the Body Frame
 %
@@ -231,5 +231,11 @@ fprintf('From gyroscope (assuming static IMU):     w_measured = omega_ie_body \n
 % Save results for later tasks
 save(fullfile('results', ['Task2_body_' tag '.mat']), 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
 fprintf('Body-frame vectors and biases saved to %s\n', fullfile('results', ['Task2_body_' tag '.mat']));
+
+% Return results and store in base workspace
+result = struct('g_body', g_body, 'g_body_scaled', g_body_scaled, ...
+                'omega_ie_body', omega_ie_body, 'accel_bias', accel_bias, ...
+                'gyro_bias', gyro_bias);
+assignin('base', 'task2_results', result);
 
 end

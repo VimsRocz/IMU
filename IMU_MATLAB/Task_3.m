@@ -44,14 +44,22 @@ results_dir = 'results';
 % Load vectors produced by Task 1 and Task 2
 task1_file = fullfile(results_dir, ['Task1_init_' tag '.mat']);
 task2_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
-if ~isfile(task1_file)
-    error('Task_3:MissingFile', 'Missing Task 1 output: %s', task1_file);
+if evalin('base','exist(''task1_results'',''var'')')
+    init_data = evalin('base','task1_results');
+else
+    if ~isfile(task1_file)
+        error('Task_3:MissingFile', 'Missing Task 1 output: %s', task1_file);
+    end
+    init_data = load(task1_file);
 end
-if ~isfile(task2_file)
-    error('Task_3:MissingFile', 'Missing Task 2 output: %s', task2_file);
+if evalin('base','exist(''task2_results'',''var'')')
+    body_data = evalin('base','task2_results');
+else
+    if ~isfile(task2_file)
+        error('Task_3:MissingFile', 'Missing Task 2 output: %s', task2_file);
+    end
+    body_data = load(task2_file);
 end
-init_data = load(task1_file);
-body_data = load(task2_file);
 
 g_NED = init_data.g_NED;
 omega_ie_NED = init_data.omega_NED;
@@ -237,6 +245,9 @@ fprintf('-> Task 3 results (all methods) saved to %s\n', all_file);
 % Also save a method-specific copy for later tasks
 method_results = task3_results.(method_tag);
 save(fullfile(results_dir, sprintf('Task3_results_%s.mat', tag)), 'method_results');
+
+% Return and store in base workspace
+assignin('base', 'task3_results', task3_results);
 
 end
 
