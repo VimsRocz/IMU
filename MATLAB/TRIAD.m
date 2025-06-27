@@ -1,4 +1,11 @@
-function TRIAD(imuFile, gnssFile, varargin)
+function results = TRIAD(imuFile, gnssFile, verbose)
+close all force hidden;
+if nargin < 3
+    verbose = false;
+end
+if ~verbose
+    diary off;
+end
 %TRIAD  Simple MATLAB implementation of the TRIAD pipeline.
 %   TRIAD(IMUFILE, GNSSFILE) processes a pair of IMU and GNSS files
 %   and saves basic results to results/<tag>_triad.mat.  The
@@ -23,22 +30,17 @@ if numel(dbstack) <= 1
            '    TRIAD(''IMU_X001.dat'', ''GNSS_X001.csv'');']);
 end
 
-if nargin == 0
+if nargin < 1 || isempty(imuFile)
     imuFile = 'IMU_X001.dat';
+end
+if nargin < 2 || isempty(gnssFile)
     gnssFile = 'GNSS_X001.csv';
-    fprintf('[INFO] No files provided. Using defaults: %s, %s\n', imuFile, gnssFile);
-    % The helper GET_DATA_FILE will resolve these names to full paths
-elseif nargin ~= 2 && nargin ~= 3
-    error('Usage: TRIAD(''IMUFILE'',''GNSSFILE'') or TRIAD() for defaults');
 end
-
-
-if isempty(varargin)
-    resultsDir = 'results';
-else
-    resultsDir = varargin{1};
+if verbose && (nargin < 1 || isempty(imuFile) || nargin < 2 || isempty(gnssFile))
+    fprintf('[INFO] Using default files: %s, %s\n', imuFile, gnssFile);
 end
-if ~exist(resultsDir, 'dir')
+resultsDir = 'results';
+if verbose && ~exist(resultsDir, 'dir')
     mkdir(resultsDir);
 end
 
@@ -131,8 +133,16 @@ end
 matfile = fullfile(resultsDir, sprintf('%s_%s_TRIAD_output.mat', istem, gstem));
 summary.q0 = q;
 summary.final_pos = norm(pos(end,:));
-save(matfile, 'pos', 'vel', 'q', 'summary');
-fprintf('Saved %s\n', matfile);
+
+results.pos = pos;
+results.vel = vel;
+results.q = q;
+results.summary = summary;
+
+if verbose
+    save(matfile, 'pos', 'vel', 'q', 'summary');
+    fprintf('Saved %s\n', matfile);
+end
 
 end
 
