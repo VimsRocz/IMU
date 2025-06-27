@@ -10,8 +10,9 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
         method = 'TRIAD';
     end
 
-    if ~exist('results','dir')
-        mkdir('results');
+    results_dir = 'results';
+    if ~exist(results_dir,'dir')
+        mkdir(results_dir);
     end
     if ~isfile(gnss_path)
         error('Task_5:GNSSFileNotFound', ...
@@ -23,7 +24,6 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
               'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
               imu_path);
     end
-    results_dir = 'results';
     [~, imu_name, ~] = fileparts(imu_path);
     [~, gnss_name, ~] = fileparts(gnss_path);
     pair_tag = [imu_name '_' gnss_name];
@@ -92,10 +92,7 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     gyro_body_raw = gyro_body_raw - gyro_bias';
     acc_body_raw  = acc_body_raw  - acc_bias';
 
-% Ensure Task 3 results are available
-if ~isfile(results_file)
-    error('Task_5:MissingFile', 'Task 3 results not found: %s', results_file);
-end
+
 
 %% ========================================================================
 % Subtask 5.1-5.5: Configure and Initialize 9-State Filter
