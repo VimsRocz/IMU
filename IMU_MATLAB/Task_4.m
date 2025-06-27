@@ -192,11 +192,25 @@ for i = 1:length(methods)
 
     % Expected gravity and Earth rate in the body frame
     g_body_expected = C_N_B * g_NED;
+
+    % --- BEGIN PATCH: fix gyro bias sign convention ---
+    % define Earth-rate in NED with Down negative (Python style)
+    Ω = 7.2921159e-5;
+    omega_ie_NED = [Ω*cos(ref_lat); 0; -Ω*sin(ref_lat)];
     omega_ie_body_expected = C_N_B * omega_ie_NED;
+
+    % compute bias exactly as Python does
+    omega_ie_NED_old = [Ω*cos(ref_lat); 0; Ω*sin(ref_lat)];
+    orig_gyro_bias = static_gyro' - (C_N_B * omega_ie_NED_old);
+    corrected_gyro_bias = static_gyro' - omega_ie_body_expected;
+
+    fprintf('Orig gyro bias : [% .6e % .6e % .6e]\n', orig_gyro_bias);
+    fprintf('New gyro bias  : [% .6e % .6e % .6e]\n', corrected_gyro_bias);
 
     % Biases estimated from the static interval
     acc_bias  = static_acc'  + g_body_expected;          % accelerometer bias
-    gyro_bias = static_gyro' - omega_ie_body_expected;   % gyroscope bias
+    gyro_bias = corrected_gyro_bias;                     % gyroscope bias
+    % --- END PATCH ---
     scale = 9.81 / norm(static_acc' - acc_bias);         % accelerometer scale
 
     % Apply bias and scale corrections
