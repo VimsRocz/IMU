@@ -3,7 +3,8 @@ function Task_4(imu_path, gnss_path, method)
 %   Task_4(IMUFILE, GNSSFILE, METHOD) runs the GNSS/IMU integration
 %   using the attitude estimates from Task 3. METHOD is unused but kept
 %   for backwards compatibility with older scripts.
-%   Requires that `Task_3` has already saved `results/task3_results.mat`.
+%   Requires that `Task_3` has already saved a dataset-specific
+%   results file such as `results/Task3_results_IMU_X001_GNSS_X001.mat`.
 
 if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');
@@ -31,16 +32,17 @@ end
 results_dir = 'results';
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
+pair_tag = [imu_name '_' gnss_name];
 if isempty(method)
-    tag = [imu_name '_' gnss_name];
+    tag = pair_tag;
     method_tag = 'AllMethods';
 else
-    tag = [imu_name '_' gnss_name '_' method];
+    tag = [pair_tag '_' method];
     method_tag = method;
 end
 
 % Load rotation matrices produced by Task 3
-results_file = fullfile(results_dir, 'task3_results.mat');
+results_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
 if ~isfile(results_file)
     error('Task 3 results not found: %s', results_file);
 end
@@ -254,7 +256,7 @@ end
 fprintf('-> All data plots saved for all methods.\n');
 
 % Save GNSS positions for use by Task 5
-task4_file = fullfile(results_dir, 'task4_results.mat');
+task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
 if isfile(task4_file)
     save(task4_file, 'gnss_pos_ned', '-append');
 else

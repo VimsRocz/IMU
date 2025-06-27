@@ -31,11 +31,12 @@ if ~isfile(imu_path)
 end
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
+pair_tag = [imu_name '_' gnss_name];
 if isempty(method)
-    tag = [imu_name '_' gnss_name];
+    tag = pair_tag;
     method_tag = 'AllMethods';
 else
-    tag = [imu_name '_' gnss_name '_' method];
+    tag = [pair_tag '_' method];
     method_tag = method;
 end
 results_dir = 'results';
@@ -217,8 +218,9 @@ task3_results = struct();
 task3_results.TRIAD.R = R_tri;
 task3_results.Davenport.R = R_dav;
 task3_results.SVD.R = R_svd;
-save(fullfile(results_dir, 'task3_results.mat'), 'task3_results');
-fprintf('-> Task 3 results (Case 1) stored in memory and saved to file: task3_results.mat\n');
+all_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
+save(all_file, 'task3_results');
+fprintf('-> Task 3 results (all methods) saved to %s\n', all_file);
 
 % Also save a method-specific copy for later tasks
 method_results = task3_results.(method_tag);
