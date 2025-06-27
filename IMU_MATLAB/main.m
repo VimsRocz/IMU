@@ -29,9 +29,7 @@ Task_2(imu_file, gnss_file);
 methods = {'TRIAD','Davenport','SVD'};
 for i = 1:numel(methods)
     method = methods{i};
-    Task_3(imu_file, gnss_file, method);
-    Task_4(imu_file, gnss_file, method);
-    Task_5(imu_file, gnss_file, method);
+
 end
 
 fprintf('All tasks completed!\n');
