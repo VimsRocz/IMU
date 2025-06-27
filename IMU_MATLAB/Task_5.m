@@ -314,6 +314,21 @@ max_resid_pos = max(vecnorm(res_pos,2,2));
 min_resid_pos = min(vecnorm(res_pos,2,2));
 max_resid_vel = max(vecnorm(res_vel,2,2));
 min_resid_vel = min(vecnorm(res_vel,2,2));
+
+% --- Plot: Position Residuals ---
+figure('Name', 'KF Results: Position Residuals', 'Position', [150 150 1200 600]);
+err_labels = {'N', 'E', 'D'};
+for i = 1:3
+    subplot(3,1,i);
+    plot(gnss_time, res_pos(:,i), 'b-');
+    grid on; ylabel('[m]'); title(['Residual ' err_labels{i}]);
+end
+xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
+err_file = fullfile(results_dir, sprintf('%s_Task5_ErrorAnalysis.pdf', tag));
+set(gcf,'PaperPositionMode','auto');
+print(gcf, err_file, '-dpdf', '-bestfit');
+fprintf('Saved plot: %s\n', err_file);
+exportgraphics(gcf, all_file, 'Append', true);
 summary_line = sprintf(['[SUMMARY] method=%s rmse_pos=%.2fm rmse_vel=%.2fm final_pos=%.2fm ' ...
     'mean_resid_pos=%.2f rms_resid_pos=%.2f max_resid_pos=%.2f min_resid_pos=%.2f ' ...
     'mean_resid_vel=%.2f rms_resid_vel=%.2f max_resid_vel=%.2f min_resid_vel=%.2f ' ...
