@@ -440,16 +440,18 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     v_gnss_ecef = (C_n2e*v_gnss_ned')';
     a_gnss_ecef = (C_n2e*a_gnss_ned')';
     a_imu_ecef  = (C_n2e*a_imu')';
+    p_imu_ecef  = (C_n2e*p_imu')';
+    v_imu_ecef  = (C_n2e*v_imu')';
     dims_e = {'X','Y','Z'};
     for i = 1:3
         subplot(3,3,i); hold on;
         plot(t_gnss, p_gnss_ecef(:,i),'k--','DisplayName','GNSS');
-        plot(t_imu, (C_n2e*p_imu')(:,i),'b-','DisplayName',method);
+        plot(t_imu, p_imu_ecef(:,i),'b-','DisplayName',method);
         hold off; grid on; legend; title(['Position ' dims_e{i}]); ylabel('m');
 
         subplot(3,3,i+3); hold on;
         plot(t_gnss, v_gnss_ecef(:,i),'k--','DisplayName','GNSS');
-        plot(t_imu, (C_n2e*v_imu')(:,i),'b-','DisplayName',method);
+        plot(t_imu, v_imu_ecef(:,i),'b-','DisplayName',method);
         hold off; grid on; legend; title(['Velocity ' dims_e{i}]); ylabel('m/s');
 
         subplot(3,3,i+6); hold on;
