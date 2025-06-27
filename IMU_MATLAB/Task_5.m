@@ -73,18 +73,24 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     gyro_body_raw = imu_raw(:,3:5) / dt_imu;
     acc_body_raw = imu_raw(:,6:8) / dt_imu;
 
-    % Estimate static biases using first 4000 samples
-    N_static = min(4000, size(acc_body_raw,1));
-    static_acc  = mean(acc_body_raw(1:N_static,:), 1);
-    static_gyro = mean(gyro_body_raw(1:N_static,:), 1);
-    C_N_B = C_B_N';
-    g_NED = [0;0;9.81];
-    acc_bias  = static_acc' + C_N_B * g_NED;
-    omega_ie = 7.2921159e-5;
-    omega_ie_NED = [omega_ie*cosd(lat_deg); 0; -omega_ie*sind(lat_deg)];
-    gyro_bias = static_gyro' - C_N_B * omega_ie_NED;
-    fprintf('Estimated accel bias: [%.4f %.4f %.4f]\n', acc_bias);
-    fprintf('Estimated gyro  bias: [%.6f %.6f %.6f]\n', gyro_bias);
+    % Load biases estimated in Task 2
+    task2_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
+    if isfile(task2_file)
+        t2 = load(task2_file);
+        acc_bias = t2.acc_bias;
+        gyro_bias = t2.gyro_bias;
+    else
+        warning('Task 2 results not found, estimating biases from first samples');
+        N_static = min(4000, size(acc_body_raw,1));
+        acc_bias = mean(acc_body_raw(1:N_static,:),1)';
+        gyro_bias = mean(gyro_body_raw(1:N_static,:),1)';
+    end
+    fprintf('Using accelerometer bias: [%.4f %.4f %.4f]\n', acc_bias);
+    fprintf('Using gyroscope bias:     [%.6f %.6f %.6f]\n', gyro_bias);
+
+    % Apply bias correction to IMU data
+    gyro_body_raw = gyro_body_raw - gyro_bias';
+    acc_body_raw  = acc_body_raw  - acc_bias';
 
 % Ensure Task 3 results are available
 results_dir = 'results';
@@ -195,6 +201,22 @@ fprintf('\nSubtask 5.7: No event handling needed as time < 5000s.\n');
 % =========================================================================
 fprintf('\nSubtask 5.8: Plotting Kalman filter results.\n');
 
+% Ensure array sizes match for plotting
+if numel(imu_time) ~= size(x_log,2)
+    N = min(numel(imu_time), size(x_log,2));
+    imu_time = imu_time(1:N);
+    x_log = x_log(:,1:N);
+    euler_log = euler_log(:,1:N);
+    zupt_log = zupt_log(1:N);
+end
+if numel(gnss_time) ~= size(gnss_pos_ned,1)
+    N = min(numel(gnss_time), size(gnss_pos_ned,1));
+    gnss_time = gnss_time(1:N);
+    gnss_pos_ned = gnss_pos_ned(1:N,:);
+    gnss_vel_ned = gnss_vel_ned(1:N,:);
+    gnss_accel_ned = gnss_accel_ned(1:N,:);
+end
+
 % --- Plot 1: Position Comparison ---
 figure('Name', 'KF Results: Position', 'Position', [100 100 1200 600]);
 labels = {'North', 'East', 'Down'};
@@ -266,6 +288,7 @@ vel_interp = interp1(imu_time, x_log(4:6,:)', gnss_time)';
 res_pos = pos_interp - gnss_pos_ned;
 res_vel = vel_interp - gnss_vel_ned;
 rmse_pos = sqrt(mean(sum(res_pos.^2,2)));
+rmse_vel = sqrt(mean(sum(res_vel.^2,2)));
 final_pos_err = norm(x_log(1:3,end)'-gnss_pos_ned(end,:)');
 rms_resid_pos = sqrt(mean(res_pos.^2,'all'));
 rms_resid_vel = sqrt(mean(res_vel.^2,'all'));
@@ -273,17 +296,32 @@ max_resid_pos = max(vecnorm(res_pos,2,2));
 min_resid_pos = min(vecnorm(res_pos,2,2));
 max_resid_vel = max(vecnorm(res_vel,2,2));
 min_resid_vel = min(vecnorm(res_vel,2,2));
-summary_line = sprintf(['[SUMMARY] method=%s rmse_pos=%.2fm final_pos=%.2fm ' ...
+summary_line = sprintf(['[SUMMARY] method=%s rmse_pos=%.2fm rmse_vel=%.2fm final_pos=%.2fm ' ...
     'mean_resid_pos=%.2f rms_resid_pos=%.2f max_resid_pos=%.2f min_resid_pos=%.2f ' ...
     'mean_resid_vel=%.2f rms_resid_vel=%.2f max_resid_vel=%.2f min_resid_vel=%.2f ' ...
     'accel_bias=%.4f gyro_bias=%.4f ZUPT_count=%d'], ...
-    method, rmse_pos, final_pos_err, mean(vecnorm(res_pos,2,2)), rms_resid_pos, ...
+    method, rmse_pos, rmse_vel, final_pos_err, mean(vecnorm(res_pos,2,2)), rms_resid_pos, ...
     max_resid_pos, min_resid_pos, mean(vecnorm(res_vel,2,2)), rms_resid_vel, ...
     max_resid_vel, min_resid_vel, norm(acc_bias), norm(gyro_bias), zupt_count);
 fprintf('%s\n', summary_line);
 fid = fopen(fullfile(results_dir, [tag '_summary.txt']), 'w');
 fprintf(fid, '%s\n', summary_line);
 fclose(fid);
+
+% Store summary metrics and biases for later analysis
+results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, ...
+    'final_pos_error', final_pos_err, 'accel_bias', acc_bias, 'gyro_bias', gyro_bias);
+perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
+if isfile(perf_file)
+    save(perf_file, '-append', 'results');
+else
+    save(perf_file, 'results');
+end
+
+summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt');
+fid_sum = fopen(summary_file, 'a');
+fprintf(fid_sum, '%s\n', summary_line);
+fclose(fid_sum);
 
 % Persist core results for unit tests and further analysis
 results_file = fullfile(results_dir, sprintf('Task5_results_%s.mat', pair_tag));
