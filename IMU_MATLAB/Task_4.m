@@ -138,9 +138,9 @@ fprintf('   GNSS NED pos first=[%.2f %.2f %.2f], last=[%.2f %.2f %.2f]\n', ...
 % Subtask 4.8: Estimate GNSS Acceleration in NED
 % =========================================================================
 fprintf('\nSubtask 4.8: Estimating GNSS acceleration in NED.\n');
-dt_gnss = diff(gnss_time);
+dt_gnss = diff(gnss_time(:));
 % Prepend a zero row to maintain size, as diff reduces length by 1
-gnss_accel_ned = [zeros(1,3); diff(gnss_vel_ned) ./ dt_gnss];
+gnss_accel_ned = [zeros(1,3); bsxfun(@rdivide, diff(gnss_vel_ned), dt_gnss)];
 fprintf('-> GNSS acceleration estimated in NED frame.\n');
 fprintf('   GNSS accel RMS = %.4f m/s^2\n', rms(gnss_accel_ned(:)) );
 
