@@ -213,6 +213,29 @@ The helper function `get_data_file` searches both the repository root and
 `IMU_MATLAB/data`, letting `TRIAD` and related scripts locate the bundled
 sample logs automatically when you pass just the file names.
 
+### IMU_MATLAB vs MATLAB Scripts
+
+Two sets of MATLAB code are provided:
+
+- **`IMU_MATLAB/`** replicates the Python pipeline via modular `Task_1`–`Task_5`
+  functions. Call `main.m` or the individual tasks when you need to debug or
+  inspect each processing step in detail.
+- **`MATLAB/`** offers lightweight stand‑alone scripts (`TRIAD.m`, `FINAL.m`,
+  `plot_results.m`, `validate_3sigma.m`). Use these for quick experiments or to
+  validate the `.mat` files exported from Python.
+
+To run `TRIAD.m` with the new data-file detection logic simply resolve the file
+paths with `get_data_file` and pass them to the script:
+
+```matlab
+imu  = get_data_file('IMU_X001.dat');
+gnss = get_data_file('GNSS_X001.csv');
+TRIAD(imu, gnss);
+```
+
+`get_data_file` searches `IMU_MATLAB/data/` first and falls back to the
+repository root, so the command works from any location.
+
 ## Export to MATLAB (.mat) files
 To convert the saved Python results into MATLAB `.mat` files, run from the repo root:
 
