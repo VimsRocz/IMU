@@ -261,8 +261,13 @@ fprintf('Saved plot: %s\n', att_file);
 exportgraphics(gcf, all_file, 'Append', true);
 
 %% --- End-of-run summary statistics --------------------------------------
-pos_interp = interp1(imu_time, x_log(1:3,:)', gnss_time)';
-vel_interp = interp1(imu_time, x_log(4:6,:)', gnss_time)';
+% Interpolate filter estimates to GNSS timestamps for residual analysis
+% The transpose on x_log ensures interp1 operates over rows (time). The
+% result should be Nx3 matching the GNSS matrices, so avoid an extra
+% transpose which previously produced a 3xN array and caused dimension
+% mismatches when subtracting from gnss_pos_ned.
+pos_interp = interp1(imu_time, x_log(1:3,:)', gnss_time, 'linear', 'extrap');
+vel_interp = interp1(imu_time, x_log(4:6,:)', gnss_time, 'linear', 'extrap');
 res_pos = pos_interp - gnss_pos_ned;
 res_vel = vel_interp - gnss_vel_ned;
 rmse_pos = sqrt(mean(sum(res_pos.^2,2)));
