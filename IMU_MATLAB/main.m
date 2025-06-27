@@ -1,4 +1,4 @@
-function main(imuFile, gnssFile)
+function main(imu_path, gnss_path)
 %MAIN Run the IMU+GNSS initialization pipeline on a single dataset.
 %   main()                      - use the default sample files
 %   main('imu.dat','gnss.csv') - run with custom data files
@@ -7,11 +7,11 @@ function main(imuFile, gnssFile)
 imu_file  = get_data_file('IMU_X001.dat');
 gnss_file = get_data_file('GNSS_X001.csv');
 
-if nargin >= 1 && ~isempty(imuFile)
-    imu_file = imuFile;
+if nargin >= 1 && ~isempty(imu_path)
+    imu_file = imu_path;
 end
-if nargin >= 2 && ~isempty(gnssFile)
-    gnss_file = gnssFile;
+if nargin >= 2 && ~isempty(gnss_path)
+    gnss_file = gnss_path;
 end
 
 clc; close all;

@@ -1,15 +1,15 @@
 
-function task3_results = Task_3(imuFile, gnssFile, method)
+function task3_results = Task_3(imu_path, gnss_path, method)
 % TASK 3: Solve Wahba's Problem
 % This function estimates the initial body-to-NED attitude using several
 % approaches (TRIAD, Davenport, SVD). It loads the reference and measured
 % vectors saved by Tasks 1 and 2 and stores the resulting rotation
 % matrices for later tasks.
 
-if nargin < 1 || isempty(imuFile)
+if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');
 end
-if nargin < 2 || isempty(gnssFile)
+if nargin < 2 || isempty(gnss_path)
     error('GNSS file not specified');
 end
 if nargin < 3
@@ -19,8 +19,18 @@ end
 if ~exist('results','dir')
     mkdir('results');
 end
-[~, imu_name, ~] = fileparts(imuFile);
-[~, gnss_name, ~] = fileparts(gnssFile);
+if ~isfile(gnss_path)
+    error('Task_3:GNSSFileNotFound', ...
+          'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
+          gnss_path);
+end
+if ~isfile(imu_path)
+    error('Task_3:IMUFileNotFound', ...
+          'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
+          imu_path);
+end
+[~, imu_name, ~] = fileparts(imu_path);
+[~, gnss_name, ~] = fileparts(gnss_path);
 tag = [imu_name '_' gnss_name];
 results_dir = 'results';
 

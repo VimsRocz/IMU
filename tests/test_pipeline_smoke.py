@@ -10,8 +10,13 @@ def test_pipeline_smoke(tmp_path):
     matlab = shutil.which("matlab")
     if not matlab:
         pytest.skip("MATLAB not available")
-    # Run MATLAB pipeline from repo root
-    subprocess.run([matlab, "-batch", "main"], check=True)
+    # Run MATLAB pipeline from repo root using full paths
+    cmd = (
+        "imu_path=get_data_file('IMU_X001.dat');"
+        "gnss_path=get_data_file('GNSS_X001.csv');"
+        "main(imu_path, gnss_path);"
+    )
+    subprocess.run([matlab, "-batch", cmd], check=True)
     out4 = Path("results/task4_results.mat")
     out5 = Path("results/task5_results.mat")
     assert out4.exists(), f"Missing {out4}"
