@@ -5,7 +5,8 @@ function TRIAD(imuFile, gnssFile, varargin)
 %   implementation mirrors the Python script GNSS_IMU_Fusion.py but in a
 %   greatly simplified form.  Only the key steps of the attitude
 %   initialisation, IMU integration and Kalman filter fusion are
-%   implemented.
+%   implemented.  The file names are resolved using GET_DATA_FILE so the
+%   sample logs bundled with the repository can be referenced by name.
 %
 %   Example:
 %       TRIAD('IMU_X001.dat','GNSS_X001.csv');
@@ -26,9 +27,11 @@ if nargin == 0
     imuFile = 'IMU_X001.dat';
     gnssFile = 'GNSS_X001.csv';
     fprintf('[INFO] No files provided. Using defaults: %s, %s\n', imuFile, gnssFile);
+    % The helper GET_DATA_FILE will resolve these names to full paths
 elseif nargin ~= 2 && nargin ~= 3
     error('Usage: TRIAD(''IMUFILE'',''GNSSFILE'') or TRIAD() for defaults');
 end
+
 
 if isempty(varargin)
     resultsDir = 'results';
@@ -38,6 +41,10 @@ end
 if ~exist(resultsDir, 'dir')
     mkdir(resultsDir);
 end
+
+% Locate data files bundled with the repository
+imuFile = get_data_file(imuFile);
+gnssFile = get_data_file(gnssFile);
 
 %% ----- Task 1: Reference vectors in NED frame -------------------------
 % Load first valid GNSS ECEF coordinate and convert to geodetic
