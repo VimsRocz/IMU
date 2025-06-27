@@ -4,8 +4,8 @@ function main(imuFile, gnssFile)
 %   main('imu.dat','gnss.csv') - run with custom data files
 
 % Resolve default data file paths
-imu_file  = get_data_file('IMU_X001');
-gnss_file = get_data_file('GNSS_X001');
+imu_file  = get_data_file('IMU_X001.dat');
+gnss_file = get_data_file('GNSS_X001.csv');
 
 if nargin >= 1 && ~isempty(imuFile)
     imu_file = imuFile;
