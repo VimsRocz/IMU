@@ -213,6 +213,11 @@ xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
 saveas(gcf, fullfile(results_dir, [tag '_attitude.pdf']));
 fprintf('-> Attitude plot saved.\n');
 
+% Persist core results for unit tests and further analysis
+results_file = fullfile(results_dir, 'task5_results.mat');
+save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'x_log', 'euler_log', 'zupt_log');
+fprintf('Results saved to %s\n', results_file);
+
 end % End of main function
 
 %% ========================================================================
