@@ -167,9 +167,12 @@ static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
 
 % Override with the fixed static interval used by the Python pipeline
 start_idx = 297;
-end_idx   = min(479907, size(acc_body_filt,1));
+end_idx   = 479907;
 static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
 static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
+fprintf('Static interval forced to [%d, %d]\n', start_idx, end_idx);
+fprintf('Static acc mean  =[%.4f %.4f %.4f]\n', static_acc);
+fprintf('Static gyro mean =[%.6f %.6f %.6f]\n', static_gyro);
 
 % Gravity vector and Earth rotation in NED frame (Task 1 results)
 g_NED = [0; 0; 9.81];
@@ -179,6 +182,9 @@ omega_ie_NED = omega_E * [cos(ref_lat); 0; -sin(ref_lat)];
 % Correct IMU measurements separately for each Wahba method
 acc_body_corrected  = struct();
 gyro_body_corrected = struct();
+acc_biases = struct();
+gyro_biases = struct();
+scale_factors = struct();
 for i = 1:length(methods)
     method = methods{i};
     C_B_N = C_B_N_methods.(method);
@@ -196,6 +202,9 @@ for i = 1:length(methods)
     % Apply bias and scale corrections
     acc_body_corrected.(method)  = scale * (acc_body_filt - acc_bias');
     gyro_body_corrected.(method) = gyro_body_filt - gyro_bias';
+    acc_biases.(method)  = acc_bias;
+    gyro_biases.(method) = gyro_bias;
+    scale_factors.(method) = scale;
 
     fprintf('Method %s: Accel bias=[%.4f, %.4f, %.4f], Gyro bias=[%.6f, %.6f, %.6f], Scale=%.4f\n', ...
             method, acc_bias, gyro_bias, scale);
@@ -278,9 +287,9 @@ fprintf('-> All data plots saved for all methods.\n');
 % Save GNSS positions for use by Task 5
 task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
 if isfile(task4_file)
-    save(task4_file, 'gnss_pos_ned', '-append');
+    save(task4_file, 'gnss_pos_ned', 'acc_biases', 'gyro_biases', 'scale_factors', '-append');
 else
-    save(task4_file, 'gnss_pos_ned');
+    save(task4_file, 'gnss_pos_ned', 'acc_biases', 'gyro_biases', 'scale_factors');
 end
 fprintf('GNSS NED positions saved to %s\n', task4_file);
 % Task 5 loads these positions when initialising the Kalman filter
