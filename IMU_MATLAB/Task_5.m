@@ -77,20 +77,24 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     task2_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
     if isfile(task2_file)
         t2 = load(task2_file);
-        acc_bias = t2.acc_bias;
+        if isfield(t2, 'accel_bias')
+            accel_bias = t2.accel_bias;
+        else
+            accel_bias = t2.acc_bias; % backward compatibility
+        end
         gyro_bias = t2.gyro_bias;
     else
         warning('Task 2 results not found, estimating biases from first samples');
         N_static = min(4000, size(acc_body_raw,1));
-        acc_bias = mean(acc_body_raw(1:N_static,:),1)';
+        accel_bias = mean(acc_body_raw(1:N_static,:),1)';
         gyro_bias = mean(gyro_body_raw(1:N_static,:),1)';
     end
-    fprintf('Using accelerometer bias: [%.4f %.4f %.4f]\n', acc_bias);
+    fprintf('Using accelerometer bias: [%.4f %.4f %.4f]\n', accel_bias);
     fprintf('Using gyroscope bias:     [%.6f %.6f %.6f]\n', gyro_bias);
 
     % Apply bias correction to IMU data
     gyro_body_raw = gyro_body_raw - gyro_bias';
-    acc_body_raw  = acc_body_raw  - acc_bias';
+    acc_body_raw  = acc_body_raw  - accel_bias';
 
 
 
@@ -355,7 +359,7 @@ summary_line = sprintf(['[SUMMARY] method=%s rmse_pos=%.2fm rmse_vel=%.2fm final
     'accel_bias=%.4f gyro_bias=%.4f ZUPT_count=%d'], ...
     method, rmse_pos, rmse_vel, final_pos_err, mean(vecnorm(res_pos,2,2)), rms_resid_pos, ...
     max_resid_pos, min_resid_pos, mean(vecnorm(res_vel,2,2)), rms_resid_vel, ...
-    max_resid_vel, min_resid_vel, norm(acc_bias), norm(gyro_bias), zupt_count);
+    max_resid_vel, min_resid_vel, norm(accel_bias), norm(gyro_bias), zupt_count);
 fprintf('%s\n', summary_line);
 fprintf('Final position error: %.4f m\n', final_pos_err);
 fid = fopen(fullfile(results_dir, [tag '_summary.txt']), 'w');
@@ -364,7 +368,7 @@ fclose(fid);
 
 % Store summary metrics and biases for later analysis
 results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, ...
-    'final_pos_error', final_pos_err, 'accel_bias', acc_bias, 'gyro_bias', gyro_bias);
+    'final_pos_error', final_pos_err, 'accel_bias', accel_bias, 'gyro_bias', gyro_bias);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
 if isfile(perf_file)
     save(perf_file, '-append', 'results');

@@ -54,7 +54,11 @@ for k = 1:numel(datasets)
     acc_bias_norm  = NaN; gyro_bias_norm = NaN;
     if isfile(t2File)
         T2 = load(t2File);
-        if isfield(T2,'acc_bias'), acc_bias_norm = norm(T2.acc_bias); end
+        if isfield(T2,'accel_bias')
+            acc_bias_norm = norm(T2.accel_bias);
+        elseif isfield(T2,'acc_bias')
+            acc_bias_norm = norm(T2.acc_bias);
+        end
         if isfield(T2,'gyro_bias'), gyro_bias_norm = norm(T2.gyro_bias); end
     end
 
