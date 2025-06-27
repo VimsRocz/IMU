@@ -7,10 +7,10 @@ function task3_results = Task_3(imuFile, gnssFile, method)
 % matrices for later tasks.
 
 if nargin < 1 || isempty(imuFile)
-    imuFile = 'IMU_X001.dat';
+    error('IMU file not specified');
 end
 if nargin < 2 || isempty(gnssFile)
-    gnssFile = 'GNSS_X001.csv';
+    error('GNSS file not specified');
 end
 if nargin < 3
     method = ''; %#ok<NASGU>  % unused but kept for API compatibility
