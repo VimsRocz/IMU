@@ -57,6 +57,13 @@ function Task_5(imuFile, gnssFile, method, gnss_pos_ned)
     gyro_body_raw = imu_raw(:,3:5) / dt_imu;
     acc_body_raw = imu_raw(:,6:8) / dt_imu;
 
+% Ensure Task 3 results are available
+results_dir = 'results';
+results_file = fullfile(results_dir, 'task3_results.mat');
+if ~isfile(results_file)
+    error('Task_5:MissingFile', 'Task 3 results not found: %s', results_file);
+end
+
 %% ========================================================================
 % Subtask 5.1-5.5: Configure and Initialize 9-State Filter
 % =========================================================================
