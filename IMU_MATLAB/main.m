@@ -1,13 +1,27 @@
-function main(imu_path, gnss_path)
+function main(imu_path, gnss_path, methods)
 %MAIN Run the IMU+GNSS initialization pipeline on a single dataset or list.
-%   main()                      - use the default sample files
-%   main('imu.dat','gnss.csv') - run with custom data files
-%   main({'IMU_X001.dat','IMU_X002.dat'}, {'GNSS_X001.csv','GNSS_X002.csv'})
-%   will iterate over both dataset pairs.
+%   main()                              - use all sample files with all methods
+%   main('imu.dat','gnss.csv')          - run one dataset with all methods
+%   main('imu.dat','gnss.csv','TRIAD')  - run one dataset with a single method
+%   main({'IMU_X001.dat','IMU_X002.dat'}, {'GNSS_X001.csv','GNSS_X002.csv'}, ...
+%        {'TRIAD','SVD'})               - iterate over both dataset pairs and
+%                                         selected methods
 
-% Resolve default data file paths or lists
-imu_list  = {get_data_file('IMU_X001.dat')};
-gnss_list = {get_data_file('GNSS_X001.csv')};
+% Resolve default data file paths or lists. The pipeline ships with three IMU
+% logs and two GNSS logs. By default we pair them as:
+%   IMU_X001.dat <-> GNSS_X001.csv
+%   IMU_X002.dat <-> GNSS_X002.csv
+%   IMU_X003.dat <-> GNSS_X002.csv
+imu_list = {
+    get_data_file('IMU_X001.dat'), ...
+    get_data_file('IMU_X002.dat'), ...
+    get_data_file('IMU_X003.dat')  ...
+    };
+gnss_list = {
+    get_data_file('GNSS_X001.csv'), ...
+    get_data_file('GNSS_X002.csv'), ...
+    get_data_file('GNSS_X002.csv')  ...
+    };
 
 % If the user passes in a single string, use it as a single item list
 if nargin >= 1 && ~isempty(imu_path)
@@ -25,6 +39,16 @@ if nargin >= 2 && ~isempty(gnss_path)
     end
 end
 
+% Optional third argument: list of methods to run
+method_list = {'TRIAD','Davenport','SVD'};
+if nargin >= 3 && ~isempty(methods)
+    if ischar(methods) || isstring(methods)
+        method_list = {char(methods)};
+    else
+        method_list = cellfun(@char, methods, 'UniformOutput', false);
+    end
+end
+
 if numel(imu_list) ~= numel(gnss_list)
     error('IMU and GNSS file lists must have the same length');
 end
@@ -38,7 +62,7 @@ end
 
 fprintf('Running IMU+GNSS Initialization Pipeline (MATLAB Version)\n');
 
-methods = {'TRIAD','Davenport','SVD'};
+methods = method_list;
 
 for dataIdx = 1:numel(imu_list)
     imu_file  = imu_list{dataIdx};
