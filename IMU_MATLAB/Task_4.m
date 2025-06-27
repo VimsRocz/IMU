@@ -54,6 +54,9 @@ fprintf('-> Rotation matrices accessed for methods: %s\n', strjoin(methods, ', '
 % =========================================================================
 fprintf('\nSubtask 4.3: Loading GNSS data.\n');
 gnss_path = get_data_file(gnss_file);
+if ~isfile(gnss_path)
+    error('Task_4:MissingFile', 'GNSS file not found: %s', gnss_path);
+end
 try
     gnss_data = readtable(gnss_path);
 catch e
@@ -120,6 +123,9 @@ fprintf('-> GNSS acceleration estimated in NED frame.\n');
 % =========================================================================
 fprintf('\nSubtask 4.9: Loading IMU data and correcting for bias for each method.\n');
 imu_path = get_data_file(imu_file);
+if ~isfile(imu_path)
+    error('Task_4:MissingFile', 'IMU file not found: %s', imu_path);
+end
 imu_raw_data = readmatrix(imu_path);
 dt_imu = mean(diff(imu_raw_data(1:100,2)));
 if dt_imu <= 0 || isnan(dt_imu), dt_imu = 1/400; end

@@ -25,8 +25,16 @@ tag = [imu_name '_' gnss_name];
 results_dir = 'results';
 
 % Load vectors produced by Task 1 and Task 2
-init_data = load(fullfile(results_dir, ['Task1_init_' tag '.mat']));
-body_data = load(fullfile(results_dir, ['Task2_body_' tag '.mat']));
+task1_file = fullfile(results_dir, ['Task1_init_' tag '.mat']);
+task2_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
+if ~isfile(task1_file)
+    error('Task_3:MissingFile', 'Missing Task 1 output: %s', task1_file);
+end
+if ~isfile(task2_file)
+    error('Task_3:MissingFile', 'Missing Task 2 output: %s', task2_file);
+end
+init_data = load(task1_file);
+body_data = load(task2_file);
 
 g_NED = init_data.g_NED;
 omega_ie_NED = init_data.omega_NED;

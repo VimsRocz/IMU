@@ -5,6 +5,13 @@
 % =========================================================================
 fprintf('\nTASK 5: Sensor Fusion with Kalman Filter\n');
 
+% Ensure Task 3 results are available
+results_dir = 'results';
+results_file = fullfile(results_dir, 'task3_results.mat');
+if ~isfile(results_file)
+    error('Task_5:MissingFile', 'Task 3 results not found: %s', results_file);
+end
+
 %% ========================================================================
 % Subtask 5.1-5.5: Configure and Initialize 9-State Filter
 % =========================================================================
