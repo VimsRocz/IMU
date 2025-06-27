@@ -180,6 +180,7 @@ fprintf('\nSubtask 2.3: Defining gravity and Earth rotation rate in the body fra
 g_body_raw = -static_acc_row';
 g_mag = norm(g_body_raw);
 g_body = g_body_raw * (9.81 / g_mag);     % Task 2.3: Gravity and Bias
+g_body_scaled = g_body;                   % explicitly store scaled gravity
 omega_ie_body = static_gyro_row';
 acc_bias = mean(acc_filt(start_idx:end_idx,:) + g_body', 1)';
 gyro_bias = mean(gyro_filt(start_idx:end_idx,:), 1)';
@@ -216,7 +217,7 @@ fprintf('From accelerometer (assuming static IMU): a_measured = -g_body \n');
 fprintf('From gyroscope (assuming static IMU):     w_measured = omega_ie_body \n');
 
 % Save results for later tasks
-save(fullfile('results', ['Task2_body_' tag '.mat']), 'g_body', 'omega_ie_body', 'acc_bias', 'gyro_bias');
+save(fullfile('results', ['Task2_body_' tag '.mat']), 'g_body', 'g_body_scaled', 'omega_ie_body', 'acc_bias', 'gyro_bias');
 fprintf('Body-frame vectors and biases saved to %s\n', fullfile('results', ['Task2_body_' tag '.mat']));
 
 end
