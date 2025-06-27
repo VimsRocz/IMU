@@ -33,8 +33,10 @@ results_dir = 'results';
 [~, gnss_name, ~] = fileparts(gnss_path);
 if isempty(method)
     tag = [imu_name '_' gnss_name];
+    method_tag = 'AllMethods';
 else
     tag = [imu_name '_' gnss_name '_' method];
+    method_tag = method;
 end
 
 % Load rotation matrices produced by Task 3
@@ -236,13 +238,15 @@ fprintf('-> IMU-derived position, velocity, and acceleration computed for all me
 % =========================================================================
 fprintf('\nSubtask 4.13: Validating and plotting data.\n');
 
-plot_comparison_in_frame( ...
-    'NED', gnss_time, imu_time, methods, C_B_N_methods, ...
-    gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, ...
-    pos_integ, vel_integ, acc_integ, acc_body_corrected, ...
-    fullfile(results_dir, [tag '_comparison_ned.pdf']), ref_r0, C_ECEF_to_NED ...
-);
-fprintf('-> All data plots saved as %s_comparison_ned.pdf\n', tag);
+for i = 1:length(methods)
+    m = methods{i};
+    base = fullfile(results_dir, sprintf('%s_%s_%s', imu_name, gnss_name, m));
+    plot_single_method(m, gnss_time, imu_time, C_B_N_methods.(m), ...
+        gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, ...
+        pos_integ.(m), vel_integ.(m), acc_integ.(m), ...
+        acc_body_corrected.(m), base, ref_r0, C_ECEF_to_NED);
+end
+fprintf('-> All data plots saved for all methods.\n');
 
 % Save GNSS positions for use by Task 5
 task4_file = fullfile(results_dir, 'task4_results.mat');
@@ -391,4 +395,97 @@ function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size,
             end_idx = ends(k) + window_size - 1;
         end
     end
+end
+
+function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned, p_imu, v_imu, a_imu, acc_body_corr, base, r0_ecef, C_e2n)
+    % Generate per-method comparison plots in various frames.
+
+    dims = {'North','East','Down'};
+    % ----- NED frame -----
+    fig = figure('Visible','off','Position',[100 100 1200 900]);
+    for i = 1:3
+        subplot(3,3,i); hold on;
+        plot(t_gnss, p_gnss_ned(:,i),'k--','DisplayName','GNSS');
+        plot(t_imu, p_imu(:,i),'b-','DisplayName',method);
+        hold off; grid on; legend; title(['Position ' dims{i}]); ylabel('m');
+
+        subplot(3,3,i+3); hold on;
+        plot(t_gnss, v_gnss_ned(:,i),'k--','DisplayName','GNSS');
+        plot(t_imu, v_imu(:,i),'b-','DisplayName',method);
+        hold off; grid on; legend; title(['Velocity ' dims{i}]); ylabel('m/s');
+
+        subplot(3,3,i+6); hold on;
+        plot(t_gnss, a_gnss_ned(:,i),'k--','DisplayName','GNSS');
+        plot(t_imu, a_imu(:,i),'b-','DisplayName',method);
+        hold off; grid on; legend; title(['Acceleration ' dims{i}]); ylabel('m/s^2');
+    end
+    sgtitle([method ' Comparison in NED frame']);
+    fname = [base '_Task4_NEDFrame.pdf'];
+    set(fig,'PaperPositionMode','auto');
+    print(fig,fname,'-dpdf','-bestfit');
+    fprintf('Saved plot: %s\n', fname);
+    close(fig);
+
+    % ----- ECEF frame -----
+    C_n2e = C_e2n';
+    fig = figure('Visible','off','Position',[100 100 1200 900]);
+    p_gnss_ecef = (C_n2e*p_gnss_ned' + r0_ecef)';
+    v_gnss_ecef = (C_n2e*v_gnss_ned')';
+    a_gnss_ecef = (C_n2e*a_gnss_ned')';
+    a_imu_ecef  = (C_n2e*a_imu')';
+    dims_e = {'X','Y','Z'};
+    for i = 1:3
+        subplot(3,3,i); hold on;
+        plot(t_gnss, p_gnss_ecef(:,i),'k--','DisplayName','GNSS');
+        plot(t_imu, (C_n2e*p_imu')(:,i),'b-','DisplayName',method);
+        hold off; grid on; legend; title(['Position ' dims_e{i}]); ylabel('m');
+
+        subplot(3,3,i+3); hold on;
+        plot(t_gnss, v_gnss_ecef(:,i),'k--','DisplayName','GNSS');
+        plot(t_imu, (C_n2e*v_imu')(:,i),'b-','DisplayName',method);
+        hold off; grid on; legend; title(['Velocity ' dims_e{i}]); ylabel('m/s');
+
+        subplot(3,3,i+6); hold on;
+        plot(t_gnss, a_gnss_ecef(:,i),'k--','DisplayName','GNSS');
+        plot(t_imu, a_imu_ecef(:,i),'b-','DisplayName',method);
+        hold off; grid on; legend; title(['Acceleration ' dims_e{i}]); ylabel('m/s^2');
+    end
+    sgtitle([method ' Comparison in ECEF frame']);
+    fname = [base '_Task4_ECEFFrame.pdf'];
+    set(fig,'PaperPositionMode','auto');
+    print(fig,fname,'-dpdf','-bestfit');
+    fprintf('Saved plot: %s\n', fname);
+    close(fig);
+
+    % ----- Body frame -----
+    fig = figure('Visible','off','Position',[100 100 1200 900]);
+    C_N_B = C_B_N';
+    pos_body = (C_N_B*p_gnss_ned')';
+    vel_body = (C_N_B*v_gnss_ned')';
+    dims_b = {'X','Y','Z'};
+    for i = 1:3
+        subplot(3,3,i); plot(t_gnss,pos_body(:,i),'k-'); grid on; title(['Position b' dims_b{i}]); ylabel('m');
+        subplot(3,3,i+3); plot(t_gnss,vel_body(:,i),'k-'); grid on; title(['Velocity b' dims_b{i}]); ylabel('m/s');
+        subplot(3,3,i+6); plot(t_imu, acc_body_corr(:,i),'b-'); grid on; title(['Acceleration b' dims_b{i}]); ylabel('m/s^2');
+    end
+    sgtitle([method ' Data in Body Frame']);
+    fname = [base '_Task4_BodyFrame.pdf'];
+    set(fig,'PaperPositionMode','auto');
+    print(fig,fname,'-dpdf','-bestfit');
+    fprintf('Saved plot: %s\n', fname);
+    close(fig);
+
+    % ----- Mixed frame (ECEF position/velocity + body acceleration) -----
+    fig = figure('Visible','off','Position',[100 100 1200 900]);
+    for i = 1:3
+        subplot(3,3,i); plot(t_gnss,p_gnss_ecef(:,i),'k-'); grid on; title(['Pos ' dims_e{i} ' ECEF']); ylabel('m');
+        subplot(3,3,i+3); plot(t_gnss,v_gnss_ecef(:,i),'k-'); grid on; title(['Vel ' dims_e{i} ' ECEF']); ylabel('m/s');
+        subplot(3,3,i+6); plot(t_imu, acc_body_corr(:,i),'b-'); grid on; title(['Acc ' dims_b{i} ' Body']); ylabel('m/s^2');
+    end
+    sgtitle([method ' Mixed Frame Data']);
+    fname = [base '_Task4_MixedFrame.pdf'];
+    set(fig,'PaperPositionMode','auto');
+    print(fig,fname,'-dpdf','-bestfit');
+    fprintf('Saved plot: %s\n', fname);
+    close(fig);
 end
