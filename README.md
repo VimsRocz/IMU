@@ -235,4 +235,6 @@ python /path/to/IMU/export_mat.py
 - **CI:** Set up a simple GitHub Actions workflow that installs
   `requirements.txt`, runs `flake8` and the `pytest` suite on every pull
   request.
+- **Debugging:** If the MATLAB pipeline produces kilometre-scale drift,
+  consult `docs/DebuggingDrift.md` for troubleshooting steps.
 
