@@ -13,6 +13,11 @@ elseif nargin ~= 2
     error('Usage: TRIAD(''IMUFILE'',''GNSSFILE'') or TRIAD() for defaults');
 end
 
+% Resolve to full paths so the function works from any directory. The helper
+% GET_DATA_FILE searches IMU_MATLAB/data first and then the repository root.
+imuFile  = get_data_file(imuFile);
+gnssFile = get_data_file(gnssFile);
+
 Task_1(imuFile, gnssFile, 'TRIAD');
 Task_2(imuFile, gnssFile, 'TRIAD');
 Task_3(imuFile, gnssFile, 'TRIAD');
