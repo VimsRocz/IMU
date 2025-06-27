@@ -26,7 +26,8 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     results_dir = 'results';
     [~, imu_name, ~] = fileparts(imu_path);
     [~, gnss_name, ~] = fileparts(gnss_path);
-    tag = [imu_name '_' gnss_name '_' method];
+    pair_tag = [imu_name '_' gnss_name];
+    tag = [pair_tag '_' method];
 
     if isempty(method)
         log_tag = '';
@@ -36,7 +37,7 @@ function Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     fprintf('\nTASK 5%s: Sensor Fusion with Kalman Filter\n', log_tag);
 
     % Load attitude estimate from Task 3 results
-    results_file = fullfile(results_dir, 'task3_results.mat');
+    results_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
     data = load(results_file);
     task3_results = data.task3_results;
     if ~isfield(task3_results, method)
@@ -96,7 +97,7 @@ end
 % Subtask 5.1-5.5: Configure and Initialize 9-State Filter
 % =========================================================================
 fprintf('\nSubtask 5.1-5.5: Configuring and Initializing 9-State Kalman Filter.\n');
-results4 = fullfile(results_dir,'task4_results.mat');
+results4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
 if ~isfile(results4)
     error('Task_5:MissingResults', ...
           'Task 4 must run first and save gnss_pos_ned.');
@@ -285,7 +286,7 @@ fprintf(fid, '%s\n', summary_line);
 fclose(fid);
 
 % Persist core results for unit tests and further analysis
-results_file = fullfile(results_dir, 'task5_results.mat');
+results_file = fullfile(results_dir, sprintf('Task5_results_%s.mat', pair_tag));
 save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'x_log', 'euler_log', 'zupt_log');
 fprintf('Results saved to %s\n', results_file);
 

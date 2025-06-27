@@ -1,17 +1,32 @@
 function main(imu_path, gnss_path)
-%MAIN Run the IMU+GNSS initialization pipeline on a single dataset.
+%MAIN Run the IMU+GNSS initialization pipeline on a single dataset or list.
 %   main()                      - use the default sample files
 %   main('imu.dat','gnss.csv') - run with custom data files
+%   main({'IMU_X001.dat','IMU_X002.dat'}, {'GNSS_X001.csv','GNSS_X002.csv'})
+%   will iterate over both dataset pairs.
 
-% Resolve default data file paths
-imu_file  = get_data_file('IMU_X001.dat');
-gnss_file = get_data_file('GNSS_X001.csv');
+% Resolve default data file paths or lists
+imu_list  = {get_data_file('IMU_X001.dat')};
+gnss_list = {get_data_file('GNSS_X001.csv')};
 
+% If the user passes in a single string, use it as a single item list
 if nargin >= 1 && ~isempty(imu_path)
-    imu_file = imu_path;
+    if ischar(imu_path) || isstring(imu_path)
+        imu_list = {char(imu_path)};
+    else
+        imu_list = cellfun(@char, imu_path, 'UniformOutput', false);
+    end
 end
 if nargin >= 2 && ~isempty(gnss_path)
-    gnss_file = gnss_path;
+    if ischar(gnss_path) || isstring(gnss_path)
+        gnss_list = {char(gnss_path)};
+    else
+        gnss_list = cellfun(@char, gnss_path, 'UniformOutput', false);
+    end
+end
+
+if numel(imu_list) ~= numel(gnss_list)
+    error('IMU and GNSS file lists must have the same length');
 end
 
 clc; close all;
@@ -24,19 +39,29 @@ end
 fprintf('Running IMU+GNSS Initialization Pipeline (MATLAB Version)\n');
 
 methods = {'TRIAD','Davenport','SVD'};
-for i = 1:numel(methods)
-    method = methods{i};
-    fprintf('\n=== Running pipeline for method: %s ===\n', method);
-    try
-        Task_1(imu_file, gnss_file, method);
-        Task_2(imu_file, gnss_file, method);
-        Task_3(imu_file, gnss_file, method);
-        Task_4(imu_file, gnss_file, method);
-        Task_5(imu_file, gnss_file, method);
-    catch ME
-        fprintf('Error with method %s: %s\n', method, ME.message);
+
+for dataIdx = 1:numel(imu_list)
+    imu_file  = imu_list{dataIdx};
+    gnss_file = gnss_list{dataIdx};
+
+    fprintf('\n=== Running pipeline for dataset: %s + %s ===\n', imu_file, gnss_file);
+
+    for mIdx = 1:numel(methods)
+        method = methods{mIdx};
+        fprintf('\n=== Running pipeline for method: %s ===\n', method);
+        try
+            Task_1(imu_file, gnss_file, method);
+            Task_2(imu_file, gnss_file, method);
+            Task_3(imu_file, gnss_file, method);
+            Task_4(imu_file, gnss_file, method);
+            Task_5(imu_file, gnss_file, method);
+        catch ME
+            fprintf('Error in method %s: %s\n', method, ME.message);
+            continue;
+        end
+        fprintf('Finished dataset %s + %s with method %s\n', imu_file, gnss_file, method);
     end
 end
 
-fprintf('\nAll tasks completed for all methods!\n');
+fprintf('\nAll datasets and methods completed!\n');
 end
