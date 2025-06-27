@@ -119,7 +119,8 @@ fprintf('-> GNSS acceleration estimated in NED frame.\n');
 % Subtask 4.9: Load IMU Data and Correct for Bias for Each Method
 % =========================================================================
 fprintf('\nSubtask 4.9: Loading IMU data and correcting for bias for each method.\n');
-imu_raw_data = readmatrix(imu_file);
+imu_path = get_data_file(imu_file);
+imu_raw_data = readmatrix(imu_path);
 dt_imu = mean(diff(imu_raw_data(1:100,2)));
 if dt_imu <= 0 || isnan(dt_imu), dt_imu = 1/400; end
 imu_time = (0:size(imu_raw_data,1)-1)' * dt_imu + gnss_time(1);
