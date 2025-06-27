@@ -142,33 +142,81 @@ end % End of main function
 % =========================================================================
 function q_new = propagate_quaternion(q_old, w, dt)
     w_norm = norm(w);
-    if w_norm > 1e-9, axis = w/w_norm; angle = w_normdt; dq = [cos(angle/2); axissin(angle/2)];
-    else, dq = [1; 0; 0; 0]; end
+    if w_norm > 1e-9
+        axis = w / w_norm;
+        angle = w_norm * dt;
+        dq = [cos(angle/2); axis * sin(angle/2)];
+    else
+        dq = [1; 0; 0; 0];
+    end
     q_new = quat_multiply(q_old, dq);
 end
+
 function q_out = quat_multiply(q1, q2)
-    w1=q1(1);x1=q1(2);y1=q1(3);z1=q1(4); w2=q2(1);x2=q2(2);y2=q2(3);z2=q2(4);
-    q_out=[w1w2-x1x2-y1y2-z1z2; w1x2+x1w2+y1z2-z1y2; w1y2-x1z2+y1w2+z1x2; w1z2+x1y2-y1x2+z1w2];
+    w1 = q1(1); x1 = q1(2); y1 = q1(3); z1 = q1(4);
+    w2 = q2(1); x2 = q2(2); y2 = q2(3); z2 = q2(4);
+    q_out = [w1*w2 - x1*x2 - y1*y2 - z1*z2;
+             w1*x2 + x1*w2 + y1*z2 - z1*y2;
+             w1*y2 - x1*z2 + y1*w2 + z1*x2;
+             w1*z2 + x1*y2 - y1*x2 + z1*w2];
 end
+
 function euler = quat_to_euler(q)
-    w=q(1);x=q(2);y=q(3);z=q(4);
-    sinr_cosp=2*(wx+yz);cosr_cosp=1-2*(xx+yy);roll=atan2(sinr_cosp,cosr_cosp);
-    sinp=2*(wy-zx);if abs(sinp)>=1,pitch=copysign(pi/2,sinp);else,pitch=asin(sinp);end
-    siny_cosp=2*(wz+xy);cosy_cosp=1-2*(yy+zz);yaw=atan2(siny_cosp,cosy_cosp);
-    euler=[roll;pitch;yaw];
-end
-function R = quat_to_rot(q)
-    qw=q(1);qx=q(2);qy=q(3);qz=q(4);
-    R=[1-2*(qy^2+qz^2),2*(qxqy-qwqz),2*(qxqz+qwqy);2*(qxqy+qwqz),1-2*(qx^2+qz^2),2*(qyqz-qwqx);2*(qxqz-qwqy),2*(qyqz+qwqx),1-2*(qx^2+qy^2)];
-end
-function q = rot_to_quaternion(R)
-    tr=trace(R);
-    if tr>0,S=sqrt(tr+1.0)2;qw=0.25S;qx=(R(3,2)-R(2,3))/S;qy=(R(1,3)-R(3,1))/S;qz=(R(2,1)-R(1,2))/S;
-    elseif(R(1,1)>R(2,2))&&(R(1,1)>R(3,3)),S=sqrt(1.0+R(1,1)-R(2,2)-R(3,3))2;qw=(R(3,2)-R(2,3))/S;qx=0.25S;qy=(R(1,2)+R(2,1))/S;qz=(R(1,3)+R(3,1))/S;
-    elseif R(2,2)>R(3,3),S=sqrt(1.0+R(2,2)-R(1,1)-R(3,3))2;qw=(R(1,3)-R(3,1))/S;qx=(R(1,2)+R(2,1))/S;qy=0.25S;qz=(R(2,3)+R(3,2))/S;
-    else,S=sqrt(1.0+R(3,3)-R(1,1)-R(2,2))2;qw=(R(2,1)-R(1,2))/S;qx=(R(1,3)+R(3,1))/S;qy=(R(2,3)+R(3,2))/S;qz=0.25S;
+    w = q(1); x = q(2); y = q(3); z = q(4);
+    sinr_cosp = 2 * (w * x + y * z);
+    cosr_cosp = 1 - 2 * (x * x + y * y);
+    roll = atan2(sinr_cosp, cosr_cosp);
+
+    sinp = 2 * (w * y - z * x);
+    if abs(sinp) >= 1
+        pitch = sign(sinp) * (pi/2);
+    else
+        pitch = asin(sinp);
     end
-    q=[qw;qx;qy;qz];if q(1)<0,q=-q;end;q=q/norm(q);
+
+    siny_cosp = 2 * (w * z + x * y);
+    cosy_cosp = 1 - 2 * (y * y + z * z);
+    yaw = atan2(siny_cosp, cosy_cosp);
+    euler = [roll; pitch; yaw];
+end
+
+function R = quat_to_rot(q)
+    qw = q(1); qx = q(2); qy = q(3); qz = q(4);
+    R = [1 - 2 * (qy^2 + qz^2), 2 * (qx*qy - qw*qz), 2 * (qx*qz + qw*qy);
+         2 * (qx*qy + qw*qz), 1 - 2 * (qx^2 + qz^2), 2 * (qy*qz - qw*qx);
+         2 * (qx*qz - qw*qy), 2 * (qy*qz + qw*qx), 1 - 2 * (qx^2 + qy^2)];
+end
+
+function q = rot_to_quaternion(R)
+    tr = trace(R);
+    if tr > 0
+        S = sqrt(tr + 1.0) * 2;
+        qw = 0.25 * S;
+        qx = (R(3,2) - R(2,3)) / S;
+        qy = (R(1,3) - R(3,1)) / S;
+        qz = (R(2,1) - R(1,2)) / S;
+    elseif (R(1,1) > R(2,2)) && (R(1,1) > R(3,3))
+        S = sqrt(1.0 + R(1,1) - R(2,2) - R(3,3)) * 2;
+        qw = (R(3,2) - R(2,3)) / S;
+        qx = 0.25 * S;
+        qy = (R(1,2) + R(2,1)) / S;
+        qz = (R(1,3) + R(3,1)) / S;
+    elseif R(2,2) > R(3,3)
+        S = sqrt(1.0 + R(2,2) - R(1,1) - R(3,3)) * 2;
+        qw = (R(1,3) - R(3,1)) / S;
+        qx = (R(1,2) + R(2,1)) / S;
+        qy = 0.25 * S;
+        qz = (R(2,3) + R(3,2)) / S;
+    else
+        S = sqrt(1.0 + R(3,3) - R(1,1) - R(2,2)) * 2;
+        qw = (R(2,1) - R(1,2)) / S;
+        qx = (R(1,3) + R(3,1)) / S;
+        qy = (R(2,3) + R(3,2)) / S;
+        qz = 0.25 * S;
+    end
+    q = [qw; qx; qy; qz];
+    if q(1) < 0, q = -q; end
+    q = q / norm(q);
 end
 function is_stat=is_static(acc,gyro)
     acc_thresh=0.01;gyro_thresh=1e-6;
