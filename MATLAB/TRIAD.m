@@ -22,8 +22,12 @@ if numel(dbstack) <= 1
            '    TRIAD(''IMU_X001.dat'', ''GNSS_X001.csv'');']);
 end
 
-if nargin < 2
-    error('Usage: TRIAD(''IMUFILE'',''GNSSFILE'')');
+if nargin == 0
+    imuFile = 'IMU_X001.dat';
+    gnssFile = 'GNSS_X001.csv';
+    fprintf('[INFO] No files provided. Using defaults: %s, %s\n', imuFile, gnssFile);
+elseif nargin ~= 2 && nargin ~= 3
+    error('Usage: TRIAD(''IMUFILE'',''GNSSFILE'') or TRIAD() for defaults');
 end
 
 if isempty(varargin)

@@ -62,8 +62,13 @@ run_all_datasets
 
 To run only the TRIAD method use:
 
+
 ```matlab
-result = TRIAD('IMU_X001.dat','GNSS_X001.csv');
+% use bundled sample files
+result = TRIAD();
+
+% or specify your own files
+% result = TRIAD('IMU_X001.dat','GNSS_X001.csv');
 ```
 
 The returned struct matches the file `results/Result_IMU_X001_GNSS_X001_TRIAD.mat`.
