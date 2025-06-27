@@ -3,6 +3,7 @@ function Task_4(imu_file, gnss_file, method)
 %   Task_4(IMUFILE, GNSSFILE, METHOD) runs the GNSS/IMU integration
 %   using the attitude estimates from Task 3. METHOD is unused but kept
 %   for backwards compatibility with older scripts.
+%   Requires that `Task_3` has already saved `results/task3_results.mat`.
 
 if nargin < 1 || isempty(imu_file)
     imu_file = 'IMU_X001.dat';
@@ -22,7 +23,16 @@ results_dir = 'results';
 [~, gnss_name, ~] = fileparts(gnss_file);
 tag = [imu_name '_' gnss_name];
 
-load(fullfile(results_dir, 'task3_results.mat'), 'task3_results');
+% Load rotation matrices produced by Task 3
+results_file = fullfile(results_dir, 'task3_results.mat');
+if ~isfile(results_file)
+    error('Task 3 results not found: %s', results_file);
+end
+data = load(results_file);
+if ~isfield(data, 'task3_results')
+    error('Variable ''task3_results'' missing from %s', results_file);
+end
+task3_results = data.task3_results;
 
 fprintf('\nTASK 4: GNSS and IMU Data Integration and Comparison\n');
 
@@ -43,8 +53,9 @@ fprintf('-> Rotation matrices accessed for methods: %s\n', strjoin(methods, ', '
 % Subtask 4.3: Load GNSS Data
 % =========================================================================
 fprintf('\nSubtask 4.3: Loading GNSS data.\n');
+gnss_path = get_data_file(gnss_file);
 try
-    gnss_data = readtable(gnss_file);
+    gnss_data = readtable(gnss_path);
 catch e
     error('Failed to load GNSS data file: %s', e.message);
 end

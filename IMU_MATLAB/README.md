@@ -33,6 +33,10 @@ for each of the attitude initialisation methods (`TRIAD`, `Davenport` and
 `SVD`). Output files include the method name so results are preserved for
 every run.
 
+`Task_4` expects the rotation matrices produced by `Task_3` to be saved as
+`results/task3_results.mat`. Make sure `Task_3` completes before running
+`Task_4` separately.
+
 `Task_1` and `Task_2` are now functions, so you can also call them directly as
 ```matlab
 Task_1('IMU_X001.dat','GNSS_X001.csv')
