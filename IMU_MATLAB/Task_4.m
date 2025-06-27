@@ -203,6 +203,15 @@ plot_comparison_in_frame( ...
 );
 fprintf('-> All data plots saved.\n');
 
+% Save GNSS positions for use by Task 5
+task4_file = fullfile(results_dir, 'task4_results.mat');
+if isfile(task4_file)
+    save(task4_file, 'gnss_pos_ned', '-append');
+else
+    save(task4_file, 'gnss_pos_ned');
+end
+% Task 5 loads these positions when initialising the Kalman filter
+
 end % End of main function: run_task4
 
 
