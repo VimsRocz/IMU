@@ -27,7 +27,12 @@ for i = 1:numel(methods)
     method = methods{i};
     Task_3(imuFile, gnssFile, method);
     Task_4(imuFile, gnssFile, method);
-    Task_5(imuFile, gnssFile, method);
+end
+
+results_dir = 'results';
+tmp = load(fullfile(results_dir,'task4_results.mat'), 'gnss_pos_ned');
+for m = methods
+    Task_5(imuFile, gnssFile, m{1}, tmp.gnss_pos_ned);
 end
 
 fprintf('All tasks completed!\n');
