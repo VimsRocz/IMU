@@ -151,6 +151,10 @@ if start_idx == -1
     if size(acc_filt, 1) < end_idx, end_idx = size(acc_filt, 1); end
 end
 
+% Override with specified static interval to match Python pipeline
+start_idx = 297;
+end_idx   = min(479907, size(acc_filt,1));
+
 % --- Calculate static vectors from the interval ---
 N_static = end_idx - start_idx + 1;
 static_acc_row = mean(acc_filt(start_idx:end_idx, :), 1);
@@ -179,11 +183,13 @@ fprintf('\nSubtask 2.3: Defining gravity and Earth rotation rate in the body fra
 % By convention, vectors are column vectors. mean() returns a row, so we transpose it.
 g_body_raw = -static_acc_row';
 g_mag = norm(g_body_raw);
-g_body = g_body_raw * (9.81 / g_mag);     % Task 2.3: Gravity and Bias
-g_body_scaled = g_body;                   % explicitly store scaled gravity
+g_body = (g_body_raw / g_mag) * 9.81;   % Normalize then scale to 9.81
+g_body_scaled = g_body;                  % explicitly store scaled gravity
 omega_ie_body = static_gyro_row';
-acc_bias = mean(acc_filt(start_idx:end_idx,:) + g_body', 1)';
-gyro_bias = mean(gyro_filt(start_idx:end_idx,:), 1)';
+
+% Biases computed over the fixed static interval
+acc_bias = (static_acc_row' + g_body);
+gyro_bias = static_gyro_row';
 
 fprintf('Gravity vector in body frame (g_body):           [%.4f; %.4f; %.4f] m/s^2\n', g_body);
 fprintf('Earth rotation rate in body frame (omega_ie_body): [%.6e; %.6e; %.6e] rad/s\n', omega_ie_body);
