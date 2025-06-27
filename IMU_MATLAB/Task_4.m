@@ -162,8 +162,20 @@ gyro_rms = sqrt(mean((imu_raw_data(:,3:5)/dt_imu).^2,'all'));
 fprintf('   Acc raw RMS=%.4f, Gyro raw RMS=%.6f\n', acc_rms, gyro_rms);
 
 [start_idx, end_idx] = detect_static_interval(acc_body_filt, gyro_body_filt);
-static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
-static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
+static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1); %#ok<NASGU>
+static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1); %#ok<NASGU>
+
+% Load biases estimated in Task 2
+task2_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
+if isfile(task2_file)
+    bdata = load(task2_file);
+    acc_bias = bdata.acc_bias;
+    gyro_bias = bdata.gyro_bias;
+else
+    warning('Task 2 results with biases not found. Using zero biases.');
+    acc_bias = zeros(3,1);
+    gyro_bias = zeros(3,1);
+end
 g_NED = [0; 0; 9.81];
 
 acc_body_corrected  = struct();
@@ -172,20 +184,12 @@ for i = 1:length(methods)
     method = methods{i};
     C_B_N = C_B_N_methods.(method);
     C_N_B = C_B_N';
-
-    g_body_expected = C_N_B * g_NED;
-    acc_bias  = static_acc' + g_body_expected;
-    scale     = 9.81 / norm(static_acc' - acc_bias);
-
-    omega_ie = 7.2921159e-5;
-    omega_ie_NED = [omega_ie*cos(ref_lat); 0; -omega_ie*sin(ref_lat)];
-    gyro_body_expected = C_N_B * omega_ie_NED;
-    gyro_bias = static_gyro' - gyro_body_expected;
+    scale = 1.0;
 
     acc_body_corrected.(method)  = (acc_body_filt - acc_bias') * scale;
     gyro_body_corrected.(method) = gyro_body_filt - gyro_bias';
-    fprintf('Method %s: Accel bias=[%.4f, %.4f, %.4f], Scale=%.4f, Gyro bias=[%.6f, %.6f, %.6f]\n', ...
-            method, acc_bias, scale, gyro_bias);
+    fprintf('Method %s: Accel bias=[%.4f, %.4f, %.4f], Gyro bias=[%.6f, %.6f, %.6f]\n', ...
+            method, acc_bias, gyro_bias);
 end
 fprintf('-> IMU data corrected for bias and scale for each method.\n');
 

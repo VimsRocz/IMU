@@ -56,8 +56,14 @@ body_data = load(task2_file);
 g_NED = init_data.g_NED;
 omega_ie_NED = init_data.omega_NED;
 lat = deg2rad(init_data.lat);
-g_body = body_data.g_body;
+if isfield(body_data,'g_body_scaled')
+    g_body = body_data.g_body_scaled;
+else
+    g_body = body_data.g_body;
+end
 omega_ie_body = body_data.omega_ie_body;
+if isfield(body_data,'acc_bias'); acc_bias = body_data.acc_bias; else; acc_bias = zeros(3,1); end
+if isfield(body_data,'gyro_bias'); gyro_bias = body_data.gyro_bias; else; gyro_bias = zeros(3,1); end
 
 omega_E = 7.2921159e-5; % Earth rotation rate [rad/s]
 

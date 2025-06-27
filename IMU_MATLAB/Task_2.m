@@ -153,7 +153,7 @@ end
 
 % --- Calculate static vectors from the interval ---
 N_static = end_idx - start_idx + 1;
-static_acc_row = mean(acc_filt(start_idx:end_idx, :), 1); 
+static_acc_row = mean(acc_filt(start_idx:end_idx, :), 1);
 static_gyro_row = mean(gyro_filt(start_idx:end_idx, :), 1);
 
 fprintf('Static interval found: samples %d to %d (length %d samples)\n', start_idx, end_idx, N_static);
@@ -172,15 +172,22 @@ end
 
 %% ================================
 % Subtask 2.3: Define Gravity and Earth Rate in Body Frame
-% =================================
+% (Gravity vector scaled to exactly 9.81 m/s^2)
+% ================================
 fprintf('\nSubtask 2.3: Defining gravity and Earth rotation rate in the body frame.\n');
 
 % By convention, vectors are column vectors. mean() returns a row, so we transpose it.
-g_body = -static_acc_row';
+g_body_raw = -static_acc_row';
+g_mag = norm(g_body_raw);
+g_body = g_body_raw * (9.81 / g_mag);     % Task 2.3: Gravity and Bias
 omega_ie_body = static_gyro_row';
+acc_bias = mean(acc_filt(start_idx:end_idx,:) + g_body', 1)';
+gyro_bias = mean(gyro_filt(start_idx:end_idx,:), 1)';
 
 fprintf('Gravity vector in body frame (g_body):           [%.4f; %.4f; %.4f] m/s^2\n', g_body);
 fprintf('Earth rotation rate in body frame (omega_ie_body): [%.6e; %.6e; %.6e] rad/s\n', omega_ie_body);
+fprintf('Estimated accelerometer bias: [%.4f %.4f %.4f] m/s^2\n', acc_bias);
+fprintf('Estimated gyroscope bias:     [%.6e %.6e %.6e] rad/s\n', gyro_bias);
 
 %% ================================
 % Subtask 2.4: Validate and Print Body-Frame Vectors
@@ -209,7 +216,7 @@ fprintf('From accelerometer (assuming static IMU): a_measured = -g_body \n');
 fprintf('From gyroscope (assuming static IMU):     w_measured = omega_ie_body \n');
 
 % Save results for later tasks
-save(fullfile('results', ['Task2_body_' tag '.mat']), 'g_body', 'omega_ie_body');
-fprintf('Body-frame vectors saved to %s\n', fullfile('results', ['Task2_body_' tag '.mat']));
+save(fullfile('results', ['Task2_body_' tag '.mat']), 'g_body', 'omega_ie_body', 'acc_bias', 'gyro_bias');
+fprintf('Body-frame vectors and biases saved to %s\n', fullfile('results', ['Task2_body_' tag '.mat']));
 
 end
