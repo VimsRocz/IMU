@@ -169,15 +169,28 @@ for i = 1:num_imu_samples
     
     % --- 4. Zero-Velocity Update (ZUPT) ---
     win_size = 80;
-    if i > win_size
+    static_start = 297;
+    static_end   = min(479907, num_imu_samples);
+
+    if i >= static_start && i <= static_end
+        zupt_count = zupt_count + 1;
+        zupt_log(i) = 1;
+        H_z = [zeros(3), eye(3), zeros(3)];
+        R_z = eye(3) * 1e-4;
+        y_z = -H_z * x;
+        S_z = H_z * P * H_z' + R_z;
+        K_z = (P * H_z') / S_z;
+        x = x + K_z * y_z;
+        P = (eye(9) - K_z * H_z) * P;
+    elseif i > win_size
         acc_win = acc_body_raw(i-win_size+1:i, :);
         gyro_win = gyro_body_raw(i-win_size+1:i, :);
         if is_static(acc_win, gyro_win)
             zupt_count = zupt_count + 1;
             zupt_log(i) = 1;
-            H_z = [zeros(3), eye(3), zeros(3)]; % Measurement model for velocity in 9-state vector
+            H_z = [zeros(3), eye(3), zeros(3)];
             R_z = eye(3) * 1e-4;
-            y_z = zeros(3, 1) - H_z * x;
+            y_z = -H_z * x;
             S_z = H_z * P * H_z' + R_z;
             K_z = (P * H_z') / S_z;
             x = x + K_z * y_z;
@@ -309,6 +322,7 @@ summary_line = sprintf(['[SUMMARY] method=%s rmse_pos=%.2fm rmse_vel=%.2fm final
     max_resid_pos, min_resid_pos, mean(vecnorm(res_vel,2,2)), rms_resid_vel, ...
     max_resid_vel, min_resid_vel, norm(acc_bias), norm(gyro_bias), zupt_count);
 fprintf('%s\n', summary_line);
+fprintf('Final position error: %.4f m\n', final_pos_err);
 fid = fopen(fullfile(results_dir, [tag '_summary.txt']), 'w');
 fprintf(fid, '%s\n', summary_line);
 fclose(fid);

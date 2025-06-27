@@ -162,8 +162,14 @@ gyro_rms = sqrt(mean((imu_raw_data(:,3:5)/dt_imu).^2,'all'));
 fprintf('   Acc raw RMS=%.4f, Gyro raw RMS=%.6f\n', acc_rms, gyro_rms);
 
 [start_idx, end_idx] = detect_static_interval(acc_body_filt, gyro_body_filt);
-static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1); %#ok<NASGU>
-static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1); %#ok<NASGU>
+static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
+static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
+
+% Override with the fixed static interval used by the Python pipeline
+start_idx = 297;
+end_idx   = min(479907, size(acc_body_filt,1));
+static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
+static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
 
 % Load biases estimated in Task 2
 task2_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
@@ -179,9 +185,11 @@ if isfile(task2_file)
         g_body = [0;0;0];
     end
 else
-    warning('Task 2 results with biases not found. Using zero biases.');
-    acc_bias = zeros(3,1);
-    gyro_bias = zeros(3,1);
+    warning('Task 2 results with biases not found. Estimating biases from fixed static interval.');
+    g_body_raw = -static_acc';
+    g_body = (g_body_raw / norm(g_body_raw)) * 9.81;
+    acc_bias = static_acc' + g_body;
+    gyro_bias = static_gyro';
 end
 g_NED = [0; 0; 9.81];
 
@@ -193,7 +201,7 @@ for i = 1:length(methods)
     C_N_B = C_B_N';
     scale = 1.0;
 
-    acc_body_corrected.(method)  = (acc_body_filt - acc_bias' - g_body') * scale;
+    acc_body_corrected.(method)  = (acc_body_filt - acc_bias') * scale;
     gyro_body_corrected.(method) = gyro_body_filt - gyro_bias';
     fprintf('Method %s: Accel bias=[%.4f, %.4f, %.4f], Gyro bias=[%.6f, %.6f, %.6f]\n', ...
             method, acc_bias, gyro_bias);
