@@ -780,7 +780,12 @@ def main():
         print(f"{m:10s} -> Earth rate error (deg):  {omega_err_deg:.6f}")
         grav_errors[m] = grav_err_deg
         omega_errors[m] = omega_err_deg
-    
+
+    grav_err_mean = float(np.mean(list(grav_errors.values())))
+    grav_err_max  = float(np.max(list(grav_errors.values())))
+    omega_err_mean = float(np.mean(list(omega_errors.values())))
+    omega_err_max  = float(np.max(list(omega_errors.values())))
+
     # --------------------------------
     # Subtask 3.6: Validate Attitude Determination and Compare Methods
     # --------------------------------
@@ -1864,7 +1869,14 @@ def main():
 
     np.savez(
         f"results/{tag}_kf_output.npz",
-        summary=dict(rmse_pos=rmse_pos, final_pos=final_pos),
+        summary=dict(
+            rmse_pos=rmse_pos,
+            final_pos=final_pos,
+            grav_err_mean=grav_err_mean,
+            grav_err_max=grav_err_max,
+            earth_rate_err_mean=omega_err_mean,
+            earth_rate_err_max=omega_err_max,
+        ),
         innov_pos=innov_pos_all[method],
         innov_vel=innov_vel_all[method],
         euler=euler_all[method],
@@ -1880,6 +1892,10 @@ def main():
         {
             "rmse_pos": np.array([rmse_pos]),
             "final_pos": np.array([final_pos]),
+            "grav_err_mean": np.array([grav_err_mean]),
+            "grav_err_max": np.array([grav_err_max]),
+            "earth_rate_err_mean": np.array([omega_err_mean]),
+            "earth_rate_err_max": np.array([omega_err_max]),
             "innov_pos": innov_pos_all[method],
             "innov_vel": innov_vel_all[method],
             "euler": euler_all[method],
@@ -1949,7 +1965,9 @@ def main():
         f"rms_resid_pos={rms_resid_pos:7.2f}m max_resid_pos={max_resid_pos:7.2f}m "
         f"rms_resid_vel={rms_resid_vel:7.2f}m max_resid_vel={max_resid_vel:7.2f}m "
         f"accel_bias={np.linalg.norm(accel_bias):.4f} gyro_bias={np.linalg.norm(gyro_bias):.4f} "
-        f"ZUPT_count={zupt_counts.get(method,0)}"
+        f"ZUPT_count={zupt_counts.get(method,0)} "
+        f"GravErrMean_deg={grav_err_mean:.6f} GravErrMax_deg={grav_err_max:.6f} "
+        f"EarthRateErrMean_deg={omega_err_mean:.6f} EarthRateErrMax_deg={omega_err_max:.6f}"
     )
     
 
