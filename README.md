@@ -178,8 +178,8 @@ A codex-style plotting checklist is available in [docs/PlottingChecklist.md](doc
 
 ## Tests
 
-Run the unit tests with `pytest`. Make sure the Python dependencies are
-installed first:
+Run the unit tests with `pytest`. **Installing the required Python packages is
+mandatory** before executing any tests:
 
 ```bash
 pip install -r requirements.txt
