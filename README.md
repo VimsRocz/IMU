@@ -17,6 +17,10 @@ For a minimal setup you can also install the packages individually:
 pip install numpy matplotlib filterpy
 ```
 
+The tests, however, require the **full** `requirements.txt`, including hefty
+dependencies like `cartopy`. Installing them inside a virtual environment or
+a container helps keep your base Python setup clean.
+
 If you run into issues with filterpy on Ubuntu:
 
 ```bash
@@ -179,7 +183,10 @@ A codex-style plotting checklist is available in [docs/PlottingChecklist.md](doc
 ## Tests
 
 Run the unit tests with `pytest`. **Installing the required Python packages is
-mandatory** before executing any tests:
+mandatory** before executing any tests. The suite relies on *all* entries in
+`requirements.txt` – including heavier libraries such as `cartopy` that can take
+some time to build. Using a dedicated virtual environment or container is
+strongly recommended:
 
 ```bash
 pip install -r requirements.txt
