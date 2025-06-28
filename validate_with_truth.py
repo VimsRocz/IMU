@@ -2,7 +2,6 @@ import argparse
 import os
 
 import numpy as np
-import pandas as pd
 from scipy.io import loadmat
 from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
@@ -35,7 +34,6 @@ def load_estimate(path):
         pos = pick_key(["pos_ned", "pos", "fused_pos"], data)
         pos_found = pos is not None
         vel = pick_key(["vel_ned", "vel", "fused_vel"], data)
-        vel_found = vel is not None
         quat = pick_key(["quat_log", "quat", "attitude_q"], data)
         if quat is None and "euler" in data:
             quat = R.from_euler("xyz", data["euler"], degrees=True).as_quat()
@@ -65,7 +63,6 @@ def load_estimate(path):
         pos = pick_key(["pos_ned", "pos", "fused_pos"], m)
         pos_found = pos is not None
         vel = pick_key(["vel_ned", "vel", "fused_vel"], m)
-        vel_found = vel is not None
         quat = pick_key(["quat_log", "quat", "attitude_q"], m)
         if quat is None and "euler" in m:
             quat = R.from_euler("xyz", m["euler"], degrees=True).as_quat()
