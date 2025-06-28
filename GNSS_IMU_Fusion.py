@@ -514,7 +514,7 @@ def main():
             mag_data = None
         if mag_data is not None and mag_data.ndim == 2 and mag_data.shape[1] >= 3:
             mag_data = butter_lowpass_filter(mag_data[:, :3])
-            m_start, m_end = find_static_interval(mag_data)
+            m_start, m_end = detect_static_interval(mag_data, mag_data, window_size=80)
             mag_body = np.mean(mag_data[m_start:m_end], axis=0)
             logging.info(f"Static magnetometer vector: {mag_body}")
     
