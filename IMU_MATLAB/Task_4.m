@@ -180,8 +180,8 @@ static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
 static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
 
 % Override with the fixed static interval used by the Python pipeline
-start_idx = 297;
-end_idx   = 479907;
+start_idx = 283;
+end_idx   = 480030;
 static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
 static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
 fprintf('Static interval forced to [%d, %d]\n', start_idx, end_idx);
