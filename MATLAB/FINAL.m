@@ -106,6 +106,11 @@ end
 
 q_nb = rotm2quat(R_nb);  % quaternion form
 
+%% Validate attitude determination ---------------------------------------
+[grav_err_deg, erate_err_deg] = validate_attitude(R_nb, g_body, omega_ie_body, g_NED, omega_ie_NED);
+fprintf('Gravity prediction error: %.6f deg\n', grav_err_deg);
+fprintf('Earth-rate prediction error: %.6f deg\n', erate_err_deg);
+
 %% ----- Task 4: simple IMU integration --------------------------------
 acc_all = D(:,6:8) ./ dt;
 N = size(D,1);
@@ -154,7 +159,9 @@ if ~exist(resultsDir,'dir'), mkdir(resultsDir); end
 matfile = fullfile(resultsDir, sprintf('%s_%s_%s_final.mat', istem, gstem, method));
 summary.q0 = q_nb;
 summary.final_pos = norm(fused_pos(end,:));
-save(matfile, 'pos', 'vel', 'fused_pos', 'fused_vel', 'q_nb', 'summary');
+summary.grav_err_deg = grav_err_deg;
+summary.erate_err_deg = erate_err_deg;
+save(matfile, 'pos', 'vel', 'fused_pos', 'fused_vel', 'q_nb', 'grav_err_deg', 'erate_err_deg', 'summary');
 fprintf('Saved %s\n', matfile);
 
 end
@@ -184,4 +191,17 @@ function [g_b_u, w_b_u, g_n_u, w_n_u] = normalise_vectors(g_b,w_b,g_n,w_n)
     w_b_u = w_b./norm(w_b);
     g_n_u = g_n./norm(g_n);
     w_n_u = w_n./norm(w_n);
+end
+
+function [grav_err, earth_err] = validate_attitude(C_bn, g_body, omega_body, g_ned, omega_ned)
+    % Compute gravity/Earth-rate prediction errors for an attitude matrix
+    g_pred = C_bn * g_body;
+    omega_pred = C_bn * omega_body;
+    grav_err = angle_between(g_pred, g_ned);
+    earth_err = angle_between(omega_pred, omega_ned);
+end
+
+function deg = angle_between(v1, v2)
+    cos_theta = max(min(dot(v1, v2) / (norm(v1) * norm(v2)), 1.0), -1.0);
+    deg = acosd(cos_theta);
 end
