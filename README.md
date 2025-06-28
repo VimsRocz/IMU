@@ -200,6 +200,18 @@ plot_results('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat');
 validate_3sigma('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat', 'STATE_X001.txt');
 ```
 
+### Validating with Python
+
+You can also check the exported results directly in Python. Run the helper
+script with the `.mat` file and the reference trajectory:
+
+```bash
+python validate_with_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat --truth-file STATE_X001.txt
+```
+
+The script writes one PDF per axis showing the position error together with the
+±3σ bounds from the filter covariance.
+
 ### Running the MATLAB pipeline
 
 ```matlab
