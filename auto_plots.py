@@ -136,31 +136,93 @@ def export_summary_table() -> None:
 # ---------------------------------------------------------------------------
 
 def load_data(dataset: Tuple[str, str]):
-    """Placeholder for dataset loading.
+    """Load IMU and GNSS logs.
 
-    Replace this with the project-specific data loading routine.
+    Parameters
+    ----------
+    dataset : tuple(str, str)
+        ``(imu_file, gnss_file)`` pair describing the dataset.
+
+    Returns
+    -------
+    tuple of :class:`pandas.DataFrame`
+        ``(gnss_df, imu_df)`` with the raw measurements.
+
+    Notes
+    -----
+    This is a lightweight loader used by :func:`run_batch`.  It simply reads
+    the GNSS CSV with :func:`pandas.read_csv` and the IMU ``.dat`` file with
+    :func:`numpy.loadtxt` and wraps the result into a DataFrame.  Real projects
+    will likely need a more elaborate parser but this keeps the example
+    self‑contained.
     """
-    raise NotImplementedError
+    imu_file, gnss_file = dataset
+    gnss = pd.read_csv(gnss_file)
+    imu = pd.DataFrame(np.loadtxt(imu_file))
+    return gnss, imu
 
 
 def task3_attitude_comparison(*args, **kwargs):  # pragma: no cover - placeholder
-    raise NotImplementedError
+    """Dummy attitude comparison.
+
+    The real project computes quaternion initialisation accuracy for each
+    method.  Here we simply return an identity quaternion and zero errors so
+    that the plotting helpers have something to work with.
+    """
+    method = kwargs.get("method", "unknown")
+    quat_df = pd.DataFrame(
+        {
+            "component": ["w", "x", "y", "z"],
+            "case": method,
+            "value": [1.0, 0.0, 0.0, 0.0],
+        }
+    )
+    angle_err = pd.DataFrame(
+        {
+            "error_type": ["roll", "pitch", "yaw"],
+            "deg_error": [0.0, 0.0, 0.0],
+        }
+    )
+    return quat_df, angle_err
 
 
-def task4_gnss_vs_imu(*args, **kwargs):  # pragma: no cover - placeholder
-    raise NotImplementedError
+def task4_gnss_vs_imu(gnss: pd.DataFrame, imu: pd.DataFrame, *_, **__):
+    """Return GNSS position in NED and a placeholder IMU solution."""
+    if {"X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"}.issubset(gnss.columns):
+        r_ecef = gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].to_numpy()
+        lat0 = np.deg2rad(gnss["Latitude_deg"].iloc[0])
+        lon0 = np.deg2rad(gnss["Longitude_deg"].iloc[0])
+        r0 = r_ecef[0]
+        C = compute_C_ECEF_to_NED(lat0, lon0)
+        ned = (r_ecef - r0) @ C.T
+        gnss_ned = pd.DataFrame(ned, columns=["N", "E", "D"], index=gnss["Posix_Time"])
+    else:
+        # fall back to first three columns as position
+        pos = gnss.iloc[:, :3].to_numpy()
+        gnss_ned = pd.DataFrame(pos - pos[0], columns=["N", "E", "D"], index=gnss.index)
+    imu_ned = gnss_ned.copy()  # placeholder integration result
+    return gnss_ned, imu_ned
 
 
-def task5_filter(*args, **kwargs):  # pragma: no cover - placeholder
-    raise NotImplementedError
+def task5_filter(gnss: pd.DataFrame, *_args, **__):
+    """Return a dummy Kalman filter output matching the GNSS track."""
+    fused = gnss.copy()
+    return fused, gnss
 
 
-def compute_validation(*args, **kwargs):  # pragma: no cover - placeholder
-    raise NotImplementedError
+def compute_validation(fused: pd.DataFrame, gnss: pd.DataFrame):
+    """Compute simple residuals/innovations for demonstration."""
+    common = [c for c in ["N", "E", "D", "x", "y", "z"] if c in fused.columns and c in gnss.columns]
+    res = fused[common] - gnss[common]
+    innovations = res.diff().fillna(0.0)
+    return res, innovations
 
 
-def compute_rmse(*args, **kwargs):  # pragma: no cover - placeholder
-    raise NotImplementedError
+def compute_rmse(fused: pd.DataFrame, gnss: pd.DataFrame) -> float:
+    """Return the position RMSE between *fused* and *gnss* tracks."""
+    cols = [c for c in ["N", "E", "D", "x", "y", "z"] if c in fused.columns and c in gnss.columns]
+    diff = fused[cols].to_numpy() - gnss[cols].to_numpy()
+    return float(np.sqrt(np.mean(np.sum(diff ** 2, axis=1))))
 
 
 # ---------------------------------------------------------------------------
