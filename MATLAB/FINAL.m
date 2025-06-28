@@ -65,9 +65,19 @@ else
 end
 acc = acc ./ dt;
 gyro = gyro ./ dt;
-acc_mean = mean(acc,1); gyro_mean = mean(gyro,1);
-g_body = -acc_mean';
-omega_ie_body = gyro_mean';
+acc_mean = mean(acc,1);
+gyro_mean = mean(gyro,1);
+g_mag = norm(acc_mean);
+if abs(g_mag - 9.81) > 0.5
+    scale_factor = 9.81 / g_mag;
+    D(:,6:8) = D(:,6:8) * scale_factor;
+    acc = D(1:Nstatic,6:8) ./ dt;
+    acc_mean = mean(acc,1);
+end
+acc_bias = acc_mean;
+gyro_bias = gyro_mean;
+g_body = -acc_bias';
+omega_ie_body = gyro_bias';
 
 %% ----- Task 3: attitude initialisation -------------------------------
 [g_b_u, w_b_u, g_n_u, w_n_u] = normalise_vectors(g_body, omega_ie_body, g_NED, omega_ie_NED);
@@ -108,6 +118,9 @@ q_nb = rotm2quat(R_nb);  % quaternion form
 
 %% ----- Task 4: simple IMU integration --------------------------------
 acc_all = D(:,6:8) ./ dt;
+gyro_all = D(:,3:5) ./ dt; %#ok<NASGU>
+acc_all = acc_all - acc_bias;
+gyro_all = gyro_all - gyro_bias; %#ok<NASGU>
 N = size(D,1);
 vel = zeros(N,3); pos = zeros(N,3);
 for k = 2:N
@@ -154,6 +167,8 @@ if ~exist(resultsDir,'dir'), mkdir(resultsDir); end
 matfile = fullfile(resultsDir, sprintf('%s_%s_%s_final.mat', istem, gstem, method));
 summary.q0 = q_nb;
 summary.final_pos = norm(fused_pos(end,:));
+summary.acc_bias = acc_bias;
+summary.gyro_bias = gyro_bias;
 save(matfile, 'pos', 'vel', 'fused_pos', 'fused_vel', 'q_nb', 'summary');
 fprintf('Saved %s\n', matfile);
 
