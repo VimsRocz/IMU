@@ -209,8 +209,11 @@ script with the `.mat` file and the reference trajectory:
 python validate_with_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat --truth-file STATE_X001.txt
 ```
 
-The script writes one PDF per axis showing the position error together with the
-±3σ bounds from the filter covariance.
+The script now produces position, velocity **and** attitude error plots. When
+the covariance matrix `P` is available each figure includes the ±3σ envelopes
+derived from the corresponding sub-blocks of `P`.
+The output directory given via `--output` is created automatically if it does
+not exist.
 
 ### Running the MATLAB pipeline
 
