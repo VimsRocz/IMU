@@ -60,6 +60,8 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     ref_r0 = gnss_pos_ecef(first_idx, :)';
     [lat_deg, lon_deg, ~] = ecef_to_geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
     C_ECEF_to_NED = compute_C_ECEF_to_NED(deg2rad(lat_deg), deg2rad(lon_deg));
+    omega_E = 7.2921159e-5;
+    omega_ie_NED = omega_E * [cosd(lat_deg); 0; -sind(lat_deg)];
     if nargin < 4 || isempty(gnss_pos_ned)
         gnss_pos_ned = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
     end
@@ -128,7 +130,8 @@ x = zeros(9, 1);
 x(1:3) = gnss_pos_ned(1,:)';
 x(4:6) = gnss_vel_ned(1,:)';
 % Initial acceleration is assumed to be zero
-P = eye(9) * 1.0; % Covariance matrix (9x9)
+P = eye(9);
+P(1:6,1:6) = diag([1,1,1,0.1,0.1,0.1]);
 Q = eye(9) * 0.01; % Process noise covariance (9x9)
 R = eye(6) * 0.1;  % Measurement noise covariance (6x6 for pos & vel)
 H = [eye(6), zeros(6,3)]; % Measurement matrix (6x9)
@@ -171,7 +174,8 @@ for i = 1:num_imu_samples
     P = F * P * F' + Q * dt_imu;
 
     % --- 2. Attitude Propagation ---
-    w_b = gyro_body_raw(i,:)'; % Using raw gyro for propagation
+    current_omega_ie_b = C_B_N' * omega_ie_NED;
+    w_b = gyro_body_raw(i,:)' - current_omega_ie_b;
     q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
     C_B_N = quat_to_rot(q_b_n);
     f_b = acc_body_raw(i,:)';

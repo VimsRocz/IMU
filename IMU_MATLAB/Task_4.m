@@ -178,13 +178,7 @@ fprintf('   Acc raw RMS=%.4f, Gyro raw RMS=%.6f\n', acc_rms, gyro_rms);
 [start_idx, end_idx] = detect_static_interval(acc_body_filt, gyro_body_filt);
 static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
 static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
-
-% Override with the fixed static interval used by the Python pipeline
-start_idx = 283;
-end_idx   = 480030;
-static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
-static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
-fprintf('Static interval forced to [%d, %d]\n', start_idx, end_idx);
+fprintf('Static interval [%d, %d] (len=%d)\n', start_idx, end_idx, end_idx-start_idx+1);
 fprintf('Static acc mean  =[%.4f %.4f %.4f]\n', static_acc);
 fprintf('Static gyro mean =[%.6f %.6f %.6f]\n', static_gyro);
 
@@ -263,7 +257,8 @@ for i = 1:length(methods)
     
     for k = 2:length(imu_time)
         % Propagate attitude using corrected gyro measurements
-        w_b = gyro_body_corrected.(method)(k,:)';
+        current_omega_ie_b = C_B_N' * omega_ie_NED;
+        w_b = gyro_body_corrected.(method)(k,:)' - current_omega_ie_b;
         q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
         C_B_N = quat_to_rot(q_b_n);
 
@@ -401,8 +396,8 @@ end
 function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size, accel_var_thresh, gyro_var_thresh, min_length)
     %DETECT_STATIC_INTERVAL Find longest initial static interval in IMU data.
     if nargin < 3 || isempty(window_size);      window_size = 200;   end
-    if nargin < 4 || isempty(accel_var_thresh); accel_var_thresh = 0.01; end
-    if nargin < 5 || isempty(gyro_var_thresh);  gyro_var_thresh = 1e-6; end
+    if nargin < 4 || isempty(accel_var_thresh); accel_var_thresh = 1e-5; end
+    if nargin < 5 || isempty(gyro_var_thresh);  gyro_var_thresh = 1e-10; end
     if nargin < 6 || isempty(min_length);       min_length = 100;   end
 
     N = size(accel,1);
