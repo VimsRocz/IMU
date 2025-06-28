@@ -1,4 +1,8 @@
-import os, numpy as np, scipy.io
+import os
+import pytest
+np = pytest.importorskip("numpy")
+pytest.importorskip("scipy")
+import scipy.io
 from utils import save_mat
 
 def test_save_mat(tmp_path):

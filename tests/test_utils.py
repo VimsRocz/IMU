@@ -1,6 +1,7 @@
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-import numpy as np
+import pytest
+np = pytest.importorskip("numpy")
 from utils import compute_C_ECEF_to_NED
 
 

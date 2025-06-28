@@ -1,4 +1,10 @@
-import numpy as np, glob, json, pathlib, pytest, re
+import glob
+import json
+import pathlib
+import re
+import pytest
+
+np = pytest.importorskip("numpy")
 
 def _latest_npzs():
     for f in glob.glob("results/*_kf_output.npz"):
