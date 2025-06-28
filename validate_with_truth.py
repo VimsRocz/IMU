@@ -6,20 +6,37 @@ import matplotlib.pyplot as plt
 
 
 def load_estimate(path):
-    if path.endswith('.npz'):
-        data = np.load(path)
+    """Return position estimates and time vector from an NPZ or MAT file."""
+
+    if path.endswith(".npz"):
+        data = np.load(path, allow_pickle=True)
+        t = data.get("time_residuals")
+        if t is not None:
+            t = np.asarray(t).squeeze()
         est = {
-            'time': np.arange(len(data['euler'])),
-            'pos': data['residual_pos'] + data['innov_pos'],
-            'P': None,
+            "time": t,
+            "pos": data["residual_pos"] + data["innov_pos"],
+            "P": None,
         }
     else:
         m = loadmat(path)
+        t = m.get("time_residuals")
+        if t is not None:
+            t = np.asarray(t).squeeze()
         est = {
-            'time': np.arange(m['euler'].shape[0]),
-            'pos': m['residual_pos'] + m['innov_pos'],
-            'P': m.get('P'),
+            "time": t,
+            "pos": m["residual_pos"] + m["innov_pos"],
+            "P": m.get("P"),
         }
+
+    if est["time"] is None:
+        try:
+            est["time"] = np.loadtxt("STATE_X001.txt", comments="#", usecols=1)[
+                : len(est["pos"])
+            ]
+        except OSError:
+            est["time"] = np.arange(len(est["pos"]))
+
     return est
 
 
@@ -39,14 +56,14 @@ def main():
     else:
         sigma = None
 
-    t = est['time']
+    t = est['time'][: err.shape[0]]
     labels = ['X', 'Y', 'Z']
     for i, lbl in enumerate(labels):
         plt.figure()
         plt.plot(t, err[:, i], label='error')
         if sigma is not None:
-            plt.plot(t, sigma[:, i], 'r--', label='+3σ')
-            plt.plot(t, -sigma[:, i], 'r--')
+            plt.plot(t, sigma[: len(t), i], 'r--', label='+3σ')
+            plt.plot(t, -sigma[: len(t), i], 'r--')
         plt.xlabel('Time [s]')
         plt.ylabel(f'{lbl} error')
         plt.legend()
