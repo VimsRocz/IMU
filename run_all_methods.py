@@ -91,7 +91,12 @@ def main(argv=None):
         if args.no_plots:
             cmd.append("--no-plots")
         with open(log_path, "w") as log:
-            subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, check=True)
+            subprocess.run(
+                cmd,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                check=True,
+            )
 
 
 if __name__ == "__main__":

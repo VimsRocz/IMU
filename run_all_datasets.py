@@ -78,7 +78,12 @@ def run_one(imu, gnss, method, verbose=False):
         cmd.append("--verbose")
     summary_lines = []
     with log.open("w") as fh:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
         for line in proc.stdout:  # live-stream to console & file
             print(line, end="")
             fh.write(line)
