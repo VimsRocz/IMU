@@ -201,8 +201,8 @@ for i = 1:num_imu_samples
     
     % --- 4. Zero-Velocity Update (ZUPT) ---
     win_size = 80;
-    static_start = 283;
-    static_end   = min(480030, num_imu_samples);
+    static_start = 297;
+    static_end   = min(479907, num_imu_samples);
 
     if i >= static_start && i <= static_end
         zupt_count = zupt_count + 1;
