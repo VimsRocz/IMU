@@ -163,15 +163,15 @@ def main():
     t_truth = truth[:, 1]
     truth_pos_ned = np.array([C @ (p - ref_r0) for p in truth[:, 2:5]])
 
-    n = len(t_truth)
+    # ensure estimate arrays use the same length for time and states
+    t_est = np.asarray(est["time"]).squeeze()
+    pos_est = np.asarray(est["pos"])
+    n_pos = min(len(t_est), len(pos_est))
+    t_pos = t_est[:n_pos]
+    pos_est = pos_est[:n_pos]
 
     est_pos_interp = np.vstack(
-        [
-            np.interp(
-                t_truth, est["time"][: len(est["pos"])], est["pos"][:, i]
-            )
-            for i in range(3)
-        ]
+        [np.interp(t_truth, t_pos, pos_est[:, i]) for i in range(3)]
     ).T
 
     err_pos = est_pos_interp - truth_pos_ned
@@ -180,22 +180,24 @@ def main():
 
     if est.get("vel") is not None:
         truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
+        vel_est = np.asarray(est["vel"])
+        n_vel = min(len(t_est), len(vel_est))
+        t_vel = t_est[:n_vel]
+        vel_est = vel_est[:n_vel]
         est_vel_interp = np.vstack(
-            [
-                np.interp(
-                    t_truth, est["time"][: len(est["vel"])], est["vel"][:, i]
-                )
-                for i in range(3)
-            ]
+            [np.interp(t_truth, t_vel, vel_est[:, i]) for i in range(3)]
         ).T
         err_vel = est_vel_interp - truth_vel_ned
 
     if est.get("quat") is not None:
         q_true = truth[:, 8:12]
         r_true = R.from_quat(q_true[:, [1, 2, 3, 0]])
-        r_est = R.from_quat(est["quat"][:, [1, 2, 3, 0]])
-        slerp = Slerp(est["time"][: len(est["quat"])], r_est)
-        r_interp = slerp(np.clip(t_truth, est["time"][0], est["time"][-1]))
+        quat_est = np.asarray(est["quat"])
+        n_q = min(len(t_est), len(quat_est))
+        t_q = t_est[:n_q]
+        r_est = R.from_quat(quat_est[:n_q][:, [1, 2, 3, 0]])
+        slerp = Slerp(t_q, r_est)
+        r_interp = slerp(np.clip(t_truth, t_q[0], t_q[-1]))
         r_err = r_interp * r_true.inv()
         err_quat = r_err.as_quat()[:, [3, 0, 1, 2]]
 
@@ -228,7 +230,7 @@ def main():
     sigma_pos = sigma_vel = sigma_quat = None
     if est["P"] is not None:
         diag = np.diagonal(est["P"], axis1=1, axis2=2)
-        t_sigma = est["time"][: diag.shape[0]]
+        t_sigma = t_est[: diag.shape[0]]
         if diag.shape[1] >= 3:
             tmp = 3 * np.sqrt(diag[:, :3])
             sigma_pos = np.vstack(
