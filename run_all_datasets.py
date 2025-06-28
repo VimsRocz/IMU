@@ -127,21 +127,22 @@ def main():
     results_dir.mkdir(exist_ok=True)
 
     for imu, gnss, method in tqdm(cases, desc="All cases"):
-        # Debugging information for file pairing and timestamps
-        print("==== DEBUG: File Pairing ====")
-        print("IMU file:", imu)
-        print("GNSS file:", gnss)
-        gnss_df = pd.read_csv(gnss)
-        imu_data = np.loadtxt(imu)
-        print("GNSS shape:", gnss_df.shape)
-        print("IMU shape:", imu_data.shape)
-        print("GNSS time [start, end]:", gnss_df['Posix_Time'].iloc[0], gnss_df['Posix_Time'].iloc[-1])
-        print("IMU time [start, end]:", imu_data[0,0], imu_data[-1,0])
-        print("Any NaNs in GNSS?", gnss_df.isna().sum().sum())
-        print("Any NaNs in IMU?", np.isnan(imu_data).sum())
-        print("GNSS Head:\n", gnss_df.head())
-        print("IMU Head:\n", imu_data[:5])
-        print("============================")
+        if args.verbose:
+            # Debugging information for file pairing and timestamps
+            print("==== DEBUG: File Pairing ====")
+            print("IMU file:", imu)
+            print("GNSS file:", gnss)
+            gnss_df = pd.read_csv(gnss)
+            imu_data = np.loadtxt(imu)
+            print("GNSS shape:", gnss_df.shape)
+            print("IMU shape:", imu_data.shape)
+            print("GNSS time [start, end]:", gnss_df['Posix_Time'].iloc[0], gnss_df['Posix_Time'].iloc[-1])
+            print("IMU time [start, end]:", imu_data[0,0], imu_data[-1,0])
+            print("Any NaNs in GNSS?", gnss_df.isna().sum().sum())
+            print("Any NaNs in IMU?", np.isnan(imu_data).sum())
+            print("GNSS Head:\n", gnss_df.head())
+            print("IMU Head:\n", imu_data[:5])
+            print("============================")
         if imu not in here_files or gnss not in here_files:
             raise FileNotFoundError(f"Missing {imu} or {gnss} in {HERE}")
         start = time.time()
