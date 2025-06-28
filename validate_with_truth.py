@@ -86,16 +86,23 @@ def main():
 
     est = load_estimate(args.est_file)
     truth = np.loadtxt(args.truth_file)
-    err_pos = est['pos'] - truth[:, :3]
+
+    n = min(len(est['pos']), truth.shape[0])
+    if n < len(est['pos']) or n < truth.shape[0]:
+        print(f"Warning: length mismatch, trimming to {n} samples")
+
+    err_pos = est['pos'][:n] - truth[:n, :3]
     err_vel = None
     err_quat = None
 
     if est.get('vel') is not None:
-        err_vel = est['vel'] - truth[:, 5:8]
+        n_vel = min(len(est['vel']), truth.shape[0])
+        err_vel = est['vel'][:n_vel] - truth[:n_vel, 5:8]
 
     if est.get('quat') is not None:
-        q_true = truth[:, 8:12]
-        q_est = est['quat'][: len(q_true)]
+        n_quat = min(len(est['quat']), truth.shape[0])
+        q_true = truth[:n_quat, 8:12]
+        q_est = est['quat'][:n_quat]
         r_true = R.from_quat(q_true[:, [1, 2, 3, 0]])
         r_est = R.from_quat(q_est[:, [1, 2, 3, 0]])
         r_err = r_est * r_true.inv()
