@@ -41,6 +41,16 @@ else
     method_tag = method;
 end
 
+% Load accelerometer and gyroscope biases estimated in Task 2
+task2_file = fullfile(results_dir, sprintf('Task2_body_%s.mat', tag));
+if isfile(task2_file)
+    t2 = load(task2_file);
+    if isfield(t2, 'accel_bias'); loaded_accel_bias = t2.accel_bias; else; error('Task_4:MissingField', 'accel_bias missing from %s', task2_file); end
+    if isfield(t2, 'gyro_bias');  loaded_gyro_bias  = t2.gyro_bias;  else; error('Task_4:MissingField', 'gyro_bias missing from %s', task2_file);  end
+else
+    error('Task_4:MissingTask2', 'Missing Task 2 output: %s. Run Task_2 first.', task2_file);
+end
+
 % Load rotation matrices produced by Task 3
 results_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
 if evalin('base','exist(''task3_results'',''var'')')
@@ -197,24 +207,10 @@ for i = 1:length(methods)
     % Expected gravity and Earth rate in the body frame
     g_body_expected = C_N_B * g_NED;
 
-    % --- BEGIN PATCH: fix gyro bias sign convention ---
-    % define Earth-rate in NED with Down negative (Python style)
-    Ω = 7.2921159e-5;
-    omega_ie_NED = [Ω*cos(ref_lat); 0; -Ω*sin(ref_lat)];
-    omega_ie_body_expected = C_N_B * omega_ie_NED;
-
-    % compute bias exactly as Python does
-    omega_ie_NED_old = [Ω*cos(ref_lat); 0; Ω*sin(ref_lat)];
-    orig_gyro_bias = static_gyro' - (C_N_B * omega_ie_NED_old);
-    corrected_gyro_bias = static_gyro' - omega_ie_body_expected;
-
-    fprintf('Orig gyro bias : [% .6e % .6e % .6e]\n', orig_gyro_bias);
-    fprintf('New gyro bias  : [% .6e % .6e % .6e]\n', corrected_gyro_bias);
-
-    % Biases estimated from the static interval
-    acc_bias  = static_acc'  + g_body_expected;          % accelerometer bias
-    gyro_bias = corrected_gyro_bias;                     % gyroscope bias
-    % --- END PATCH ---
+    % Use biases estimated in Task 2 instead of recomputing
+    acc_bias  = loaded_accel_bias(:);  % accelerometer bias from Task 2
+    gyro_bias = loaded_gyro_bias(:);   % gyroscope bias from Task 2
+    fprintf('Method %s: Using Task 2 biases.\n', method);
     scale = 9.81 / norm(static_acc' - acc_bias);         % accelerometer scale
 
     % Apply bias and scale corrections
