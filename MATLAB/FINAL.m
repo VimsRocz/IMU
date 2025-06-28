@@ -200,8 +200,10 @@ end
 resultsDir = 'results';
 if ~exist(resultsDir,'dir'), mkdir(resultsDir); end
 matfile = fullfile(resultsDir, sprintf('%s_%s_%s_final.mat', istem, gstem, method));
+
 summary.q0 = q_nb;
-summary.final_pos = norm(fused_pos(end,:));
+summary.final_pos = norm(fused_pos(end,:) - pos_gnss(end,:));
+save(matfile, 'fused_pos', 'fused_vel', 'summary');
 
 fprintf('Saved %s\n', matfile);
 
