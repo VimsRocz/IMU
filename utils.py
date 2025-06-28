@@ -94,6 +94,25 @@ def save_static_zupt_params(filename: str, static_start: int, static_end: int,
         f.write(f"Total ZUPT events: {zupt_count}\n")
 
 
+def save_static_interval(filename: str, start_idx: int, end_idx: int) -> None:
+    """Save the static interval indices to a text file."""
+    with open(filename, "w") as f:
+        f.write(f"{start_idx} {end_idx}\n")
+
+
+def load_static_interval(filename: str):
+    """Return ``(start_idx, end_idx)`` if file exists, otherwise ``None``."""
+    try:
+        data = np.loadtxt(filename, dtype=int)
+        if data.size >= 2:
+            return int(data[0]), int(data[1])
+    except FileNotFoundError:
+        return None
+    except Exception as e:
+        logging.warning(f"Failed to load static interval from {filename}: {e}")
+        return None
+
+
 def adaptive_zupt_threshold(accel_data: np.ndarray, gyro_data: np.ndarray,
                             factor: float = 3.0) -> Tuple[float, float]:
     """Return adaptive thresholds based on early-sample statistics."""

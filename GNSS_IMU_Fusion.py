@@ -15,7 +15,12 @@ from typing import Tuple
 
 import pathlib
 from scripts.plot_utils import save_plot, plot_attitude
-from utils import detect_static_interval, is_static
+from utils import (
+    detect_static_interval,
+    is_static,
+    load_static_interval,
+    save_static_interval,
+)
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
 
@@ -258,6 +263,7 @@ def main():
     gnss_stem = pathlib.Path(args.gnss_file).stem
     tag = TAG(imu=imu_stem, gnss=gnss_stem, method=method)
     summary_tag = f"{imu_stem}_{gnss_stem}"
+    static_interval_path = pathlib.Path("results") / f"{imu_stem}_static_interval.txt"
 
     logging.info(f"Running attitude-estimation method: {method}")
     
@@ -453,22 +459,35 @@ def main():
     acc = butter_lowpass_filter(acc)
     gyro = butter_lowpass_filter(gyro)
 
-    # --- Detect a static interval automatically using variance thresholds ---
-    start_idx, end_idx = detect_static_interval(
-        acc,
-        gyro,
-        window_size=80,
-        accel_var_thresh=0.01,
-        gyro_var_thresh=1e-6,
-        min_length=80,
-    )
-    N_static = end_idx - start_idx
-    static_acc = np.mean(acc[start_idx:end_idx], axis=0)
-    static_gyro = np.mean(gyro[start_idx:end_idx], axis=0)
-    acc_var = np.var(acc[start_idx:end_idx], axis=0)
-    gyro_var = np.var(gyro[start_idx:end_idx], axis=0)
-    start_t = start_idx * dt_imu
-    end_t = end_idx * dt_imu
+    # --- Detect or load the static interval used for bias estimation ---
+    loaded_interval = load_static_interval(static_interval_path)
+    if loaded_interval:
+        start_idx, end_idx = loaded_interval
+        logging.info(
+            f"Loaded static interval {start_idx}-{end_idx} from {static_interval_path}"
+        )
+    else:
+        start_idx, end_idx = detect_static_interval(
+            acc,
+            gyro,
+            window_size=80,
+            accel_var_thresh=0.01,
+            gyro_var_thresh=1e-6,
+            min_length=80,
+        )
+        save_static_interval(static_interval_path, start_idx, end_idx)
+        logging.info(
+            f"Detected static interval {start_idx}-{end_idx} and saved to {static_interval_path}"
+        )
+    static_start = start_idx
+    static_end = end_idx
+    N_static = static_end - static_start
+    static_acc = np.mean(acc[static_start:static_end], axis=0)
+    static_gyro = np.mean(gyro[static_start:static_end], axis=0)
+    acc_var = np.var(acc[static_start:static_end], axis=0)
+    gyro_var = np.var(gyro[static_start:static_end], axis=0)
+    start_t = static_start * dt_imu
+    end_t = static_end * dt_imu
     logging.info(
         f"Static interval: {start_idx} to {end_idx} (length {N_static} samples)"
     )
@@ -1042,13 +1061,15 @@ def main():
         acc_body = butter_lowpass_filter(acc_body)
         gyro_body = butter_lowpass_filter(gyro_body)
         
-        N_static = 4000
-        if len(imu_data) < N_static:
+        end_idx = min(len(imu_data), static_end)
+        if end_idx <= static_start:
             raise ValueError("Insufficient static samples for bias estimation.")
-        
+
+        N_static = end_idx - static_start
+
         # Compute static bias for accelerometers and gyroscopes
-        static_acc = np.mean(acc_body[:N_static], axis=0)
-        static_gyro = np.mean(gyro_body[:N_static], axis=0)
+        static_acc = np.mean(acc_body[static_start:end_idx], axis=0)
+        static_gyro = np.mean(gyro_body[static_start:end_idx], axis=0)
         
     
         # Compute corrected acceleration and gyroscope data for each method
@@ -1535,7 +1556,12 @@ def main():
             if len(acc_win) > win:
                 acc_win.pop(0)
                 gyro_win.pop(0)
-            if len(acc_win) == win and is_static(np.array(acc_win), np.array(gyro_win)):
+            apply_zupt = False
+            if static_start <= i <= static_end:
+                apply_zupt = True
+            elif len(acc_win) == win and is_static(np.array(acc_win), np.array(gyro_win)):
+                apply_zupt = True
+            if apply_zupt:
                 H_z = np.zeros((3, 9))
                 H_z[:, 3:6] = np.eye(3)
                 R_z = np.eye(3) * 1e-4
@@ -1545,12 +1571,9 @@ def main():
                 kf.x += K @ (-pred_v)
                 kf.P = (np.eye(9) - K @ H_z) @ kf.P
                 zupt_count += 1
-                zupt_events.append((i - win + 1, i))
-                # This log was previously INFO but produced excessive output
-                # during long runs. Use DEBUG level so it only appears when
-                # explicitly requested.
+                zupt_events.append((max(0, i - win + 1), i))
                 logging.debug(
-                    f"ZUPT applied at {imu_time[i]:.2f}s (window {i-win+1}-{i})"
+                    f"ZUPT applied at {imu_time[i]:.2f}s (idx {i})"
                 )
 
             fused_pos[m][i] = kf.x[0:3]
