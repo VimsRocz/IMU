@@ -35,9 +35,9 @@ def load_estimate(path):
         t = pick_key(["time_residuals", "time"], data)
         if t is not None:
             t = np.asarray(t).squeeze()
-        pos = pick_key(["pos_ned", "pos", "fused_pos"], data)
+        pos = pick_key(["fused_pos", "pos_ned", "pos"], data)
         pos_found = pos is not None
-        vel = pick_key(["vel_ned", "vel", "fused_vel"], data)
+        vel = pick_key(["fused_vel", "vel_ned", "vel"], data)
         quat = pick_key(["quat_log", "quat", "attitude_q"], data)
         if quat is None and "euler" in data:
             quat = R.from_euler("xyz", data["euler"], degrees=True).as_quat()
@@ -67,9 +67,9 @@ def load_estimate(path):
         t = pick_key(["time_residuals", "time"], m)
         if t is not None:
             t = np.asarray(t).squeeze()
-        pos = pick_key(["pos_ned", "pos", "fused_pos"], m)
+        pos = pick_key(["fused_pos", "pos_ned", "pos"], m)
         pos_found = pos is not None
-        vel = pick_key(["vel_ned", "vel", "fused_vel"], m)
+        vel = pick_key(["fused_vel", "vel_ned", "vel"], m)
         quat = pick_key(["quat_log", "quat", "attitude_q"], m)
         if quat is None and "euler" in m:
             quat = R.from_euler("xyz", m["euler"], degrees=True).as_quat()
