@@ -240,7 +240,7 @@ omega_ie_NED = omega_E * [cos(lat_rad); 0; -sin(lat_rad)];
 
 % Use TRIAD with the measured vectors to obtain a rough attitude so that
 % the expected Earth rotation in the body frame can be determined.
-v1_B = static_acc_row'/norm(static_acc_row);
+v1_B = -static_acc_row'/norm(static_acc_row);   % accelerometer measures -g
 v2_B = static_gyro_row'/norm(static_gyro_row);
 g_NED = [0;0;9.81];
 v1_N = g_NED/norm(g_NED);
