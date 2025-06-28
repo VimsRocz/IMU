@@ -5,7 +5,7 @@ from scipy.io import loadmat
 import matplotlib.pyplot as plt
 
 
-def load_estimate(path):
+def load_estimate(path, truth_len=None):
     """Return position estimates and time vector from an NPZ or MAT file."""
 
     if path.endswith(".npz"):
@@ -31,11 +31,12 @@ def load_estimate(path):
 
     if est["time"] is None:
         try:
-            est["time"] = np.loadtxt("STATE_X001.txt", comments="#", usecols=1)[
-                : len(est["pos"])
-            ]
+            time_vec = np.loadtxt("STATE_X001.txt", comments="#", usecols=1)
+            n = truth_len if truth_len is not None else len(est["pos"])
+            est["time"] = time_vec[:n]
         except OSError:
-            est["time"] = np.arange(len(est["pos"]))
+            n = truth_len if truth_len is not None else len(est["pos"])
+            est["time"] = np.arange(n)
 
     return est
 
@@ -47,9 +48,21 @@ def main():
     ap.add_argument('--output', default='results')
     args = ap.parse_args()
 
-    est = load_estimate(args.est_file)
-    truth = np.loadtxt(args.truth_file)
-    err = est['pos'] - truth[:, :3]
+    # Load reference state: columns 2-4 are the true ECEF position.
+    truth_pos = np.loadtxt(args.truth_file, comments="#", usecols=(2, 3, 4))
+
+    # Optional velocity and attitude columns (5-7 and 8-11) may be present.
+    try:
+        truth_vel = np.loadtxt(args.truth_file, comments="#", usecols=(5, 6, 7))
+    except Exception:
+        truth_vel = None
+    try:
+        truth_att = np.loadtxt(args.truth_file, comments="#", usecols=(8, 9, 10, 11))
+    except Exception:
+        truth_att = None
+
+    est = load_estimate(args.est_file, truth_len=len(truth_pos))
+    err = est["pos"][: len(truth_pos)] - truth_pos
 
     if est['P'] is not None:
         sigma = 3 * np.sqrt(np.diagonal(est['P'], axis1=1, axis2=2)[:, :3])
