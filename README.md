@@ -138,9 +138,9 @@ python run_triad_only.py
 ```
 This is equivalent to running `run_all_datasets.py --method TRIAD`.
 
-When the resulting file `results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat` and
-the reference `STATE_X001.txt` are available the script automatically validates
-the TRIAD output using `validate_with_truth.py`.
+When the resulting file `results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat` and the
+reference `STATE_X001.txt` are available, the script automatically validates the
+dataset **X001** output using `validate_with_truth.py`.
 
 
 After all runs complete you can compare the datasets side by side:

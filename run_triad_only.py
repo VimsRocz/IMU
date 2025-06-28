@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Run all datasets using only the TRIAD initialisation method."""
+"""Run all datasets using only the TRIAD initialisation method.
+
+If results for dataset X001 are present afterwards, they will be validated with
+``validate_with_truth.py`` automatically."""
 import subprocess
 import sys
 import pathlib
