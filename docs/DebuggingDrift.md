@@ -18,7 +18,7 @@ This guide explains how to track down extremely large position errors (tens of k
 2. **Analyse velocity during known static periods.** Non-zero values indicate the Zero Velocity Update (ZUPT) logic is ineffective.
 
    ```matlab
-   static_vel = vel_ned(297:479907, :);
+   static_vel = vel_ned(283:480030, :);
    fprintf('mean vel = [%g %g %g]\n', mean(static_vel));
    fprintf('std  vel = [%g %g %g]\n', std(static_vel));
    ```

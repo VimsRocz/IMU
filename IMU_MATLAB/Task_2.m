@@ -167,6 +167,14 @@ if start_idx == -1
     if size(acc_filt, 1) < end_idx, end_idx = size(acc_filt, 1); end
 end
 
+% Override with the fixed static interval used by the Python pipeline
+user_static_start = 283;
+user_static_end   = 480030;
+if user_static_end <= size(acc_filt, 1)
+    start_idx = user_static_start;
+    end_idx   = user_static_end;
+end
+
 % Use the automatically detected static interval
 % The Python reference implementation selects a short early segment
 % where the device is stationary.  Re-using that here avoids
@@ -218,6 +226,7 @@ fprintf('Orig gyro bias : [% .6e % .6e % .6e]\n', orig_gyro_bias);
 fprintf('New gyro bias  : [% .6e % .6e % .6e]\n', corrected_gyro_bias);
 gyro_bias = corrected_gyro_bias;        % overwrite for downstream tasks
 % --- END PATCH ---
+fprintf('Accel bias magnitude: %.4f\n', norm(accel_bias));
 
 fprintf('Gravity vector in body frame (g_body):           [%.4f; %.4f; %.4f] m/s^2\n', g_body);
 fprintf('Earth rotation rate in body frame (omega_ie_body): [%.6e; %.6e; %.6e] rad/s\n', omega_ie_body);
