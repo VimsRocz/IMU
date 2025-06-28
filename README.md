@@ -319,3 +319,5 @@ python /path/to/IMU/export_mat.py
 - **Debugging:** If the MATLAB pipeline produces kilometre-scale drift,
   consult `docs/DebuggingDrift.md` for troubleshooting steps.
 
+
+See [docs/CHANGELOG.md](docs/CHANGELOG.md) for a list of recent features.
