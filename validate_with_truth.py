@@ -11,20 +11,32 @@ import matplotlib.pyplot as plt
 def load_estimate(path):
     """Return trajectory, quaternion and covariance from an NPZ or MAT file."""
 
-    def _maybe(keys, container, default=None):
+    def pick_key(keys, container, n_cols=None, default=None):
+        """Return the first matching value or any array with *n_cols* columns."""
         for k in keys:
             if k in container:
                 return container[k]
+        if n_cols is not None:
+            for k, v in container.items():
+                if k.startswith("__"):
+                    continue
+                arr = np.asarray(v)
+                if arr.ndim == 2 and arr.shape[1] == n_cols:
+                    print(f"Using '{k}' for '{keys[0] if keys else '?'}'")
+                    return v
+        print(f"Could not find any of {keys}. Available keys: {list(container.keys())}")
         return default
 
     if path.endswith(".npz"):
         data = np.load(path, allow_pickle=True)
-        t = _maybe(["time_residuals", "time"], data)
+        t = pick_key(["time_residuals", "time"], data)
         if t is not None:
             t = np.asarray(t).squeeze()
-        pos = _maybe(["pos_ned", "pos"], data)
-        vel = _maybe(["vel_ned", "vel"], data)
-        quat = _maybe(["quat_log", "quat"], data)
+        pos = pick_key(["pos_ned", "pos", "fused_pos"], data)
+        pos_found = pos is not None
+        vel = pick_key(["vel_ned", "vel", "fused_vel"], data)
+        vel_found = vel is not None
+        quat = pick_key(["quat_log", "quat", "attitude_q"], data)
         if quat is None and "euler" in data:
             quat = R.from_euler("xyz", data["euler"], degrees=True).as_quat()
             quat = quat[:, [3, 0, 1, 2]]
@@ -32,21 +44,29 @@ def load_estimate(path):
             pos = data["residual_pos"] + data["innov_pos"]
         if vel is None and "residual_vel" in data and "innov_vel" in data:
             vel = data["residual_vel"] + data["innov_vel"]
+        if pos is None:
+            pos = pick_key([], data, n_cols=3)
+        if vel is None:
+            vel = pick_key([], data, n_cols=3)
+        if quat is None:
+            quat = pick_key([], data, n_cols=4)
         est = {
             "time": t,
             "pos": pos,
             "vel": vel,
             "quat": quat,
-            "P": data.get("P"),
+            "P": pick_key(["P", "P_hist"], data) if pos_found else None,
         }
     else:
         m = loadmat(path)
-        t = _maybe(["time_residuals", "time"], m)
+        t = pick_key(["time_residuals", "time"], m)
         if t is not None:
             t = np.asarray(t).squeeze()
-        pos = _maybe(["pos_ned", "pos"], m)
-        vel = _maybe(["vel_ned", "vel"], m)
-        quat = _maybe(["quat_log", "quat"], m)
+        pos = pick_key(["pos_ned", "pos", "fused_pos"], m)
+        pos_found = pos is not None
+        vel = pick_key(["vel_ned", "vel", "fused_vel"], m)
+        vel_found = vel is not None
+        quat = pick_key(["quat_log", "quat", "attitude_q"], m)
         if quat is None and "euler" in m:
             quat = R.from_euler("xyz", m["euler"], degrees=True).as_quat()
             quat = quat[:, [3, 0, 1, 2]]
@@ -54,12 +74,18 @@ def load_estimate(path):
             pos = m["residual_pos"] + m["innov_pos"]
         if vel is None and "residual_vel" in m and "innov_vel" in m:
             vel = m["residual_vel"] + m["innov_vel"]
+        if pos is None:
+            pos = pick_key([], m, n_cols=3)
+        if vel is None:
+            vel = pick_key([], m, n_cols=3)
+        if quat is None:
+            quat = pick_key([], m, n_cols=4)
         est = {
             "time": t,
             "pos": pos,
             "vel": vel,
             "quat": quat,
-            "P": m.get("P"),
+            "P": pick_key(["P", "P_hist"], m) if pos_found else None,
         }
 
     if est["time"] is None:

@@ -49,3 +49,22 @@ def test_validate_with_truth(monkeypatch):
     if est["P"] is not None:
         sigma = 3 * np.sqrt(np.diagonal(est["P"], axis1=1, axis2=2)[:, :3])
         assert np.all(np.abs(err) <= sigma[: len(err)])
+
+
+def test_load_estimate_alt_names(tmp_path):
+    np = pytest.importorskip("numpy")
+    scipy = pytest.importorskip("scipy.io")
+    data = {
+        "fused_pos": np.ones((5, 3)),
+        "fused_vel": np.zeros((5, 3)),
+        "attitude_q": np.tile([1, 0, 0, 0], (5, 1)),
+        "P_hist": np.zeros((5, 3, 3)),
+        "time": np.arange(5),
+    }
+    f = tmp_path / "est.mat"
+    scipy.savemat(f, data)
+    est = load_estimate(str(f))
+    assert np.allclose(est["pos"], data["fused_pos"])
+    assert np.allclose(est["vel"], data["fused_vel"])
+    assert np.allclose(est["quat"], data["attitude_q"])
+    assert np.allclose(est["P"], data["P_hist"])
