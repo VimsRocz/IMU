@@ -15,7 +15,7 @@ from typing import Tuple
 
 import pathlib
 from scripts.plot_utils import save_plot, plot_attitude
-from utils import detect_static_interval, is_static
+from utils import detect_static_interval, is_static, compute_C_ECEF_to_NED
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
 
@@ -62,18 +62,6 @@ def svd_alignment(body_vecs, ref_vecs, weights=None):
     U, _, Vt = np.linalg.svd(B)
     M = np.diag([1, 1, np.sign(np.linalg.det(U @ Vt))])
     return U @ M @ Vt
-
-def compute_C_ECEF_to_NED(lat, lon):
-    """Compute rotation matrix from ECEF to NED frame."""
-    sin_phi = np.sin(lat)
-    cos_phi = np.cos(lat)
-    sin_lambda = np.sin(lon)
-    cos_lambda = np.cos(lon)
-    return np.array([
-        [-sin_phi * cos_lambda, -sin_phi * sin_lambda, cos_phi],
-        [-sin_lambda, cos_lambda, 0],
-        [-cos_phi * cos_lambda, -cos_phi * sin_lambda, -sin_phi],
-    ])
 
 def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):
     """Apply a zero-phase Butterworth low-pass filter to the data."""

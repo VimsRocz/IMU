@@ -320,16 +320,6 @@ end % End of main function: run_task4
 %  LOCAL FUNCTIONS
 % =========================================================================
 
-function C = compute_C_ECEF_to_NED(lat_rad, lon_rad)
-    % Compute rotation matrix from ECEF to NED frame.
-    s_lat = sin(lat_rad); c_lat = cos(lat_rad);
-    s_lon = sin(lon_rad); c_lon = cos(lon_rad);
-
-    C = [-s_lat * c_lon, -s_lat * s_lon,  c_lat;
-         -s_lon,          c_lon,         0;
-         -c_lat * c_lon, -c_lat * s_lon, -s_lat];
-end
-
 function plot_comparison_in_frame(frame_name, t_gnss, t_imu, methods, C_B_N_methods, p_gnss, v_gnss, a_gnss, p_imu, v_imu, a_imu, f_b_corr, filename, r0_ecef, C_e2n)
     % Helper function to generate all comparison plots.
     fig = figure('Name', ['Comparison Plots in ' frame_name], 'Position', [100 100 1200 900], 'Visible', 'off');
