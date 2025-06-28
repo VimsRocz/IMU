@@ -57,11 +57,11 @@ def validate_against_truth(
         est_mat_path    = Path('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat'),
         results_dir     = Path('results'),
         plot_fname      = 'Task6_Validation_TRIAD.pdf',
-        time_key        = 'time',                   # <-- adapt to your .mat keys
-        pos_key         = 'pos_ecef',
-        vel_key         = 'vel_ecef',
-        quat_key        = 'quat_be',               # (body→ECEF, scalar-first)
-        P_key           = 'P_diag'                 # propagate/store diag(P)
+        time_key        = 'time_residuals',
+        pos_key         = 'fused_pos',
+        vel_key         = 'fused_vel',
+        quat_key        = 'attitude_q',            # (body→ECEF, scalar-first)
+        P_key           = 'P_hist'
 ):
     """Compare EKF estimates with ground truth and verify 3-sigma consistency."""
     # -------------------------------------------------------------------------
@@ -83,18 +83,22 @@ def validate_against_truth(
     pos_est = est[pos_key]
     vel_est = est[vel_key]
     quat_est = est[quat_key]                     # shape (N,4)
-    P_diag  = est[P_key]                         # shape (N,15) or similar
+    P_diag = None
+    if P_key in est:
+        P_diag = np.diagonal(est[P_key], axis1=1, axis2=2)
 
     # -------------------------------------------------------------------------
     # 3. time-sync by interpolation  ------------------------------------------
     def interp(arr, t_arr, t_target):
         """interpolate each column independently"""
-        return np.vstack([np.interp(t_target, t_arr, arr[:,i]) for i in range(arr.shape[1])]).T
+        return np.vstack([np.interp(t_target, t_arr, arr[:, i]) for i in range(arr.shape[1])]).T
 
     pos_est_i  = interp(pos_est,  t_est, t_truth)
     vel_est_i  = interp(vel_est,  t_est, t_truth)
     quat_est_i = interp(quat_est, t_est, t_truth)    # SLERP is nicer – linear ok for small Δt
-    P_i        = interp(P_diag,   t_est, t_truth)    # 1-d interpolation of every σ²
+    P_i = None
+    if P_diag is not None:
+        P_i = interp(P_diag, t_est, t_truth)    # 1-d interpolation of every σ²
 
     # -------------------------------------------------------------------------
     # 4. compute errors  ------------------------------------------------------
@@ -114,9 +118,13 @@ def validate_against_truth(
 
     # -------------------------------------------------------------------------
     # 5. 3-sigma envelopes  ---------------------------------------------------
-    sigma_pos = np.sqrt(P_i[:,0:3])      # adapt indices to your state layout
-    sigma_vel = np.sqrt(P_i[:,3:6])
-    sigma_att = np.sqrt(P_i[:,9]) * 180/np.pi  # assuming single attitude error state
+    sigma_pos = sigma_vel = sigma_att = None
+    if P_i is not None:
+        sigma_pos = np.sqrt(P_i[:, 0:3])
+        if P_i.shape[1] >= 6:
+            sigma_vel = np.sqrt(P_i[:, 3:6])
+        if P_i.shape[1] > 9:
+            sigma_att = np.sqrt(P_i[:, 9]) * 180/np.pi  # attitude error state
 
     # -------------------------------------------------------------------------
     # 6. plots  ---------------------------------------------------------------
@@ -124,25 +132,34 @@ def validate_against_truth(
 
     # Position ---------------------------------------------------------------
     ax[0].plot(t_truth, err_pos)
-    ax[0].plot(t_truth,  3*sigma_pos, 'k--', alpha=.6)
-    ax[0].plot(t_truth, -3*sigma_pos, 'k--', alpha=.6)
+    if sigma_pos is not None:
+        ax[0].plot(t_truth,  3 * sigma_pos, 'k--', alpha=.6)
+        ax[0].plot(t_truth, -3 * sigma_pos, 'k--', alpha=.6)
+        ax[0].legend(['dX', 'dY', 'dZ', '±3σ'])
+    else:
+        ax[0].legend(['dX', 'dY', 'dZ'])
     ax[0].set_ylabel('pos err [m]')
-    ax[0].legend(['dX','dY','dZ','±3σ'])
 
     # Velocity ---------------------------------------------------------------
     ax[1].plot(t_truth, err_vel)
-    ax[1].plot(t_truth,  3*sigma_vel, 'k--', alpha=.6)
-    ax[1].plot(t_truth, -3*sigma_vel, 'k--', alpha=.6)
+    if sigma_vel is not None:
+        ax[1].plot(t_truth, 3 * sigma_vel, 'k--', alpha=.6)
+        ax[1].plot(t_truth, -3 * sigma_vel, 'k--', alpha=.6)
+        ax[1].legend(['dVx', 'dVy', 'dVz', '±3σ'])
+    else:
+        ax[1].legend(['dVx', 'dVy', 'dVz'])
     ax[1].set_ylabel('vel err [m/s]')
-    ax[1].legend(['dVx','dVy','dVz','±3σ'])
 
     # Attitude ---------------------------------------------------------------
     ax[2].plot(t_truth, err_att, label='angle error')
-    ax[2].plot(t_truth,  3*sigma_att, 'k--', label='±3σ')
-    ax[2].plot(t_truth, -3*sigma_att, 'k--')
+    if sigma_att is not None:
+        ax[2].plot(t_truth, 3 * sigma_att, 'k--', label='±3σ')
+        ax[2].plot(t_truth, -3 * sigma_att, 'k--')
+        ax[2].legend()
+    else:
+        ax[2].legend(['angle error'])
     ax[2].set_ylabel('att. err [deg]')
     ax[2].set_xlabel('time [s]')
-    ax[2].legend()
 
     fig.suptitle('Task 6 – Consistency check vs. STATE_X001 truth')
     fig.tight_layout()
