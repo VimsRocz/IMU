@@ -1,6 +1,6 @@
-function FINAL(imuFile, gnssFile, varargin)
+function FINAL(imu_path, gnss_path, varargin)
 %FINAL  MATLAB reimplementation of GNSS_IMU_Fusion.py
-%   FINAL(IMUFILE, GNSSFILE, METHOD) processes a pair of IMU and GNSS
+%   FINAL(IMU_PATH, GNSS_PATH, METHOD) processes a pair of IMU and GNSS
 %   files using a selected attitude initialisation method.  The script
 %   is a simplified port of the Python reference implementation.  It
 %   performs the following steps:
@@ -28,7 +28,7 @@ if numel(dbstack) <= 1
 end
 
 if nargin < 2
-    error('Usage: FINAL(''IMUFILE'',''GNSSFILE'',[METHOD])');
+    error('Usage: FINAL(''IMU_PATH'',''GNSS_PATH'',[METHOD])');
 end
 
 if nargin < 3
@@ -38,10 +38,10 @@ else
 end
 
 %% ----- Task 1: reference vectors in NED -------------------------------
-T = readtable(gnssFile);
+T = readtable(gnss_path);
 valid = find(T.X_ECEF_m ~= 0 | T.Y_ECEF_m ~= 0 | T.Z_ECEF_m ~= 0, 1);
 if isempty(valid)
-    error('No valid GNSS rows in %s', gnssFile);
+    error('No valid GNSS rows in %s', gnss_path);
 end
 x = T.X_ECEF_m(valid); y = T.Y_ECEF_m(valid); z = T.Z_ECEF_m(valid);
 [lat, lon, ~] = ecef2geod(x, y, z);
@@ -51,7 +51,7 @@ omegaE = 7.2921159e-5;
 omega_ie_NED = omegaE * [cosd(lat);0;-sind(lat)];
 
 %% ----- Task 2: body frame vectors from IMU ----------------------------
-D = dlmread(imuFile);
+D = dlmread(imu_path);
 if size(D,2) < 8
     error('Unexpected IMU format');
 end
@@ -148,7 +148,7 @@ for k = 2:N
 end
 
 %% ----- Save results ----------------------------------------------------
-[~,istem] = fileparts(imuFile); [~,gstem] = fileparts(gnssFile);
+[~,istem] = fileparts(imu_path); [~,gstem] = fileparts(gnss_path);
 resultsDir = 'results';
 if ~exist(resultsDir,'dir'), mkdir(resultsDir); end
 matfile = fullfile(resultsDir, sprintf('%s_%s_%s_final.mat', istem, gstem, method));

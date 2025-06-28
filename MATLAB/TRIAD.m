@@ -1,4 +1,4 @@
-function results = TRIAD(imuFile, gnssFile, verbose)
+function results = TRIAD(imu_path, gnss_path, verbose)
 close all force hidden;
 if nargin < 3
     verbose = false;
@@ -7,7 +7,7 @@ if ~verbose
     diary off;
 end
 %TRIAD  Simple MATLAB implementation of the TRIAD pipeline.
-%   TRIAD(IMUFILE, GNSSFILE) processes a pair of IMU and GNSS files
+%   TRIAD(IMU_PATH, GNSS_PATH) processes a pair of IMU and GNSS files
 %   and saves basic results to results/<tag>_triad.mat.  The
 %   implementation mirrors the Python script GNSS_IMU_Fusion.py but in a
 %   greatly simplified form.  Only the key steps of the attitude
@@ -30,14 +30,14 @@ if numel(dbstack) <= 1
            '    TRIAD(''IMU_X001.dat'', ''GNSS_X001.csv'');']);
 end
 
-if nargin < 1 || isempty(imuFile)
-    imuFile = 'IMU_X001.dat';
+if nargin < 1 || isempty(imu_path)
+    imu_path = 'IMU_X001.dat';
 end
-if nargin < 2 || isempty(gnssFile)
-    gnssFile = 'GNSS_X001.csv';
+if nargin < 2 || isempty(gnss_path)
+    gnss_path = 'GNSS_X001.csv';
 end
-if verbose && (nargin < 1 || isempty(imuFile) || nargin < 2 || isempty(gnssFile))
-    fprintf('[INFO] Using default files: %s, %s\n', imuFile, gnssFile);
+if verbose && (nargin < 1 || isempty(imu_path) || nargin < 2 || isempty(gnss_path))
+    fprintf('[INFO] Using default files: %s, %s\n', imu_path, gnss_path);
 end
 resultsDir = 'results';
 if verbose && ~exist(resultsDir, 'dir')
@@ -45,15 +45,15 @@ if verbose && ~exist(resultsDir, 'dir')
 end
 
 % Locate data files bundled with the repository
-imuFile = get_data_file(imuFile);
-gnssFile = get_data_file(gnssFile);
+imu_path = get_data_file(imu_path);
+gnss_path = get_data_file(gnss_path);
 
 %% ----- Task 1: Reference vectors in NED frame -------------------------
 % Load first valid GNSS ECEF coordinate and convert to geodetic
-T = readtable(gnssFile);
+T = readtable(gnss_path);
 valid = find(T.X_ECEF_m ~= 0 | T.Y_ECEF_m ~= 0 | T.Z_ECEF_m ~= 0, 1);
 if isempty(valid)
-    error('No valid GNSS rows in %s', gnssFile);
+    error('No valid GNSS rows in %s', gnss_path);
 end
 x = T.X_ECEF_m(valid); y = T.Y_ECEF_m(valid); z = T.Z_ECEF_m(valid);
 [lat, lon, ~] = ecef2geod(x, y, z);
@@ -63,7 +63,7 @@ omegaE = 7.2921159e-5;
 omega_ie_NED = omegaE * [cosd(lat); 0; -sind(lat)];
 
 %% ----- Task 2: Body-frame vectors from IMU ----------------------------
-D = dlmread(imuFile);
+D = dlmread(imu_path);
 if size(D,2) < 8
     error('Unexpected IMU format');
 end
@@ -129,7 +129,7 @@ for k = 2:N
 end
 
 %% ----- Save results ----------------------------------------------------
-[~,istem] = fileparts(imuFile); [~,gstem] = fileparts(gnssFile);
+[~,istem] = fileparts(imu_path); [~,gstem] = fileparts(gnss_path);
 matfile = fullfile(resultsDir, sprintf('%s_%s_TRIAD_output.mat', istem, gstem));
 summary.q0 = q;
 summary.final_pos = norm(pos(end,:));
