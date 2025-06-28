@@ -260,6 +260,37 @@ expects `Task4_results_<pair>.mat` to initialise the filter. Running the
 commands above reproduces the Python `main` results while letting you inspect
 each stage individually.
 
+### Fixed MATLAB tasks and plotting helpers
+
+The archive `fixed_tasks.zip` contains patched versions of two pipeline steps
+(`Task_2_fixed.m` and `Task_5_fixed.m`) and a helper module
+`plot_utils.m`. `Task_2_fixed.m` improves the bias estimation and prints useful
+diagnostics while `Task_5_fixed.m` fixes the filter initialisation logic. The
+`plot_utils` module provides small convenience functions used by the fixed
+tasks to generate standard figures.
+
+Unzip the archive inside `IMU_MATLAB/` so the new files sit next to the
+original tasks:
+
+```bash
+unzip fixed_tasks.zip -d IMU_MATLAB
+```
+
+You can then call the fixed tasks directly from MATLAB:
+
+```matlab
+addpath('IMU_MATLAB');
+imu  = get_data_file('IMU_X001.dat');
+gnss = get_data_file('GNSS_X001.csv');
+
+Task_2_fixed(imu, gnss, 'TRIAD');
+Task_5_fixed(imu, gnss, gnss_pos_ned);
+
+% Plot the ZUPT detection from Task 2
+fig = plot_utils.plot_zupt_detection(accel_data, gyro_data, zupt_mask, dt);
+saveas(fig, 'results/zupt_debug.png');
+```
+
 ## Export to MATLAB (.mat) files
 To convert the saved Python results into MATLAB `.mat` files, run from the repo root:
 
