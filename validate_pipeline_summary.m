@@ -40,8 +40,12 @@ for mi = 1:numel(methods)
         % Convert stored logs to NED pos/vel and compute errors vs truth
         pos_est = S.pos_ned;
         vel_est = S.vel_ned;
-        tpos    = truth(:,1:3);
-        tvel    = truth(:,4:6);
+        % Columns of STATE_X001.txt: count, time, X, Y, Z, VX, VY, VZ, q0, q1, q2, q3
+        % The true position and velocity are stored in columns 3:5 and 6:8
+        % respectively. Extract these to compare against the estimated
+        % NED position and velocity.
+        tpos    = truth(:,3:5);
+        tvel    = truth(:,6:8);
         err_pos = pos_est - tpos;
         err_vel = vel_est - tvel;
         % RMSE and end error
