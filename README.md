@@ -175,6 +175,18 @@ these helpers into your own batch script to automatically export the six
 "must‑have" figures (tasks 3–5 and validation plots) and a CSV/LaTeX table of
 RMSE and innovation statistics.
 
+```python
+from auto_plots import run_batch
+
+# one IMU/GNSS pair and one method for brevity
+datasets = [("IMU_X001.dat", "GNSS_X001.csv")]
+methods = ["TRIAD"]
+run_batch(datasets, methods)
+```
+
+The snippet above loads the files using :func:`load_data` and places the
+generated figures in `results/auto_plots/`.
+
 Interactive exploration lives in the `notebooks/` folder. Open
 `notebooks/demo.ipynb` to try the plotting utilities in Jupyter.
 Additional plotting examples and a results template are available in [docs/PlottingExamples.md](docs/PlottingExamples.md).
