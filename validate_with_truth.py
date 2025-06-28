@@ -3,8 +3,10 @@ import os
 
 import numpy as np
 from scipy.io import loadmat
-from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
+
+from utils import compute_C_ECEF_to_NED
 
 
 def load_estimate(path):
@@ -23,7 +25,9 @@ def load_estimate(path):
                 if arr.ndim == 2 and arr.shape[1] == n_cols:
                     print(f"Using '{k}' for '{keys[0] if keys else '?'}'")
                     return v
-        print(f"Could not find any of {keys}. Available keys: {list(container.keys())}")
+        print(
+            f"Could not find any of {keys}. Available keys: {list(container.keys())}"
+        )
         return default
 
     if path.endswith(".npz"):
@@ -54,6 +58,9 @@ def load_estimate(path):
             "vel": vel,
             "quat": quat,
             "P": pick_key(["P", "P_hist"], data) if pos_found else None,
+            "ref_lat": data.get("ref_lat") or data.get("lat0"),
+            "ref_lon": data.get("ref_lon") or data.get("lon0"),
+            "ref_r0": data.get("ref_r0") or data.get("r0"),
         }
     else:
         m = loadmat(path)
@@ -83,13 +90,16 @@ def load_estimate(path):
             "vel": vel,
             "quat": quat,
             "P": pick_key(["P", "P_hist"], m) if pos_found else None,
+            "ref_lat": m.get("ref_lat") or m.get("lat0"),
+            "ref_lon": m.get("ref_lon") or m.get("lon0"),
+            "ref_r0": m.get("ref_r0") or m.get("r0"),
         }
 
     if est["time"] is None:
         try:
-            est["time"] = np.loadtxt("STATE_X001.txt", comments="#", usecols=1)[
-                : len(est["pos"])
-            ]
+            est["time"] = np.loadtxt(
+                "STATE_X001.txt", comments="#", usecols=1
+            )[: len(est["pos"])]
         except OSError:
             est["time"] = np.arange(len(est["pos"]))
 
@@ -99,10 +109,26 @@ def load_estimate(path):
 def main():
     ap = argparse.ArgumentParser(
         description="Compare filter output with ground truth and plot error "
-                    "curves with optional ±3σ bounds.")
-    ap.add_argument('--est-file', required=True, help='NPZ or MAT file with filter results')
-    ap.add_argument('--truth-file', required=True, help='CSV of true state (STATE_X001.txt)')
-    ap.add_argument('--output', default='results', help='directory for the generated PDFs')
+        "curves with optional ±3σ bounds."
+    )
+    ap.add_argument(
+        "--est-file", required=True, help="NPZ or MAT file with filter results"
+    )
+    ap.add_argument(
+        "--truth-file",
+        required=True,
+        help="CSV of true state (STATE_X001.txt)",
+    )
+    ap.add_argument(
+        "--output", default="results", help="directory for the generated PDFs"
+    )
+    ap.add_argument(
+        "--ref-lat", type=float, help="reference latitude in degrees"
+    )
+    ap.add_argument(
+        "--ref-lon", type=float, help="reference longitude in degrees"
+    )
+    ap.add_argument("--ref-r0", type=float, nargs=3, help="ECEF origin [m]")
     args = ap.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
@@ -110,60 +136,111 @@ def main():
     est = load_estimate(args.est_file)
     truth = np.loadtxt(args.truth_file)
 
-    n = min(len(est['pos']), truth.shape[0])
-    if n < len(est['pos']) or n < truth.shape[0]:
-        print(f"Warning: length mismatch, trimming to {n} samples")
+    ref_lat = np.deg2rad(args.ref_lat) if args.ref_lat is not None else None
+    ref_lon = np.deg2rad(args.ref_lon) if args.ref_lon is not None else None
+    ref_r0 = np.array(args.ref_r0) if args.ref_r0 is not None else None
 
-    err_pos = est['pos'][:n] - truth[:n, :3]
+    if ref_lat is None:
+        v = est.get("ref_lat")
+        if v is not None:
+            ref_lat = float(np.asarray(v).squeeze())
+    if ref_lon is None:
+        v = est.get("ref_lon")
+        if v is not None:
+            ref_lon = float(np.asarray(v).squeeze())
+    if ref_r0 is None:
+        v = est.get("ref_r0")
+        if v is not None:
+            ref_r0 = np.asarray(v).squeeze()
+
+    if ref_lat is None or ref_lon is None or ref_r0 is None:
+        ref_lat = np.deg2rad(-32.026554)
+        ref_lon = np.deg2rad(133.455801)
+        ref_r0 = np.array([-3729051, 3935676, -3348394])
+
+    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+
+    t_truth = truth[:, 1]
+    truth_pos_ned = np.array([C @ (p - ref_r0) for p in truth[:, 2:5]])
+
+    n = len(t_truth)
+
+    est_pos_interp = np.vstack(
+        [
+            np.interp(
+                t_truth, est["time"][: len(est["pos"])], est["pos"][:, i]
+            )
+            for i in range(3)
+        ]
+    ).T
+
+    err_pos = est_pos_interp - truth_pos_ned
     err_vel = None
     err_quat = None
 
-    if est.get('vel') is not None:
-        n_vel = min(len(est['vel']), truth.shape[0])
-        err_vel = est['vel'][:n_vel] - truth[:n_vel, 5:8]
+    if est.get("vel") is not None:
+        truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
+        est_vel_interp = np.vstack(
+            [
+                np.interp(
+                    t_truth, est["time"][: len(est["vel"])], est["vel"][:, i]
+                )
+                for i in range(3)
+            ]
+        ).T
+        err_vel = est_vel_interp - truth_vel_ned
 
-    if est.get('quat') is not None:
-        n_quat = min(len(est['quat']), truth.shape[0])
-        q_true = truth[:n_quat, 8:12]
-        q_est = est['quat'][:n_quat]
+    if est.get("quat") is not None:
+        q_true = truth[:, 8:12]
         r_true = R.from_quat(q_true[:, [1, 2, 3, 0]])
-        r_est = R.from_quat(q_est[:, [1, 2, 3, 0]])
-        r_err = r_est * r_true.inv()
+        r_est = R.from_quat(est["quat"][:, [1, 2, 3, 0]])
+        slerp = Slerp(est["time"][: len(est["quat"])], r_est)
+        r_interp = slerp(np.clip(t_truth, est["time"][0], est["time"][-1]))
+        r_err = r_interp * r_true.inv()
         err_quat = r_err.as_quat()[:, [3, 0, 1, 2]]
 
     sigma_pos = sigma_vel = sigma_quat = None
-    if est['P'] is not None:
-        diag = np.diagonal(est['P'], axis1=1, axis2=2)
+    if est["P"] is not None:
+        diag = np.diagonal(est["P"], axis1=1, axis2=2)
+        t_sigma = est["time"][: diag.shape[0]]
         if diag.shape[1] >= 3:
-            sigma_pos = 3 * np.sqrt(diag[:, :3])
+            tmp = 3 * np.sqrt(diag[:, :3])
+            sigma_pos = np.vstack(
+                [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(3)]
+            ).T
         if diag.shape[1] >= 6:
-            sigma_vel = 3 * np.sqrt(diag[:, 3:6])
+            tmp = 3 * np.sqrt(diag[:, 3:6])
+            sigma_vel = np.vstack(
+                [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(3)]
+            ).T
         if diag.shape[1] >= 10:
-            sigma_quat = 3 * np.sqrt(diag[:, 6:10])
+            tmp = 3 * np.sqrt(diag[:, 6:10])
+            sigma_quat = np.vstack(
+                [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(4)]
+            ).T
 
     def plot_err(t, err, sigma, labels, prefix):
         for i, lbl in enumerate(labels):
             plt.figure()
-            plt.plot(t, err[:, i], label='error')
+            plt.plot(t, err[:, i], label="error")
             if sigma is not None:
-                plt.plot(t, sigma[: len(t), i], 'r--', label='+3σ')
-                plt.plot(t, -sigma[: len(t), i], 'r--')
-            plt.xlabel('Time [s]')
-            plt.ylabel(f'{lbl} error')
+                plt.plot(t, sigma[: len(t), i], "r--", label="+3σ")
+                plt.plot(t, -sigma[: len(t), i], "r--")
+            plt.xlabel("Time [s]")
+            plt.ylabel(f"{lbl} error")
             plt.legend()
             plt.tight_layout()
-            plt.savefig(os.path.join(args.output, f'{prefix}_{lbl}.pdf'))
+            plt.savefig(os.path.join(args.output, f"{prefix}_{lbl}.pdf"))
             plt.close()
 
-    t = est['time'][: err_pos.shape[0]]
-    plot_err(t, err_pos, sigma_pos, ['X', 'Y', 'Z'], 'pos_err')
+    plot_err(t_truth, err_pos, sigma_pos, ["X", "Y", "Z"], "pos_err")
     if err_vel is not None:
-        t_vel = est['time'][: err_vel.shape[0]]
-        plot_err(t_vel, err_vel, sigma_vel, ['Vx', 'Vy', 'Vz'], 'vel_err')
+        plot_err(t_truth, err_vel, sigma_vel, ["Vx", "Vy", "Vz"], "vel_err")
     if err_quat is not None:
-        t_q = est['time'][: err_quat.shape[0]]
-        plot_err(t_q, err_quat, sigma_quat, ['q0', 'q1', 'q2', 'q3'], 'att_err')
+        plot_err(
+            t_truth, err_quat, sigma_quat, ["q0", "q1", "q2", "q3"], "att_err"
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
