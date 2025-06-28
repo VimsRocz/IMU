@@ -136,8 +136,8 @@ end
 % --- Detect a static interval automatically (inlined logic) ---
 fprintf('Detecting static interval using variance thresholds...\n');
 window_size = 80;
-accel_var_thresh = 1e-5;     % tighter threshold
-gyro_var_thresh  = 1e-10;    % matches Python implementation
+accel_var_thresh = 0.01;    % match Python implementation
+gyro_var_thresh  = 1e-6;    % match Python implementation
 min_length = 80;
 
 % Use movvar from Signal Processing Toolbox if available, otherwise use a loop
@@ -191,8 +191,12 @@ end
 N_static = end_idx - start_idx + 1;
 static_acc_row = mean(acc_filt(start_idx:end_idx, :), 1);
 static_gyro_row = mean(gyro_filt(start_idx:end_idx, :), 1);
+acc_var = var(acc_filt(start_idx:end_idx, :), 0, 1);
+gyro_var = var(gyro_filt(start_idx:end_idx, :), 0, 1);
 
 fprintf('Static interval found: samples %d to %d (length %d samples)\n', start_idx, end_idx, N_static);
+fprintf('  Accel variance: [%.4g %.4g %.4g]\n', acc_var);
+fprintf('  Gyro  variance: [%.4g %.4g %.4g]\n', gyro_var);
 
 g_norm = norm(static_acc_row);
 fprintf('Estimated gravity magnitude from IMU: %.4f m/s^2 (expected ~9.81)\n', g_norm);

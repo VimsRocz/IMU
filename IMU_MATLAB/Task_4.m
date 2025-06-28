@@ -178,9 +178,13 @@ fprintf('   Acc raw RMS=%.4f, Gyro raw RMS=%.6f\n', acc_rms, gyro_rms);
 [start_idx, end_idx] = detect_static_interval(acc_body_filt, gyro_body_filt);
 static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
 static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
+acc_var = var(acc_body_filt(start_idx:end_idx, :), 0, 1);
+gyro_var = var(gyro_body_filt(start_idx:end_idx, :), 0, 1);
 fprintf('Static interval [%d, %d] (len=%d)\n', start_idx, end_idx, end_idx-start_idx+1);
 fprintf('Static acc mean  =[%.4f %.4f %.4f]\n', static_acc);
 fprintf('Static gyro mean =[%.6f %.6f %.6f]\n', static_gyro);
+fprintf('Static acc var   =[%.4g %.4g %.4g]\n', acc_var);
+fprintf('Static gyro var  =[%.4g %.4g %.4g]\n', gyro_var);
 
 % Gravity vector and Earth rotation in NED frame (Task 1 results)
 g_NED = [0; 0; 9.81];
@@ -396,8 +400,8 @@ end
 function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size, accel_var_thresh, gyro_var_thresh, min_length)
     %DETECT_STATIC_INTERVAL Find longest initial static interval in IMU data.
     if nargin < 3 || isempty(window_size);      window_size = 200;   end
-    if nargin < 4 || isempty(accel_var_thresh); accel_var_thresh = 1e-5; end
-    if nargin < 5 || isempty(gyro_var_thresh);  gyro_var_thresh = 1e-10; end
+    if nargin < 4 || isempty(accel_var_thresh); accel_var_thresh = 0.01; end
+    if nargin < 5 || isempty(gyro_var_thresh);  gyro_var_thresh = 1e-6; end
     if nargin < 6 || isempty(min_length);       min_length = 100;   end
 
     N = size(accel,1);
@@ -435,6 +439,11 @@ function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size,
             end_idx = ends(k) + window_size - 1;
         end
     end
+
+    acc_var_sel = var(accel(start_idx:end_idx,:), 0, 1);
+    gyro_var_sel = var(gyro(start_idx:end_idx,:), 0, 1);
+    fprintf('detect_static_interval: [%d,%d] len=%d | acc_var=[%.4g %.4g %.4g] | gyro_var=[%.4g %.4g %.4g]\n', ...
+        start_idx, end_idx, end_idx-start_idx+1, acc_var_sel, gyro_var_sel);
 end
 
 function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned, p_imu, v_imu, a_imu, acc_body_corr, base, r0_ecef, C_e2n)
