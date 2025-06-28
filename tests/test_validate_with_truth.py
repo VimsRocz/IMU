@@ -7,6 +7,7 @@ pd = pytest.importorskip("pandas")
 
 from GNSS_IMU_Fusion import main
 from validate_with_truth import load_estimate
+from utils import compute_C_ECEF_to_NED
 
 
 def test_validate_with_truth(monkeypatch):
@@ -33,9 +34,32 @@ def test_validate_with_truth(monkeypatch):
     assert mat_path.exists(), f"Missing {mat_path}"
 
     est = load_estimate(str(mat_path))
-    truth = np.loadtxt("STATE_X001.txt")
-    n = min(len(est["pos"]), truth.shape[0])
-    err = est["pos"][:n] - truth[:n, :3]
+    truth_all = np.loadtxt("STATE_X001.txt")
+
+    def ecef_to_geodetic(x, y, z):
+        a = 6378137.0
+        e_sq = 6.69437999014e-3
+        p = np.sqrt(x ** 2 + y ** 2)
+        theta = np.arctan2(z * a, p * (1 - e_sq))
+        lon = np.arctan2(y, x)
+        lat = np.arctan2(
+            z + e_sq * a * np.sin(theta) ** 3 / (1 - e_sq),
+            p - e_sq * a * np.cos(theta) ** 3,
+        )
+        return np.degrees(lat), np.degrees(lon)
+
+    x0, y0, z0 = truth_all[0, 2:5]
+    lat_deg, lon_deg = ecef_to_geodetic(x0, y0, z0)
+    C = compute_C_ECEF_to_NED(np.deg2rad(lat_deg), np.deg2rad(lon_deg))
+
+    pos_truth_all = (truth_all[:, 2:5] - np.array([x0, y0, z0])) @ C.T
+    t_truth = truth_all[: len(est["time"]), 1]
+
+    pos_est_interp = np.vstack(
+        [np.interp(t_truth, est["time"], est["pos"][:, i]) for i in range(3)]
+    ).T
+
+    err = pos_est_interp - pos_truth_all[: len(t_truth)]
 
     # fall back to the stored summary value for the final position error
     try:
@@ -47,8 +71,11 @@ def test_validate_with_truth(monkeypatch):
     assert final_pos < 0.05, f"final position error {final_pos:.3f} m >= 0.05 m"
 
     if est["P"] is not None:
-        sigma = 3 * np.sqrt(np.diagonal(est["P"], axis1=1, axis2=2)[:, :3])
-        assert np.all(np.abs(err) <= sigma[: len(err)])
+        sigma_raw = 3 * np.sqrt(np.diagonal(est["P"], axis1=1, axis2=2)[:, :3])
+        sigma = np.vstack(
+            [np.interp(t_truth, est["time"], sigma_raw[:, i]) for i in range(3)]
+        ).T
+        assert np.all(np.abs(err) <= sigma)
 
 
 def test_load_estimate_alt_names(tmp_path):
