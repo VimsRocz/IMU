@@ -232,7 +232,9 @@ The script now produces position, velocity **and** attitude error plots. When
 the covariance matrix `P` is available each figure includes the ±3σ envelopes
 derived from the corresponding sub-blocks of `P`.
 The output directory given via `--output` is created automatically if it does
-not exist.
+not exist. After generating the plots the script prints the final position
+error and RMSE (and velocity metrics when available) and saves this short
+summary to `validation_summary.txt` inside the output directory.
 
 The exported `.npz` and `.mat` structures now expose additional fields alongside
 the existing error metrics:

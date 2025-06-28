@@ -199,6 +199,32 @@ def main():
         r_err = r_interp * r_true.inv()
         err_quat = r_err.as_quat()[:, [3, 0, 1, 2]]
 
+    # --- Performance metrics ----------------------------------------------
+    final_pos_error = np.linalg.norm(err_pos[-1])
+    rmse_pos = np.sqrt(np.mean(np.sum(err_pos ** 2, axis=1)))
+    summary_lines = [
+        f"Final position error: {final_pos_error:.2f} m",
+        f"RMSE position error: {rmse_pos:.2f} m",
+    ]
+    final_vel_error = rmse_vel = None
+    if err_vel is not None:
+        final_vel_error = np.linalg.norm(err_vel[-1])
+        rmse_vel = np.sqrt(np.mean(np.sum(err_vel ** 2, axis=1)))
+        summary_lines += [
+            f"Final velocity error: {final_vel_error:.2f} m/s",
+            f"RMSE velocity error: {rmse_vel:.2f} m/s",
+        ]
+
+    for line in summary_lines:
+        print(line)
+
+    summary_path = os.path.join(args.output, "validation_summary.txt")
+    try:
+        with open(summary_path, "w") as f:
+            f.write("\n".join(summary_lines) + "\n")
+    except OSError as e:
+        print(f"Could not write summary file: {e}")
+
     sigma_pos = sigma_vel = sigma_quat = None
     if est["P"] is not None:
         diag = np.diagonal(est["P"], axis1=1, axis2=2)
