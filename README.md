@@ -228,6 +228,17 @@ script with the `.mat` file and the reference trajectory:
 python validate_with_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat --truth-file STATE_X001.txt
 ```
 
+### Interpolating to Ground Truth
+
+`validate_with_truth.py` first resamples the estimated position, velocity
+and quaternion attitude onto the 10&nbsp;Hz timeline provided by
+`STATE_X001.txt`. The raw IMU data is recorded at around **400&nbsp;Hz** and
+the GNSS receiver typically updates at **1&nbsp;Hz**, so the fusion output is
+available at a much higher rate than the reference trajectory.  The script
+uses `numpy.interp` for the linear states and a `Slerp` spline for the
+quaternions to obtain values exactly at the truth timestamps before computing
+the error curves.
+
 The script now produces position, velocity **and** attitude error plots. When
 the covariance matrix `P` is available each figure includes the ±3σ envelopes
 derived from the corresponding sub-blocks of `P`.
