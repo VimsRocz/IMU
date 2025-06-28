@@ -22,9 +22,14 @@ for tag in DATASETS:
         continue
     data = np.load(npz_file)
     mat_file = f'results_{tag}.mat'
-    savemat(mat_file, {
+    out = {
         'x_est': data['x_est'],
         'P': data['P'],
         'residuals': data['residuals'],
-    })
+    }
+    if 'fused_pos' in data:
+        out['fused_pos'] = data['fused_pos']
+    if 'fused_vel' in data:
+        out['fused_vel'] = data['fused_vel']
+    savemat(mat_file, out)
     print(f'Exported {mat_file}')

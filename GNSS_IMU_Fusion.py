@@ -1889,6 +1889,8 @@ def main():
         time_residuals=time_res_all[method],
         attitude_q=attitude_q_all[method],
         P_hist=P_hist_all[method],
+        fused_pos=fused_pos[method],
+        fused_vel=fused_vel[method],
     )
 
     # Also export results as MATLAB-compatible .mat for post-processing
@@ -1910,6 +1912,8 @@ def main():
             "time_residuals": time_res_all[method],
             "attitude_q": attitude_q_all[method],
             "P_hist": P_hist_all[method],
+            "fused_pos": fused_pos[method],
+            "fused_vel": fused_vel[method],
         },
     )
 
