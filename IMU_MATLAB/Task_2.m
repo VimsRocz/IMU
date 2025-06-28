@@ -167,14 +167,6 @@ if start_idx == -1
     if size(acc_filt, 1) < end_idx, end_idx = size(acc_filt, 1); end
 end
 
-% Override with the fixed static interval used by the Python pipeline
-user_static_start = 283;
-user_static_end   = 480030;
-if user_static_end <= size(acc_filt, 1)
-    start_idx = user_static_start;
-    end_idx   = user_static_end;
-end
-
 % Use the automatically detected static interval
 % The Python reference implementation selects a short early segment
 % where the device is stationary.  Re-using that here avoids
@@ -214,8 +206,9 @@ omega_ie_body = static_gyro_row';
 
 % Biases computed over the fixed static interval
 % Compute biases using the same approach as the Python implementation
-static_acc  = static_acc_row';
-static_gyro = static_gyro_row';
+static_idx = 283:480030;
+static_acc = mean(acc(static_idx, :))';
+static_gyro = mean(gyro(static_idx, :))';
 accel_bias  = static_acc  + g_body;
 orig_gyro_bias = static_gyro - omega_ie_body;  % Python-style gyro bias
 fprintf('Python-style accel_bias = [% .6f % .6f % .6f]\n', accel_bias);
@@ -226,7 +219,6 @@ fprintf('Orig gyro bias : [% .6e % .6e % .6e]\n', orig_gyro_bias);
 fprintf('New gyro bias  : [% .6e % .6e % .6e]\n', corrected_gyro_bias);
 gyro_bias = corrected_gyro_bias;        % overwrite for downstream tasks
 % --- END PATCH ---
-fprintf('Accel bias magnitude: %.4f\n', norm(accel_bias));
 
 fprintf('Gravity vector in body frame (g_body):           [%.4f; %.4f; %.4f] m/s^2\n', g_body);
 fprintf('Earth rotation rate in body frame (omega_ie_body): [%.6e; %.6e; %.6e] rad/s\n', omega_ie_body);
