@@ -51,21 +51,23 @@ omegaE = 7.2921159e-5;
 omega_ie_NED = omegaE * [cosd(lat);0;-sind(lat)];
 
 %% ----- Task 2: body frame vectors from IMU ----------------------------
+% Read the IMU file and detect a low‑motion interval using rolling
+% variance.  The average acceleration and gyro over this segment provide
+% estimates of gravity and Earth rotation in the body frame.
 D = dlmread(imu_path);
 if size(D,2) < 8
     error('Unexpected IMU format');
 end
-Nstatic = min(4000, size(D,1));
-acc = D(1:Nstatic,6:8);
-gyro = D(1:Nstatic,3:5);
 if size(D,1) > 1
     dt = mean(diff(D(1:100,2)));
 else
     dt = 1/400;
 end
-acc = acc ./ dt;
-gyro = gyro ./ dt;
-acc_mean = mean(acc,1); gyro_mean = mean(gyro,1);
+acc_all = D(:,6:8) ./ dt;
+gyro_all = D(:,3:5) ./ dt;
+[start_idx, end_idx] = detectStaticInterval(acc_all, gyro_all);
+acc_mean = mean(acc_all(start_idx:end_idx,:),1);
+gyro_mean = mean(gyro_all(start_idx:end_idx,:),1);
 g_body = -acc_mean';
 omega_ie_body = gyro_mean';
 
@@ -184,4 +186,48 @@ function [g_b_u, w_b_u, g_n_u, w_n_u] = normalise_vectors(g_b,w_b,g_n,w_n)
     w_b_u = w_b./norm(w_b);
     g_n_u = g_n./norm(g_n);
     w_n_u = w_n./norm(w_n);
+end
+
+function [start_idx, end_idx] = detectStaticInterval(accel, gyro, window_size, accel_var_thresh, gyro_var_thresh, min_length)
+    %DETECTSTATICINTERVAL Locate the longest low-motion interval in IMU data.
+    if nargin < 3 || isempty(window_size);      window_size = 200;   end
+    if nargin < 4 || isempty(accel_var_thresh); accel_var_thresh = 1e-5; end
+    if nargin < 5 || isempty(gyro_var_thresh);  gyro_var_thresh = 1e-10; end
+    if nargin < 6 || isempty(min_length);       min_length = 100;   end
+
+    N = size(accel,1);
+    if N < window_size
+        error('window_size larger than data length');
+    end
+
+    if exist('movvar','file')
+        accel_var = movvar(accel, window_size, 0, 'Endpoints','discard');
+        gyro_var  = movvar(gyro,  window_size, 0, 'Endpoints','discard');
+    else
+        num_win = N - window_size + 1;
+        accel_var = zeros(num_win, size(accel,2));
+        gyro_var  = zeros(num_win, size(gyro,2));
+        for i = 1:num_win
+            accel_var(i,:) = var(accel(i:i+window_size-1,:),0,1);
+            gyro_var(i,:)  = var(gyro(i:i+window_size-1,:),0,1);
+        end
+    end
+
+    max_accel_var = max(accel_var, [], 2);
+    max_gyro_var  = max(gyro_var, [], 2);
+    static_mask = (max_accel_var < accel_var_thresh) & (max_gyro_var < gyro_var_thresh);
+
+    diff_mask = diff([0; static_mask; 0]);
+    starts = find(diff_mask == 1);
+    ends   = find(diff_mask == -1) - 1;
+
+    longest_len = 0; start_idx = 1; end_idx = window_size;
+    for k = 1:length(starts)
+        seg_len = ends(k) - starts(k) + 1;
+        if seg_len >= min_length && seg_len > longest_len
+            longest_len = seg_len;
+            start_idx = starts(k);
+            end_idx = ends(k) + window_size - 1;
+        end
+    end
 end
