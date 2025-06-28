@@ -49,19 +49,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from pathlib import Path
-import scipy.io as sio                              # only if you store .mat
+from validate_with_truth import load_estimate
 
 
 def validate_against_truth(
-        truth_path      = Path('STATE_X001.txt'),
-        est_mat_path    = Path('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat'),
-        results_dir     = Path('results'),
-        plot_fname      = 'Task6_Validation_TRIAD.pdf',
-        time_key        = 'time_residuals',
-        pos_key         = 'fused_pos',
-        vel_key         = 'fused_vel',
-        quat_key        = 'attitude_q',            # (body→ECEF, scalar-first)
-        P_key           = 'P_hist'
+        truth_path   = Path('STATE_X001.txt'),
+        est_mat_path = Path('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat'),
+        results_dir  = Path('results'),
+        plot_fname   = 'Task6_Validation_TRIAD.pdf',
 ):
     """Compare EKF estimates with ground truth and verify 3-sigma consistency."""
     # -------------------------------------------------------------------------
@@ -78,14 +73,14 @@ def validate_against_truth(
 
     # -------------------------------------------------------------------------
     # 2. load estimator output  ----------------------------------------------
-    est = sio.loadmat(est_mat_path)
-    t_est  = est[time_key].ravel()
-    pos_est = est[pos_key]
-    vel_est = est[vel_key]
-    quat_est = est[quat_key]                     # shape (N,4)
+    est = load_estimate(str(est_mat_path))
+    t_est = est["time"]
+    pos_est = est["pos"]
+    vel_est = est["vel"]
+    quat_est = est["quat"]                     # shape (N,4)
     P_diag = None
-    if P_key in est:
-        P_diag = np.diagonal(est[P_key], axis1=1, axis2=2)
+    if est.get("P") is not None:
+        P_diag = np.diagonal(est["P"], axis1=1, axis2=2)
 
     # -------------------------------------------------------------------------
     # 3. time-sync by interpolation  ------------------------------------------
