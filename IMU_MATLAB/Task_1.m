@@ -173,8 +173,8 @@ save(fullfile(results_dir, ['Task1_init_' tag '.mat']), 'lat', 'lon', 'g_NED', '
 fprintf('Initial data saved to %s\n', fullfile(results_dir, ['Task1_init_' tag '.mat']));
 
 % Return results and store in base workspace for interactive use
-result = struct('lat_deg', lat_deg, 'lon_deg', lon_deg, ...
-                'g_NED', g_NED, 'omega_ie_NED', omega_ie_NED);
+result = struct('lat', lat_deg, 'lon', lon_deg, ...
+                'g_NED', g_NED, 'omega_NED', omega_ie_NED);
 assignin('base', 'task1_results', result);
 
 end
