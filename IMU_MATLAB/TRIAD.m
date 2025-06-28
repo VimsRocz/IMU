@@ -1,47 +1,67 @@
-function result = TRIAD(imu_path, gnss_path)
-%TRIAD Run the pipeline using only the TRIAD method.
-%   RESULT = TRIAD(IMU_PATH, GNSS_PATH) executes Tasks 1--5 with the TRIAD
-%   attitude initialisation and returns the Task 5 results struct. The
-%   results are also saved in results/Result_IMU_GNSS_TRIAD.mat and the
-%   summary line printed to the console.
+function results = TRIAD(imu_paths, gnss_paths)
+%TRIAD  Run the pipeline using only the TRIAD method.
+%   RESULTS = TRIAD(IMU_PATHS, GNSS_PATHS) executes Tasks 1--5 with the
+%   TRIAD attitude initialisation for one or more IMU/GNSS file pairs.
+%   When called without arguments all bundled sample datasets are
+%   processed.  Single file names or cell arrays of names are accepted.
+%   The Task 5 results for each pair are returned as a struct (or a cell
+%   array of structs) and saved in results/Result_<IMU>_<GNSS>_TRIAD.mat.
 
 if nargin == 0
-    imu_path = 'IMU_X001.dat';
-    gnss_path = 'GNSS_X001.csv';
-    fprintf('[INFO] No files provided. Using defaults: %s, %s\n', imu_path, gnss_path);
+    imu_paths = {'IMU_X001.dat','IMU_X002.dat','IMU_X003.dat'};
+    gnss_paths = {'GNSS_X001.csv','GNSS_X002.csv','GNSS_X002.csv'};
 elseif nargin ~= 2
     error('Usage: TRIAD(''IMU_PATH'',''GNSS_PATH'') or TRIAD() for defaults');
 end
 
-% Resolve to full paths so the function works from any directory. The helper
-% GET_DATA_FILE searches IMU_MATLAB/data first and then the repository root.
-imu_path  = get_data_file(imu_path);
-gnss_path = get_data_file(gnss_path);
-
-Task_1(imu_path, gnss_path, 'TRIAD');
-Task_2(imu_path, gnss_path, 'TRIAD');
-Task_3(imu_path, gnss_path, 'TRIAD');
-Task_4(imu_path, gnss_path, 'TRIAD');
-Task_5(imu_path, gnss_path, 'TRIAD');
-
-[~, imuName]  = fileparts(imu_path);
-[~, gnssName] = fileparts(gnss_path);
-res_file = fullfile('results', sprintf('%s_%s_TRIAD_task5_results.mat', ...
-    imuName, gnssName));
-if ~isfile(res_file)
-    error('Expected Task 5 results %s not found', res_file);
+% Convert to cell arrays for uniform handling
+if ischar(imu_paths) || isstring(imu_paths)
+    imu_paths = {char(imu_paths)};
 end
-result = load(res_file);
+if ischar(gnss_paths) || isstring(gnss_paths)
+    gnss_paths = {char(gnss_paths)};
+end
 
-save(fullfile('results', sprintf('Result_%s_%s_TRIAD.mat', imuName, gnssName)), ...
-    '-struct', 'result');
+if numel(imu_paths) ~= numel(gnss_paths)
+    error('Number of IMU and GNSS files must match.');
+end
 
-sum_file = fullfile('results', 'IMU_GNSS_summary.txt');
-if isfile(sum_file)
-    lines = splitlines(fileread(sum_file));
-    if ~isempty(lines)
-        disp('--- TRIAD Method Summary ---');
-        disp(lines{end-1});
+results = cell(1, numel(imu_paths));
+
+for k = 1:numel(imu_paths)
+    imu_file  = get_data_file(imu_paths{k});
+    gnss_file = get_data_file(gnss_paths{k});
+
+    Task_1(imu_file, gnss_file, 'TRIAD');
+    Task_2(imu_file, gnss_file, 'TRIAD');
+    Task_3(imu_file, gnss_file, 'TRIAD');
+    Task_4(imu_file, gnss_file, 'TRIAD');
+    Task_5(imu_file, gnss_file, 'TRIAD');
+
+    [~, imuName]  = fileparts(imu_file);
+    [~, gnssName] = fileparts(gnss_file);
+    res_file = fullfile('results', sprintf('%s_%s_TRIAD_task5_results.mat', ...
+        imuName, gnssName));
+    if ~isfile(res_file)
+        error('Expected Task 5 results %s not found', res_file);
     end
+    r = load(res_file);
+    save(fullfile('results', sprintf('Result_%s_%s_TRIAD.mat', ...
+         imuName, gnssName)), '-struct', 'r');
+
+    sum_file = fullfile('results', 'IMU_GNSS_summary.txt');
+    if isfile(sum_file)
+        lines = splitlines(fileread(sum_file));
+        if ~isempty(lines)
+            disp('--- TRIAD Method Summary ---');
+            disp(lines{end-1});
+        end
+    end
+
+    results{k} = r;
+end
+
+if numel(results) == 1
+    results = results{1};
 end
 end
