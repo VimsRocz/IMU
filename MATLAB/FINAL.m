@@ -129,22 +129,57 @@ if isempty(time_imu)
     time_imu = (0:N-1)' * dt + T.Posix_Time(1);
 end
 
-KF.x = [pos_gnss(1,:) vel_gnss(1,:)];
-KF.P = eye(6);
-Q = 1e-3 * eye(6);
-Rk = 1e-2 * eye(6);
+gyro_all = D(:,3:5) ./ dt;
+KF.x = [pos_gnss(1,:) vel_gnss(1,:) zeros(1,3)];
+KF.P = eye(9);
+Q = 1e-2 * eye(9);
+Rk = 1e-1 * eye(6);
+fused_pos(1,:) = KF.x(1:3);
+fused_vel(1,:) = KF.x(4:6);
+q_cur = q_nb; q_log = zeros(N,4); q_log(1,:) = q_cur;
+win = 80; acc_win = []; gyro_win = []; zupt_count = 0;
 for k = 2:N
     dt_k = time_imu(k) - time_imu(k-1);
-    A = [eye(3) eye(3)*dt_k; zeros(3) eye(3)];
-    KF.x = A * KF.x';
+    %% propagate quaternion using corrected gyro
+    w_b = gyro_all(k,:)' - gyro_bias;
+    dq = quat_from_rate(w_b, dt_k);
+    q_cur = quat_multiply(q_cur, dq);
+    q_cur = q_cur ./ norm(q_cur);
+    q_log(k,:) = q_cur;
+
+    %% Kalman time update
+    A = eye(9);
+    A(1:3,4:6) = eye(3)*dt_k;
+    A(4:6,7:9) = eye(3)*dt_k;
+    KF.x = (A * KF.x')';
     KF.P = A*KF.P*A' + Q;
+
+    %% Measurement update with GNSS
     z = [pos_gnss(min(k,size(pos_gnss,1)),:) vel_gnss(min(k,size(vel_gnss,1)),:)];
-    H = eye(6);
+    H = [eye(6) zeros(6,3)];
     K = KF.P*H'/(H*KF.P*H'+Rk);
-    KF.x = KF.x + K*(z' - H*KF.x);
-    KF.P = (eye(6)-K*H)*KF.P;
-    fused_pos(k,:) = KF.x(1:3)';
-    fused_vel(k,:) = KF.x(4:6)';
+    KF.x = (KF.x' + K*(z' - H*KF.x'))';
+    KF.P = (eye(9)-K*H)*KF.P;
+
+    fused_pos(k,:) = KF.x(1:3);
+    fused_vel(k,:) = KF.x(4:6);
+
+    %% ZUPT using rolling variance
+    acc_win = [acc_win; acc_all(k,:) - accel_bias'];
+    gyro_win = [gyro_win; gyro_all(k,:) - gyro_bias'];
+    if size(acc_win,1) > win
+        acc_win(1,:) = []; gyro_win(1,:) = [];
+    end
+    if size(acc_win,1) == win && is_static(acc_win, gyro_win)
+        H_z = zeros(3,9); H_z(:,4:6) = eye(3);
+        R_z = 1e-4 * eye(3);
+        pred_v = KF.x(4:6)';
+        S = H_z*KF.P*H_z' + R_z;
+        Kz = KF.P*H_z'/S;
+        KF.x = (KF.x' + Kz*(-pred_v))';
+        KF.P = (eye(9)-Kz*H_z)*KF.P;
+        zupt_count = zupt_count + 1;
+    end
 end
 
 %% ----- Save results ----------------------------------------------------
@@ -154,7 +189,8 @@ if ~exist(resultsDir,'dir'), mkdir(resultsDir); end
 matfile = fullfile(resultsDir, sprintf('%s_%s_%s_final.mat', istem, gstem, method));
 summary.q0 = q_nb;
 summary.final_pos = norm(fused_pos(end,:));
-save(matfile, 'pos', 'vel', 'fused_pos', 'fused_vel', 'q_nb', 'summary');
+summary.ZUPT_count = zupt_count;
+save(matfile, 'pos', 'vel', 'fused_pos', 'fused_vel', 'q_nb', 'summary', 'q_log');
 fprintf('Saved %s\n', matfile);
 
 end
@@ -184,4 +220,29 @@ function [g_b_u, w_b_u, g_n_u, w_n_u] = normalise_vectors(g_b,w_b,g_n,w_n)
     w_b_u = w_b./norm(w_b);
     g_n_u = g_n./norm(g_n);
     w_n_u = w_n./norm(w_n);
+end
+
+function dq = quat_from_rate(w, dt)
+    w_norm = norm(w);
+    if w_norm > 1e-12
+        axis = w / w_norm;
+        angle = w_norm * dt;
+        dq = [cos(angle/2); axis*sin(angle/2)];
+    else
+        dq = [1;0;0;0];
+    end
+end
+
+function q_out = quat_multiply(q1, q2)
+    w1=q1(1); x1=q1(2); y1=q1(3); z1=q1(4);
+    w2=q2(1); x2=q2(2); y2=q2(3); z2=q2(4);
+    q_out=[w1*w2 - x1*x2 - y1*y2 - z1*z2;
+           w1*x2 + x1*w2 + y1*z2 - z1*y2;
+           w1*y2 - x1*z2 + y1*w2 + z1*x2;
+           w1*z2 + x1*y2 - y1*x2 + z1*w2];
+end
+
+function is_stat = is_static(acc, gyro)
+    acc_thresh = 0.01; gyro_thresh = 1e-6;
+    is_stat = all(var(acc,0,1) < acc_thresh) && all(var(gyro,0,1) < gyro_thresh);
 end
