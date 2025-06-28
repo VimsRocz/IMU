@@ -982,9 +982,9 @@ def main():
     # Subtask 4.5: Define Reference Point
     # --------------------------------
     logging.info("Subtask 4.5: Defining reference point.")
-    ref_lat = np.deg2rad(-32.026554)  # From Task 1
-    ref_lon = np.deg2rad(133.455801)  # From Task 1
-    ref_r0 = np.array([-3729051, 3935676, -3348394])  # From Task 1
+    ref_lat = np.deg2rad(lat_deg)
+    ref_lon = np.deg2rad(lon_deg)
+    ref_r0 = np.array([x_ecef, y_ecef, z_ecef])
     logging.info(f"Reference point: lat={ref_lat:.6f} rad, lon={ref_lon:.6f} rad, r0={ref_r0}")
     
     # --------------------------------
@@ -1338,9 +1338,9 @@ def main():
     gnss_vel_ecef = gnss_data[vel_cols].values
     
     # Reference position for NED
-    ref_lat = np.deg2rad(-32.026554)  # From Task 1
-    ref_lon = np.deg2rad(133.455801)  # From Task 1
-    ref_r0 = np.array([-3729051, 3935676, -3348394])  # From Task 1
+    ref_lat = np.deg2rad(lat_deg)
+    ref_lon = np.deg2rad(lon_deg)
+    ref_r0 = np.array([x_ecef, y_ecef, z_ecef])
     C_ECEF_to_NED = compute_C_ECEF_to_NED(ref_lat, ref_lon)
     
     # Convert GNSS to NED
