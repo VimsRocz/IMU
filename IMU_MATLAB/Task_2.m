@@ -121,8 +121,8 @@ end
 % --- Detect a static interval automatically (inlined logic) ---
 fprintf('Detecting static interval using variance thresholds...\n');
 window_size = 80;
-accel_var_thresh = 0.01;
-gyro_var_thresh = 1e-6;
+accel_var_thresh = 1e-5;     % tighter threshold
+gyro_var_thresh  = 1e-10;    % matches Python implementation
 min_length = 80;
 
 % Use movvar from Signal Processing Toolbox if available, otherwise use a loop
@@ -207,18 +207,15 @@ omega_ie_body = static_gyro_row';
 % Biases computed over the automatically detected static interval
 % Use the same samples identified earlier for gravity estimation
 static_idx = start_idx:end_idx;
-static_acc = mean(acc(static_idx, :))';
+static_acc  = mean(acc(static_idx, :))';
 static_gyro = mean(gyro(static_idx, :))';
-accel_bias  = static_acc + g_body;
-orig_gyro_bias = static_gyro - omega_ie_body;  % Python-style gyro bias
-fprintf('Python-style accel_bias = [% .6f % .6f % .6f]\n', accel_bias);
-fprintf('Python-style gyro_bias  = [% .6e % .6e % .6e]\n', orig_gyro_bias);
-% --- BIAS DEBUG & CORRECT ---
-corrected_gyro_bias = static_gyro;      % use the raw static mean
-fprintf('Orig gyro bias : [% .6e % .6e % .6e]\n', orig_gyro_bias);
-fprintf('New gyro bias  : [% .6e % .6e % .6e]\n', corrected_gyro_bias);
-gyro_bias = corrected_gyro_bias;        % overwrite for downstream tasks
-% --- END PATCH ---
+
+% Bias definitions consistent with Python implementation
+accel_bias = static_acc - (-g_body);  % accel measurement minus expected
+gyro_bias  = static_gyro - omega_ie_body;
+
+fprintf('Estimated accel_bias = [% .6f % .6f % .6f]\n', accel_bias);
+fprintf('Estimated gyro_bias  = [% .6e % .6e % .6e]\n', gyro_bias);
 
 fprintf('Gravity vector in body frame (g_body):           [%.4f; %.4f; %.4f] m/s^2\n', g_body);
 fprintf('Earth rotation rate in body frame (omega_ie_body): [%.6e; %.6e; %.6e] rad/s\n', omega_ie_body);

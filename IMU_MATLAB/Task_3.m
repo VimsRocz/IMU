@@ -128,12 +128,16 @@ fprintf('\nSubtask 3.2: Computing rotation matrix using TRIAD method.\n');
 M_body = triad_basis(v1_B, v2_B);
 M_ned_1 = triad_basis(v1_N, v2_N);
 R_tri = M_ned_1 * M_body';
+[U,~,V] = svd(R_tri);
+R_tri = U*V';
 fprintf('Rotation matrix (TRIAD method, Case 1):\n');
 disp(R_tri);
 
 % Case 2
 M_ned_2 = triad_basis(v1_N, v2_N_doc);
 R_tri_doc = M_ned_2 * M_body';
+[U,~,V] = svd(R_tri_doc);
+R_tri_doc = U*V';
 fprintf('Rotation matrix (TRIAD method, Case 2):\n');
 disp(R_tri_doc);
 
