@@ -1,31 +1,31 @@
-function result = TRIAD(imuFile, gnssFile)
+function result = TRIAD(imu_path, gnss_path)
 %TRIAD Run the pipeline using only the TRIAD method.
-%   RESULT = TRIAD(IMUFILE, GNSSFILE) executes Tasks 1--5 with the TRIAD
+%   RESULT = TRIAD(IMU_PATH, GNSS_PATH) executes Tasks 1--5 with the TRIAD
 %   attitude initialisation and returns the Task 5 results struct. The
 %   results are also saved in results/Result_IMU_GNSS_TRIAD.mat and the
 %   summary line printed to the console.
 
 if nargin == 0
-    imuFile = 'IMU_X001.dat';
-    gnssFile = 'GNSS_X001.csv';
-    fprintf('[INFO] No files provided. Using defaults: %s, %s\n', imuFile, gnssFile);
+    imu_path = 'IMU_X001.dat';
+    gnss_path = 'GNSS_X001.csv';
+    fprintf('[INFO] No files provided. Using defaults: %s, %s\n', imu_path, gnss_path);
 elseif nargin ~= 2
-    error('Usage: TRIAD(''IMUFILE'',''GNSSFILE'') or TRIAD() for defaults');
+    error('Usage: TRIAD(''IMU_PATH'',''GNSS_PATH'') or TRIAD() for defaults');
 end
 
 % Resolve to full paths so the function works from any directory. The helper
 % GET_DATA_FILE searches IMU_MATLAB/data first and then the repository root.
-imuFile  = get_data_file(imuFile);
-gnssFile = get_data_file(gnssFile);
+imu_path  = get_data_file(imu_path);
+gnss_path = get_data_file(gnss_path);
 
-Task_1(imuFile, gnssFile, 'TRIAD');
-Task_2(imuFile, gnssFile, 'TRIAD');
-Task_3(imuFile, gnssFile, 'TRIAD');
-Task_4(imuFile, gnssFile, 'TRIAD');
-Task_5(imuFile, gnssFile, 'TRIAD');
+Task_1(imu_path, gnss_path, 'TRIAD');
+Task_2(imu_path, gnss_path, 'TRIAD');
+Task_3(imu_path, gnss_path, 'TRIAD');
+Task_4(imu_path, gnss_path, 'TRIAD');
+Task_5(imu_path, gnss_path, 'TRIAD');
 
-[~, imuName]  = fileparts(imuFile);
-[~, gnssName] = fileparts(gnssFile);
+[~, imuName]  = fileparts(imu_path);
+[~, gnssName] = fileparts(gnss_path);
 res_file = fullfile('results', sprintf('%s_%s_TRIAD_task5_results.mat', ...
     imuName, gnssName));
 if ~isfile(res_file)

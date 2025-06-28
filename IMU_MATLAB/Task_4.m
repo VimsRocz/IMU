@@ -1,6 +1,6 @@
 function result = Task_4(imu_path, gnss_path, method)
 %TASK_4 GNSS and IMU data integration and comparison
-%   Task_4(IMUFILE, GNSSFILE, METHOD) runs the GNSS/IMU integration
+%   Task_4(IMU_PATH, GNSS_PATH, METHOD) runs the GNSS/IMU integration
 %   using the attitude estimates from Task 3. METHOD is unused but kept
 %   for backwards compatibility with older scripts.
 %   Requires that `Task_3` has already saved a dataset-specific
