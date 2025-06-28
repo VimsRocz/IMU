@@ -212,6 +212,12 @@ python validate_with_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_out
 The script writes one PDF per axis showing the position error together with the
 ±3σ bounds from the filter covariance.
 
+The exported `.npz` and `.mat` structures now expose additional fields alongside
+the existing error metrics:
+
+- `attitude_q` – quaternion attitude history for the selected method
+- `P_hist` – Kalman covariance matrices over time
+
 ### Running the MATLAB pipeline
 
 ```matlab

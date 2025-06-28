@@ -1414,6 +1414,7 @@ def main():
     res_pos_all = {}
     res_vel_all = {}
     time_res_all = {}
+    P_hist_all = {}
     zupt_counts = {}
     zupt_events_all = {}
 
@@ -1472,6 +1473,7 @@ def main():
         gyro_win = []
         zupt_count = 0
         zupt_events = []
+        P_hist = [kf.P.copy()]
 
         # attitude initialisation for logging
         orientations = np.zeros((len(imu_time), 4))
@@ -1544,6 +1546,7 @@ def main():
             fused_pos[m][i] = kf.x[0:3]
             fused_vel[m][i] = kf.x[3:6]
             fused_acc[m][i] = imu_acc[m][i]  # Use integrated acceleration
+            P_hist.append(kf.P.copy())
 
         logging.info(f"Method {m}: Kalman Filter completed. ZUPTcnt={zupt_count}")
         with open("triad_init_log.txt", "a") as logf:
@@ -1568,6 +1571,7 @@ def main():
         res_pos_all[m] = res_pos
         res_vel_all[m] = res_vel
         time_res_all[m] = time_res_arr
+        P_hist_all[m] = np.stack(P_hist)
     
     # Compute residuals for the selected method
     residual_pos = res_pos_all[method]
@@ -1871,6 +1875,8 @@ def main():
         residual_pos=res_pos_all[method],
         residual_vel=res_vel_all[method],
         time_residuals=time_res_all[method],
+        attitude_q=attitude_q_all[method],
+        P_hist=P_hist_all[method],
     )
 
     # Also export results as MATLAB-compatible .mat for post-processing
@@ -1886,6 +1892,8 @@ def main():
             "residual_pos": res_pos_all[method],
             "residual_vel": res_vel_all[method],
             "time_residuals": time_res_all[method],
+            "attitude_q": attitude_q_all[method],
+            "P_hist": P_hist_all[method],
         },
     )
 
