@@ -15,7 +15,8 @@ cmd = [
     str(HERE / "run_all_datasets.py"),
     "--method",
     "TRIAD",
-] + sys.argv[1:]
+    *sys.argv[1:],
+]
 subprocess.run(cmd, check=True)
 
 # --- Validate results when STATE_<id>.txt exists -----------------------------
