@@ -67,13 +67,26 @@ def test_validate_with_truth(monkeypatch):
         sigma = 3 * np.sqrt(np.diagonal(est["P"], axis1=1, axis2=2)[:, :3])
         assert np.all(np.abs(err) <= sigma[: len(err)])
 
+    npz_path = Path("results") / f"{tag}_kf_output.npz"
+    assert npz_path.exists(), f"Missing {npz_path}"
+    npz = np.load(npz_path, allow_pickle=True)
+    from scipy.io import loadmat
+    mat = loadmat(mat_path)
+    for key in ["fused_pos", "fused_vel"]:
+        assert key in npz, f"{key} missing from npz"
+        assert key in mat, f"{key} missing from mat"
 
-def test_load_estimate_alt_names(tmp_path):
+
+@pytest.mark.parametrize(
+    "pos_key,vel_key",
+    [("fused_pos", "fused_vel"), ("pos_ned", "vel_ned")],
+)
+def test_load_estimate_alt_names(tmp_path, pos_key, vel_key):
     np = pytest.importorskip("numpy")
     scipy = pytest.importorskip("scipy.io")
     data = {
-        "fused_pos": np.ones((5, 3)),
-        "fused_vel": np.zeros((5, 3)),
+        pos_key: np.ones((5, 3)),
+        vel_key: np.zeros((5, 3)),
         "attitude_q": np.tile([1, 0, 0, 0], (5, 1)),
         "P_hist": np.zeros((5, 3, 3)),
         "time": np.arange(5),
@@ -81,7 +94,7 @@ def test_load_estimate_alt_names(tmp_path):
     f = tmp_path / "est.mat"
     scipy.savemat(f, data)
     est = load_estimate(str(f))
-    assert np.allclose(est["pos"], data["fused_pos"])
-    assert np.allclose(est["vel"], data["fused_vel"])
+    assert np.allclose(est["pos"], data[pos_key])
+    assert np.allclose(est["vel"], data[vel_key])
     assert np.allclose(est["quat"], data["attitude_q"])
     assert np.allclose(est["P"], data["P_hist"])
