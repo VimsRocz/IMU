@@ -2,9 +2,10 @@ import subprocess
 import shutil
 from pathlib import Path
 
-import numpy as np
-import scipy.io
 import pytest
+np = pytest.importorskip("numpy")
+pytest.importorskip("scipy")
+import scipy.io
 
 
 def test_matlab_tasks(tmp_path):

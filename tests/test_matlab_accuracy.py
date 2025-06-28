@@ -2,8 +2,9 @@ import subprocess
 import shutil
 from pathlib import Path
 
-import numpy as np
 import pytest
+np = pytest.importorskip("numpy")
+pytest.importorskip("scipy")
 import scipy.io
 
 

@@ -3,6 +3,7 @@ import subprocess
 import shutil
 from pathlib import Path
 import pytest
+pytest.importorskip("scipy")
 import scipy.io
 
 
