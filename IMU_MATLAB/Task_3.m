@@ -69,7 +69,13 @@ elseif isfield(init_data, 'omega_ie_NED')
 else
     error('Task_3:MissingField', 'Task 1 data missing omega_ie_NED field');
 end
-lat = deg2rad(init_data.lat);
+if isfield(init_data, 'lat')
+    lat = deg2rad(init_data.lat);
+elseif isfield(init_data, 'lat_deg')
+    lat = deg2rad(init_data.lat_deg);
+else
+    error('Task_3:MissingField', 'Task 1 data missing latitude field');
+end
 if isfield(body_data,'g_body_scaled')
     g_body = body_data.g_body_scaled;
 else
