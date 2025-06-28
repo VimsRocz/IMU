@@ -1,6 +1,7 @@
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import pytest
+pytest.importorskip("cartopy")
 from GNSS_IMU_Fusion import main
 
 
