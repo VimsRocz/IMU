@@ -86,16 +86,17 @@ def main():
 
     est = load_estimate(args.est_file)
     truth = np.loadtxt(args.truth_file)
-    err_pos = est['pos'] - truth[:, :3]
+    n = min(len(est['pos']), truth.shape[0])
+    err_pos = est['pos'][:n] - truth[:n, :3]
     err_vel = None
     err_quat = None
 
     if est.get('vel') is not None:
-        err_vel = est['vel'] - truth[:, 5:8]
+        err_vel = est['vel'][:n] - truth[:n, 5:8]
 
     if est.get('quat') is not None:
-        q_true = truth[:, 8:12]
-        q_est = est['quat'][: len(q_true)]
+        q_true = truth[:n, 8:12]
+        q_est = est['quat'][:n]
         r_true = R.from_quat(q_true[:, [1, 2, 3, 0]])
         r_est = R.from_quat(q_est[:, [1, 2, 3, 0]])
         r_err = r_est * r_true.inv()
@@ -103,7 +104,7 @@ def main():
 
     sigma_pos = sigma_vel = sigma_quat = None
     if est['P'] is not None:
-        diag = np.diagonal(est['P'], axis1=1, axis2=2)
+        diag = np.diagonal(est['P'], axis1=1, axis2=2)[:n]
         if diag.shape[1] >= 3:
             sigma_pos = 3 * np.sqrt(diag[:, :3])
         if diag.shape[1] >= 6:
@@ -125,14 +126,12 @@ def main():
             plt.savefig(os.path.join(args.output, f'{prefix}_{lbl}.pdf'))
             plt.close()
 
-    t = est['time'][: err_pos.shape[0]]
+    t = est['time'][:n]
     plot_err(t, err_pos, sigma_pos, ['X', 'Y', 'Z'], 'pos_err')
     if err_vel is not None:
-        t_vel = est['time'][: err_vel.shape[0]]
-        plot_err(t_vel, err_vel, sigma_vel, ['Vx', 'Vy', 'Vz'], 'vel_err')
+        plot_err(t, err_vel, sigma_vel, ['Vx', 'Vy', 'Vz'], 'vel_err')
     if err_quat is not None:
-        t_q = est['time'][: err_quat.shape[0]]
-        plot_err(t_q, err_quat, sigma_quat, ['q0', 'q1', 'q2', 'q3'], 'att_err')
+        plot_err(t, err_quat, sigma_quat, ['q0', 'q1', 'q2', 'q3'], 'att_err')
 
 
 if __name__ == '__main__':
