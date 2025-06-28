@@ -204,12 +204,12 @@ g_body = (g_body_raw / g_mag) * 9.81;   % Normalize then scale to 9.81
 g_body_scaled = g_body;                  % explicitly store scaled gravity
 omega_ie_body = static_gyro_row';
 
-% Biases computed over the fixed static interval
-% Compute biases using the same approach as the Python implementation
-static_idx = 283:480030;
+% Biases computed over the automatically detected static interval
+% Use the same samples identified earlier for gravity estimation
+static_idx = start_idx:end_idx;
 static_acc = mean(acc(static_idx, :))';
 static_gyro = mean(gyro(static_idx, :))';
-accel_bias  = static_acc  + g_body;
+accel_bias  = static_acc + g_body;
 orig_gyro_bias = static_gyro - omega_ie_body;  % Python-style gyro bias
 fprintf('Python-style accel_bias = [% .6f % .6f % .6f]\n', accel_bias);
 fprintf('Python-style gyro_bias  = [% .6e % .6e % .6e]\n', orig_gyro_bias);
