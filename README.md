@@ -37,6 +37,15 @@ sudo apt update && sudo apt install python3-pip
 pip3 install filterpy
 ```
 
+### Installing test requirements
+
+To run the unit tests you need `numpy`, `pandas`, `scipy` and `cartopy` which are all included in `requirements.txt`. Install them together with `pytest` via:
+
+```bash
+pip install -r requirements-dev.txt -r requirements.txt
+```
+
+
 If the build error complains about Cython install it explicitly first:
 
 ```bash
