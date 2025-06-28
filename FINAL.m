@@ -13,6 +13,7 @@ gnss_file = 'GNSS_X001.csv';
 % Create results directory
 results_dir = 'results';
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
+addpath('IMU_MATLAB');
 
 %% ========================================================================
 %% Task 1: Define reference vectors in NED
@@ -292,11 +293,6 @@ function [lat_deg, lon_deg, alt] = ecef2geodetic_custom(x,y,z)
     lat = atan2( z + ep^2*b*sin(th).^3, p - e^2*a*cos(th).^3 );
     N = a./sqrt(1-e^2*sin(lat).^2); alt = p./cos(lat) - N;
     lat_deg = rad2deg(lat); lon_deg = rad2deg(lon);
-end
-
-function C = compute_C_ECEF_to_NED(lat, lon)
-    sphi=sin(lat); cphi=cos(lat); slam=sin(lon); clam=cos(lon);
-    C=[-sphi*clam,-sphi*slam,cphi; -slam,clam,0; -cphi*clam,-cphi*slam,-sphi];
 end
 
 function var_win = sliding_variance(x, w)

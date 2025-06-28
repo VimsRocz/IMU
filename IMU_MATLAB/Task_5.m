@@ -494,11 +494,3 @@ end % End of main function
                    all(var(gyro,0,1) < gyro_thresh);
     end
 
-    function C = compute_C_ECEF_to_NED(lat_rad, lon_rad)
-        s_lat = sin(lat_rad); c_lat = cos(lat_rad);
-        s_lon = sin(lon_rad); c_lon = cos(lon_rad);
-        C = [-s_lat * c_lon, -s_lat * s_lon,  c_lat;
-             -s_lon,          c_lon,         0;
-             -c_lat * c_lon, -c_lat * s_lon, -s_lat];
-    end
-

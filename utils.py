@@ -109,3 +109,29 @@ def save_mat(filename: str, data: dict) -> None:
     """Save *data* dictionary to a MATLAB ``.mat`` file."""
     from scipy.io import savemat
     savemat(filename, data)
+
+
+def compute_C_ECEF_to_NED(lat: float, lon: float) -> np.ndarray:
+    """Return rotation matrix from ECEF to NED frame.
+
+    Parameters
+    ----------
+    lat : float
+        Geodetic latitude in radians.
+    lon : float
+        Longitude in radians.
+
+    Returns
+    -------
+    ndarray of shape (3, 3)
+        Rotation matrix from ECEF to NED.
+    """
+    s_lat = np.sin(lat)
+    c_lat = np.cos(lat)
+    s_lon = np.sin(lon)
+    c_lon = np.cos(lon)
+    return np.array([
+        [-s_lat * c_lon, -s_lat * s_lon, c_lat],
+        [-s_lon, c_lon, 0.0],
+        [-c_lat * c_lon, -c_lat * s_lon, -s_lat],
+    ])

@@ -1,7 +1,7 @@
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import numpy as np
-from GNSS_IMU_Fusion import compute_C_ECEF_to_NED
+from utils import compute_C_ECEF_to_NED
 
 
 def test_rotation_matrix_orthonormal():

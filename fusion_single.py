@@ -6,6 +6,7 @@ from scipy.signal import butter, filtfilt
 from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
 from kalman import GNSSIMUKalman, rts_smoother
+from utils import compute_C_ECEF_to_NED
 
 
 def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):
@@ -14,17 +15,6 @@ def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):
     b, a = butter(order, normal_cutoff, btype="low")
     return filtfilt(b, a, data, axis=0)
 
-
-def compute_C_ECEF_to_NED(lat, lon):
-    sin_phi = np.sin(lat)
-    cos_phi = np.cos(lat)
-    sin_lambda = np.sin(lon)
-    cos_lambda = np.cos(lon)
-    return np.array([
-        [-sin_phi * cos_lambda, -sin_phi * sin_lambda, cos_phi],
-        [-sin_lambda, cos_lambda, 0],
-        [-cos_phi * cos_lambda, -cos_phi * sin_lambda, -sin_phi],
-    ])
 
 
 def quat_mult(q, r):
