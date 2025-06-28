@@ -105,9 +105,9 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 
 
 %% ========================================================================
-% Subtask 5.1-5.5: Configure and Initialize 9-State Filter
+% Subtask 5.1-5.5: Configure and Initialize 15-State Filter
 % =========================================================================
-fprintf('\nSubtask 5.1-5.5: Configuring and Initializing 9-State Kalman Filter.\n');
+fprintf('\nSubtask 5.1-5.5: Configuring and Initializing 15-State Kalman Filter.\n');
 results4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
 if nargin < 4 || isempty(gnss_pos_ned)
     if evalin('base','exist(''task4_results'',''var'')')
@@ -125,16 +125,18 @@ if nargin < 4 || isempty(gnss_pos_ned)
         gnss_pos_ned = S.gnss_pos_ned;
     end
 end
-% State vector x: [pos; vel; acc]' (9x1)
-x = zeros(9, 1);
-x(1:3) = gnss_pos_ned(1,:)';
-x(4:6) = gnss_vel_ned(1,:)';
-% Initial acceleration is assumed to be zero
-P = eye(9);
-P(1:6,1:6) = diag([1,1,1,0.1,0.1,0.1]);
-Q = eye(9) * 0.01; % Process noise covariance (9x9)
-R = eye(6) * 0.1;  % Measurement noise covariance (6x6 for pos & vel)
-H = [eye(6), zeros(6,3)]; % Measurement matrix (6x9)
+% State vector x: [pos; vel; euler; accel_bias; gyro_bias] (15x1)
+init_eul = quat_to_euler(rot_to_quaternion(C_B_N));
+x = zeros(15, 1);
+x(1:3)  = gnss_pos_ned(1,:)';
+x(4:6)  = gnss_vel_ned(1,:)';
+x(7:9)  = init_eul;
+x(10:12) = accel_bias(:);
+x(13:15) = gyro_bias(:);
+P = blkdiag(eye(9)*0.01, eye(3)*1e-4, eye(3)*1e-8);
+Q = blkdiag(eye(9)*0.01, eye(3)*1e-6, eye(3)*1e-6);
+R = eye(6) * 0.1;
+H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
 q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
@@ -148,11 +150,12 @@ prev_vel = x(4:6);
 
 % --- Pre-allocate Log Arrays ---
 num_imu_samples = length(imu_time);
-x_log = zeros(9, num_imu_samples);
+x_log = zeros(15, num_imu_samples);
 euler_log = zeros(3, num_imu_samples);
 zupt_log = zeros(1, num_imu_samples);
+acc_log = zeros(3, num_imu_samples);
 zupt_count = 0;
-fprintf('-> 9-State filter initialized.\n');
+fprintf('-> 15-State filter initialized.\n');
 
 %% ========================================================================
 % Subtask 5.6: Kalman Filter for Sensor Fusion
@@ -167,19 +170,18 @@ gnss_vel_interp = interp1(gnss_time, gnss_vel_ned, imu_time, 'linear', 'extrap')
 fprintf('-> Starting filter loop over %d IMU samples...\n', num_imu_samples);
 for i = 1:num_imu_samples
     % --- 1. State Propagation (Prediction) ---
-    F = eye(9);
+    F = eye(15);
     F(1:3, 4:6) = eye(3) * dt_imu;
-    F(4:6, 7:9) = eye(3) * dt_imu;
-
     P = F * P * F' + Q * dt_imu;
 
     % --- 2. Attitude Propagation ---
+    corrected_gyro = gyro_body_raw(i,:)' - x(13:15);
+    corrected_accel = acc_body_raw(i,:)' - x(10:12);
     current_omega_ie_b = C_B_N' * omega_ie_NED;
-    w_b = gyro_body_raw(i,:)' - current_omega_ie_b;
+    w_b = corrected_gyro - current_omega_ie_b;
     q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
     C_B_N = quat_to_rot(q_b_n);
-    f_b = acc_body_raw(i,:)';
-    a_ned = C_B_N * f_b + g_NED;
+    a_ned = C_B_N * corrected_accel + g_NED;
     if i > 1
         vel_new = prev_vel + 0.5 * (a_ned + prev_a_ned) * dt_imu;
         pos_new = x(1:3) + 0.5 * (vel_new + prev_vel) * dt_imu;
@@ -189,7 +191,8 @@ for i = 1:num_imu_samples
     end
     x(4:6) = vel_new;
     x(1:3) = pos_new;
-    x(7:9) = a_ned;
+    x(7:9) = quat_to_euler(q_b_n);
+    acc_log(:,i) = a_ned;
     
     % --- 3. Measurement Update (Correction) ---
     z = [gnss_pos_interp(i,:)'; gnss_vel_interp(i,:)'];
@@ -197,7 +200,7 @@ for i = 1:num_imu_samples
     S = H * P * H' + R;
     K = (P * H') / S;
     x = x + K * y;
-    P = (eye(9) - K * H) * P;
+    P = (eye(15) - K * H) * P;
 
     % update integrator history after correction
     prev_vel = x(4:6);
@@ -211,26 +214,26 @@ for i = 1:num_imu_samples
     if i >= static_start && i <= static_end
         zupt_count = zupt_count + 1;
         zupt_log(i) = 1;
-        H_z = [zeros(3), eye(3), zeros(3)];
+        H_z = [zeros(3,3), eye(3), zeros(3,9)];
         R_z = eye(3) * 1e-4;
         y_z = -H_z * x;
         S_z = H_z * P * H_z' + R_z;
         K_z = (P * H_z') / S_z;
         x = x + K_z * y_z;
-        P = (eye(9) - K_z * H_z) * P;
+        P = (eye(15) - K_z * H_z) * P;
     elseif i > win_size
         acc_win = acc_body_raw(i-win_size+1:i, :);
         gyro_win = gyro_body_raw(i-win_size+1:i, :);
         if is_static(acc_win, gyro_win)
             zupt_count = zupt_count + 1;
             zupt_log(i) = 1;
-            H_z = [zeros(3), eye(3), zeros(3)];
+            H_z = [zeros(3,3), eye(3), zeros(3,9)];
             R_z = eye(3) * 1e-4;
             y_z = -H_z * x;
             S_z = H_z * P * H_z' + R_z;
             K_z = (P * H_z') / S_z;
             x = x + K_z * y_z;
-            P = (eye(9) - K_z * H_z) * P;
+            P = (eye(15) - K_z * H_z) * P;
         end
     end
 
@@ -306,7 +309,7 @@ figure('Name', 'KF Results: Acceleration', 'Position', [150 150 1200 600]);
 for i = 1:3
     subplot(3, 1, i); hold on;
     plot(gnss_time, gnss_accel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Derived)');
-    plot(imu_time, x_log(i+6,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
+    plot(imu_time, acc_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
     hold off; grid on; legend; ylabel('[m/s^2]'); title(['Acceleration: ' labels{i}]);
 end
 xlabel('Time (s)'); sgtitle('Kalman Filter Fused Acceleration vs. GNSS');
