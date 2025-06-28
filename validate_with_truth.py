@@ -1,6 +1,5 @@
 import argparse
 import numpy as np
-import pandas as pd
 from scipy.io import loadmat
 import matplotlib.pyplot as plt
 
@@ -53,13 +52,21 @@ def main():
 
     # Optional velocity and attitude columns (5-7 and 8-11) may be present.
     try:
-        truth_vel = np.loadtxt(args.truth_file, comments="#", usecols=(5, 6, 7))
+        truth_vel = np.loadtxt(
+            args.truth_file,
+            comments="#",
+            usecols=(5, 6, 7),
+        )  # noqa: F841
     except Exception:
-        truth_vel = None
+        truth_vel = None  # noqa: F841
     try:
-        truth_att = np.loadtxt(args.truth_file, comments="#", usecols=(8, 9, 10, 11))
+        truth_att = np.loadtxt(
+            args.truth_file,
+            comments="#",
+            usecols=(8, 9, 10, 11),
+        )  # noqa: F841
     except Exception:
-        truth_att = None
+        truth_att = None  # noqa: F841
 
     est = load_estimate(args.est_file, truth_len=len(truth_pos))
     err = est["pos"][: len(truth_pos)] - truth_pos
