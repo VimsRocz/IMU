@@ -11,6 +11,21 @@ if nargin < 3 || isempty(method)
     method = '';
 end
 
+%% =======================================================================
+%  LOCAL FUNCTION
+% =======================================================================
+function M = triad_basis(v1, v2)
+    t1 = v1 / norm(v1);
+    t2_temp = cross(t1, v2);
+    if norm(t2_temp) < 1e-10
+        if abs(t1(1)) < abs(t1(2)), tmp = [1;0;0]; else, tmp = [0;1;0]; end
+        t2_temp = cross(t1, tmp);
+    end
+    t2 = t2_temp / norm(t2_temp);
+    t3 = cross(t1, t2);
+    M = [t1, t2, t3];
+end
+
 if ~isfile(gnss_path)
     error('Task_2:GNSSFileNotFound', ...
           'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
@@ -202,7 +217,38 @@ g_body_raw = -static_acc_row';
 g_mag = norm(g_body_raw);
 g_body = (g_body_raw / g_mag) * 9.81;   % Normalize then scale to 9.81
 g_body_scaled = g_body;                  % explicitly store scaled gravity
-omega_ie_body = static_gyro_row';
+%% Compute Earth rotation in body frame using initial latitude
+% Load a GNSS sample to estimate the latitude so the expected
+% Earth rotation vector can be removed from the gyroscope bias.
+try
+    gnss_tbl = readtable(gnss_path);
+    valid_idx = find((gnss_tbl.X_ECEF_m ~= 0) | (gnss_tbl.Y_ECEF_m ~= 0) | ...
+                     (gnss_tbl.Z_ECEF_m ~= 0), 1, 'first');
+    if isempty(valid_idx)
+        error('No valid ECEF coordinates found in GNSS file.');
+    end
+    [lat_deg, lon_deg, ~] = ecef_to_geodetic(gnss_tbl.X_ECEF_m(valid_idx), ...
+                                            gnss_tbl.Y_ECEF_m(valid_idx), ...
+                                            gnss_tbl.Z_ECEF_m(valid_idx));
+catch ME
+    warning('Failed to read latitude from GNSS: %s', ME.message);
+    lat_deg = 0; lon_deg = 0;
+end
+lat_rad = deg2rad(lat_deg);
+omega_E = 7.2921159e-5;
+omega_ie_NED = omega_E * [cos(lat_rad); 0; -sin(lat_rad)];
+
+% Use TRIAD with the measured vectors to obtain a rough attitude so that
+% the expected Earth rotation in the body frame can be determined.
+v1_B = static_acc_row'/norm(static_acc_row);
+v2_B = static_gyro_row'/norm(static_gyro_row);
+g_NED = [0;0;9.81];
+v1_N = g_NED/norm(g_NED);
+v2_N = omega_ie_NED/norm(omega_ie_NED);
+M_body = triad_basis(v1_B, v2_B);
+M_ned  = triad_basis(v1_N, v2_N);
+C_B_N = M_ned * M_body';       % body->NED rotation
+omega_ie_body = C_B_N' * omega_ie_NED; % expected earth rotation in body frame
 
 % Biases computed over the automatically detected static interval
 % Use the same samples identified earlier for gravity estimation
