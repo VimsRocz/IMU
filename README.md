@@ -61,8 +61,8 @@ pip3 install filterpy
 2. **Install dependencies**  
    Codespaces will automatically build the container (per `.devcontainer/`), install Python & your `requirements.txt`.
 
-3. **Enable verbose diagnostics**  
-   We’ve added a `--verbose` flag to `run_all_datasets.py` that enables all the extra tables and timing you requested.
+3. **Enable verbose diagnostics**
+   We’ve added a `--verbose` flag to `run_all_datasets.py` that enables all the extra tables and timing you requested. The same flag is available when running `GNSS_IMU_Fusion.py` directly for detailed diagnostics.
 
 4. **Run with diagnostics**  
    In the integrated terminal:
