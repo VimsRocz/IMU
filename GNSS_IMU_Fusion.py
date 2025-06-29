@@ -1473,200 +1473,112 @@ def main():
         )
     
     
-    # Subtask 5.8.2: Plotting Results for selected method
-    logging.info(f"Subtask 5.8.2: Plotting results for {method}.")
-    logging.debug(f"# Subtask 5.8.2: Starting to plot results for {method}.")
-    fig, axes = plt.subplots(3, 3, figsize=(15, 10))
-    
-    # Davenport - Position
-    for j in range(3):
-        ax = axes[0, j]
-        ax.plot(imu_time, gnss_pos_ned_interp[:, j], 'k-', label='GNSS')
-        c = colors.get(method, None)
-        ax.plot(imu_time, fused_pos[method][:, j], c, alpha=0.7, label=f'Fused {method}')
-        ax.set_title(f'Position {directions[j]}')
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Position (m)')
-        ax.legend()
-        logging.info(
-            f"Subtask 5.8.2: Plotted {method} position {directions[j]}: "
-            f"First = {fused_pos[method][0, j]:.4f}, Last = {fused_pos[method][-1, j]:.4f}"
-        )
-        logging.debug(
-            f"# Plotted {method} position {directions[j]}: "
-            f"First = {fused_pos[method][0, j]:.4f}, Last = {fused_pos[method][-1, j]:.4f}"
-        )
-    
-    # Davenport - Velocity
-    for j in range(3):
-        ax = axes[1, j]
-        ax.plot(imu_time, gnss_vel_ned_interp[:, j], 'k-', label='GNSS')
-        c = colors.get(method, None)
-        ax.plot(imu_time, fused_vel[method][:, j], c, alpha=0.7, label=f'Fused {method}')
-        ax.set_title(f'Velocity {directions[j]}')
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Velocity (m/s)')
-        ax.legend()
-        logging.info(
-            f"Subtask 5.8.2: Plotted {method} velocity {directions[j]}: "
-            f"First = {fused_vel[method][0, j]:.4f}, Last = {fused_vel[method][-1, j]:.4f}"
-        )
-        logging.debug(
-            f"# Plotted {method} velocity {directions[j]}: "
-            f"First = {fused_vel[method][0, j]:.4f}, Last = {fused_vel[method][-1, j]:.4f}"
-        )
-    
-    # Davenport - Acceleration
-    for j in range(3):
-        ax = axes[2, j]
-        ax.plot(imu_time, gnss_acc_ned_interp[:, j], 'k-', label='GNSS')
-        c = colors.get(method, None)
-        ax.plot(imu_time, fused_acc[method][:, j], c, alpha=0.7, label=f'Fused {method}')
-        ax.set_title(f'Acceleration {directions[j]}')
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Acceleration (m/s²)')
-        ax.legend()
-        logging.info(
-            f"Subtask 5.8.2: Plotted {method} acceleration {directions[j]}: "
-            f"First = {fused_acc[method][0, j]:.4f}, Last = {fused_acc[method][-1, j]:.4f}"
-        )
-        logging.debug(
-            f"# Plotted {method} acceleration {directions[j]}: "
-            f"First = {fused_acc[method][0, j]:.4f}, Last = {fused_acc[method][-1, j]:.4f}"
-        )
-    
-    plt.tight_layout()
-    out_pdf = f"results/{tag}_task5_results_{method}.pdf"
-    if not args.no_plots:
-        save_plot(fig, out_pdf, f"Kalman Filter Results — {tag}")
-    logging.info(f"Subtask 5.8.2: {method} plot saved as '{out_pdf}'")
-    logging.debug(f"# Subtask 5.8.2: {method} plotting completed. Saved as '{out_pdf}'.")
+    # --- Build data sets ---------------------------------------------------
+    dataset_id = imu_stem.split("_")[1]
+    truth_path = None
+    for cand in [f"STATE_{dataset_id}_small.txt", f"STATE_{dataset_id}.txt"]:
+        if os.path.exists(cand):
+            truth_path = cand
+            break
 
-    # ----- Additional reference frame plots -----
-    logging.info("Plotting all data in NED frame.")
-    fig_ned_all, ax_ned_all = plt.subplots(3, 3, figsize=(15, 10))
-    dirs_ned = ['N', 'E', 'D']
-    c = colors.get(method, None)
-    for i in range(3):
-        for j in range(3):
-            ax = ax_ned_all[i, j]
-            if i == 0:
-                ax.plot(t_rel_gnss, gnss_pos_ned[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, imu_pos[method][:, j], '--', color='gray',
-                        label='IMU (no fusion)')
-                ax.plot(t_rel_ilu, fused_pos[method][:, j], c, alpha=0.7,
-                        label='Fused (KF)')
-                ax.set_title(f'Position {dirs_ned[j]}')
-            elif i == 1:
-                ax.plot(t_rel_gnss, gnss_vel_ned[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, imu_vel[method][:, j], '--', color='gray',
-                        label='IMU (no fusion)')
-                ax.plot(t_rel_ilu, fused_vel[method][:, j], c, alpha=0.7,
-                        label='Fused (KF)')
-                ax.set_title(f'Velocity V{dirs_ned[j]}')
-            else:
-                ax.plot(t_rel_gnss, gnss_acc_ned[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, imu_acc[method][:, j], '--', color='gray',
-                        label='IMU (no fusion)')
-                ax.plot(t_rel_ilu, fused_acc[method][:, j], c, alpha=0.7,
-                        label='Fused (KF)')
-                ax.set_title(f'Acceleration {dirs_ned[j]}')
-            ax.set_xlabel('Time (s)')
-            ax.set_ylabel('Value')
-            ax.legend()
-    plt.tight_layout()
-    if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_compare_ned.pdf")
-    plt.close()
-    logging.info("All data in NED frame plot saved")
+    def interp_all(t_src, arr):
+        return np.vstack([np.interp(imu_time, t_src, arr[:, i]) for i in range(3)]).T
 
-    logging.info("Plotting all data in ECEF frame.")
-    fig_ecef_all, ax_ecef_all = plt.subplots(3, 3, figsize=(15, 10))
-    dirs_ecef = ['X', 'Y', 'Z']
-    pos_ecef_fused = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
-    vel_ecef_fused = (C_NED_to_ECEF @ fused_vel[method].T).T
-    acc_ecef_fused = (C_NED_to_ECEF @ fused_acc[method].T).T
-    pos_ecef_imu = np.array([C_NED_to_ECEF @ p + ref_r0 for p in imu_pos[method]])
-    vel_ecef_imu = (C_NED_to_ECEF @ imu_vel[method].T).T
-    acc_ecef_imu = (C_NED_to_ECEF @ imu_acc[method].T).T
-    for i in range(3):
-        for j in range(3):
-            ax = ax_ecef_all[i, j]
-            if i == 0:
-                ax.plot(t_rel_gnss, gnss_pos_ecef[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, pos_ecef_imu[:, j], '--', color='gray',
-                        label='IMU (no fusion)')
-                ax.plot(t_rel_ilu, pos_ecef_fused[:, j], c, alpha=0.7,
-                        label='Fused (KF)')
-                ax.set_title(f'Position {dirs_ecef[j]}_ECEF')
-            elif i == 1:
-                ax.plot(t_rel_gnss, gnss_vel_ecef[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, vel_ecef_imu[:, j], '--', color='gray',
-                        label='IMU (no fusion)')
-                ax.plot(t_rel_ilu, vel_ecef_fused[:, j], c, alpha=0.7,
-                        label='Fused (KF)')
-                ax.set_title(f'Velocity V{dirs_ecef[j]}_ECEF')
-            else:
-                ax.plot(t_rel_gnss, gnss_acc_ecef[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, acc_ecef_imu[:, j], '--', color='gray',
-                        label='IMU (no fusion)')
-                ax.plot(t_rel_ilu, acc_ecef_fused[:, j], c, alpha=0.7,
-                        label='Fused (KF)')
-                ax.set_title(f'Acceleration {dirs_ecef[j]}_ECEF')
-            ax.set_xlabel('Time (s)')
-            ax.set_ylabel('Value')
-            ax.legend()
-    plt.tight_layout()
-    if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_compare_ecef.pdf")
-    plt.close()
-    logging.info("All data in ECEF frame plot saved")
+    data_sets = {
+        "GNSS": {
+            "ECEF": (
+                interp_all(gnss_time, gnss_pos_ecef),
+                interp_all(gnss_time, gnss_vel_ecef),
+                interp_all(gnss_time, gnss_acc_ecef),
+            ),
+            "NED": (
+                interp_all(gnss_time, gnss_pos_ned),
+                interp_all(gnss_time, gnss_vel_ned),
+                interp_all(gnss_time, gnss_acc_ned),
+            ),
+        },
+        "IMU": {
+            "ECEF": (
+                (C_NED_to_ECEF @ imu_pos[method].T).T + ref_r0,
+                (C_NED_to_ECEF @ imu_vel[method].T).T,
+                (C_NED_to_ECEF @ imu_acc[method].T).T,
+            ),
+            "NED": (imu_pos[method], imu_vel[method], imu_acc[method]),
+        },
+        "Fused": {
+            "ECEF": (
+                (C_NED_to_ECEF @ fused_pos[method].T).T + ref_r0,
+                (C_NED_to_ECEF @ fused_vel[method].T).T,
+                (C_NED_to_ECEF @ fused_acc[method].T).T,
+            ),
+            "NED": (fused_pos[method], fused_vel[method], fused_acc[method]),
+        },
+    }
 
-    logging.info("Plotting all data in body frame.")
-    fig_body_all, ax_body_all = plt.subplots(3, 3, figsize=(15, 10))
-    dirs_body = ['X', 'Y', 'Z']
     C_N_B = C_B_N_methods[method].T
-    pos_body_fused = (C_N_B @ fused_pos[method].T).T
-    vel_body_fused = (C_N_B @ fused_vel[method].T).T
-    acc_body_fused = (C_N_B @ fused_acc[method].T).T
-    pos_body_imu = (C_N_B @ imu_pos[method].T).T
-    vel_body_imu = (C_N_B @ imu_vel[method].T).T
-    acc_body_imu = (C_N_B @ imu_acc[method].T).T
-    gnss_pos_body = (C_N_B @ gnss_pos_ned.T).T
-    gnss_vel_body = (C_N_B @ gnss_vel_ned.T).T
-    gnss_acc_body = (C_N_B @ gnss_acc_ned.T).T
-    for i in range(3):
-        for j in range(3):
-            ax = ax_body_all[i, j]
-            if i == 0:
-                ax.plot(t_rel_gnss, gnss_pos_body[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, pos_body_imu[:, j], '--', color='gray',
-                        label='IMU (no fusion)')
-                ax.plot(t_rel_ilu, pos_body_fused[:, j], c, alpha=0.7,
-                        label='Fused (KF)')
-                ax.set_title(f'Position r{dirs_body[j]}_body')
-            elif i == 1:
-                ax.plot(t_rel_gnss, gnss_vel_body[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, vel_body_imu[:, j], '--', color='gray',
-                        label='IMU (no fusion)')
-                ax.plot(t_rel_ilu, vel_body_fused[:, j], c, alpha=0.7,
-                        label='Fused (KF)')
-                ax.set_title(f'Velocity v{dirs_body[j]}_body')
-            else:
-                ax.plot(t_rel_gnss, gnss_acc_body[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, acc_body_imu[:, j], '--', color='gray',
-                        label='IMU (no fusion)')
-                ax.plot(t_rel_ilu, acc_body_fused[:, j], c, alpha=0.7,
-                        label='Fused (KF)')
-                ax.set_title(f'Acceleration A{dirs_body[j]}_body')
-            ax.set_xlabel('Time (s)')
-            ax.set_ylabel('Value')
-            ax.legend()
-    plt.tight_layout()
-    if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_compare_body.pdf")
-    plt.close()
-    logging.info("All data in body frame plot saved")
+    for name in ["GNSS", "IMU", "Fused"]:
+        pos, vel, acc = data_sets[name]["NED"]
+        data_sets[name]["BODY"] = (
+            (C_N_B @ pos.T).T,
+            (C_N_B @ vel.T).T,
+            (C_N_B @ acc.T).T,
+        )
+
+    if truth_path is not None:
+        truth = np.loadtxt(truth_path)
+        t_truth = truth[:, 1] + gnss_time[0]
+        pos_ecef_t = truth[:, 2:5]
+        vel_ecef_t = truth[:, 5:8]
+        acc_ecef_t = np.zeros_like(vel_ecef_t)
+        if len(t_truth) > 1:
+            dt_t = np.diff(t_truth, prepend=t_truth[0])
+            acc_ecef_t[1:] = np.diff(vel_ecef_t, axis=0) / dt_t[1:, None]
+        pos_ned_t = np.array([C_ECEF_to_NED @ (p - ref_r0) for p in pos_ecef_t])
+        vel_ned_t = np.array([C_ECEF_to_NED @ v for v in vel_ecef_t])
+        acc_ned_t = np.array([C_ECEF_to_NED @ a for a in acc_ecef_t])
+        pos_ecef_t = interp_all(t_truth, pos_ecef_t)
+        vel_ecef_t = interp_all(t_truth, vel_ecef_t)
+        acc_ecef_t = interp_all(t_truth, acc_ecef_t)
+        pos_ned_t = interp_all(t_truth, pos_ned_t)
+        vel_ned_t = interp_all(t_truth, vel_ned_t)
+        acc_ned_t = interp_all(t_truth, acc_ned_t)
+        pos_body_t = (C_N_B @ pos_ned_t.T).T
+        vel_body_t = (C_N_B @ vel_ned_t.T).T
+        acc_body_t = (C_N_B @ acc_ned_t.T).T
+        data_sets["Truth"] = {
+            "ECEF": (pos_ecef_t, vel_ecef_t, acc_ecef_t),
+            "NED": (pos_ned_t, vel_ned_t, acc_ned_t),
+            "BODY": (pos_body_t, vel_body_t, acc_body_t),
+        }
+
+    # --- Plot frames ------------------------------------------------------
+    frame_axes = {
+        "NED": ["N", "E", "D"],
+        "ECEF": ["X", "Y", "Z"],
+        "BODY": ["X", "Y", "Z"],
+    }
+
+    for frame, labels in frame_axes.items():
+        fig, axes = plt.subplots(3, 3, figsize=(15, 10))
+        for i, comp in enumerate(["Position", "Velocity", "Acceleration"]):
+            for j, lbl in enumerate(labels):
+                ax = axes[i, j]
+                for name, data in data_sets.items():
+                    pos, vel, acc = data[frame]
+                    arr = {0: pos, 1: vel, 2: acc}[i]
+                    ax.plot(imu_time, arr[:, j], label=name)
+                ax.set_title(f"{comp} {lbl}")
+                ax.set_xlabel("Time (s)")
+                ax.set_ylabel("Value")
+                ax.legend()
+        plt.tight_layout()
+        out_pdf = f"results/{dataset_id}_{frame}_Truth_GNSS_IMU.pdf"
+        legacy = f"results/{tag}_task5_compare_{frame.lower()}.pdf"
+        if not args.no_plots:
+            plt.savefig(out_pdf)
+            plt.savefig(legacy)
+        plt.close()
+        logging.info(f"Saved {frame} comparison plot to {out_pdf}")
 
     # Plot pre-fit innovations
     fig_innov, ax_innov = plt.subplots(3, 1, sharex=True, figsize=(8, 6))
@@ -1704,10 +1616,9 @@ def main():
         f'{tag}_task4_all_ned.pdf': 'Integrated data in NED frame',
         f'{tag}_task4_all_ecef.pdf': 'Integrated data in ECEF frame',
         f'{tag}_task4_all_body.pdf': 'Integrated data in body frame',
-        f'{tag}_task5_results_{method}.pdf': f'Kalman filter results using {method}',
-        f'{tag}_task5_compare_ned.pdf': 'GNSS/IMU/KF comparison in NED frame',
-        f'{tag}_task5_compare_ecef.pdf': 'GNSS/IMU/KF comparison in ECEF frame',
-        f'{tag}_task5_compare_body.pdf': 'GNSS/IMU/KF comparison in body frame',
+        f'{dataset_id}_NED_Truth_GNSS_IMU.pdf': 'Comparison with truth in NED frame',
+        f'{dataset_id}_ECEF_Truth_GNSS_IMU.pdf': 'Comparison with truth in ECEF frame',
+        f'{dataset_id}_BODY_Truth_GNSS_IMU.pdf': 'Comparison with truth in body frame',
         f'{tag}_{method.lower()}_residuals.pdf': 'Position and velocity residuals',
         f'{tag}_{method.lower()}_innovations.pdf': 'Pre-fit innovations',
         f'{tag}_{method.lower()}_attitude_angles.pdf': 'Attitude angles over time'
@@ -1774,6 +1685,9 @@ def main():
         time_residuals=time_res_all[method],
         attitude_q=attitude_q_all[method],
         P_hist=P_hist_all[method],
+        ref_lat=np.array([ref_lat]),
+        ref_lon=np.array([ref_lon]),
+        r0=ref_r0,
     )
 
     # Also export results as MATLAB-compatible .mat for post-processing
@@ -1797,6 +1711,9 @@ def main():
             "time_residuals": time_res_all[method],
             "attitude_q": attitude_q_all[method],
             "P_hist": P_hist_all[method],
+            "ref_lat": np.array([ref_lat]),
+            "ref_lon": np.array([ref_lon]),
+            "r0": ref_r0,
         },
     )
 
