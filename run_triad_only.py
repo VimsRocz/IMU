@@ -7,6 +7,8 @@ import sys
 import pathlib
 import re
 import os
+from plot_overlay import plot_overlay
+from validate_with_truth import load_estimate, assemble_frames
 
 HERE = pathlib.Path(__file__).resolve().parent
 
@@ -41,4 +43,33 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         str(results),
     ]
     subprocess.run(vcmd, check=True)
-
+    try:
+        est = load_estimate(str(mat))
+        m2 = re.match(r"(IMU_\w+)_GNSS_(\w+)_TRIAD_kf_output", mat.stem)
+        if m2:
+            imu_file = HERE / f"{m2.group(1)}.dat"
+            gnss_file = HERE / f"{m2.group(2)}.csv"
+            frames = assemble_frames(est, imu_file, gnss_file)
+            for frame_name, data in frames.items():
+                t_i, p_i, v_i, a_i = data["imu"]
+                t_g, p_g, v_g, a_g = data["gnss"]
+                t_f, p_f, v_f, a_f = data["fused"]
+                plot_overlay(
+                    frame_name,
+                    "TRIAD",
+                    t_i,
+                    p_i,
+                    v_i,
+                    a_i,
+                    t_g,
+                    p_g,
+                    v_g,
+                    a_g,
+                    t_f,
+                    p_f,
+                    v_f,
+                    a_f,
+                    results,
+                )
+    except Exception as e:
+        print(f"Overlay plot failed: {e}")

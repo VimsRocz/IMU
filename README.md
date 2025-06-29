@@ -76,10 +76,14 @@ the MATLAB scripts.
 ## Running validation
 
 To process the bundled datasets using only the TRIAD initialisation and
-validate the results, run:
+validate the results, run either the Python or MATLAB helper script:
 
 ```bash
 python run_triad_only.py
+```
+
+```matlab
+run_triad_only
 ```
 
 All output files are written to the `results/` directory.  When a matching
@@ -183,10 +187,13 @@ All cases: 100%|##########| 9/9 [00:12<00:00,  1.31s/it]
 
 ## Running only the TRIAD method
 
-If you want to process all datasets using just the TRIAD initialisation method, run the helper script `run_triad_only.py`:
+If you want to process all datasets using just the TRIAD initialisation method, run the helper script `run_triad_only.py` or the MATLAB script `run_triad_only.m`:
 
 ```bash
 python run_triad_only.py
+```
+```matlab
+run_triad_only
 ```
 This is equivalent to running `run_all_datasets.py --method TRIAD`.
 
@@ -375,6 +382,11 @@ Task_5(imu, gnss, 'TRIAD');   % uses Task4 results, writes Task5_results_IMU_X00
 expects `Task4_results_<pair>.mat` to initialise the filter. Running the
 commands above reproduces the Python `main` results while letting you inspect
 each stage individually.
+
+Task 5 now also exports three comparison figures that overlay GNSS, IMU-only
+dead reckoning and the fused trajectory in the NED, ECEF and body frames. Look
+for `<tag>_Task5_CompareNED.pdf`, `<tag>_Task5_CompareECEF.pdf` and
+`<tag>_Task5_CompareBody.pdf` in the `results/` directory after the run.
 
 ## Export to MATLAB (.mat) files
 To convert the saved Python results into MATLAB `.mat` files, run from the repo root:
