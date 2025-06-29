@@ -136,12 +136,17 @@ If the measured magnitude differs by more than a few percent, the IMU may not be
 
 ## Running all methods
 
-Use `run_all_methods.py` to execute the fusion script with TRIAD, Davenport and SVD sequentially:
+Use `run_all_methods.py` to execute the fusion script with TRIAD, Davenport and
+SVD sequentially:
 
 ```bash
-python run_all_methods.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
+python run_all_methods.py           # uses default datasets
+# or specify a YAML file with:
+python run_all_methods.py --config config.yml
 ```
 
+The optional YAML file lists the IMU/GNSS pairs under `datasets:`
+with `imu` and `gnss` keys and the algorithms to run under `methods:`.
 
 ## Running all data sets
 
