@@ -383,6 +383,11 @@ expects `Task4_results_<pair>.mat` to initialise the filter. Running the
 commands above reproduces the Python `main` results while letting you inspect
 each stage individually.
 
+Task 5 now also exports three comparison figures that overlay GNSS, IMU-only
+dead reckoning and the fused trajectory in the NED, ECEF and body frames. Look
+for `<tag>_Task5_CompareNED.pdf`, `<tag>_Task5_CompareECEF.pdf` and
+`<tag>_Task5_CompareBody.pdf` in the `results/` directory after the run.
+
 ## Export to MATLAB (.mat) files
 To convert the saved Python results into MATLAB `.mat` files, run from the repo root:
 

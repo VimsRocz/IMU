@@ -7,8 +7,8 @@
 - **task4_all_ecef.pdf**: Integrated data in ECEF frame
 - **task4_all_body.pdf**: Integrated data in body frame
 - **task5_results_Davenport.pdf**: Kalman filter results using Davenport
-- **task5_all_ned.pdf**: Kalman filter results in NED frame
-- **task5_all_ecef.pdf**: Kalman filter results in ECEF frame
-- **task5_all_body.pdf**: Kalman filter results in body frame
+- **task5_compare_ned.pdf**: GNSS/IMU/KF comparison in NED frame
+- **task5_compare_ecef.pdf**: GNSS/IMU/KF comparison in ECEF frame
+- **task5_compare_body.pdf**: GNSS/IMU/KF comparison in body frame
 - **davenport_residuals.pdf**: Position and velocity residuals
 - **davenport_attitude_angles.pdf**: Attitude angles over time
