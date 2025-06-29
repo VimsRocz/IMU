@@ -230,7 +230,10 @@ def main():
     sigma_pos = sigma_vel = sigma_quat = None
     if est["P"] is not None:
         diag = np.diagonal(est["P"], axis1=1, axis2=2)
-        t_sigma = t_est[: diag.shape[0]]
+        # some files store one more covariance entry than timestamps
+        n_sigma = min(len(t_est), diag.shape[0])
+        t_sigma = t_est[:n_sigma]
+        diag = diag[:n_sigma]
         if diag.shape[1] >= 3:
             tmp = 3 * np.sqrt(diag[:, :3])
             sigma_pos = np.vstack(
