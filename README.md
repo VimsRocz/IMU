@@ -256,11 +256,12 @@ test suite in one command.
 
 ## MATLAB Compatibility
 
-Each run now exports a MATLAB `.mat` file alongside the NPZ results. Use the
-scripts in the new `MATLAB/` folder to recreate the final plots or validate the
-filter against ground truth data. Example:
+Each run now exports a MATLAB `.mat` file alongside the NPZ results. The plotting
+and validation functions live in the `MATLAB/` directory. Add it to your path
+before calling them:
 
 ```matlab
+addpath('MATLAB')
 plot_results('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat');
 validate_3sigma('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat', 'STATE_X001.txt');
 ```
