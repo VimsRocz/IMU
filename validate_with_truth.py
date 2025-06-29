@@ -7,6 +7,9 @@ from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
 
 from utils import compute_C_ECEF_to_NED
+from plot_overlay import plot_overlay
+import pandas as pd
+import re
 
 
 def load_estimate(path):
@@ -25,9 +28,7 @@ def load_estimate(path):
                 if arr.ndim == 2 and arr.shape[1] == n_cols:
                     print(f"Using '{k}' for '{keys[0] if keys else '?'}'")
                     return v
-        print(
-            f"Could not find any of {keys}. Available keys: {list(container.keys())}"
-        )
+        print(f"Could not find any of {keys}. Available keys: {list(container.keys())}")
         return default
 
     if path.endswith(".npz"):
@@ -97,13 +98,125 @@ def load_estimate(path):
 
     if est["time"] is None:
         try:
-            est["time"] = np.loadtxt(
-                "STATE_X001.txt", comments="#", usecols=1
-            )[: len(est["pos"])]
+            est["time"] = np.loadtxt("STATE_X001.txt", comments="#", usecols=1)[
+                : len(est["pos"])
+            ]
         except OSError:
             est["time"] = np.arange(len(est["pos"]))
 
     return est
+
+
+def assemble_frames(est, imu_file, gnss_file):
+    """Return aligned datasets in NED/ECEF/Body frames."""
+    gnss = pd.read_csv(gnss_file)
+    t_gnss = gnss["Posix_Time"].to_numpy()
+    pos_ecef = gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].to_numpy()
+    vel_ecef = gnss[["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]].to_numpy()
+    dt_g = np.diff(t_gnss, prepend=t_gnss[0])
+    acc_ecef = np.zeros_like(vel_ecef)
+    acc_ecef[1:] = np.diff(vel_ecef, axis=0) / dt_g[1:, None]
+
+    ref_lat = float(np.asarray(est.get("ref_lat")).squeeze())
+    ref_lon = float(np.asarray(est.get("ref_lon")).squeeze())
+    ref_r0 = np.asarray(est.get("ref_r0")).squeeze()
+    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+    pos_gnss_ned = np.array([C @ (p - ref_r0) for p in pos_ecef])
+    vel_gnss_ned = np.array([C @ v for v in vel_ecef])
+    acc_gnss_ned = np.array([C @ a for a in acc_ecef])
+
+    t_est = np.asarray(est["time"]).squeeze()
+    fused_pos = np.asarray(est["pos"])
+    fused_vel = np.asarray(est["vel"])
+    fused_acc = np.zeros_like(fused_vel)
+    if len(t_est) > 1:
+        dt = np.diff(t_est, prepend=t_est[0])
+        fused_acc[1:] = np.diff(fused_vel, axis=0) / dt[1:, None]
+
+    innov_pos = est.get("innov_pos")
+    innov_vel = est.get("innov_vel")
+    if innov_pos is not None and innov_vel is not None:
+        gnss_pos_interp = np.vstack(
+            [np.interp(t_est, t_gnss, pos_gnss_ned[:, i]) for i in range(3)]
+        ).T
+        gnss_vel_interp = np.vstack(
+            [np.interp(t_est, t_gnss, vel_gnss_ned[:, i]) for i in range(3)]
+        ).T
+        imu_pos = gnss_pos_interp - innov_pos[: len(t_est)]
+        imu_vel = gnss_vel_interp - innov_vel[: len(t_est)]
+    else:
+        imu_pos = fused_pos
+        imu_vel = fused_vel
+    imu_acc = np.zeros_like(imu_vel)
+    if len(t_est) > 1:
+        dt = np.diff(t_est, prepend=t_est[0])
+        imu_acc[1:] = np.diff(imu_vel, axis=0) / dt[1:, None]
+
+    C_N2E = C.T
+
+    def ned_to_ecef(pos, vel, acc):
+        p = (C_N2E @ pos.T).T + ref_r0
+        v = (C_N2E @ vel.T).T
+        a = (C_N2E @ acc.T).T
+        return p, v, a
+
+    imu_ecef = ned_to_ecef(imu_pos, imu_vel, imu_acc)
+    fused_ecef = ned_to_ecef(fused_pos, fused_vel, fused_acc)
+    gnss_ecef = (pos_ecef, vel_ecef, acc_ecef)
+
+    q = est.get("quat")
+    if q is not None:
+        rot = R.from_quat(np.asarray(q)[: len(t_est)][:, [1, 2, 3, 0]])
+
+        def to_body(pos, vel, acc):
+            return rot.apply(pos), rot.apply(vel), rot.apply(acc)
+
+        imu_body = to_body(imu_pos, imu_vel, imu_acc)
+        fused_body = to_body(fused_pos, fused_vel, fused_acc)
+        gnss_body = to_body(
+            np.vstack(
+                [np.interp(t_est, t_gnss, pos_gnss_ned[:, i]) for i in range(3)]
+            ).T,
+            np.vstack(
+                [np.interp(t_est, t_gnss, vel_gnss_ned[:, i]) for i in range(3)]
+            ).T,
+            np.vstack(
+                [np.interp(t_est, t_gnss, acc_gnss_ned[:, i]) for i in range(3)]
+            ).T,
+        )
+    else:
+        imu_body = imu_pos, imu_vel, imu_acc
+        fused_body = fused_pos, fused_vel, fused_acc
+        gnss_body = (
+            np.vstack(
+                [np.interp(t_est, t_gnss, pos_gnss_ned[:, i]) for i in range(3)]
+            ).T,
+            np.vstack(
+                [np.interp(t_est, t_gnss, vel_gnss_ned[:, i]) for i in range(3)]
+            ).T,
+            np.vstack(
+                [np.interp(t_est, t_gnss, acc_gnss_ned[:, i]) for i in range(3)]
+            ).T,
+        )
+
+    frames = {
+        "NED": {
+            "imu": (t_est, *(imu_pos, imu_vel, imu_acc)),
+            "gnss": (t_gnss, pos_gnss_ned, vel_gnss_ned, acc_gnss_ned),
+            "fused": (t_est, fused_pos, fused_vel, fused_acc),
+        },
+        "ECEF": {
+            "imu": (t_est, *imu_ecef),
+            "gnss": (t_gnss, *gnss_ecef),
+            "fused": (t_est, *fused_ecef),
+        },
+        "Body": {
+            "imu": (t_est, *imu_body),
+            "gnss": (t_est, *gnss_body),
+            "fused": (t_est, *fused_body),
+        },
+    }
+    return frames
 
 
 def main():
@@ -122,12 +235,8 @@ def main():
     ap.add_argument(
         "--output", default="results", help="directory for the generated PDFs"
     )
-    ap.add_argument(
-        "--ref-lat", type=float, help="reference latitude in degrees"
-    )
-    ap.add_argument(
-        "--ref-lon", type=float, help="reference longitude in degrees"
-    )
+    ap.add_argument("--ref-lat", type=float, help="reference latitude in degrees")
+    ap.add_argument("--ref-lon", type=float, help="reference longitude in degrees")
     ap.add_argument("--ref-r0", type=float, nargs=3, help="ECEF origin [m]")
     args = ap.parse_args()
 
@@ -204,11 +313,11 @@ def main():
         err_angles = 2 * np.arccos(np.clip(np.abs(err_quat[:, 0]), -1.0, 1.0))
         err_deg = np.degrees(err_angles)
         final_att_error = err_deg[-1]
-        rmse_att = np.sqrt(np.mean(err_deg ** 2))
+        rmse_att = np.sqrt(np.mean(err_deg**2))
 
     # --- Performance metrics ----------------------------------------------
     final_pos_error = np.linalg.norm(err_pos[-1])
-    rmse_pos = np.sqrt(np.mean(np.sum(err_pos ** 2, axis=1)))
+    rmse_pos = np.sqrt(np.mean(np.sum(err_pos**2, axis=1)))
     summary_lines = [
         f"Final position error: {final_pos_error:.2f} m",
         f"RMSE position error: {rmse_pos:.2f} m",
@@ -216,7 +325,7 @@ def main():
     final_vel_error = rmse_vel = None
     if err_vel is not None:
         final_vel_error = np.linalg.norm(err_vel[-1])
-        rmse_vel = np.sqrt(np.mean(np.sum(err_vel ** 2, axis=1)))
+        rmse_vel = np.sqrt(np.mean(np.sum(err_vel**2, axis=1)))
         summary_lines += [
             f"Final velocity error: {final_vel_error:.2f} m/s",
             f"RMSE velocity error: {rmse_vel:.2f} m/s",
@@ -278,9 +387,40 @@ def main():
     if err_vel is not None:
         plot_err(t_truth, err_vel, sigma_vel, ["Vx", "Vy", "Vz"], "vel_err")
     if err_quat is not None:
-        plot_err(
-            t_truth, err_quat, sigma_quat, ["q0", "q1", "q2", "q3"], "att_err"
-        )
+        plot_err(t_truth, err_quat, sigma_quat, ["q0", "q1", "q2", "q3"], "att_err")
+
+    m = re.match(
+        r"(IMU_\w+)_GNSS_(\w+)_([A-Za-z]+)_kf_output", os.path.basename(args.est_file)
+    )
+    if m:
+        imu_file = f"{m.group(1)}.dat"
+        gnss_file = f"{m.group(2)}.csv"
+        method = m.group(3)
+        try:
+            frames = assemble_frames(est, imu_file, gnss_file)
+            for frame_name, data in frames.items():
+                t_i, p_i, v_i, a_i = data["imu"]
+                t_g, p_g, v_g, a_g = data["gnss"]
+                t_f, p_f, v_f, a_f = data["fused"]
+                plot_overlay(
+                    frame_name,
+                    method,
+                    t_i,
+                    p_i,
+                    v_i,
+                    a_i,
+                    t_g,
+                    p_g,
+                    v_g,
+                    a_g,
+                    t_f,
+                    p_f,
+                    v_f,
+                    a_f,
+                    args.output,
+                )
+        except Exception as e:
+            print(f"Overlay plot failed: {e}")
 
 
 if __name__ == "__main__":
