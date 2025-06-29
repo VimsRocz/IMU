@@ -199,7 +199,21 @@ generated figures in `results/auto_plots/`.
 Interactive exploration lives in the `notebooks/` folder. Open
 `notebooks/demo.ipynb` to try the plotting utilities in Jupyter.
 Additional plotting examples and a results template are available in [docs/PlottingExamples.md](docs/PlottingExamples.md).
+
 A codex-style plotting checklist is available in [docs/PlottingChecklist.md](docs/PlottingChecklist.md).
+
+## Summary CSV format
+
+`summarise_runs.py` parses the log files produced by the batch scripts and
+writes `results/summary.csv`. Each row contains:
+
+- `method` – attitude initialisation method name
+- `imu` – IMU data file
+- `gnss` – GNSS data file
+- `rmse_pos` – overall position RMSE in metres
+- `final_pos` – final position error in metres
+
+`generate_summary.py` reads this CSV to build the PDF report.
 
 ## Tests
 
