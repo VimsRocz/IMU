@@ -304,161 +304,92 @@ for k = 1:N
     gnss_acc_body(k,:)  = (C_N_Bk * gnss_accel_ned(k,:)')';
 end
 
-% --- Plot 1: Position Comparison ---
-figure('Name', 'KF Results: Position', 'Position', [100 100 1200 600]);
-labels = {'North', 'East', 'Down'};
-for i = 1:3
-    subplot(3, 1, i); hold on;
-    plot(gnss_time, gnss_pos_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
-    plot(imu_time, x_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
-    hold off; grid on; legend; ylabel('[m]'); title(['Position: ' labels{i}]);
-end
-xlabel('Time (s)'); sgtitle('Kalman Filter Fused Position vs. GNSS');
-pos_file = fullfile(results_dir, sprintf('%s_Task5_Position.pdf', tag));
-set(gcf,'PaperPositionMode','auto');
-print(gcf, pos_file, '-dpdf', '-bestfit');
-fprintf('Saved plot: %s\n', pos_file);
-all_file = fullfile(results_dir, sprintf('%s_Task5_AllResults.pdf', tag));
-if exist(all_file, 'file'); delete(all_file); end
-exportgraphics(gcf, all_file, 'Append', true);
 
-% --- Plot 2: Velocity Comparison ---
-figure('Name', 'KF Results: Velocity', 'Position', [150 150 1200 600]);
-for i = 1:3
-    subplot(3, 1, i); hold on;
-    plot(gnss_time, gnss_vel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
-    plot(imu_time, x_log(i+3,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
-    zupt_indices = find(zupt_log);
-    if ~isempty(zupt_indices), plot(imu_time(zupt_indices), x_log(i+3,zupt_indices), 'ro', 'MarkerSize', 3, 'DisplayName', 'ZUPT'); end
-    hold off; grid on; legend; ylabel('[m/s]'); title(['Velocity: ' labels{i}]);
+% --- Frame comparisons with Truth ----------------------------------
+token = regexp(imu_name,'IMU_(X\d+)','tokens');
+dataset_id = token{1}{1};
+truth_candidates = {sprintf('STATE_%s_small.txt',dataset_id), sprintf('STATE_%s.txt',dataset_id)};
+truth_data = [];
+for i=1:numel(truth_candidates)
+    if exist(truth_candidates{i},'file')
+        truth_data = load(truth_candidates{i});
+        break; end
 end
-xlabel('Time (s)'); sgtitle('Kalman Filter Fused Velocity vs. GNSS');
-vel_file = fullfile(results_dir, sprintf('%s_Task5_Velocity.pdf', tag));
-set(gcf,'PaperPositionMode','auto');
-print(gcf, vel_file, '-dpdf', '-bestfit');
-fprintf('Saved plot: %s\n', vel_file);
-exportgraphics(gcf, all_file, 'Append', true);
-
-% --- Plot 3: Acceleration Comparison ---
-figure('Name', 'KF Results: Acceleration', 'Position', [150 150 1200 600]);
-for i = 1:3
-    subplot(3, 1, i); hold on;
-    plot(gnss_time, gnss_accel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Derived)');
-    plot(imu_time, acc_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
-    hold off; grid on; legend; ylabel('[m/s^2]'); title(['Acceleration: ' labels{i}]);
+if ~isempty(truth_data)
+    t_truth = truth_data(:,2) + gnss_time(1);
+    pos_t_ecef = truth_data(:,3:5);
+    vel_t_ecef = truth_data(:,6:8);
+    dt_t = [0; diff(t_truth)];
+    acc_t_ecef = [zeros(1,3); diff(vel_t_ecef)./dt_t(2:end)];
+    pos_t_ned = (C_ECEF_to_NED*(pos_t_ecef'-ref_r0))';
+    vel_t_ned = (C_ECEF_to_NED*vel_t_ecef')';
+    acc_t_ned = (C_ECEF_to_NED*acc_t_ecef')';
+    pos_t_body = (C_N_B*pos_t_ned')';
+    vel_t_body = (C_N_B*vel_t_ned')';
+    acc_t_body = (C_N_B*acc_t_ned')';
+    interp_truth = @(d) interp1(t_truth, d, imu_time, 'linear', 'extrap');
+else
+    interp_truth = @(d) [];
 end
-xlabel('Time (s)'); sgtitle('Kalman Filter Fused Acceleration vs. GNSS');
-acc_file = fullfile(results_dir, sprintf('%s_Task5_Acceleration.pdf', tag));
-set(gcf,'PaperPositionMode','auto');
-print(gcf, acc_file, '-dpdf', '-bestfit');
-fprintf('Saved plot: %s\n', acc_file);
-exportgraphics(gcf, all_file, 'Append', true);
 
-% --- Plot 4: Attitude (Euler Angles) ---
-figure('Name', 'KF Results: Attitude', 'Position', [200 200 1200 600]);
-euler_labels = {'Roll', 'Pitch', 'Yaw'};
-for i = 1:3
-    subplot(3, 1, i);
-    plot(imu_time, rad2deg(euler_log(i,:)), 'b-');
-    grid on; ylabel('[deg]'); title([euler_labels{i} ' Angle']);
-end
-xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
-att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
-set(gcf,'PaperPositionMode','auto');
-print(gcf, att_file, '-dpdf', '-bestfit');
-fprintf('Saved plot: %s\n', att_file);
-exportgraphics(gcf, all_file, 'Append', true);
+gnss_pos_ned_i   = interp1(gnss_time, gnss_pos_ned, imu_time, 'linear','extrap');
+gnss_vel_ned_i   = interp1(gnss_time, gnss_vel_ned, imu_time, 'linear','extrap');
+gnss_acc_ned_i   = interp1(gnss_time, gnss_accel_ned, imu_time,'linear','extrap');
+gnss_pos_ecef_i  = interp1(gnss_time, gnss_pos_ecef, imu_time,'linear','extrap');
+gnss_vel_ecef_i  = interp1(gnss_time, gnss_vel_ecef, imu_time,'linear','extrap');
+gnss_acc_ecef_i  = interp1(gnss_time, gnss_accel_ecef, imu_time,'linear','extrap');
+gnss_pos_body_i  = (C_N_B*gnss_pos_ned_i')';
+gnss_vel_body_i  = (C_N_B*gnss_vel_ned_i')';
+gnss_acc_body_i  = (C_N_B*gnss_acc_ned_i')';
 
-% --- Comparison plots across frames ---
-dirs_ned = {'N','E','D'};
-figure('Name','Compare NED','Position',[100 100 1200 900]);
-for r = 1:3
-    for c = 1:3
-        subplot(3,3,(r-1)*3+c); hold on;
-        if r == 1
-            plot(gnss_time, gnss_pos_ned(:,c),'k-','DisplayName','GNSS');
-            plot(imu_time, imu_pos(c,:), 'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
-            plot(imu_time, x_log(c,:), 'b-','DisplayName','Fused (KF)');
-            title(['Position ' dirs_ned{c}]); ylabel('[m]');
-        elseif r == 2
-            plot(gnss_time, gnss_vel_ned(:,c),'k-','DisplayName','GNSS');
-            plot(imu_time, imu_vel(c,:), 'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
-            plot(imu_time, vel_log(c,:), 'b-','DisplayName','Fused (KF)');
-            title(['Velocity V' dirs_ned{c}]); ylabel('[m/s]');
-        else
-            plot(gnss_time, gnss_accel_ned(:,c),'k-','DisplayName','GNSS');
-            plot(imu_time, imu_acc(c,:), 'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
-            plot(imu_time, accel_from_vel(c,:), 'b-','DisplayName','Fused (KF)');
-            title(['Acceleration ' dirs_ned{c}]); ylabel('[m/s^2]');
+pos_ecef_fused = (C_NED_to_ECEF*x_log(1:3,:))'+ref_r0';
+vel_ecef_fused = (C_NED_to_ECEF*vel_log)';
+acc_ecef_fused = (C_NED_to_ECEF*accel_from_vel)';
+pos_body_fused = (C_N_B*x_log(1:3,:))';
+vel_body_fused = (C_N_B*vel_log)';
+acc_body_fused = (C_N_B*accel_from_vel)';
+
+frames = {'NED','ECEF','BODY'};
+labels_frames = {{'N','E','D'},{'X','Y','Z'},{'X','Y','Z'}};
+for f = 1:3
+    frame = frames{f}; labs = labels_frames{f};
+    fig = figure('Name',['Compare ' frame],'Position',[100 100 1200 900]);
+    tlo = tiledlayout(3,3);
+    for r = 1:3
+        for c = 1:3
+            ax = nexttile; hold(ax,'on');
+            switch frame
+                case 'NED'
+                    plot(imu_time, gnss_pos_ned_i(:,c),'k-','DisplayName','GNSS');
+                    plot(imu_time, imu_pos(r,:), '--','Color',[0.5 0.5 0.5],'DisplayName','IMU');
+                    plot(imu_time, x_log(r,:), 'b-','DisplayName','Fused');
+                    ti = interp_truth(pos_t_ned); if ~isempty(ti), plot(imu_time, ti(:,c),'g-','DisplayName','Truth'); end
+                case 'ECEF'
+                    plot(imu_time, gnss_pos_ecef_i(:,c),'k-','DisplayName','GNSS');
+                    plot(imu_time, pos_ecef_imu(:,c),'--','Color',[0.5 0.5 0.5],'DisplayName','IMU');
+                    plot(imu_time, pos_ecef_fused(:,c),'b-','DisplayName','Fused');
+                    ti = interp_truth(pos_t_ecef); if ~isempty(ti), plot(imu_time, ti(:,c),'g-','DisplayName','Truth'); end
+                case 'BODY'
+                    plot(imu_time, gnss_pos_body_i(:,c),'k-','DisplayName','GNSS');
+                    plot(imu_time, pos_body_imu(:,c),'--','Color',[0.5 0.5 0.5],'DisplayName','IMU');
+                    plot(imu_time, pos_body_fused(:,c),'b-','DisplayName','Fused');
+                    ti = interp_truth(pos_t_body); if ~isempty(ti), plot(imu_time, ti(:,c),'g-','DisplayName','Truth'); end
+            end
+            if r==1
+                title(['Position ' labs{c}]); ylabel('[m]');
+            elseif r==2
+                title(['Velocity ' labs{c}]); ylabel('[m/s]');
+            else
+                title(['Acceleration ' labs{c}]); ylabel('[m/s^2]');
+            end
+            xlabel('Time (s)'); grid on; legend;
         end
-        xlabel('Time (s)'); grid on; legend;
     end
+    sgtitle(['GNSS vs IMU vs Fused vs Truth in ' frame]);
+    out_pdf = fullfile(results_dir,sprintf('%s_%s_Truth_GNSS_IMU.pdf',dataset_id,frame));
+    set(gcf,'PaperPositionMode','auto');
+    print(gcf, out_pdf, '-dpdf', '-bestfit');
 end
-sgtitle('GNSS vs IMU vs Fused in NED');
-ned_cmp = fullfile(results_dir, sprintf('%s_Task5_CompareNED.pdf', tag));
-set(gcf,'PaperPositionMode','auto');
-print(gcf, ned_cmp, '-dpdf', '-bestfit');
-exportgraphics(gcf, all_file, 'Append', true);
-
-dirs_ecef = {'X','Y','Z'};
-figure('Name','Compare ECEF','Position',[120 120 1200 900]);
-for r = 1:3
-    for c = 1:3
-        subplot(3,3,(r-1)*3+c); hold on;
-        if r == 1
-            plot(gnss_time, gnss_pos_ecef(:,c),'k-','DisplayName','GNSS');
-            plot(imu_time, pos_ecef_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
-            plot(imu_time, pos_ecef_fused(:,c),'b-','DisplayName','Fused (KF)');
-            title(['Position ' dirs_ecef{c} ' ECEF']); ylabel('[m]');
-        elseif r == 2
-            plot(gnss_time, gnss_vel_ecef(:,c),'k-','DisplayName','GNSS');
-            plot(imu_time, vel_ecef_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
-            plot(imu_time, vel_ecef_fused(:,c),'b-','DisplayName','Fused (KF)');
-            title(['Velocity V' dirs_ecef{c} ' ECEF']); ylabel('[m/s]');
-        else
-            plot(gnss_time, gnss_accel_ecef(:,c),'k-','DisplayName','GNSS');
-            plot(imu_time, acc_ecef_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
-            plot(imu_time, acc_ecef_fused(:,c),'b-','DisplayName','Fused (KF)');
-            title(['Acceleration ' dirs_ecef{c} ' ECEF']); ylabel('[m/s^2]');
-        end
-        xlabel('Time (s)'); grid on; legend;
-    end
-end
-sgtitle('GNSS vs IMU vs Fused in ECEF');
-ecef_cmp = fullfile(results_dir, sprintf('%s_Task5_CompareECEF.pdf', tag));
-set(gcf,'PaperPositionMode','auto');
-print(gcf, ecef_cmp, '-dpdf', '-bestfit');
-exportgraphics(gcf, all_file, 'Append', true);
-
-dirs_b = {'X','Y','Z'};
-figure('Name','Compare Body','Position',[140 140 1200 900]);
-for r = 1:3
-    for c = 1:3
-        subplot(3,3,(r-1)*3+c); hold on;
-        if r == 1
-            plot(gnss_time, gnss_pos_body(:,c),'k-','DisplayName','GNSS');
-            plot(imu_time, pos_body_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
-            plot(imu_time, pos_body_fused(:,c),'b-','DisplayName','Fused (KF)');
-            title(['Position r' dirs_b{c} ' body']); ylabel('[m]');
-        elseif r == 2
-            plot(gnss_time, gnss_vel_body(:,c),'k-','DisplayName','GNSS');
-            plot(imu_time, vel_body_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
-            plot(imu_time, vel_body_fused(:,c),'b-','DisplayName','Fused (KF)');
-            title(['Velocity v' dirs_b{c} ' body']); ylabel('[m/s]');
-        else
-            plot(gnss_time, gnss_acc_body(:,c),'k-','DisplayName','GNSS');
-            plot(imu_time, acc_body_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
-            plot(imu_time, acc_body_fused(:,c),'b-','DisplayName','Fused (KF)');
-            title(['Acceleration A' dirs_b{c} ' body']); ylabel('[m/s^2]');
-        end
-        xlabel('Time (s)'); grid on; legend;
-    end
-end
-sgtitle('GNSS vs IMU vs Fused in Body Frame');
-body_cmp = fullfile(results_dir, sprintf('%s_Task5_CompareBody.pdf', tag));
-set(gcf,'PaperPositionMode','auto');
-print(gcf, body_cmp, '-dpdf', '-bestfit');
-exportgraphics(gcf, all_file, 'Append', true);
 
 %% --- End-of-run summary statistics --------------------------------------
 % Interpolate filter estimates to GNSS timestamps for residual analysis
