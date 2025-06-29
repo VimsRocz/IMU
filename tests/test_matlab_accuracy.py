@@ -26,3 +26,13 @@ def test_matlab_accuracy(tmp_path):
     final_err = np.linalg.norm(x_log[0:3, -1] - gnss_pos_ned[-1, :])
     assert final_err < 0.05, f"final position error {final_err:.3f} m >= 0.05 m"
 
+    assert "vel_log" in data and "accel_from_vel" in data
+    vel_log = data["vel_log"]
+    accel_from_vel = data["accel_from_vel"]
+    gnss_vel_ned = data["gnss_vel_ned"]
+    gnss_accel_ned = data["gnss_accel_ned"]
+    vel_err = np.linalg.norm(vel_log[:, -1] - gnss_vel_ned[-1, :])
+    acc_err = np.linalg.norm(accel_from_vel[:, -1] - gnss_accel_ned[-1, :])
+    assert vel_err < 0.05, f"final velocity error {vel_err:.3f} m/s >= 0.05 m/s"
+    assert acc_err < 0.05, f"final acceleration error {acc_err:.3f} m/s^2 >= 0.05 m/s^2"
+

@@ -153,7 +153,7 @@ num_imu_samples = length(imu_time);
 x_log = zeros(15, num_imu_samples);
 euler_log = zeros(3, num_imu_samples);
 zupt_log = zeros(1, num_imu_samples);
-acc_log = zeros(3, num_imu_samples);
+acc_log = zeros(3, num_imu_samples); % Acceleration from propagated IMU data
 zupt_count = 0;
 fprintf('-> 15-State filter initialized.\n');
 
@@ -269,6 +269,15 @@ if numel(gnss_time) ~= size(gnss_pos_ned,1)
     gnss_accel_ned = gnss_accel_ned(1:N,:);
 end
 
+% Extract velocity states and derive acceleration from them
+vel_log = x_log(4:6, :);
+if numel(imu_time) > 1
+    dt_vec = diff(imu_time);
+    accel_from_vel = [zeros(3,1), diff(vel_log,1,2) ./ dt_vec'];
+else
+    accel_from_vel = zeros(3, numel(imu_time));
+end
+
 % --- Plot 1: Position Comparison ---
 figure('Name', 'KF Results: Position', 'Position', [100 100 1200 600]);
 labels = {'North', 'East', 'Down'};
@@ -349,6 +358,8 @@ rmse_vel = sqrt(mean(sum(res_vel.^2,2)));
 % Both vectors are 3x1 column vectors so avoid an extra transpose which
 % previously produced a 3x3 matrix due to implicit broadcasting.
 final_pos_err = norm(x_log(1:3,end) - gnss_pos_ned(end,:)');
+final_vel_err = norm(vel_log(:,end) - gnss_vel_ned(end,:)');
+final_acc_err = norm(accel_from_vel(:,end) - gnss_accel_ned(end,:)');
 rms_resid_pos = sqrt(mean(res_pos.^2,'all'));
 rms_resid_vel = sqrt(mean(res_vel.^2,'all'));
 max_resid_pos = max(vecnorm(res_pos,2,2));
@@ -370,22 +381,25 @@ set(gcf,'PaperPositionMode','auto');
 print(gcf, err_file, '-dpdf', '-bestfit');
 fprintf('Saved plot: %s\n', err_file);
 exportgraphics(gcf, all_file, 'Append', true);
-summary_line = sprintf(['[SUMMARY] method=%s rmse_pos=%.2fm rmse_vel=%.2fm final_pos=%.2fm ' ...
+summary_line = sprintf(['[SUMMARY] method=%s rmse_pos=%.2fm rmse_vel=%.2fm final_pos=%.2fm final_vel=%.2fm/s final_acc=%.2fm/s^2 ' ...
     'mean_resid_pos=%.2f rms_resid_pos=%.2f max_resid_pos=%.2f min_resid_pos=%.2f ' ...
     'mean_resid_vel=%.2f rms_resid_vel=%.2f max_resid_vel=%.2f min_resid_vel=%.2f ' ...
     'accel_bias=%.4f gyro_bias=%.4f ZUPT_count=%d'], ...
-    method, rmse_pos, rmse_vel, final_pos_err, mean(vecnorm(res_pos,2,2)), rms_resid_pos, ...
+    method, rmse_pos, rmse_vel, final_pos_err, final_vel_err, final_acc_err, mean(vecnorm(res_pos,2,2)), rms_resid_pos, ...
     max_resid_pos, min_resid_pos, mean(vecnorm(res_vel,2,2)), rms_resid_vel, ...
     max_resid_vel, min_resid_vel, norm(accel_bias), norm(gyro_bias), zupt_count);
 fprintf('%s\n', summary_line);
 fprintf('Final position error: %.4f m\n', final_pos_err);
+fprintf('Final velocity error: %.4f m/s\n', final_vel_err);
+fprintf('Final acceleration error: %.4f m/s^2\n', final_acc_err);
 fid = fopen(fullfile(results_dir, [tag '_summary.txt']), 'w');
 fprintf(fid, '%s\n', summary_line);
 fclose(fid);
 
 % Store summary metrics and biases for later analysis
 results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, ...
-    'final_pos_error', final_pos_err, 'accel_bias', accel_bias, 'gyro_bias', gyro_bias);
+    'final_pos_error', final_pos_err, 'final_vel_error', final_vel_err, ...
+    'final_acc_error', final_acc_err, 'accel_bias', accel_bias, 'gyro_bias', gyro_bias);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
 if isfile(perf_file)
     save(perf_file, '-append', 'results');
@@ -400,11 +414,13 @@ fclose(fid_sum);
 
 % Persist core results for unit tests and further analysis
 results_file = fullfile(results_dir, sprintf('Task5_results_%s.mat', pair_tag));
-save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'x_log', 'euler_log', 'zupt_log');
+save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
+    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log');
 fprintf('Results saved to %s\n', results_file);
 
 method_file = fullfile(results_dir, [tag '_task5_results.mat']);
-save(method_file, 'gnss_pos_ned', 'gnss_vel_ned', 'x_log', 'euler_log', 'zupt_log');
+save(method_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
+    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log');
 fprintf('Method-specific results saved to %s\n', method_file);
 
 % Return results structure and store in base workspace
