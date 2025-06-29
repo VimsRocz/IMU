@@ -1,5 +1,29 @@
 import numpy as np
 from typing import Tuple
+import pathlib
+import subprocess
+import sys
+
+
+def ensure_dependencies(requirements: pathlib.Path | None = None) -> None:
+    """Install packages from ``requirements.txt`` if key deps are missing."""
+    try:
+        import tabulate  # noqa: F401
+        import tqdm  # noqa: F401
+    except ModuleNotFoundError:
+        if requirements is None:
+            requirements = pathlib.Path(__file__).resolve().parent / "requirements.txt"
+        else:
+            requirements = pathlib.Path(requirements)
+        print("Installing Python dependencies ...")
+        subprocess.check_call([
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "-r",
+            str(requirements),
+        ])
 
 
 def detect_static_interval(accel_data, gyro_data, window_size=200,
