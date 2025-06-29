@@ -13,7 +13,6 @@ from filterpy.kalman import KalmanFilter
 from scipy.signal import butter, filtfilt
 from typing import Tuple
 
-import pathlib
 from scripts.plot_utils import save_plot, plot_attitude
 from utils import detect_static_interval, is_static, compute_C_ECEF_to_NED
 from scripts.validate_filter import compute_residuals, plot_residuals
@@ -242,8 +241,8 @@ def main():
 
     os.makedirs("results", exist_ok=True)
 
-    imu_stem = pathlib.Path(args.imu_file).stem
-    gnss_stem = pathlib.Path(args.gnss_file).stem
+    imu_stem = Path(args.imu_file).stem
+    gnss_stem = Path(args.gnss_file).stem
     tag = TAG(imu=imu_stem, gnss=gnss_stem, method=method)
     summary_tag = f"{imu_stem}_{gnss_stem}"
 
@@ -1928,7 +1927,7 @@ def main():
         "pos_gnss" : gnss_pos_ned,
         "vel_gnss" : gnss_vel_ned,
     }
-    fname = pathlib.Path("results") / f"{summary_tag}_{method}_compare.pkl.gz"
+    fname = Path("results") / f"{summary_tag}_{method}_compare.pkl.gz"
     with gzip.open(fname, "wb") as f:
         pickle.dump(pack, f)
 
