@@ -53,6 +53,21 @@ pip3 install cython
 pip3 install filterpy
 ```
 
+## Running validation
+
+To process the bundled datasets using only the TRIAD initialisation and
+validate the results, run:
+
+```bash
+python run_triad_only.py
+```
+
+All output files are written to the `results/` directory.  When a matching
+ground truth file such as `STATE_X001.txt` is available the script
+automatically calls `validate_with_truth.py` to compare the estimated trajectory
+against it. The validation summary and plots are saved alongside the exported
+`.mat` files in `results/`.
+
 ## 🚀 Developing & Debugging in GitHub Codespaces
 
 1. **Open in Codespace**  
