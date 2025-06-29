@@ -141,6 +141,7 @@ def plot_residuals_new(gnss_times: np.ndarray,
                        dataset: str,
                        method: str) -> None:
     """Plot position and velocity residuals and save as PDF."""
+    os.makedirs("results", exist_ok=True)
     res_pos = positions_meas - positions_pred
     res_vel = velocities_meas - velocities_pred
 
@@ -161,6 +162,7 @@ def plot_attitude(time: np.ndarray, quaternions: np.ndarray, dataset: str,
                   method: str) -> None:
     """Plot roll/pitch/yaw attitude angles over time."""
     from filterpy.common import q_to_euler
+    os.makedirs("results", exist_ok=True)
     rpy = np.array([q_to_euler(q) for q in quaternions])
 
     fig, axs = plt.subplots(3, 1, figsize=(8, 8))

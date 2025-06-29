@@ -2,6 +2,9 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+
+os.makedirs("results", exist_ok=True)
 
 
 def save_zupt_variance(

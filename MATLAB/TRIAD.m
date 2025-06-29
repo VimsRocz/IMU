@@ -40,7 +40,7 @@ if verbose && (nargin < 1 || isempty(imu_path) || nargin < 2 || isempty(gnss_pat
     fprintf('[INFO] Using default files: %s, %s\n', imu_path, gnss_path);
 end
 resultsDir = 'results';
-if verbose && ~exist(resultsDir, 'dir')
+if ~exist(resultsDir, 'dir')
     mkdir(resultsDir);
 end
 

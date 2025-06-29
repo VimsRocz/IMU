@@ -6,6 +6,7 @@ import subprocess
 import sys
 import pathlib
 import re
+import os
 
 HERE = pathlib.Path(__file__).resolve().parent
 
@@ -21,6 +22,7 @@ subprocess.run(cmd, check=True)
 
 # --- Validate results when STATE_<id>.txt exists -----------------------------
 results = HERE / "results"
+os.makedirs(results, exist_ok=True)
 for mat in results.glob("*_TRIAD_kf_output.mat"):
     m = re.match(r"IMU_(X\d+)_.*_TRIAD_kf_output\.mat", mat.name)
     if not m:

@@ -7,6 +7,7 @@ function validate_all_methods()
 methods = {'TRIAD','Davenport','SVD'};
 truth = load('STATE_X001.txt');
 resultsDir = 'results';
+if ~exist(resultsDir,'dir'), mkdir(resultsDir); end
 
 summary = cell(numel(methods),4);
 

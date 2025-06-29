@@ -8,6 +8,7 @@ import pathlib, gzip, pickle, matplotlib.pyplot as plt
 import numpy as np
 
 RESULTS_DIR = pathlib.Path("results")
+RESULTS_DIR.mkdir(exist_ok=True)
 COLOURS     = {"X001": "tab:blue", "X002": "tab:orange", "X003": "tab:green"}
 LABEL_MAP   = {"N": "North", "E": "East", "D": "Down"}
 

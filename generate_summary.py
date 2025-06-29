@@ -7,6 +7,7 @@ DF_PATH = "results/summary.csv"
 
 
 def main():
+    os.makedirs('results', exist_ok=True)
     df = pd.read_csv(DF_PATH)
 
     pdf = FPDF()
