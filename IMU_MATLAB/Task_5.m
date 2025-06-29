@@ -1,4 +1,4 @@
-function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
+function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, truthFile)
 %TASK_5  Run 9-state KF using IMU & GNSS NED positions
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
@@ -8,6 +8,9 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     end
     if nargin < 3 || isempty(method)
         method = 'TRIAD';
+    end
+    if nargin < 5
+        truthFile = '';
     end
 
     results_dir = 'results';
@@ -69,6 +72,34 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     dt_gnss = diff(gnss_time);
     gnss_accel_ned = [zeros(1,3); diff(gnss_vel_ned) ./ dt_gnss];
     gnss_accel_ecef = [zeros(1,3); diff(gnss_vel_ecef) ./ dt_gnss];
+
+    truth_available = ~isempty(truthFile) && isfile(truthFile);
+    if ~truth_available
+        if ~isempty(truthFile)
+            warning('Truth file %s not found. Skipping reference overlay.', truthFile);
+        end
+    end
+    if truth_available
+        truth = load(truthFile);
+        t_truth = truth(:,2);
+        pos_true_ecef = truth(:,3:5);
+        vel_true_ecef = truth(:,6:8);
+        dt_t = [0; diff(t_truth)];
+        acc_true_ecef = [zeros(1,3); diff(vel_true_ecef) ./ dt_t(2:end)];
+        pos_true_ned = (C_ECEF_to_NED * (pos_true_ecef' - ref_r0))';
+        vel_true_ned = (C_ECEF_to_NED * vel_true_ecef')';
+        acc_true_ned = (C_ECEF_to_NED * acc_true_ecef')';
+        q_true = truth(:,9:12);
+        pos_true_body = zeros(size(pos_true_ned));
+        vel_true_body = zeros(size(vel_true_ned));
+        acc_true_body = zeros(size(acc_true_ned));
+        for ii = 1:size(q_true,1)
+            Rnb = quat_to_rot(q_true(ii,:)');
+            pos_true_body(ii,:) = (Rnb * pos_true_ned(ii,:)')';
+            vel_true_body(ii,:) = (Rnb * vel_true_ned(ii,:)')';
+            acc_true_body(ii,:) = (Rnb * acc_true_ned(ii,:)')';
+        end
+    end
 
     % Load IMU data
     imu_raw = readmatrix(imu_path);
@@ -377,16 +408,25 @@ for r = 1:3
         subplot(3,3,(r-1)*3+c); hold on;
         if r == 1
             plot(gnss_time, gnss_pos_ned(:,c),'k-','DisplayName','GNSS');
+            if truth_available
+                plot(t_truth, pos_true_ned(:,c),'g:','DisplayName','Truth');
+            end
             plot(imu_time, imu_pos(c,:), 'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
             plot(imu_time, x_log(c,:), 'b-','DisplayName','Fused (KF)');
             title(['Position ' dirs_ned{c}]); ylabel('[m]');
         elseif r == 2
             plot(gnss_time, gnss_vel_ned(:,c),'k-','DisplayName','GNSS');
+            if truth_available
+                plot(t_truth, vel_true_ned(:,c),'g:','HandleVisibility','off');
+            end
             plot(imu_time, imu_vel(c,:), 'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
             plot(imu_time, vel_log(c,:), 'b-','DisplayName','Fused (KF)');
             title(['Velocity V' dirs_ned{c}]); ylabel('[m/s]');
         else
             plot(gnss_time, gnss_accel_ned(:,c),'k-','DisplayName','GNSS');
+            if truth_available
+                plot(t_truth, acc_true_ned(:,c),'g:','HandleVisibility','off');
+            end
             plot(imu_time, imu_acc(c,:), 'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
             plot(imu_time, accel_from_vel(c,:), 'b-','DisplayName','Fused (KF)');
             title(['Acceleration ' dirs_ned{c}]); ylabel('[m/s^2]');
@@ -407,16 +447,25 @@ for r = 1:3
         subplot(3,3,(r-1)*3+c); hold on;
         if r == 1
             plot(gnss_time, gnss_pos_ecef(:,c),'k-','DisplayName','GNSS');
+            if truth_available
+                plot(t_truth, pos_true_ecef(:,c),'g:','HandleVisibility','off');
+            end
             plot(imu_time, pos_ecef_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
             plot(imu_time, pos_ecef_fused(:,c),'b-','DisplayName','Fused (KF)');
             title(['Position ' dirs_ecef{c} ' ECEF']); ylabel('[m]');
         elseif r == 2
             plot(gnss_time, gnss_vel_ecef(:,c),'k-','DisplayName','GNSS');
+            if truth_available
+                plot(t_truth, vel_true_ecef(:,c),'g:','HandleVisibility','off');
+            end
             plot(imu_time, vel_ecef_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
             plot(imu_time, vel_ecef_fused(:,c),'b-','DisplayName','Fused (KF)');
             title(['Velocity V' dirs_ecef{c} ' ECEF']); ylabel('[m/s]');
         else
             plot(gnss_time, gnss_accel_ecef(:,c),'k-','DisplayName','GNSS');
+            if truth_available
+                plot(t_truth, acc_true_ecef(:,c),'g:','HandleVisibility','off');
+            end
             plot(imu_time, acc_ecef_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
             plot(imu_time, acc_ecef_fused(:,c),'b-','DisplayName','Fused (KF)');
             title(['Acceleration ' dirs_ecef{c} ' ECEF']); ylabel('[m/s^2]');
@@ -437,16 +486,25 @@ for r = 1:3
         subplot(3,3,(r-1)*3+c); hold on;
         if r == 1
             plot(gnss_time, gnss_pos_body(:,c),'k-','DisplayName','GNSS');
+            if truth_available
+                plot(t_truth, pos_true_body(:,c),'g:','HandleVisibility','off');
+            end
             plot(imu_time, pos_body_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
             plot(imu_time, pos_body_fused(:,c),'b-','DisplayName','Fused (KF)');
             title(['Position r' dirs_b{c} ' body']); ylabel('[m]');
         elseif r == 2
             plot(gnss_time, gnss_vel_body(:,c),'k-','DisplayName','GNSS');
+            if truth_available
+                plot(t_truth, vel_true_body(:,c),'g:','HandleVisibility','off');
+            end
             plot(imu_time, vel_body_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
             plot(imu_time, vel_body_fused(:,c),'b-','DisplayName','Fused (KF)');
             title(['Velocity v' dirs_b{c} ' body']); ylabel('[m/s]');
         else
             plot(gnss_time, gnss_acc_body(:,c),'k-','DisplayName','GNSS');
+            if truth_available
+                plot(t_truth, acc_true_body(:,c),'g:','HandleVisibility','off');
+            end
             plot(imu_time, acc_body_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
             plot(imu_time, acc_body_fused(:,c),'b-','DisplayName','Fused (KF)');
             title(['Acceleration A' dirs_b{c} ' body']); ylabel('[m/s^2]');

@@ -1,4 +1,4 @@
-function results = TRIAD(imu_paths, gnss_paths)
+function results = TRIAD(imu_paths, gnss_paths, truthFile)
 %TRIAD  Run the pipeline using only the TRIAD method.
 %   RESULTS = TRIAD(IMU_PATHS, GNSS_PATHS) executes Tasks 1--5 with the
 %   TRIAD attitude initialisation for one or more IMU/GNSS file pairs.
@@ -7,11 +7,14 @@ function results = TRIAD(imu_paths, gnss_paths)
 %   The Task 5 results for each pair are returned as a struct (or a cell
 %   array of structs) and saved in results/Result_<IMU>_<GNSS>_TRIAD.mat.
 
-if nargin == 0
+if nargin < 1
     imu_paths = {'IMU_X001.dat','IMU_X002.dat','IMU_X003.dat'};
     gnss_paths = {'GNSS_X001.csv','GNSS_X002.csv','GNSS_X002.csv'};
-elseif nargin ~= 2
-    error('Usage: TRIAD(''IMU_PATH'',''GNSS_PATH'') or TRIAD() for defaults');
+    truthFile = '';
+elseif nargin < 2
+    error('Usage: TRIAD(''IMU_PATH'',''GNSS_PATH'', truthFile?) or TRIAD()');
+elseif nargin < 3
+    truthFile = '';
 end
 
 % Convert to cell arrays for uniform handling
@@ -36,7 +39,7 @@ for k = 1:numel(imu_paths)
     Task_2(imu_file, gnss_file, 'TRIAD');
     Task_3(imu_file, gnss_file, 'TRIAD');
     Task_4(imu_file, gnss_file, 'TRIAD');
-    Task_5(imu_file, gnss_file, 'TRIAD');
+    Task_5(imu_file, gnss_file, 'TRIAD', [], truthFile);
 
     [~, imuName]  = fileparts(imu_file);
     [~, gnssName] = fileparts(gnss_file);

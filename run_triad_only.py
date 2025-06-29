@@ -7,11 +7,25 @@ import sys
 import pathlib
 import re
 from plot_overlay import plot_overlay
-from validate_with_truth import load_estimate, assemble_frames
+from plots import plot_frame
+from validate_with_truth import (
+    load_estimate,
+    assemble_frames,
+    prepare_truth_frames,
+)
 from utils import ecef_to_geodetic
 import pandas as pd
+import argparse
+import numpy as np
 
 HERE = pathlib.Path(__file__).resolve().parent
+
+ap = argparse.ArgumentParser(description="Run TRIAD and optional validation")
+ap.add_argument(
+    "--truth-file",
+    help="CSV or TXT file with reference state to overlay",
+)
+args, other = ap.parse_known_args()
 
 # --- Run the batch processor -------------------------------------------------
 cmd = [
@@ -19,7 +33,7 @@ cmd = [
     str(HERE / "run_all_datasets.py"),
     "--method",
     "TRIAD",
-    *sys.argv[1:],
+    *other,
 ]
 subprocess.run(cmd, check=True)
 
@@ -30,12 +44,21 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
     if not m:
         continue
     dataset = m.group(1)
-    candidates = [
-        HERE / f"STATE_{dataset}_small.txt",
-        HERE / f"STATE_{dataset}.txt",
-    ]
-    truth = next((c for c in candidates if c.exists()), None)
+    truth = None
+    if args.truth_file:
+        p = pathlib.Path(args.truth_file)
+        if p.exists():
+            truth = p
+        else:
+            print(f"Warning: truth file {p} not found; skipping reference overlay")
     if truth is None:
+        candidates = [
+            HERE / f"STATE_{dataset}_small.txt",
+            HERE / f"STATE_{dataset}.txt",
+        ]
+        truth = next((c for c in candidates if c.exists()), None)
+    if truth is None:
+        print(f"Warning: no truth file for {dataset}; skipping reference overlay")
         continue
     vcmd = [
         sys.executable,
@@ -88,5 +111,39 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
                     a_f,
                     results,
                 )
+                truth_frames = None
+                if truth is not None:
+                    try:
+                        truth_data = np.loadtxt(truth)
+                        truth_frames = prepare_truth_frames(
+                            truth_data,
+                            np.deg2rad(lat0),
+                            np.deg2rad(lon0),
+                            np.array([x0, y0, z0]),
+                            t_f,
+                        )
+                    except Exception as e:
+                        print(f"Truth preparation failed: {e}")
+                try:
+                    plot_frame(
+                        frame_name,
+                        "TRIAD",
+                        t_i,
+                        p_i,
+                        v_i,
+                        a_i,
+                        t_g,
+                        p_g,
+                        v_g,
+                        a_g,
+                        t_f,
+                        p_f,
+                        v_f,
+                        a_f,
+                        results,
+                        None if truth_frames is None else truth_frames.get(frame_name),
+                    )
+                except Exception as e:
+                    print(f"Frame plot failed: {e}")
     except Exception as e:
         print(f"Overlay plot failed: {e}")

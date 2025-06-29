@@ -6,7 +6,7 @@ from scipy.io import loadmat
 from scipy.spatial.transform import Rotation as R, Slerp
 
 
-from utils import compute_C_ECEF_to_NED
+from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
 from plot_overlay import plot_overlay
 from plots import plot_frame
 import pandas as pd
@@ -308,6 +308,15 @@ def main():
         if v is not None:
             ref_r0 = np.asarray(v).squeeze()
 
+    if ref_lat is None or ref_lon is None or ref_r0 is None:
+        x0, y0, z0 = truth[0, 2:5]
+        lat0, lon0, _ = ecef_to_geodetic(x0, y0, z0)
+        if ref_lat is None:
+            ref_lat = lat0
+        if ref_lon is None:
+            ref_lon = lon0
+        if ref_r0 is None:
+            ref_r0 = np.array([x0, y0, z0])
     if ref_lat is None or ref_lon is None or ref_r0 is None:
         ap.error(
             "ref_lat, ref_lon and ref_r0 must be provided via command line or contained in the estimate file"
