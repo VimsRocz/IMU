@@ -1,4 +1,4 @@
-# IMU-
+# IMU_GNSS_Fusion
 IMU data processing and initialization tools (Python)
 
 ## Installation
