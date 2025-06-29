@@ -1,6 +1,7 @@
 import numpy as np
 
 
+
 def compute_residuals(gnss_times, gnss_pos, filt_times, filt_pos):
     interp = np.vstack([
         np.interp(gnss_times, filt_times, filt_pos[:, i])
