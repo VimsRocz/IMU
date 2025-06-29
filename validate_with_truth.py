@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 from utils import compute_C_ECEF_to_NED
 from plot_overlay import plot_overlay
+from plots import plot_frame
 import pandas as pd
 import re
 
@@ -452,6 +453,100 @@ def main():
                 )
         except Exception as e:
             print(f"Overlay plot failed: {e}")
+
+        # --- Additional comparison with reference state -------------------
+        try:
+            truth = np.loadtxt(args.truth_file)
+            t_true = truth[:, 1]
+            pos_ecef_true = truth[:, 2:5]
+            vel_ecef_true = truth[:, 5:8]
+            dt_t = np.diff(t_true, prepend=t_true[0])
+            acc_ecef_true = np.zeros_like(vel_ecef_true)
+            acc_ecef_true[1:] = np.diff(vel_ecef_true, axis=0) / dt_t[1:, None]
+
+            C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+            pos_ned_true = np.array([C @ (p - ref_r0) for p in pos_ecef_true])
+            vel_ned_true = np.array([C @ v for v in vel_ecef_true])
+            acc_ned_true = np.array([C @ a for a in acc_ecef_true])
+
+            q_true = truth[:, 8:12]
+            rot_true = R.from_quat(q_true[:, [1, 2, 3, 0]])
+            pos_body_true = rot_true.apply(pos_ned_true)
+            vel_body_true = rot_true.apply(vel_ned_true)
+            acc_body_true = rot_true.apply(acc_ned_true)
+
+            t_est = np.asarray(est["time"]).squeeze()
+            pos_est = np.asarray(est["pos"])[: len(t_est)]
+            vel_est = np.asarray(est["vel"])[: len(t_est)]
+            acc_est = np.zeros_like(vel_est)
+            pos_est_i = np.vstack([
+                np.interp(t_true, t_est, pos_est[:, i]) for i in range(3)
+            ]).T
+            vel_est_i = np.vstack([
+                np.interp(t_true, t_est, vel_est[:, i]) for i in range(3)
+            ]).T
+            acc_est_i = np.zeros_like(vel_est_i)
+            if len(t_true) > 1:
+                dt_i = np.diff(t_true, prepend=t_true[0])
+                acc_est_i[1:] = np.diff(vel_est_i, axis=0) / dt_i[1:, None]
+
+            C_N2E = C.T
+            pos_ecef_est = (C_N2E @ pos_est_i.T).T + ref_r0
+            vel_ecef_est = (C_N2E @ vel_est_i.T).T
+            acc_ecef_est = (C_N2E @ acc_est_i.T).T
+
+            q_est = est.get("quat")
+            if q_est is not None:
+                q_est = np.asarray(q_est)[: len(t_est)]
+                r_est = R.from_quat(q_est[:, [1, 2, 3, 0]])
+                slerp = Slerp(t_est[: len(q_est)], r_est)
+                r_interp = slerp(np.clip(t_true, t_est[0], t_est[len(q_est) - 1]))
+                pos_body_est = r_interp.apply(pos_est_i)
+                vel_body_est = r_interp.apply(vel_est_i)
+                acc_body_est = r_interp.apply(acc_est_i)
+            else:
+                pos_body_est = pos_est_i
+                vel_body_est = vel_est_i
+                acc_body_est = acc_est_i
+
+            plot_frame(
+                "NED",
+                t_true,
+                pos_ned_true,
+                vel_ned_true,
+                acc_ned_true,
+                t_true,
+                pos_est_i,
+                vel_est_i,
+                acc_est_i,
+                args.output,
+            )
+            plot_frame(
+                "ECEF",
+                t_true,
+                pos_ecef_true,
+                vel_ecef_true,
+                acc_ecef_true,
+                t_true,
+                pos_ecef_est,
+                vel_ecef_est,
+                acc_ecef_est,
+                args.output,
+            )
+            plot_frame(
+                "BODY",
+                t_true,
+                pos_body_true,
+                vel_body_true,
+                acc_body_true,
+                t_true,
+                pos_body_est,
+                vel_body_est,
+                acc_body_est,
+                args.output,
+            )
+        except Exception as e:
+            print(f"Frame plot failed: {e}")
 
 
 if __name__ == "__main__":
