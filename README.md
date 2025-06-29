@@ -40,9 +40,7 @@ pip3 install filterpy
 
 ### Installing test requirements
 
-To run the unit tests you need `numpy`, `pandas`, `scipy`, `cartopy` and
-`matplotlib`. They are all included in `requirements.txt`. Install them together
-with `pytest` via:
+
 
 ```bash
 pip install -r requirements-dev.txt -r requirements.txt
@@ -74,7 +72,15 @@ file:
 * `STATE_X001_small.txt` holds the first 100 reference states
 
 These mini logs drastically reduce runtimes when validating the pipeline or
-the MATLAB scripts.
+the MATLAB scripts.  Use the helper configuration `config_small.yml` to run all
+three mini logs in one go:
+
+```bash
+python run_triad_only.py --config config_small.yml --verbose
+```
+
+The script automatically validates `IMU_X001_small` against
+`STATE_X001_small.txt` and stores the summaries in `results/`.
 
 ## Running validation
 
@@ -155,15 +161,6 @@ If the measured magnitude differs by more than a few percent, the IMU may not be
 
 ## Running all methods
 
-Use `run_all_methods.py` to execute the fusion script with the TRIAD,
-Davenport and SVD initialisation methods in sequence.  Provide a YAML
-configuration file to specify the datasets:
-
-```bash
-python run_all_methods.py --config your_config.yml
-```
-
-Running the script without `--config` processes the bundled example data sets.
 
 
 ## Running all data sets
@@ -268,12 +265,10 @@ writes `results/summary.csv`. Each row contains:
 
 Run the unit tests with `pytest`. **Installing the required Python packages is
 mandatory** before executing any tests. The suite relies on *all* entries in
-`requirements.txt` – including heavier libraries such as `cartopy` that can take
-some time to build. Using a dedicated virtual environment or container is
-strongly recommended:
+
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt -r requirements.txt
 pytest -q
 ```
 

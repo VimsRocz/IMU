@@ -6,6 +6,7 @@ import pytest
 
 np = pytest.importorskip("numpy")
 pd = pytest.importorskip("pandas")
+pytest.importorskip("matplotlib")
 
 from GNSS_IMU_Fusion import main
 from validate_with_truth import load_estimate
@@ -75,6 +76,21 @@ def test_validate_with_truth(monkeypatch):
     for key in ["fused_pos", "fused_vel"]:
         assert key in npz, f"{key} missing from npz"
         assert key in mat, f"{key} missing from mat"
+
+    # generate frame comparison plots
+    args = [
+        "--est-file",
+        str(mat_path),
+        "--truth-file",
+        "STATE_X001.txt",
+    ]
+    monkeypatch.setattr(sys, "argv", ["validate_with_truth.py"] + args)
+    from validate_with_truth import main as vmain
+    vmain()
+
+    for frame in ["ECEF", "NED", "BODY"]:
+        png = Path("results") / f"Task5_compare_{frame}.png"
+        assert png.exists(), f"Missing {png}"
 
 
 @pytest.mark.parametrize(
