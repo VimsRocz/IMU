@@ -134,7 +134,7 @@ x(7:9)  = init_eul;
 x(10:12) = accel_bias(:);
 x(13:15) = gyro_bias(:);
 P = blkdiag(eye(9)*0.01, eye(3)*1e-4, eye(3)*1e-8);
-Q = blkdiag(eye(9)*0.01, eye(3)*1e-6, eye(3)*1e-6);
+Q = blkdiag(eye(9)*0.01, eye(3)*(1e-4)^2, eye(3)*(1e-4)^2);
 R = eye(6) * 0.1;
 H = [eye(6), zeros(6,9)];
 
