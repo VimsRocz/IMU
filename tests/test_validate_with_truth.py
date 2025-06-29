@@ -76,6 +76,21 @@ def test_validate_with_truth(monkeypatch):
         assert key in npz, f"{key} missing from npz"
         assert key in mat, f"{key} missing from mat"
 
+    # generate frame comparison plots
+    args = [
+        "--est-file",
+        str(mat_path),
+        "--truth-file",
+        "STATE_X001.txt",
+    ]
+    monkeypatch.setattr(sys, "argv", ["validate_with_truth.py"] + args)
+    from validate_with_truth import main as vmain
+    vmain()
+
+    for frame in ["ECEF", "NED", "BODY"]:
+        png = Path("results") / f"Task5_compare_{frame}.png"
+        assert png.exists(), f"Missing {png}"
+
 
 @pytest.mark.parametrize(
     "pos_key,vel_key",
@@ -98,3 +113,44 @@ def test_load_estimate_alt_names(tmp_path, pos_key, vel_key):
     assert np.allclose(est["vel"], data[vel_key])
     assert np.allclose(est["quat"], data["attitude_q"])
     assert np.allclose(est["P"], data["P_hist"])
+
+
+def test_index_align(monkeypatch):
+    orig_read_csv = pd.read_csv
+
+    def head5000(*args, **kwargs):
+        df = orig_read_csv(*args, **kwargs)
+        return df.head(5000)
+
+    monkeypatch.setattr(pd, "read_csv", head5000)
+
+    run_args = [
+        "--imu-file",
+        "IMU_X001.dat",
+        "--gnss-file",
+        "GNSS_X001.csv",
+        "--method",
+        "TRIAD",
+        "--no-plots",
+    ]
+    monkeypatch.setattr(sys, "argv", ["GNSS_IMU_Fusion.py"] + run_args)
+    main()
+
+    args = [
+        "--est-file",
+        "results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat",
+        "--truth-file",
+        "STATE_X001.txt",
+        "--ref-lat",
+        "-32.026554",
+        "--ref-lon",
+        "133.455801",
+        "--ref-r0",
+        "-3729051",
+        "3935676",
+        "-3348394",
+        "--index-align",
+    ]
+    monkeypatch.setattr(sys, "argv", ["validate_with_truth.py"] + args)
+    from validate_with_truth import main as vmain
+    vmain()

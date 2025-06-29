@@ -7,7 +7,9 @@ jobs:
       image: mcr.microsoft.com/vscode/devcontainers/python:0-3.10
     steps:
       - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt -r requirements.txt
       - name: Run tests
-        run: make test
+        run: pytest -q
       - name: Run MATLAB smoke test
         run: pytest -q tests/test_pipeline_smoke.py

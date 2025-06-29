@@ -26,4 +26,14 @@ for i=1:3
     title([labels{i} ' Error vs 3\sigma']);
     saveas(gcf, sprintf('%s_err_%s.pdf', matFile(1:end-4), labels{i}));
 end
+
+% Overlay comparison in NED frame using available data
+if isfield(S,'gnss_pos_ned') && isfield(S,'x_log')
+    t = 1:size(S.x_log,2);
+    gnss_t = 1:size(S.gnss_pos_ned,1);
+    pos_fused = S.x_log(1:3,:)';
+    vel_fused = S.vel_log';
+    acc_fused = S.accel_from_vel';
+    plot_overlay(t, pos_fused, vel_fused, acc_fused, gnss_t, S.gnss_pos_ned, S.gnss_vel_ned, S.gnss_accel_ned, t, pos_fused, vel_fused, acc_fused, 'NED', 'KF', fileparts(matFile));
+end
 end

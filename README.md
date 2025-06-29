@@ -18,8 +18,9 @@ pip install numpy matplotlib filterpy
 ```
 
 The tests, however, require the **full** `requirements.txt`, including hefty
-dependencies like `cartopy`. Installing them inside a virtual environment or
-a container helps keep your base Python setup clean.
+dependencies like `cartopy`. Plotting checks additionally rely on
+`matplotlib`. Installing the dependencies inside a virtual environment or a
+container helps keep your base Python setup clean.
 
 If you run into issues with filterpy on Ubuntu:
 
@@ -39,7 +40,10 @@ pip3 install filterpy
 
 ### Installing test requirements
 
-To run the unit tests you need `numpy`, `pandas`, `scipy` and `cartopy` which are all included in `requirements.txt`. Install them together with `pytest` via:
+To run the unit tests you need `numpy`, `pandas`, `scipy`, `cartopy` **and**
+`matplotlib`. Plotting checks require `matplotlib` so it must be installed for
+the full suite to pass. All of these packages are included in `requirements.txt`.
+Install them together with `pytest` via:
 
 ```bash
 pip install -r requirements-dev.txt -r requirements.txt
@@ -61,13 +65,29 @@ The repository includes three IMU logs and two GNSS traces:
 * `IMU_X002.dat` with `GNSS_X002.csv`
 * `IMU_X003.dat` with `GNSS_X002.csv` (no dedicated GNSS log was recorded)
 
+For quick tests the repository also provides truncated versions of each
+file:
+
+* `IMU_X001_small.dat`, `IMU_X002_small.dat`, `IMU_X003_small.dat`
+  contain the first 1 000 IMU samples (about 2.5 s each)
+* `GNSS_X001_small.csv`, `GNSS_X002_small.csv` contain the first ten GNSS
+  epochs
+* `STATE_X001_small.txt` holds the first 100 reference states
+
+These mini logs drastically reduce runtimes when validating the pipeline or
+the MATLAB scripts.
+
 ## Running validation
 
 To process the bundled datasets using only the TRIAD initialisation and
-validate the results, run:
+validate the results, run either the Python or MATLAB helper script:
 
 ```bash
 python run_triad_only.py
+```
+
+```matlab
+run_triad_only
 ```
 
 All output files are written to the `results/` directory.  When a matching
@@ -136,17 +156,7 @@ If the measured magnitude differs by more than a few percent, the IMU may not be
 
 ## Running all methods
 
-Use `run_all_methods.py` to execute the fusion script with TRIAD, Davenport and
-SVD sequentially:
 
-```bash
-python run_all_methods.py           # uses default datasets
-# or specify a YAML file with:
-python run_all_methods.py --config config.yml
-```
-
-The optional YAML file lists the IMU/GNSS pairs under `datasets:`
-with `imu` and `gnss` keys and the algorithms to run under `methods:`.
 
 ## Running all data sets
 
@@ -172,10 +182,13 @@ All cases: 100%|##########| 9/9 [00:12<00:00,  1.31s/it]
 
 ## Running only the TRIAD method
 
-If you want to process all datasets using just the TRIAD initialisation method, run the helper script `run_triad_only.py`:
+If you want to process all datasets using just the TRIAD initialisation method, run the helper script `run_triad_only.py` or the MATLAB script `run_triad_only.m`:
 
 ```bash
 python run_triad_only.py
+```
+```matlab
+run_triad_only
 ```
 This is equivalent to running `run_all_datasets.py --method TRIAD`.
 
@@ -247,9 +260,9 @@ writes `results/summary.csv`. Each row contains:
 
 Run the unit tests with `pytest`. **Installing the required Python packages is
 mandatory** before executing any tests. The suite relies on *all* entries in
-`requirements.txt` – including heavier libraries such as `cartopy` that can take
-some time to build. Using a dedicated virtual environment or container is
-strongly recommended:
+`requirements.txt` – including heavier libraries such as `cartopy` and the
+plotting backend `matplotlib`. Using a dedicated virtual environment or
+container is strongly recommended:
 
 ```bash
 pip install -r requirements.txt
@@ -261,11 +274,12 @@ test suite in one command.
 
 ## MATLAB Compatibility
 
-Each run now exports a MATLAB `.mat` file alongside the NPZ results. Use the
-scripts in the new `MATLAB/` folder to recreate the final plots or validate the
-filter against ground truth data. Example:
+Each run now exports a MATLAB `.mat` file alongside the NPZ results. The plotting
+and validation functions live in the `MATLAB/` directory. Add it to your path
+before calling them:
 
 ```matlab
+addpath('MATLAB')
 plot_results('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat');
 validate_3sigma('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat', 'STATE_X001.txt');
 ```
@@ -273,10 +287,25 @@ validate_3sigma('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat', 'STATE_X001.tx
 ### Validating with Python
 
 You can also check the exported results directly in Python. Run the helper
-script with the `.mat` file and the reference trajectory:
+script with the `.mat` file, the reference trajectory and the reference
+position:
 
 ```bash
-python validate_with_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat --truth-file STATE_X001.txt
+python validate_with_truth.py \
+  --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat \
+  --truth-file STATE_X001.txt \
+  --ref-lat -32.026554 --ref-lon 133.455801 \
+  --ref-r0 -3729051 3935676 -3348394
+```
+Add `--index-align` to skip time interpolation and compare samples by index:
+
+```bash
+python validate_with_truth.py \
+  --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat \
+  --truth-file STATE_X001.txt \
+  --ref-lat -32.026554 --ref-lon 133.455801 \
+  --ref-r0 -3729051 3935676 -3348394 \
+  --index-align
 ```
 
 ### Interpolating to Ground Truth
@@ -364,6 +393,11 @@ expects `Task4_results_<pair>.mat` to initialise the filter. Running the
 commands above reproduces the Python `main` results while letting you inspect
 each stage individually.
 
+Task 5 now also exports three comparison figures that overlay GNSS, IMU-only
+dead reckoning and the fused trajectory in the NED, ECEF and body frames. Look
+for `<tag>_Task5_CompareNED.pdf`, `<tag>_Task5_CompareECEF.pdf` and
+`<tag>_Task5_CompareBody.pdf` in the `results/` directory after the run.
+
 ## Export to MATLAB (.mat) files
 To convert the saved Python results into MATLAB `.mat` files, run from the repo root:
 
@@ -379,6 +413,19 @@ Or from *any* directory by giving the full path:
 pip install numpy scipy
 python /path/to/IMU/export_mat.py
 ```
+
+## Additional scripts
+
+The repository contains a few helper scripts that are not part of the regular
+pipeline but can be handy for quick experiments:
+
+- `fusion_single.py` &ndash; early stand‑alone prototype of the IMU&ndash;GNSS
+  fusion routine. It exposes the full bias estimation and Kalman logic in a
+  single file and is useful for debugging or exploring tuning options.
+- `validate_filter.py` &ndash; command&ndash;line tool to compare a saved filter
+  state history against GNSS measurements and plot the residuals.
+
+These utilities are optional and not exercised by the unit tests.
 
 ## Next Steps
 
