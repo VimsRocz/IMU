@@ -4,7 +4,10 @@ import numpy as np
 import pandas as pd
 from scipy.signal import butter, filtfilt
 from scipy.spatial.transform import Rotation as R
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except Exception:  # pragma: no cover - optional plotting dependency
+    plt = None
 from kalman import GNSSIMUKalman, rts_smoother
 from utils import compute_C_ECEF_to_NED
 

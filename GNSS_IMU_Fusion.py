@@ -5,7 +5,10 @@ import os
 from pathlib import Path
 
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except Exception:  # pragma: no cover - optional plotting dependency
+    plt = None
 import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
@@ -30,10 +33,8 @@ except ImportError:
 
 try:
     console = Console()
-    log = console.log
 except Exception:
     logging.basicConfig(level=logging.INFO)
-    log = logging.info
 TAG = "{imu}_{gnss}_{method}".format  # helper
 
 # Colour palette for plotting per attitude-initialisation method
@@ -898,13 +899,7 @@ def main():
         acc_body = butter_lowpass_filter(acc_body)
         gyro_body = butter_lowpass_filter(gyro_body)
         
-        # Use up to the first 4000 samples (10 s) for bias estimation but
-        # fall back to the available amount when running truncated logs.
-        N_static = min(4000, len(imu_data))
-        if N_static < MIN_STATIC_SAMPLES:
-            raise ValueError(
-                f"Insufficient static samples for bias estimation; require at least {MIN_STATIC_SAMPLES}."
-            )
+
         
         # Compute static bias for accelerometers and gyroscopes
         static_acc = np.mean(acc_body[:N_static], axis=0)
@@ -1172,9 +1167,6 @@ def main():
     # --------------------------------
     # Subtask 5.1: Configure Logging
     # --------------------------------
-    # --------------------------------
-    # Subtask 5.1: Configure Logging
-    # --------------------------------
     logging.info("Subtask 5.1: Configuring logging.")
     
     # --------------------------------
@@ -1226,13 +1218,7 @@ def main():
     imu_time = np.arange(len(imu_data)) * dt_ilu + gnss_time[0]
     acc_body = imu_data[[5,6,7]].values / dt_ilu
     acc_body = butter_lowpass_filter(acc_body)
-    # Use at most 4000 samples but allow shorter sequences when running the
-    # trimmed datasets used in unit tests.
-    N_static = min(4000, len(imu_data))
-    if N_static < MIN_STATIC_SAMPLES:
-        raise ValueError(
-            f"Insufficient static samples; require at least {MIN_STATIC_SAMPLES}."
-        )
+
     static_acc = np.mean(acc_body[:N_static], axis=0)
     
     

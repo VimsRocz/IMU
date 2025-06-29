@@ -18,8 +18,9 @@ pip install numpy matplotlib filterpy
 ```
 
 The tests, however, require the **full** `requirements.txt`, including hefty
-dependencies like `cartopy`. Installing them inside a virtual environment or
-a container helps keep your base Python setup clean.
+dependencies like `cartopy`. Plotting checks additionally rely on
+`matplotlib`. Installing the dependencies inside a virtual environment or a
+container helps keep your base Python setup clean.
 
 If you run into issues with filterpy on Ubuntu:
 
@@ -39,7 +40,10 @@ pip3 install filterpy
 
 ### Installing test requirements
 
-To run the unit tests you need `numpy`, `pandas`, `scipy` and `cartopy` which are all included in `requirements.txt`. Install them together with `pytest` via:
+To run the unit tests you need `numpy`, `pandas`, `scipy`, `cartopy` **and**
+`matplotlib`. Plotting checks require `matplotlib` so it must be installed for
+the full suite to pass. All of these packages are included in `requirements.txt`.
+Install them together with `pytest` via:
 
 ```bash
 pip install -r requirements-dev.txt -r requirements.txt
@@ -71,7 +75,15 @@ file:
 * `STATE_X001_small.txt` holds the first 100 reference states
 
 These mini logs drastically reduce runtimes when validating the pipeline or
-the MATLAB scripts.
+the MATLAB scripts.  Use the helper configuration `config_small.yml` to run all
+three mini logs in one go:
+
+```bash
+python run_triad_only.py --config config_small.yml --verbose
+```
+
+The script automatically validates `IMU_X001_small` against
+`STATE_X001_small.txt` and stores the summaries in `results/`.
 
 ## Running validation
 
@@ -152,15 +164,6 @@ If the measured magnitude differs by more than a few percent, the IMU may not be
 
 ## Running all methods
 
-Use `run_all_methods.py` to execute the fusion script with the TRIAD,
-Davenport and SVD initialisation methods in sequence.  Provide a YAML
-configuration file to specify the datasets:
-
-```bash
-python run_all_methods.py --config your_config.yml
-```
-
-Running the script without `--config` processes the bundled example data sets.
 
 
 ## Running all data sets
@@ -265,9 +268,9 @@ writes `results/summary.csv`. Each row contains:
 
 Run the unit tests with `pytest`. **Installing the required Python packages is
 mandatory** before executing any tests. The suite relies on *all* entries in
-`requirements.txt` – including heavier libraries such as `cartopy` that can take
-some time to build. Using a dedicated virtual environment or container is
-strongly recommended:
+`requirements.txt` – including heavier libraries such as `cartopy` and the
+plotting backend `matplotlib`. Using a dedicated virtual environment or
+container is strongly recommended:
 
 ```bash
 pip install -r requirements.txt
@@ -292,10 +295,25 @@ validate_3sigma('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat', 'STATE_X001.tx
 ### Validating with Python
 
 You can also check the exported results directly in Python. Run the helper
-script with the `.mat` file and the reference trajectory:
+script with the `.mat` file, the reference trajectory and the reference
+position:
 
 ```bash
-python validate_with_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat --truth-file STATE_X001.txt
+python validate_with_truth.py \
+  --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat \
+  --truth-file STATE_X001.txt \
+  --ref-lat -32.026554 --ref-lon 133.455801 \
+  --ref-r0 -3729051 3935676 -3348394
+```
+Add `--index-align` to skip time interpolation and compare samples by index:
+
+```bash
+python validate_with_truth.py \
+  --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat \
+  --truth-file STATE_X001.txt \
+  --ref-lat -32.026554 --ref-lon 133.455801 \
+  --ref-r0 -3729051 3935676 -3348394 \
+  --index-align
 ```
 
 ### Interpolating to Ground Truth
