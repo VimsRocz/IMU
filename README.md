@@ -61,6 +61,18 @@ The repository includes three IMU logs and two GNSS traces:
 * `IMU_X002.dat` with `GNSS_X002.csv`
 * `IMU_X003.dat` with `GNSS_X002.csv` (no dedicated GNSS log was recorded)
 
+For quick tests the repository also provides truncated versions of each
+file:
+
+* `IMU_X001_small.dat`, `IMU_X002_small.dat`, `IMU_X003_small.dat`
+  contain the first 1 000 IMU samples (about 2.5 s each)
+* `GNSS_X001_small.csv`, `GNSS_X002_small.csv` contain the first ten GNSS
+  epochs
+* `STATE_X001_small.txt` holds the first 100 reference states
+
+These mini logs drastically reduce runtimes when validating the pipeline or
+the MATLAB scripts.
+
 ## Running validation
 
 To process the bundled datasets using only the TRIAD initialisation and

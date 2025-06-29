@@ -859,7 +859,8 @@ def main():
     # Subtask 4.7: Convert GNSS Data to NED Frame
     # --------------------------------
     logging.info("Subtask 4.7: Converting GNSS data to NED frame.")
-    gnss_pos_ned = np.array([C_ECEF_to_NED @ (r - ref_r0) for r in gnss_pos_ecef])
+    from utils import ecef_to_ned
+    gnss_pos_ned = ecef_to_ned(gnss_pos_ecef, ref_lat, ref_lon, ref_r0)
     gnss_vel_ned = np.array([C_ECEF_to_NED @ v for v in gnss_vel_ecef])
     logging.info("GNSS data transformed to NED frame.")
     
@@ -1201,9 +1202,10 @@ def main():
     ref_lon = np.deg2rad(lon_deg)
     ref_r0 = np.array([x_ecef, y_ecef, z_ecef])
     C_ECEF_to_NED = compute_C_ECEF_to_NED(ref_lat, ref_lon)
-    
+
     # Convert GNSS to NED
-    gnss_pos_ned = np.array([C_ECEF_to_NED @ (r - ref_r0) for r in gnss_pos_ecef])
+    from utils import ecef_to_ned
+    gnss_pos_ned = ecef_to_ned(gnss_pos_ecef, ref_lat, ref_lon, ref_r0)
     gnss_vel_ned = np.array([C_ECEF_to_NED @ v for v in gnss_vel_ecef])
     
     # Compute GNSS acceleration
