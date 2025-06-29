@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 
 
-import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -377,26 +376,36 @@ def main():
     # Subtask 1.5: Plot Location on Earth Map
     # --------------------------------
     logging.info("Subtask 1.5: Plotting location on Earth map.")
-    
-    # Create figure with PlateCarree projection
-    fig = plt.figure(figsize=(10, 5))
-    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-    ax.stock_img()  # Add Earth background image
-    
-    # Set map extent to focus on the location
-    ax.set_extent([lon_deg - 5, lon_deg + 5, lat_deg - 5, lat_deg + 5], crs=ccrs.PlateCarree())
-    
-    # Plot the initial location with a red marker
-    ax.plot(lon_deg, lat_deg, 'ro', markersize=10, transform=ccrs.PlateCarree())
-    ax.text(lon_deg + 1, lat_deg, f"Lat: {lat_deg:.4f}°, Lon: {lon_deg:.4f}°", transform=ccrs.PlateCarree())
-    
-    # Set plot title and save
-    plt.title("Initial Location on Earth Map")
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_location_map.pdf")
-    plt.close()
+        try:
+            import cartopy.crs as ccrs
+        except Exception as e:
+            logging.warning(f"cartopy not available, skipping map generation: {e}")
+        else:
+            # Create figure with PlateCarree projection
+            fig = plt.figure(figsize=(10, 5))
+            ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+            ax.stock_img()  # Add Earth background image
 
-    logging.info("Location map saved")
+            # Set map extent to focus on the location
+            ax.set_extent([lon_deg - 5, lon_deg + 5, lat_deg - 5, lat_deg + 5], crs=ccrs.PlateCarree())
+
+            # Plot the initial location with a red marker
+            ax.plot(lon_deg, lat_deg, 'ro', markersize=10, transform=ccrs.PlateCarree())
+            ax.text(
+                lon_deg + 1,
+                lat_deg,
+                f"Lat: {lat_deg:.4f}°, Lon: {lon_deg:.4f}°",
+                transform=ccrs.PlateCarree(),
+            )
+
+            # Set plot title and save
+            plt.title("Initial Location on Earth Map")
+            plt.savefig(f"results/{tag}_location_map.pdf")
+            plt.close()
+            logging.info("Location map saved")
+    else:
+        logging.info("Skipping plot generation (--no-plots)")
     
     
     # ================================
