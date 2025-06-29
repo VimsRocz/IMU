@@ -6,7 +6,7 @@ from scipy.io import loadmat
 from scipy.spatial.transform import Rotation as R, Slerp
 
 
-from utils import compute_C_ECEF_to_NED
+from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
 from plot_overlay import plot_overlay
 from plots import plot_frame
 import pandas as pd
@@ -106,6 +106,16 @@ def load_estimate(path):
             est["time"] = np.arange(len(est["pos"]))
 
     return est
+
+
+def load_state_truth(path: str):
+    """Load reference state as ECEF position and velocity."""
+
+    data = np.loadtxt(path, comments="#")
+    t_true = np.asarray(data[:, 1], dtype=np.float64)
+    pos_ecef_true = np.asarray(data[:, 2:5], dtype=np.float64)
+    vel_ecef_true = np.asarray(data[:, 5:8], dtype=np.float64)
+    return t_true, pos_ecef_true, vel_ecef_true
 
 
 def assemble_frames(est, imu_file, gnss_file, ref_lat=None, ref_lon=None, ref_r0=None):
@@ -307,6 +317,15 @@ def main():
         v = est.get("ref_r0")
         if v is not None:
             ref_r0 = np.asarray(v).squeeze()
+    if ref_lat is None or ref_lon is None or ref_r0 is None:
+        if truth.size > 0:
+            if ref_r0 is None:
+                ref_r0 = truth[0, 2:5]
+            lat_deg, lon_deg, _ = ecef_to_geodetic(*ref_r0)
+            if ref_lat is None:
+                ref_lat = np.deg2rad(lat_deg)
+            if ref_lon is None:
+                ref_lon = np.deg2rad(lon_deg)
 
     if ref_lat is None or ref_lon is None or ref_r0 is None:
         ap.error(
