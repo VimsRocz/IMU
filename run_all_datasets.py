@@ -19,24 +19,7 @@ import yaml
 
 HERE = pathlib.Path(__file__).resolve().parent
 
-
-def ensure_dependencies():
-    """Install required packages if they're missing."""
-    try:  # check a couple of external deps
-        import tabulate  # noqa: F401
-        import tqdm  # noqa: F401
-    except ModuleNotFoundError:
-        print("Installing Python dependencies ...")
-        req = HERE / "requirements.txt"
-        subprocess.check_call([
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "-r",
-            str(req),
-        ])
-
+from utils import ensure_dependencies
 
 ensure_dependencies()
 

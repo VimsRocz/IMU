@@ -5,7 +5,10 @@ import os
 from pathlib import Path
 
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except Exception:  # pragma: no cover - optional plotting dependency
+    plt = None
 import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
@@ -13,7 +16,12 @@ from scipy.signal import butter, filtfilt
 from typing import Tuple
 
 from scripts.plot_utils import save_plot, plot_attitude
-from utils import detect_static_interval, is_static, compute_C_ECEF_to_NED
+from utils import (
+    detect_static_interval,
+    is_static,
+    compute_C_ECEF_to_NED,
+    ecef_to_geodetic,
+)
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
 
@@ -25,10 +33,8 @@ except ImportError:
 
 try:
     console = Console()
-    log = console.log
 except Exception:
     logging.basicConfig(level=logging.INFO)
-    log = logging.info
 TAG = "{imu}_{gnss}_{method}".format  # helper
 
 # Colour palette for plotting per attitude-initialisation method
@@ -44,170 +50,28 @@ logging.basicConfig(
     format="%(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
+from gnss_imu_fusion.init_vectors import (
+    average_rotation_matrices,
+    svd_alignment,
+    butter_lowpass_filter,
+    angle_between,
+    compute_wahba_errors,
+)
+from gnss_imu_fusion.plots import (
+    save_zupt_variance,
+    save_euler_angles,
+    save_residual_plots,
+    save_attitude_over_time,
+)
+from gnss_imu_fusion.kalman_filter import (
+    quat_multiply,
+    quat_from_rate,
+    quat2euler,
+)
 
-def average_rotation_matrices(rotations):
-    """Average a list of rotation matrices and re-orthonormalise."""
-    A = sum(rotations) / len(rotations)
-    U, _, Vt = np.linalg.svd(A)
-    return U @ Vt
+# Minimum number of samples required from a static interval for bias estimation
+MIN_STATIC_SAMPLES = 500
 
-def svd_alignment(body_vecs, ref_vecs, weights=None):
-    """Return body->NED rotation using SVD for an arbitrary number of vector pairs."""
-    if weights is None:
-        weights = np.ones(len(body_vecs))
-    B = sum(
-        w * np.outer(r / np.linalg.norm(r), b / np.linalg.norm(b))
-        for b, r, w in zip(body_vecs, ref_vecs, weights)
-    )
-    U, _, Vt = np.linalg.svd(B)
-    M = np.diag([1, 1, np.sign(np.linalg.det(U @ Vt))])
-    return U @ M @ Vt
-
-def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):
-    """Apply a zero-phase Butterworth low-pass filter to the data."""
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(order, normal_cutoff, btype="low", analog=False)
-    return filtfilt(b, a, data, axis=0)
-
-
-def angle_between(a: np.ndarray, b: np.ndarray) -> float:
-    """Return the angle in degrees between two vectors."""
-    a = np.asarray(a)
-    b = np.asarray(b)
-    if a.shape != (3,) or b.shape != (3,):
-        raise ValueError("angle_between expects 3D vectors")
-    na = np.linalg.norm(a)
-    nb = np.linalg.norm(b)
-    if na == 0 or nb == 0:
-        return float("nan")
-    cosang = np.dot(a, b) / (na * nb)
-    cosang = np.clip(cosang, -1.0, 1.0)
-    return float(np.degrees(np.arccos(cosang)))
-
-
-def compute_wahba_errors(
-    C_bn: np.ndarray,
-    g_body: np.ndarray,
-    omega_ie_body: np.ndarray,
-    g_ref_ned: np.ndarray,
-    omega_ref_ned: np.ndarray,
-) -> Tuple[float, float]:
-    """Return gravity and Earth-rate angle errors for a DCM."""
-
-    g_pred_ned = C_bn @ g_body
-    omega_pred_ned = C_bn @ omega_ie_body
-
-    grav_err = angle_between(g_pred_ned, g_ref_ned)
-    earth_err = angle_between(omega_pred_ned, omega_ref_ned)
-    return grav_err, earth_err
-
-
-def save_zupt_variance(
-    accel: np.ndarray,
-    zupt_mask: np.ndarray,
-    dt: float,
-    dataset_id: str,
-    threshold: float,
-    window_size: int = 100,
-) -> None:
-    """Plot ZUPT-detected intervals and accelerometer variance."""
-    t = np.arange(accel.shape[0]) * dt
-    accel_norm = np.linalg.norm(accel, axis=1)
-    mean_conv = np.ones(window_size) / window_size
-    var = np.convolve(accel_norm ** 2, mean_conv, mode="same") - np.convolve(
-        accel_norm, mean_conv, mode="same"
-    ) ** 2
-
-    plt.figure(figsize=(12, 4))
-    plt.plot(t, var, label="Accel Norm Variance", color="tab:blue")
-    plt.axhline(threshold, color="gray", linestyle="--", label="ZUPT threshold")
-    plt.fill_between(
-        t,
-        0,
-        np.max(var),
-        where=zupt_mask,
-        color="tab:orange",
-        alpha=0.3,
-        label="ZUPT Detected",
-    )
-    plt.xlabel("Time [s]")
-    plt.ylabel("Variance")
-    plt.tight_layout()
-    plt.title("ZUPT Detection and Accelerometer Variance")
-    filename = f"results/IMU_{dataset_id}_ZUPT_variance.pdf"
-    plt.savefig(filename)
-    plt.close()
-
-
-def save_euler_angles(t: np.ndarray, euler_angles: np.ndarray, dataset_id: str) -> None:
-    """Plot roll, pitch and yaw over time."""
-    plt.figure()
-    plt.plot(t, euler_angles[:, 0], label="Roll")
-    plt.plot(t, euler_angles[:, 1], label="Pitch")
-    plt.plot(t, euler_angles[:, 2], label="Yaw")
-    plt.xlabel("Time [s]")
-    plt.ylabel("Angle [deg]")
-    plt.legend()
-    plt.tight_layout()
-    plt.title("Attitude Angles (Roll/Pitch/Yaw) vs. Time")
-    filename = f"results/IMU_{dataset_id}_EulerAngles_time.pdf"
-    plt.savefig(filename)
-    plt.close()
-
-
-def save_residual_plots(
-    t: np.ndarray,
-    pos_filter: np.ndarray,
-    pos_gnss: np.ndarray,
-    vel_filter: np.ndarray,
-    vel_gnss: np.ndarray,
-    dataset_id: str,
-) -> None:
-    """Plot position and velocity residuals for N/E/D."""
-    residual_pos = pos_filter - pos_gnss
-    residual_vel = vel_filter - vel_gnss
-    labels = ["North", "East", "Down"]
-    for i, label in enumerate(labels):
-        plt.figure()
-        plt.plot(t, residual_pos[:, i])
-        plt.xlabel("Time [s]")
-        plt.ylabel("Position Residual [m]")
-        plt.tight_layout()
-        plt.title(f"Position Residuals ({label}) vs. Time")
-        fname = (
-            f"results/IMU_{dataset_id}_GNSS_{dataset_id}_pos_residuals_{label}.pdf"
-        )
-        plt.savefig(fname)
-        plt.close()
-
-        plt.figure()
-        plt.plot(t, residual_vel[:, i])
-        plt.xlabel("Time [s]")
-        plt.ylabel("Velocity Residual [m/s]")
-        plt.tight_layout()
-        plt.title(f"Velocity Residuals ({label}) vs. Time")
-        fname = (
-            f"results/IMU_{dataset_id}_GNSS_{dataset_id}_vel_residuals_{label}.pdf"
-        )
-        plt.savefig(fname)
-        plt.close()
-
-
-def save_attitude_over_time(t: np.ndarray, euler_angles: np.ndarray, dataset_id: str) -> None:
-    """Plot roll, pitch and yaw over the entire dataset."""
-    plt.figure()
-    plt.plot(t, euler_angles[:, 0], label="Roll")
-    plt.plot(t, euler_angles[:, 1], label="Pitch")
-    plt.plot(t, euler_angles[:, 2], label="Yaw")
-    plt.xlabel("Time [s]")
-    plt.ylabel("Angle [deg]")
-    plt.legend()
-    plt.tight_layout()
-    plt.title("Attitude Angles (Roll/Pitch/Yaw) Over Time")
-    fname = f"results/IMU_{dataset_id}_GNSS_{dataset_id}_attitude_time.pdf"
-    plt.savefig(fname)
-    plt.close()
 
 def main():
     # Parse command-line arguments
@@ -264,21 +128,6 @@ def main():
     if not os.path.exists(imu_file):
         logging.error(f"IMU file not found: {imu_file}")
         raise FileNotFoundError(f"{imu_file} not found")
-    
-    # Function to convert ECEF to geodetic coordinates
-    def ecef_to_geodetic(x, y, z):
-        """Convert ECEF coordinates to geodetic latitude, longitude, and altitude (WGS-84)."""
-        a = 6378137.0  # WGS-84 semi-major axis (meters)
-        e_sq = 6.69437999014e-3  # WGS-84 first eccentricity squared
-        p = np.sqrt(x**2 + y**2)
-        theta = np.arctan2(z * a, p * (1 - e_sq))
-        lon = np.arctan2(y, x)
-        lat = np.arctan2(z + e_sq * a * np.sin(theta)**3 / (1 - e_sq),
-                         p - e_sq * a * np.cos(theta)**3)
-        N = a / np.sqrt(1 - e_sq * np.sin(lat)**2)
-        alt = p / np.cos(lat) - N
-        return np.degrees(lat), np.degrees(lon), alt
-    
     
     
     # ================================
@@ -1014,7 +863,8 @@ def main():
     # Subtask 4.7: Convert GNSS Data to NED Frame
     # --------------------------------
     logging.info("Subtask 4.7: Converting GNSS data to NED frame.")
-    gnss_pos_ned = np.array([C_ECEF_to_NED @ (r - ref_r0) for r in gnss_pos_ecef])
+    from utils import ecef_to_ned
+    gnss_pos_ned = ecef_to_ned(gnss_pos_ecef, ref_lat, ref_lon, ref_r0)
     gnss_vel_ned = np.array([C_ECEF_to_NED @ v for v in gnss_vel_ecef])
     logging.info("GNSS data transformed to NED frame.")
     
@@ -1049,9 +899,13 @@ def main():
         acc_body = butter_lowpass_filter(acc_body)
         gyro_body = butter_lowpass_filter(gyro_body)
         
-        N_static = 4000
-        if len(imu_data) < N_static:
-            raise ValueError("Insufficient static samples for bias estimation.")
+        # Use up to the first 4000 samples (10 s) for bias estimation but
+        # fall back to the available amount when running truncated logs.
+        N_static = min(4000, len(imu_data))
+        if N_static < MIN_STATIC_SAMPLES:
+            raise ValueError(
+                f"Insufficient static samples for bias estimation; require at least {MIN_STATIC_SAMPLES}."
+            )
         
         # Compute static bias for accelerometers and gyroscopes
         static_acc = np.mean(acc_body[:N_static], axis=0)
@@ -1319,9 +1173,6 @@ def main():
     # --------------------------------
     # Subtask 5.1: Configure Logging
     # --------------------------------
-    # --------------------------------
-    # Subtask 5.1: Configure Logging
-    # --------------------------------
     logging.info("Subtask 5.1: Configuring logging.")
     
     # --------------------------------
@@ -1356,9 +1207,10 @@ def main():
     ref_lon = np.deg2rad(lon_deg)
     ref_r0 = np.array([x_ecef, y_ecef, z_ecef])
     C_ECEF_to_NED = compute_C_ECEF_to_NED(ref_lat, ref_lon)
-    
+
     # Convert GNSS to NED
-    gnss_pos_ned = np.array([C_ECEF_to_NED @ (r - ref_r0) for r in gnss_pos_ecef])
+    from utils import ecef_to_ned
+    gnss_pos_ned = ecef_to_ned(gnss_pos_ecef, ref_lat, ref_lon, ref_r0)
     gnss_vel_ned = np.array([C_ECEF_to_NED @ v for v in gnss_vel_ecef])
     
     # Compute GNSS acceleration
@@ -1372,9 +1224,13 @@ def main():
     imu_time = np.arange(len(imu_data)) * dt_ilu + gnss_time[0]
     acc_body = imu_data[[5,6,7]].values / dt_ilu
     acc_body = butter_lowpass_filter(acc_body)
-    N_static = 4000
-    if len(imu_data) < N_static:
-        raise ValueError("Insufficient static samples.")
+    # Use at most 4000 samples but allow shorter sequences when running the
+    # trimmed datasets used in unit tests.
+    N_static = min(4000, len(imu_data))
+    if N_static < MIN_STATIC_SAMPLES:
+        raise ValueError(
+            f"Insufficient static samples; require at least {MIN_STATIC_SAMPLES}."
+        )
     static_acc = np.mean(acc_body[:N_static], axis=0)
     
     
@@ -1437,37 +1293,6 @@ def main():
     zupt_counts = {}
     zupt_events_all = {}
 
-    def quat_multiply(q, r):
-        w0, x0, y0, z0 = q
-        w1, x1, y1, z1 = r
-        return np.array([
-            w0*w1 - x0*x1 - y0*y1 - z0*z1,
-            w0*x1 + x0*w1 + y0*z1 - z0*y1,
-            w0*y1 - x0*z1 + y0*w1 + z0*x1,
-            w0*z1 + x0*y1 - y0*x1 + z0*w1,
-        ])
-
-    def quat_from_rate(omega, dt):
-        theta = np.linalg.norm(omega) * dt
-        if theta == 0:
-            return np.array([1.0, 0.0, 0.0, 0.0])
-        axis = omega / np.linalg.norm(omega)
-        half = theta / 2.0
-        return np.array([np.cos(half), *(np.sin(half) * axis)])
-
-    def quat2euler(q):
-        """Return roll, pitch, yaw (rad) from w-x-y-z quaternion."""
-        w, x, y, z = q
-        t2 = +2.0 * (w * y - z * x)
-        t2 = np.clip(t2, -1.0, 1.0)
-        pitch = np.arcsin(t2)
-        t0 = +2.0 * (w * x + y * z)
-        t1 = +1.0 - 2.0 * (x * x + y * y)
-        roll = np.arctan2(t0, t1)
-        t3 = +2.0 * (w * z + x * y)
-        t4 = +1.0 - 2.0 * (y * y + z * z)
-        yaw = np.arctan2(t3, t4)
-        return roll, pitch, yaw
     for m in methods:
         kf = KalmanFilter(dim_x=9, dim_z=6)
         kf.x = np.hstack((imu_pos[m][0], imu_vel[m][0], imu_acc[m][0]))
@@ -1711,58 +1536,73 @@ def main():
             ax = ax_ned_all[i, j]
             if i == 0:
                 ax.plot(t_rel_gnss, gnss_pos_ned[:, j], 'k-', label='GNSS')
+                ax.plot(t_rel_ilu, imu_pos[method][:, j], '--', color='gray',
+                        label='IMU (no fusion)')
                 ax.plot(t_rel_ilu, fused_pos[method][:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                        label='Fused (KF)')
                 ax.set_title(f'Position {dirs_ned[j]}')
             elif i == 1:
                 ax.plot(t_rel_gnss, gnss_vel_ned[:, j], 'k-', label='GNSS')
+                ax.plot(t_rel_ilu, imu_vel[method][:, j], '--', color='gray',
+                        label='IMU (no fusion)')
                 ax.plot(t_rel_ilu, fused_vel[method][:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                        label='Fused (KF)')
                 ax.set_title(f'Velocity V{dirs_ned[j]}')
             else:
                 ax.plot(t_rel_gnss, gnss_acc_ned[:, j], 'k-', label='GNSS')
+                ax.plot(t_rel_ilu, imu_acc[method][:, j], '--', color='gray',
+                        label='IMU (no fusion)')
                 ax.plot(t_rel_ilu, fused_acc[method][:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                        label='Fused (KF)')
                 ax.set_title(f'Acceleration {dirs_ned[j]}')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_ned.pdf")
+        plt.savefig(f"results/{tag}_task5_compare_ned.pdf")
     plt.close()
     logging.info("All data in NED frame plot saved")
 
     logging.info("Plotting all data in ECEF frame.")
     fig_ecef_all, ax_ecef_all = plt.subplots(3, 3, figsize=(15, 10))
     dirs_ecef = ['X', 'Y', 'Z']
-    pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
-    vel_ecef = (C_NED_to_ECEF @ fused_vel[method].T).T
-    acc_ecef = (C_NED_to_ECEF @ fused_acc[method].T).T
+    pos_ecef_fused = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
+    vel_ecef_fused = (C_NED_to_ECEF @ fused_vel[method].T).T
+    acc_ecef_fused = (C_NED_to_ECEF @ fused_acc[method].T).T
+    pos_ecef_imu = np.array([C_NED_to_ECEF @ p + ref_r0 for p in imu_pos[method]])
+    vel_ecef_imu = (C_NED_to_ECEF @ imu_vel[method].T).T
+    acc_ecef_imu = (C_NED_to_ECEF @ imu_acc[method].T).T
     for i in range(3):
         for j in range(3):
             ax = ax_ecef_all[i, j]
             if i == 0:
                 ax.plot(t_rel_gnss, gnss_pos_ecef[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, pos_ecef[:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                ax.plot(t_rel_ilu, pos_ecef_imu[:, j], '--', color='gray',
+                        label='IMU (no fusion)')
+                ax.plot(t_rel_ilu, pos_ecef_fused[:, j], c, alpha=0.7,
+                        label='Fused (KF)')
                 ax.set_title(f'Position {dirs_ecef[j]}_ECEF')
             elif i == 1:
                 ax.plot(t_rel_gnss, gnss_vel_ecef[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, vel_ecef[:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                ax.plot(t_rel_ilu, vel_ecef_imu[:, j], '--', color='gray',
+                        label='IMU (no fusion)')
+                ax.plot(t_rel_ilu, vel_ecef_fused[:, j], c, alpha=0.7,
+                        label='Fused (KF)')
                 ax.set_title(f'Velocity V{dirs_ecef[j]}_ECEF')
             else:
                 ax.plot(t_rel_gnss, gnss_acc_ecef[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, acc_ecef[:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                ax.plot(t_rel_ilu, acc_ecef_imu[:, j], '--', color='gray',
+                        label='IMU (no fusion)')
+                ax.plot(t_rel_ilu, acc_ecef_fused[:, j], c, alpha=0.7,
+                        label='Fused (KF)')
                 ax.set_title(f'Acceleration {dirs_ecef[j]}_ECEF')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_ecef.pdf")
+        plt.savefig(f"results/{tag}_task5_compare_ecef.pdf")
     plt.close()
     logging.info("All data in ECEF frame plot saved")
 
@@ -1770,9 +1610,12 @@ def main():
     fig_body_all, ax_body_all = plt.subplots(3, 3, figsize=(15, 10))
     dirs_body = ['X', 'Y', 'Z']
     C_N_B = C_B_N_methods[method].T
-    pos_body = (C_N_B @ fused_pos[method].T).T
-    vel_body = (C_N_B @ fused_vel[method].T).T
-    acc_body = (C_N_B @ fused_acc[method].T).T
+    pos_body_fused = (C_N_B @ fused_pos[method].T).T
+    vel_body_fused = (C_N_B @ fused_vel[method].T).T
+    acc_body_fused = (C_N_B @ fused_acc[method].T).T
+    pos_body_imu = (C_N_B @ imu_pos[method].T).T
+    vel_body_imu = (C_N_B @ imu_vel[method].T).T
+    acc_body_imu = (C_N_B @ imu_acc[method].T).T
     gnss_pos_body = (C_N_B @ gnss_pos_ned.T).T
     gnss_vel_body = (C_N_B @ gnss_vel_ned.T).T
     gnss_acc_body = (C_N_B @ gnss_acc_ned.T).T
@@ -1781,25 +1624,31 @@ def main():
             ax = ax_body_all[i, j]
             if i == 0:
                 ax.plot(t_rel_gnss, gnss_pos_body[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, pos_body[:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                ax.plot(t_rel_ilu, pos_body_imu[:, j], '--', color='gray',
+                        label='IMU (no fusion)')
+                ax.plot(t_rel_ilu, pos_body_fused[:, j], c, alpha=0.7,
+                        label='Fused (KF)')
                 ax.set_title(f'Position r{dirs_body[j]}_body')
             elif i == 1:
                 ax.plot(t_rel_gnss, gnss_vel_body[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, vel_body[:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                ax.plot(t_rel_ilu, vel_body_imu[:, j], '--', color='gray',
+                        label='IMU (no fusion)')
+                ax.plot(t_rel_ilu, vel_body_fused[:, j], c, alpha=0.7,
+                        label='Fused (KF)')
                 ax.set_title(f'Velocity v{dirs_body[j]}_body')
             else:
                 ax.plot(t_rel_gnss, gnss_acc_body[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, acc_body[:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                ax.plot(t_rel_ilu, acc_body_imu[:, j], '--', color='gray',
+                        label='IMU (no fusion)')
+                ax.plot(t_rel_ilu, acc_body_fused[:, j], c, alpha=0.7,
+                        label='Fused (KF)')
                 ax.set_title(f'Acceleration A{dirs_body[j]}_body')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_body.pdf")
+        plt.savefig(f"results/{tag}_task5_compare_body.pdf")
     plt.close()
     logging.info("All data in body frame plot saved")
 
@@ -1840,9 +1689,9 @@ def main():
         f'{tag}_task4_all_ecef.pdf': 'Integrated data in ECEF frame',
         f'{tag}_task4_all_body.pdf': 'Integrated data in body frame',
         f'{tag}_task5_results_{method}.pdf': f'Kalman filter results using {method}',
-        f'{tag}_task5_all_ned.pdf': 'Kalman filter results in NED frame',
-        f'{tag}_task5_all_ecef.pdf': 'Kalman filter results in ECEF frame',
-        f'{tag}_task5_all_body.pdf': 'Kalman filter results in body frame',
+        f'{tag}_task5_compare_ned.pdf': 'GNSS/IMU/KF comparison in NED frame',
+        f'{tag}_task5_compare_ecef.pdf': 'GNSS/IMU/KF comparison in ECEF frame',
+        f'{tag}_task5_compare_body.pdf': 'GNSS/IMU/KF comparison in body frame',
         f'{tag}_{method.lower()}_residuals.pdf': 'Position and velocity residuals',
         f'{tag}_{method.lower()}_innovations.pdf': 'Pre-fit innovations',
         f'{tag}_{method.lower()}_attitude_angles.pdf': 'Attitude angles over time'
