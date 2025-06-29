@@ -55,11 +55,11 @@ pip3 install filterpy
 
 ## Datasets
 
-The repository includes three IMU logs and two GNSS traces.  The first two
-pairs are straightforward: `IMU_X001.dat` ↔ `GNSS_X001.csv` and
-`IMU_X002.dat` ↔ `GNSS_X002.csv`.  The third IMU recording `IMU_X003.dat`
-pairs with `GNSS_X002.csv` as no dedicated GNSS file was captured for this
-run.
+The repository includes three IMU logs and two GNSS traces:
+
+* `IMU_X001.dat` with `GNSS_X001.csv`
+* `IMU_X002.dat` with `GNSS_X002.csv`
+* `IMU_X003.dat` with `GNSS_X002.csv` (no dedicated GNSS log was recorded)
 
 ## Running validation
 
