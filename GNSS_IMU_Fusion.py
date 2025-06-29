@@ -895,9 +895,9 @@ def main():
         acc_body = butter_lowpass_filter(acc_body)
         gyro_body = butter_lowpass_filter(gyro_body)
         
-        N_static = 4000
+        N_static = min(4000, max(len(imu_data) // 10, 100))
         if len(imu_data) < N_static:
-            raise ValueError("Insufficient static samples for bias estimation.")
+            N_static = len(imu_data) // 2
         
         # Compute static bias for accelerometers and gyroscopes
         static_acc = np.mean(acc_body[:N_static], axis=0)
@@ -1219,9 +1219,9 @@ def main():
     imu_time = np.arange(len(imu_data)) * dt_ilu + gnss_time[0]
     acc_body = imu_data[[5,6,7]].values / dt_ilu
     acc_body = butter_lowpass_filter(acc_body)
-    N_static = 4000
+    N_static = min(4000, max(len(imu_data) // 10, 100))
     if len(imu_data) < N_static:
-        raise ValueError("Insufficient static samples.")
+        N_static = len(imu_data) // 2
     static_acc = np.mean(acc_body[:N_static], axis=0)
     
     

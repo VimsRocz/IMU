@@ -71,7 +71,15 @@ file:
 * `STATE_X001_small.txt` holds the first 100 reference states
 
 These mini logs drastically reduce runtimes when validating the pipeline or
-the MATLAB scripts.
+the MATLAB scripts.  Use the helper configuration `config_small.yml` to run all
+three mini logs in one go:
+
+```bash
+python run_triad_only.py --config config_small.yml --verbose
+```
+
+The script automatically validates `IMU_X001_small` against
+`STATE_X001_small.txt` and stores the summaries in `results/`.
 
 ## Running validation
 
