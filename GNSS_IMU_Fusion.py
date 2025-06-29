@@ -5,21 +5,18 @@ import os
 from pathlib import Path
 
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
 from scipy.signal import butter, filtfilt
 from typing import Tuple
 
-from scripts.plot_utils import save_plot, plot_attitude
 from utils import (
     detect_static_interval,
     is_static,
     compute_C_ECEF_to_NED,
     ecef_to_geodetic,
 )
-from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
 
 try:
@@ -53,12 +50,6 @@ from gnss_imu_fusion.init_vectors import (
     butter_lowpass_filter,
     angle_between,
     compute_wahba_errors,
-)
-from gnss_imu_fusion.plots import (
-    save_zupt_variance,
-    save_euler_angles,
-    save_residual_plots,
-    save_attitude_over_time,
 )
 from gnss_imu_fusion.kalman_filter import (
     quat_multiply,
@@ -105,6 +96,45 @@ def main():
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
+
+    if not args.no_plots:
+        try:
+            import matplotlib.pyplot as plt
+            from scripts.plot_utils import save_plot, plot_attitude
+            from scripts.validate_filter import compute_residuals, plot_residuals
+            from gnss_imu_fusion.plots import (
+                save_zupt_variance,
+                save_euler_angles,
+                save_residual_plots,
+                save_attitude_over_time,
+            )
+        except Exception as e:
+            logging.warning("Matplotlib not available, disabling plots: %s", e)
+            args.no_plots = True
+
+    if args.no_plots:
+        class _Dummy:
+            def __getattr__(self, name):
+                return lambda *a, **k: None
+
+        dummy = _Dummy()
+
+        class _DummyAxes:
+            def __getattr__(self, name):
+                return lambda *a, **k: None
+            def __getitem__(self, idx):
+                return self
+
+        def dummy_subplots(nrows=1, ncols=1, *a, **k):
+            return dummy, _DummyAxes()
+
+        plt = type('DummyPlt', (), {
+            'figure': staticmethod(lambda *a, **k: dummy),
+            'subplots': staticmethod(dummy_subplots),
+            'close': lambda *a, **k: None,
+            'tight_layout': lambda *a, **k: None,
+            'savefig': lambda *a, **k: None,
+        })()
 
     method = args.method
     gnss_file = args.gnss_file

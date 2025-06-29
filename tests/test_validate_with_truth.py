@@ -6,6 +6,7 @@ import pytest
 
 np = pytest.importorskip("numpy")
 pd = pytest.importorskip("pandas")
+pytest.importorskip("matplotlib")
 
 from GNSS_IMU_Fusion import main
 from validate_with_truth import load_estimate

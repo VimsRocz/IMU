@@ -39,7 +39,7 @@ pip3 install filterpy
 
 ### Installing test requirements
 
-To run the unit tests you need `numpy`, `pandas`, `scipy` and `cartopy` which are all included in `requirements.txt`. Install them together with `pytest` via:
+To run the unit tests you need `numpy`, `pandas`, `scipy`, `matplotlib` and `cartopy` which are all included in `requirements.txt`. Install them together with `pytest` via:
 
 ```bash
 pip install -r requirements-dev.txt -r requirements.txt
@@ -265,12 +265,12 @@ writes `results/summary.csv`. Each row contains:
 
 Run the unit tests with `pytest`. **Installing the required Python packages is
 mandatory** before executing any tests. The suite relies on *all* entries in
-`requirements.txt` – including heavier libraries such as `cartopy` that can take
-some time to build. Using a dedicated virtual environment or container is
-strongly recommended:
+`requirements.txt` – including heavier libraries such as `cartopy` and
+`matplotlib` – that can take some time to build. Using a dedicated virtual
+environment or container is strongly recommended:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt -r requirements.txt
 pytest -q
 ```
 
