@@ -13,7 +13,12 @@ from scipy.signal import butter, filtfilt
 from typing import Tuple
 
 from scripts.plot_utils import save_plot, plot_attitude
-from utils import detect_static_interval, is_static, compute_C_ECEF_to_NED
+from utils import (
+    detect_static_interval,
+    is_static,
+    compute_C_ECEF_to_NED,
+    ecef_to_geodetic,
+)
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
 
@@ -264,21 +269,6 @@ def main():
     if not os.path.exists(imu_file):
         logging.error(f"IMU file not found: {imu_file}")
         raise FileNotFoundError(f"{imu_file} not found")
-    
-    # Function to convert ECEF to geodetic coordinates
-    def ecef_to_geodetic(x, y, z):
-        """Convert ECEF coordinates to geodetic latitude, longitude, and altitude (WGS-84)."""
-        a = 6378137.0  # WGS-84 semi-major axis (meters)
-        e_sq = 6.69437999014e-3  # WGS-84 first eccentricity squared
-        p = np.sqrt(x**2 + y**2)
-        theta = np.arctan2(z * a, p * (1 - e_sq))
-        lon = np.arctan2(y, x)
-        lat = np.arctan2(z + e_sq * a * np.sin(theta)**3 / (1 - e_sq),
-                         p - e_sq * a * np.cos(theta)**3)
-        N = a / np.sqrt(1 - e_sq * np.sin(lat)**2)
-        alt = p / np.cos(lat) - N
-        return np.degrees(lat), np.degrees(lon), alt
-    
     
     
     # ================================

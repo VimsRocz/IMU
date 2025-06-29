@@ -159,3 +159,30 @@ def compute_C_ECEF_to_NED(lat: float, lon: float) -> np.ndarray:
         [-s_lon, c_lon, 0.0],
         [-c_lat * c_lon, -c_lat * s_lon, -s_lat],
     ])
+
+
+def ecef_to_geodetic(x: float, y: float, z: float) -> Tuple[float, float, float]:
+    """Convert ECEF coordinates to geodetic latitude, longitude and altitude.
+
+    Parameters
+    ----------
+    x, y, z : float
+        Coordinates in the Earth-Centred Earth-Fixed (ECEF) frame, metres.
+
+    Returns
+    -------
+    tuple of float
+        ``(latitude_deg, longitude_deg, altitude_m)`` using the WGS‑84 model.
+    """
+    a = 6378137.0
+    e_sq = 6.69437999014e-3
+    p = np.sqrt(x ** 2 + y ** 2)
+    theta = np.arctan2(z * a, p * (1 - e_sq))
+    lon = np.arctan2(y, x)
+    lat = np.arctan2(
+        z + e_sq * a * np.sin(theta) ** 3 / (1 - e_sq),
+        p - e_sq * a * np.cos(theta) ** 3,
+    )
+    N = a / np.sqrt(1 - e_sq * np.sin(lat) ** 2)
+    alt = p / np.cos(lat) - N
+    return float(np.degrees(lat)), float(np.degrees(lon)), float(alt)
