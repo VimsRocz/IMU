@@ -134,9 +134,7 @@ x(4:6)  = gnss_vel_ned(1,:)';
 x(7:9)  = init_eul;
 x(10:12) = accel_bias(:);
 x(13:15) = gyro_bias(:);
-% EKF tuning parameters
-P = blkdiag(eye(9) * 0.01, eye(3) * 1e-4, eye(3) * 1e-8);
-Q = blkdiag(eye(9) * 0.01, eye(3) * 1e-6, eye(3) * 1e-6);
+
 R = eye(6) * 0.1;
 H = [eye(6), zeros(6,9)];
 
