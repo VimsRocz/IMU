@@ -7,6 +7,9 @@ Parse logs/* for lines that start with [SUMMARY] and emit:
 
 import csv, pathlib, re
 
+RESULTS_DIR = pathlib.Path("results")
+RESULTS_DIR.mkdir(exist_ok=True)
+
 LOG_DIR = pathlib.Path("logs")
 SUMMARY = re.compile(r"\[SUMMARY\]\s+(.*)")
 
@@ -19,7 +22,7 @@ for log in LOG_DIR.glob("*.log"):
             rows.append(kv)
 
 # CSV -------------------------------------------------------------------------
-with open("summary.csv", "w", newline="") as fh:
+with open(RESULTS_DIR / "summary.csv", "w", newline="") as fh:
     writer = csv.DictWriter(
         fh, fieldnames=["method", "imu", "gnss", "rmse_pos", "final_pos"]
     )
@@ -27,11 +30,11 @@ with open("summary.csv", "w", newline="") as fh:
     writer.writerows(rows)
 
 # Markdown table --------------------------------------------------------------
-with open("summary.md", "w") as fh:
+with open(RESULTS_DIR / "summary.md", "w") as fh:
     hdr = " | ".join(["method", "imu", "gnss", "rmse_pos", "final_pos"])
     sep = " | ".join("---" for _ in range(5))
     fh.write(hdr + "\n" + sep + "\n")
     for r in rows:
         fh.write(" | ".join(r.values()) + "\n")
 
-print("Created summary.csv and summary.md")
+print("Created results/summary.csv and results/summary.md")
