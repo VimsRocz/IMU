@@ -30,10 +30,8 @@ except ImportError:
 
 try:
     console = Console()
-    log = console.log
 except Exception:
     logging.basicConfig(level=logging.INFO)
-    log = logging.info
 TAG = "{imu}_{gnss}_{method}".format  # helper
 
 # Colour palette for plotting per attitude-initialisation method
