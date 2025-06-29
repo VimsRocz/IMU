@@ -268,9 +268,9 @@ def main():
             ref_r0 = np.asarray(v).squeeze()
 
     if ref_lat is None or ref_lon is None or ref_r0 is None:
-        ref_lat = np.deg2rad(-32.026554)
-        ref_lon = np.deg2rad(133.455801)
-        ref_r0 = np.array([-3729051, 3935676, -3348394])
+        ap.error(
+            "ref_lat, ref_lon and ref_r0 must be provided via command line or contained in the estimate file"
+        )
 
     C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
 

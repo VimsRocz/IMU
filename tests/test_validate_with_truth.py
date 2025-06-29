@@ -126,6 +126,14 @@ def test_index_align(monkeypatch):
         "results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat",
         "--truth-file",
         "STATE_X001.txt",
+        "--ref-lat",
+        "-32.026554",
+        "--ref-lon",
+        "133.455801",
+        "--ref-r0",
+        "-3729051",
+        "3935676",
+        "-3348394",
         "--index-align",
     ]
     monkeypatch.setattr(sys, "argv", ["validate_with_truth.py"] + args)

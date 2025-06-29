@@ -292,15 +292,25 @@ validate_3sigma('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat', 'STATE_X001.tx
 ### Validating with Python
 
 You can also check the exported results directly in Python. Run the helper
-script with the `.mat` file and the reference trajectory:
+script with the `.mat` file, the reference trajectory and the reference
+position:
 
 ```bash
-python validate_with_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat --truth-file STATE_X001.txt
+python validate_with_truth.py \
+  --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat \
+  --truth-file STATE_X001.txt \
+  --ref-lat -32.026554 --ref-lon 133.455801 \
+  --ref-r0 -3729051 3935676 -3348394
 ```
 Add `--index-align` to skip time interpolation and compare samples by index:
 
 ```bash
-python validate_with_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat --truth-file STATE_X001.txt --index-align
+python validate_with_truth.py \
+  --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat \
+  --truth-file STATE_X001.txt \
+  --ref-lat -32.026554 --ref-lon 133.455801 \
+  --ref-r0 -3729051 3935676 -3348394 \
+  --index-align
 ```
 
 ### Interpolating to Ground Truth
