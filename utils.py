@@ -1,11 +1,11 @@
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Optional
 import pathlib
 import subprocess
 import sys
 
 
-def ensure_dependencies(requirements: pathlib.Path | None = None) -> None:
+def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
     """Install packages from ``requirements.txt`` if key deps are missing."""
     try:
         import tabulate  # noqa: F401

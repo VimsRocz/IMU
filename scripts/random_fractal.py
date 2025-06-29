@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import rgb2hex
+from typing import Optional
 
 
 def generate_colors(num_points: int, colormap: str = "hsv"):
@@ -25,7 +26,7 @@ def chaos_game(num_points: int = 50000):
     return points
 
 
-def plot_fractal(num_points: int = 50000, outfile: str | None = None) -> None:
+def plot_fractal(num_points: int = 50000, outfile: Optional[str] = None) -> None:
     """Plot a random fractal with a hex-based spectral gradient.
 
     If ``outfile`` is provided the figure is saved instead of shown. This allows

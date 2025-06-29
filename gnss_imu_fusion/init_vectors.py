@@ -1,6 +1,6 @@
 """Vector initialisation utilities extracted from the original script."""
 
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, Optional
 
 import numpy as np
 from scipy.signal import butter, filtfilt
@@ -16,7 +16,7 @@ def average_rotation_matrices(rotations: Iterable[np.ndarray]) -> np.ndarray:
 def svd_alignment(
     body_vecs: Iterable[np.ndarray],
     ref_vecs: Iterable[np.ndarray],
-    weights: Iterable[float] | None = None,
+    weights: Optional[Iterable[float]] = None,
 ) -> np.ndarray:
     """Return body->NED rotation using SVD for an arbitrary number of vector pairs."""
     if weights is None:
