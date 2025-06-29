@@ -1,6 +1,10 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.colors import rgb2hex
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import rgb2hex
+except Exception:  # pragma: no cover - optional plotting dependency
+    plt = None
+    rgb2hex = None
 from typing import Optional
 
 
