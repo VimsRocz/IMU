@@ -139,3 +139,7 @@ def test_index_align(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["validate_with_truth.py"] + args)
     from validate_with_truth import main as vmain
     vmain()
+
+    for frame in ["NED", "ECEF", "BODY"]:
+        f = Path("results") / f"Task5_compare_{frame}.png"
+        assert f.exists(), f"Missing {f}"

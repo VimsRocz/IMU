@@ -11,6 +11,7 @@ except Exception:  # pragma: no cover - optional plotting dependency
 
 from utils import compute_C_ECEF_to_NED
 from plot_overlay import plot_overlay
+from plots import plot_frame
 import pandas as pd
 import re
 
@@ -110,7 +111,7 @@ def load_estimate(path):
     return est
 
 
-def assemble_frames(est, imu_file, gnss_file):
+def assemble_frames(est, imu_file, gnss_file, ref_lat=None, ref_lon=None, ref_r0=None):
     """Return aligned datasets in NED/ECEF/Body frames."""
     gnss = pd.read_csv(gnss_file)
     t_gnss = gnss["Posix_Time"].to_numpy()
@@ -120,17 +121,28 @@ def assemble_frames(est, imu_file, gnss_file):
     acc_ecef = np.zeros_like(vel_ecef)
     acc_ecef[1:] = np.diff(vel_ecef, axis=0) / dt_g[1:, None]
 
-    ref_lat = float(np.asarray(est.get("ref_lat")).squeeze())
-    ref_lon = float(np.asarray(est.get("ref_lon")).squeeze())
-    ref_r0 = np.asarray(est.get("ref_r0")).squeeze()
+    if ref_lat is None:
+        v = est.get("ref_lat")
+        if v is not None:
+            ref_lat = float(np.asarray(v).squeeze())
+    if ref_lon is None:
+        v = est.get("ref_lon")
+        if v is not None:
+            ref_lon = float(np.asarray(v).squeeze())
+    if ref_r0 is None:
+        v = est.get("ref_r0")
+        if v is not None:
+            ref_r0 = np.asarray(v).squeeze()
+    if ref_lat is None or ref_lon is None or ref_r0 is None:
+        raise ValueError("Reference location missing")
     C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
     pos_gnss_ned = np.array([C @ (p - ref_r0) for p in pos_ecef])
     vel_gnss_ned = np.array([C @ v for v in vel_ecef])
     acc_gnss_ned = np.array([C @ a for a in acc_ecef])
 
     t_est = np.asarray(est["time"]).squeeze()
-    fused_pos = np.asarray(est["pos"])
-    fused_vel = np.asarray(est["vel"])
+    fused_pos = np.asarray(est["pos"])[: len(t_est)]
+    fused_vel = np.asarray(est["vel"])[: len(t_est)]
     fused_acc = np.zeros_like(fused_vel)
     if len(t_est) > 1:
         dt = np.diff(t_est, prepend=t_est[0])
@@ -220,6 +232,30 @@ def assemble_frames(est, imu_file, gnss_file):
         },
     }
     return frames
+
+
+def prepare_truth_frames(truth, ref_lat, ref_lon, ref_r0, t_ref):
+    """Convert truth data to ECEF/NED and interpolate to *t_ref*."""
+    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+    t = truth[:, 1]
+    pos_ecef = truth[:, 2:5]
+    vel_ecef = truth[:, 5:8]
+    acc_ecef = np.zeros_like(vel_ecef)
+    if len(t) > 1:
+        dt = np.diff(t, prepend=t[0])
+        acc_ecef[1:] = np.diff(vel_ecef, axis=0) / dt[1:, None]
+
+    pos_ned = np.array([C @ (p - ref_r0) for p in pos_ecef])
+    vel_ned = np.array([C @ v for v in vel_ecef])
+    acc_ned = np.array([C @ a for a in acc_ecef])
+
+    def interp(data):
+        return np.vstack([np.interp(t_ref, t, data[:, i]) for i in range(3)]).T
+
+    return {
+        "ECEF": (t_ref, interp(pos_ecef), interp(vel_ecef), interp(acc_ecef)),
+        "NED": (t_ref, interp(pos_ned), interp(vel_ned), interp(acc_ned)),
+    }
 
 
 def main():
@@ -428,14 +464,21 @@ def main():
     )
     if m:
         imu_file = f"{m.group(1)}.dat"
-        gnss_file = f"{m.group(2)}.csv"
+        gnss_file = f"GNSS_{m.group(2)}.csv"
         method = m.group(3)
         try:
-            frames = assemble_frames(est, imu_file, gnss_file)
-            for frame_name, data in frames.items():
-                t_i, p_i, v_i, a_i = data["imu"]
-                t_g, p_g, v_g, a_g = data["gnss"]
-                t_f, p_f, v_f, a_f = data["fused"]
+            frames = assemble_frames(est, imu_file, gnss_file, ref_lat, ref_lon, ref_r0)
+            truth_frames = prepare_truth_frames(
+                truth, ref_lat, ref_lon, ref_r0, frames["NED"]["fused"][0]
+            )
+        except Exception as e:
+            print(f"Overlay plot failed: {e}")
+            return
+        for frame_name, data in frames.items():
+            t_i, p_i, v_i, a_i = data["imu"]
+            t_g, p_g, v_g, a_g = data["gnss"]
+            t_f, p_f, v_f, a_f = data["fused"]
+            try:
                 plot_overlay(
                     frame_name,
                     method,
@@ -453,8 +496,29 @@ def main():
                     a_f,
                     args.output,
                 )
-        except Exception as e:
-            print(f"Overlay plot failed: {e}")
+            except Exception as e:
+                print(f"Overlay plot failed: {e}")
+            try:
+                plot_frame(
+                    frame_name,
+                    method,
+                    t_i,
+                    p_i,
+                    v_i,
+                    a_i,
+                    t_g,
+                    p_g,
+                    v_g,
+                    a_g,
+                    t_f,
+                    p_f,
+                    v_f,
+                    a_f,
+                    args.output,
+                    truth_frames.get(frame_name),
+                )
+            except Exception as e:
+                print(f"Frame plot failed: {e}")
 
 
 if __name__ == "__main__":

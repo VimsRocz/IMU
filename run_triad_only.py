@@ -8,6 +8,8 @@ import pathlib
 import re
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
+from utils import ecef_to_geodetic
+import pandas as pd
 
 HERE = pathlib.Path(__file__).resolve().parent
 
@@ -47,7 +49,19 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         if m2:
             imu_file = HERE / f"{m2.group(1)}.dat"
             gnss_file = HERE / f"{m2.group(2)}.csv"
-            frames = assemble_frames(est, imu_file, gnss_file)
+            gnss = pd.read_csv(gnss_file, nrows=1)
+            x0, y0, z0 = (
+                gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].iloc[0].to_numpy()
+            )
+            lat0, lon0, _ = ecef_to_geodetic(x0, y0, z0)
+            frames = assemble_frames(
+                est,
+                imu_file,
+                gnss_file,
+                np.deg2rad(lat0),
+                np.deg2rad(lon0),
+                np.array([x0, y0, z0]),
+            )
             for frame_name, data in frames.items():
                 t_i, p_i, v_i, a_i = data["imu"]
                 t_g, p_g, v_g, a_g = data["gnss"]
