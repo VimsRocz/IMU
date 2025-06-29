@@ -238,6 +238,11 @@ def main():
     ap.add_argument("--ref-lat", type=float, help="reference latitude in degrees")
     ap.add_argument("--ref-lon", type=float, help="reference longitude in degrees")
     ap.add_argument("--ref-r0", type=float, nargs=3, help="ECEF origin [m]")
+    ap.add_argument(
+        "--index-align",
+        action="store_true",
+        help="Match states by sample index instead of time",
+    )
     args = ap.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
@@ -272,42 +277,55 @@ def main():
     t_truth = truth[:, 1]
     truth_pos_ned = np.array([C @ (p - ref_r0) for p in truth[:, 2:5]])
 
-    # ensure estimate arrays use the same length for time and states
     t_est = np.asarray(est["time"]).squeeze()
     pos_est = np.asarray(est["pos"])
-    n_pos = min(len(t_est), len(pos_est))
-    t_pos = t_est[:n_pos]
-    pos_est = pos_est[:n_pos]
-
-    est_pos_interp = np.vstack(
-        [np.interp(t_truth, t_pos, pos_est[:, i]) for i in range(3)]
-    ).T
-
-    err_pos = est_pos_interp - truth_pos_ned
+    err_pos = None
     err_vel = None
     err_quat = None
 
-    if est.get("vel") is not None:
-        truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
-        vel_est = np.asarray(est["vel"])
-        n_vel = min(len(t_est), len(vel_est))
-        t_vel = t_est[:n_vel]
-        vel_est = vel_est[:n_vel]
-        est_vel_interp = np.vstack(
-            [np.interp(t_truth, t_vel, vel_est[:, i]) for i in range(3)]
+    if args.index_align:
+        n = min(len(pos_est), truth_pos_ned.shape[0])
+        err_pos = pos_est[:n] - truth_pos_ned[:n]
+        if est.get("vel") is not None:
+            truth_vel_ned = np.array([C @ v for v in truth[:n, 5:8]])
+            vel_est = np.asarray(est["vel"])
+            err_vel = vel_est[:n] - truth_vel_ned
+    else:
+        n_pos = min(len(t_est), len(pos_est))
+        t_pos = t_est[:n_pos]
+        pos_est = pos_est[:n_pos]
+        est_pos_interp = np.vstack(
+            [np.interp(t_truth, t_pos, pos_est[:, i]) for i in range(3)]
         ).T
-        err_vel = est_vel_interp - truth_vel_ned
+        err_pos = est_pos_interp - truth_pos_ned
+
+        if est.get("vel") is not None:
+            truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
+            vel_est = np.asarray(est["vel"])
+            n_vel = min(len(t_est), len(vel_est))
+            t_vel = t_est[:n_vel]
+            vel_est = vel_est[:n_vel]
+            est_vel_interp = np.vstack(
+                [np.interp(t_truth, t_vel, vel_est[:, i]) for i in range(3)]
+            ).T
+            err_vel = est_vel_interp - truth_vel_ned
 
     if est.get("quat") is not None:
         q_true = truth[:, 8:12]
-        r_true = R.from_quat(q_true[:, [1, 2, 3, 0]])
         quat_est = np.asarray(est["quat"])
-        n_q = min(len(t_est), len(quat_est))
-        t_q = t_est[:n_q]
-        r_est = R.from_quat(quat_est[:n_q][:, [1, 2, 3, 0]])
-        slerp = Slerp(t_q, r_est)
-        r_interp = slerp(np.clip(t_truth, t_q[0], t_q[-1]))
-        r_err = r_interp * r_true.inv()
+        if args.index_align:
+            n_q = min(len(quat_est), q_true.shape[0])
+            r_true = R.from_quat(q_true[:n_q, [1, 2, 3, 0]])
+            r_est = R.from_quat(quat_est[:n_q, [1, 2, 3, 0]])
+            r_err = r_est * r_true.inv()
+        else:
+            n_q = min(len(t_est), len(quat_est))
+            t_q = t_est[:n_q]
+            r_est = R.from_quat(quat_est[:n_q][:, [1, 2, 3, 0]])
+            r_true = R.from_quat(q_true[:, [1, 2, 3, 0]])
+            slerp = Slerp(t_q, r_est)
+            r_interp = slerp(np.clip(t_truth, t_q[0], t_q[-1]))
+            r_err = r_interp * r_true.inv()
         err_quat = r_err.as_quat()[:, [3, 0, 1, 2]]
         # magnitude of the quaternion error in degrees
         err_angles = 2 * np.arccos(np.clip(np.abs(err_quat[:, 0]), -1.0, 1.0))
@@ -349,25 +367,37 @@ def main():
     sigma_pos = sigma_vel = sigma_quat = None
     if est["P"] is not None:
         diag = np.diagonal(est["P"], axis1=1, axis2=2)
-        # some files store one more covariance entry than timestamps
-        n_sigma = min(len(t_est), diag.shape[0])
-        t_sigma = t_est[:n_sigma]
-        diag = diag[:n_sigma]
+        if args.index_align:
+            n_sigma = min(err_pos.shape[0], diag.shape[0])
+            diag = diag[:n_sigma]
+        else:
+            n_sigma = min(len(t_est), diag.shape[0])
+            t_sigma = t_est[:n_sigma]
+            diag = diag[:n_sigma]
         if diag.shape[1] >= 3:
             tmp = 3 * np.sqrt(diag[:, :3])
-            sigma_pos = np.vstack(
-                [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(3)]
-            ).T
+            if args.index_align:
+                sigma_pos = tmp[: n_sigma, :]
+            else:
+                sigma_pos = np.vstack(
+                    [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(3)]
+                ).T
         if diag.shape[1] >= 6:
             tmp = 3 * np.sqrt(diag[:, 3:6])
-            sigma_vel = np.vstack(
-                [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(3)]
-            ).T
+            if args.index_align:
+                sigma_vel = tmp[: n_sigma, :]
+            else:
+                sigma_vel = np.vstack(
+                    [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(3)]
+                ).T
         if diag.shape[1] >= 10:
             tmp = 3 * np.sqrt(diag[:, 6:10])
-            sigma_quat = np.vstack(
-                [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(4)]
-            ).T
+            if args.index_align:
+                sigma_quat = tmp[: n_sigma, :]
+            else:
+                sigma_quat = np.vstack(
+                    [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(4)]
+                ).T
 
     def plot_err(t, err, sigma, labels, prefix):
         for i, lbl in enumerate(labels):
@@ -383,11 +413,12 @@ def main():
             plt.savefig(os.path.join(args.output, f"{prefix}_{lbl}.pdf"))
             plt.close()
 
-    plot_err(t_truth, err_pos, sigma_pos, ["X", "Y", "Z"], "pos_err")
+    t_plot = t_truth if not args.index_align else np.arange(err_pos.shape[0])
+    plot_err(t_plot, err_pos, sigma_pos, ["X", "Y", "Z"], "pos_err")
     if err_vel is not None:
-        plot_err(t_truth, err_vel, sigma_vel, ["Vx", "Vy", "Vz"], "vel_err")
+        plot_err(t_plot, err_vel, sigma_vel, ["Vx", "Vy", "Vz"], "vel_err")
     if err_quat is not None:
-        plot_err(t_truth, err_quat, sigma_quat, ["q0", "q1", "q2", "q3"], "att_err")
+        plot_err(t_plot, err_quat, sigma_quat, ["q0", "q1", "q2", "q3"], "att_err")
 
     m = re.match(
         r"(IMU_\w+)_GNSS_(\w+)_([A-Za-z]+)_kf_output", os.path.basename(args.est_file)
