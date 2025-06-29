@@ -2,7 +2,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import pytest
 np = pytest.importorskip("numpy")
-from GNSS_IMU_Fusion import average_rotation_matrices
+from gnss_imu_fusion.init_vectors import average_rotation_matrices
 
 def test_average_rotation_identity():
     R1 = np.eye(3)

@@ -68,6 +68,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
     dt_gnss = diff(gnss_time);
     gnss_accel_ned = [zeros(1,3); diff(gnss_vel_ned) ./ dt_gnss];
+    gnss_accel_ecef = [zeros(1,3); diff(gnss_vel_ecef) ./ dt_gnss];
 
     % Load IMU data
     imu_raw = readmatrix(imu_path);
@@ -133,8 +134,7 @@ x(4:6)  = gnss_vel_ned(1,:)';
 x(7:9)  = init_eul;
 x(10:12) = accel_bias(:);
 x(13:15) = gyro_bias(:);
-P = blkdiag(eye(9)*0.01, eye(3)*1e-2, eye(3)*1e-2);
-Q = blkdiag(eye(9)*0.01, eye(3)*1e-4, eye(3)*1e-4);
+
 R = eye(6) * 0.1;
 H = [eye(6), zeros(6,9)];
 
@@ -193,7 +193,6 @@ for i = 1:num_imu_samples
     x(1:3) = pos_new;
     x(7:9) = quat_to_euler(q_b_n);
     acc_log(:,i) = a_ned;
-    
     % --- 3. Measurement Update (Correction) ---
     z = [gnss_pos_interp(i,:)'; gnss_vel_interp(i,:)'];
     y = z - H * x;
@@ -205,7 +204,6 @@ for i = 1:num_imu_samples
     % update integrator history after correction
     prev_vel = x(4:6);
     prev_a_ned = a_ned;
-    
     % --- 4. Zero-Velocity Update (ZUPT) ---
     win_size = 80;
     static_start = 297;
@@ -278,6 +276,46 @@ else
     accel_from_vel = zeros(3, numel(imu_time));
 end
 
+% --- IMU-only integration for comparison ---
+imu_pos = zeros(3, numel(imu_time));
+imu_vel = zeros(3, numel(imu_time));
+imu_acc = acc_log;
+imu_pos(:,1) = gnss_pos_ned(1,:)';
+imu_vel(:,1) = gnss_vel_ned(1,:)';
+for k = 2:numel(imu_time)
+    dt = imu_time(k) - imu_time(k-1);
+    imu_vel(:,k) = imu_vel(:,k-1) + 0.5*(imu_acc(:,k)+imu_acc(:,k-1))*dt;
+    imu_pos(:,k) = imu_pos(:,k-1) + 0.5*(imu_vel(:,k)+imu_vel(:,k-1))*dt;
+end
+
+% --- Convert fused and IMU-only states to ECEF ---
+C_NED_to_ECEF = C_ECEF_to_NED';
+pos_ecef_fused = (C_NED_to_ECEF * x_log(1:3,:) + ref_r0)';
+vel_ecef_fused = (C_NED_to_ECEF * vel_log)';
+acc_ecef_fused = (C_NED_to_ECEF * accel_from_vel)';
+pos_ecef_imu = (C_NED_to_ECEF * imu_pos + ref_r0)';
+vel_ecef_imu = (C_NED_to_ECEF * imu_vel)';
+acc_ecef_imu = (C_NED_to_ECEF * imu_acc)';
+
+% --- Convert all states to body frame ---
+N = numel(imu_time);
+pos_body_fused = zeros(N,3); vel_body_fused = zeros(N,3); acc_body_fused = zeros(N,3);
+pos_body_imu = zeros(N,3);   vel_body_imu = zeros(N,3);   acc_body_imu = zeros(N,3);
+gnss_pos_body = zeros(N,3);  gnss_vel_body = zeros(N,3);  gnss_acc_body = zeros(N,3);
+for k = 1:N
+    C_B_Nk = euler_to_rot(euler_log(:,k));
+    C_N_Bk = C_B_Nk';
+    pos_body_fused(k,:) = (C_N_Bk * x_log(1:3,k))';
+    vel_body_fused(k,:) = (C_N_Bk * vel_log(:,k))';
+    acc_body_fused(k,:) = (C_N_Bk * accel_from_vel(:,k))';
+    pos_body_imu(k,:)   = (C_N_Bk * imu_pos(:,k))';
+    vel_body_imu(k,:)   = (C_N_Bk * imu_vel(:,k))';
+    acc_body_imu(k,:)   = (C_N_Bk * imu_acc(:,k))';
+    gnss_pos_body(k,:)  = (C_N_Bk * gnss_pos_ned(k,:)')';
+    gnss_vel_body(k,:)  = (C_N_Bk * gnss_vel_ned(k,:)')';
+    gnss_acc_body(k,:)  = (C_N_Bk * gnss_accel_ned(k,:)')';
+end
+
 % --- Plot 1: Position Comparison ---
 figure('Name', 'KF Results: Position', 'Position', [100 100 1200 600]);
 labels = {'North', 'East', 'Down'};
@@ -341,6 +379,97 @@ att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
 set(gcf,'PaperPositionMode','auto');
 print(gcf, att_file, '-dpdf', '-bestfit');
 fprintf('Saved plot: %s\n', att_file);
+exportgraphics(gcf, all_file, 'Append', true);
+
+% --- Comparison plots across frames ---
+dirs_ned = {'N','E','D'};
+figure('Name','Compare NED','Position',[100 100 1200 900]);
+for r = 1:3
+    for c = 1:3
+        subplot(3,3,(r-1)*3+c); hold on;
+        if r == 1
+            plot(gnss_time, gnss_pos_ned(:,c),'k-','DisplayName','GNSS');
+            plot(imu_time, imu_pos(c,:), 'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
+            plot(imu_time, x_log(c,:), 'b-','DisplayName','Fused (KF)');
+            title(['Position ' dirs_ned{c}]); ylabel('[m]');
+        elseif r == 2
+            plot(gnss_time, gnss_vel_ned(:,c),'k-','DisplayName','GNSS');
+            plot(imu_time, imu_vel(c,:), 'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
+            plot(imu_time, vel_log(c,:), 'b-','DisplayName','Fused (KF)');
+            title(['Velocity V' dirs_ned{c}]); ylabel('[m/s]');
+        else
+            plot(gnss_time, gnss_accel_ned(:,c),'k-','DisplayName','GNSS');
+            plot(imu_time, imu_acc(c,:), 'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
+            plot(imu_time, accel_from_vel(c,:), 'b-','DisplayName','Fused (KF)');
+            title(['Acceleration ' dirs_ned{c}]); ylabel('[m/s^2]');
+        end
+        xlabel('Time (s)'); grid on; legend;
+    end
+end
+sgtitle('GNSS vs IMU vs Fused in NED');
+ned_cmp = fullfile(results_dir, sprintf('%s_Task5_CompareNED.pdf', tag));
+set(gcf,'PaperPositionMode','auto');
+print(gcf, ned_cmp, '-dpdf', '-bestfit');
+exportgraphics(gcf, all_file, 'Append', true);
+
+dirs_ecef = {'X','Y','Z'};
+figure('Name','Compare ECEF','Position',[120 120 1200 900]);
+for r = 1:3
+    for c = 1:3
+        subplot(3,3,(r-1)*3+c); hold on;
+        if r == 1
+            plot(gnss_time, gnss_pos_ecef(:,c),'k-','DisplayName','GNSS');
+            plot(imu_time, pos_ecef_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
+            plot(imu_time, pos_ecef_fused(:,c),'b-','DisplayName','Fused (KF)');
+            title(['Position ' dirs_ecef{c} ' ECEF']); ylabel('[m]');
+        elseif r == 2
+            plot(gnss_time, gnss_vel_ecef(:,c),'k-','DisplayName','GNSS');
+            plot(imu_time, vel_ecef_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
+            plot(imu_time, vel_ecef_fused(:,c),'b-','DisplayName','Fused (KF)');
+            title(['Velocity V' dirs_ecef{c} ' ECEF']); ylabel('[m/s]');
+        else
+            plot(gnss_time, gnss_accel_ecef(:,c),'k-','DisplayName','GNSS');
+            plot(imu_time, acc_ecef_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
+            plot(imu_time, acc_ecef_fused(:,c),'b-','DisplayName','Fused (KF)');
+            title(['Acceleration ' dirs_ecef{c} ' ECEF']); ylabel('[m/s^2]');
+        end
+        xlabel('Time (s)'); grid on; legend;
+    end
+end
+sgtitle('GNSS vs IMU vs Fused in ECEF');
+ecef_cmp = fullfile(results_dir, sprintf('%s_Task5_CompareECEF.pdf', tag));
+set(gcf,'PaperPositionMode','auto');
+print(gcf, ecef_cmp, '-dpdf', '-bestfit');
+exportgraphics(gcf, all_file, 'Append', true);
+
+dirs_b = {'X','Y','Z'};
+figure('Name','Compare Body','Position',[140 140 1200 900]);
+for r = 1:3
+    for c = 1:3
+        subplot(3,3,(r-1)*3+c); hold on;
+        if r == 1
+            plot(gnss_time, gnss_pos_body(:,c),'k-','DisplayName','GNSS');
+            plot(imu_time, pos_body_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
+            plot(imu_time, pos_body_fused(:,c),'b-','DisplayName','Fused (KF)');
+            title(['Position r' dirs_b{c} ' body']); ylabel('[m]');
+        elseif r == 2
+            plot(gnss_time, gnss_vel_body(:,c),'k-','DisplayName','GNSS');
+            plot(imu_time, vel_body_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
+            plot(imu_time, vel_body_fused(:,c),'b-','DisplayName','Fused (KF)');
+            title(['Velocity v' dirs_b{c} ' body']); ylabel('[m/s]');
+        else
+            plot(gnss_time, gnss_acc_body(:,c),'k-','DisplayName','GNSS');
+            plot(imu_time, acc_body_imu(:,c),'Color',[0.5 0.5 0.5],'LineStyle','--','DisplayName','IMU (no fusion)');
+            plot(imu_time, acc_body_fused(:,c),'b-','DisplayName','Fused (KF)');
+            title(['Acceleration A' dirs_b{c} ' body']); ylabel('[m/s^2]');
+        end
+        xlabel('Time (s)'); grid on; legend;
+    end
+end
+sgtitle('GNSS vs IMU vs Fused in Body Frame');
+body_cmp = fullfile(results_dir, sprintf('%s_Task5_CompareBody.pdf', tag));
+set(gcf,'PaperPositionMode','auto');
+print(gcf, body_cmp, '-dpdf', '-bestfit');
 exportgraphics(gcf, all_file, 'Append', true);
 
 %% --- End-of-run summary statistics --------------------------------------
@@ -515,5 +644,14 @@ end % End of main function
         acc_thresh = 0.01; gyro_thresh = 1e-6;
         is_stat = all(var(acc,0,1) < acc_thresh) && ...
                    all(var(gyro,0,1) < gyro_thresh);
+    end
+
+    function R = euler_to_rot(eul)
+        cr = cos(eul(1)); sr = sin(eul(1));
+        cp = cos(eul(2)); sp = sin(eul(2));
+        cy = cos(eul(3)); sy = sin(eul(3));
+        R = [cp*cy, sr*sp*cy - cr*sy, cr*sp*cy + sr*sy;
+             cp*sy, sr*sp*sy + cr*cy, cr*sp*sy - sr*cy;
+             -sp,   sr*cp,            cr*cp];
     end
 

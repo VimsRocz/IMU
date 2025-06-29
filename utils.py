@@ -1,5 +1,29 @@
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Optional
+import pathlib
+import subprocess
+import sys
+
+
+def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
+    """Install packages from ``requirements.txt`` if key deps are missing."""
+    try:
+        import tabulate  # noqa: F401
+        import tqdm  # noqa: F401
+    except ModuleNotFoundError:
+        if requirements is None:
+            requirements = pathlib.Path(__file__).resolve().parent / "requirements.txt"
+        else:
+            requirements = pathlib.Path(requirements)
+        print("Installing Python dependencies ...")
+        subprocess.check_call([
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "-r",
+            str(requirements),
+        ])
 
 
 def detect_static_interval(accel_data, gyro_data, window_size=200,
@@ -135,3 +159,40 @@ def compute_C_ECEF_to_NED(lat: float, lon: float) -> np.ndarray:
         [-s_lon, c_lon, 0.0],
         [-c_lat * c_lon, -c_lat * s_lon, -s_lat],
     ])
+
+
+def ecef_to_ned(pos_ecef: np.ndarray, ref_lat: float, ref_lon: float,
+                ref_ecef: np.ndarray) -> np.ndarray:
+    """Convert ECEF coordinates to NED frame relative to *ref_ecef*."""
+    pos_ecef = np.asarray(pos_ecef)
+    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+    if pos_ecef.ndim == 1:
+        return C @ (pos_ecef - ref_ecef)
+    return np.array([C @ (p - ref_ecef) for p in pos_ecef])
+
+
+def ecef_to_geodetic(x: float, y: float, z: float) -> Tuple[float, float, float]:
+    """Convert ECEF coordinates to geodetic latitude, longitude and altitude.
+
+    Parameters
+    ----------
+    x, y, z : float
+        Coordinates in the Earth-Centred Earth-Fixed (ECEF) frame, metres.
+
+    Returns
+    -------
+    tuple of float
+        ``(latitude_deg, longitude_deg, altitude_m)`` using the WGS‑84 model.
+    """
+    a = 6378137.0
+    e_sq = 6.69437999014e-3
+    p = np.sqrt(x ** 2 + y ** 2)
+    theta = np.arctan2(z * a, p * (1 - e_sq))
+    lon = np.arctan2(y, x)
+    lat = np.arctan2(
+        z + e_sq * a * np.sin(theta) ** 3 / (1 - e_sq),
+        p - e_sq * a * np.cos(theta) ** 3,
+    )
+    N = a / np.sqrt(1 - e_sq * np.sin(lat) ** 2)
+    alt = p / np.cos(lat) - N
+    return float(np.degrees(lat)), float(np.degrees(lon)), float(alt)

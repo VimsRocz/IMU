@@ -4,9 +4,16 @@ import os
 import numpy as np
 from scipy.io import loadmat
 from scipy.spatial.transform import Rotation as R, Slerp
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except Exception:  # pragma: no cover - optional plotting dependency
+    plt = None
 
 from utils import compute_C_ECEF_to_NED
+from plot_overlay import plot_overlay
+from plots import plot_frame
+import pandas as pd
+import re
 
 
 def load_estimate(path):
@@ -25,9 +32,7 @@ def load_estimate(path):
                 if arr.ndim == 2 and arr.shape[1] == n_cols:
                     print(f"Using '{k}' for '{keys[0] if keys else '?'}'")
                     return v
-        print(
-            f"Could not find any of {keys}. Available keys: {list(container.keys())}"
-        )
+        print(f"Could not find any of {keys}. Available keys: {list(container.keys())}")
         return default
 
     if path.endswith(".npz"):
@@ -97,13 +102,125 @@ def load_estimate(path):
 
     if est["time"] is None:
         try:
-            est["time"] = np.loadtxt(
-                "STATE_X001.txt", comments="#", usecols=1
-            )[: len(est["pos"])]
+            est["time"] = np.loadtxt("STATE_X001.txt", comments="#", usecols=1)[
+                : len(est["pos"])
+            ]
         except OSError:
             est["time"] = np.arange(len(est["pos"]))
 
     return est
+
+
+def assemble_frames(est, imu_file, gnss_file):
+    """Return aligned datasets in NED/ECEF/Body frames."""
+    gnss = pd.read_csv(gnss_file)
+    t_gnss = gnss["Posix_Time"].to_numpy()
+    pos_ecef = gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].to_numpy()
+    vel_ecef = gnss[["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]].to_numpy()
+    dt_g = np.diff(t_gnss, prepend=t_gnss[0])
+    acc_ecef = np.zeros_like(vel_ecef)
+    acc_ecef[1:] = np.diff(vel_ecef, axis=0) / dt_g[1:, None]
+
+    ref_lat = float(np.asarray(est.get("ref_lat")).squeeze())
+    ref_lon = float(np.asarray(est.get("ref_lon")).squeeze())
+    ref_r0 = np.asarray(est.get("ref_r0")).squeeze()
+    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+    pos_gnss_ned = np.array([C @ (p - ref_r0) for p in pos_ecef])
+    vel_gnss_ned = np.array([C @ v for v in vel_ecef])
+    acc_gnss_ned = np.array([C @ a for a in acc_ecef])
+
+    t_est = np.asarray(est["time"]).squeeze()
+    fused_pos = np.asarray(est["pos"])
+    fused_vel = np.asarray(est["vel"])
+    fused_acc = np.zeros_like(fused_vel)
+    if len(t_est) > 1:
+        dt = np.diff(t_est, prepend=t_est[0])
+        fused_acc[1:] = np.diff(fused_vel, axis=0) / dt[1:, None]
+
+    innov_pos = est.get("innov_pos")
+    innov_vel = est.get("innov_vel")
+    if innov_pos is not None and innov_vel is not None:
+        gnss_pos_interp = np.vstack(
+            [np.interp(t_est, t_gnss, pos_gnss_ned[:, i]) for i in range(3)]
+        ).T
+        gnss_vel_interp = np.vstack(
+            [np.interp(t_est, t_gnss, vel_gnss_ned[:, i]) for i in range(3)]
+        ).T
+        imu_pos = gnss_pos_interp - innov_pos[: len(t_est)]
+        imu_vel = gnss_vel_interp - innov_vel[: len(t_est)]
+    else:
+        imu_pos = fused_pos
+        imu_vel = fused_vel
+    imu_acc = np.zeros_like(imu_vel)
+    if len(t_est) > 1:
+        dt = np.diff(t_est, prepend=t_est[0])
+        imu_acc[1:] = np.diff(imu_vel, axis=0) / dt[1:, None]
+
+    C_N2E = C.T
+
+    def ned_to_ecef(pos, vel, acc):
+        p = (C_N2E @ pos.T).T + ref_r0
+        v = (C_N2E @ vel.T).T
+        a = (C_N2E @ acc.T).T
+        return p, v, a
+
+    imu_ecef = ned_to_ecef(imu_pos, imu_vel, imu_acc)
+    fused_ecef = ned_to_ecef(fused_pos, fused_vel, fused_acc)
+    gnss_ecef = (pos_ecef, vel_ecef, acc_ecef)
+
+    q = est.get("quat")
+    if q is not None:
+        rot = R.from_quat(np.asarray(q)[: len(t_est)][:, [1, 2, 3, 0]])
+
+        def to_body(pos, vel, acc):
+            return rot.apply(pos), rot.apply(vel), rot.apply(acc)
+
+        imu_body = to_body(imu_pos, imu_vel, imu_acc)
+        fused_body = to_body(fused_pos, fused_vel, fused_acc)
+        gnss_body = to_body(
+            np.vstack(
+                [np.interp(t_est, t_gnss, pos_gnss_ned[:, i]) for i in range(3)]
+            ).T,
+            np.vstack(
+                [np.interp(t_est, t_gnss, vel_gnss_ned[:, i]) for i in range(3)]
+            ).T,
+            np.vstack(
+                [np.interp(t_est, t_gnss, acc_gnss_ned[:, i]) for i in range(3)]
+            ).T,
+        )
+    else:
+        imu_body = imu_pos, imu_vel, imu_acc
+        fused_body = fused_pos, fused_vel, fused_acc
+        gnss_body = (
+            np.vstack(
+                [np.interp(t_est, t_gnss, pos_gnss_ned[:, i]) for i in range(3)]
+            ).T,
+            np.vstack(
+                [np.interp(t_est, t_gnss, vel_gnss_ned[:, i]) for i in range(3)]
+            ).T,
+            np.vstack(
+                [np.interp(t_est, t_gnss, acc_gnss_ned[:, i]) for i in range(3)]
+            ).T,
+        )
+
+    frames = {
+        "NED": {
+            "imu": (t_est, *(imu_pos, imu_vel, imu_acc)),
+            "gnss": (t_gnss, pos_gnss_ned, vel_gnss_ned, acc_gnss_ned),
+            "fused": (t_est, fused_pos, fused_vel, fused_acc),
+        },
+        "ECEF": {
+            "imu": (t_est, *imu_ecef),
+            "gnss": (t_gnss, *gnss_ecef),
+            "fused": (t_est, *fused_ecef),
+        },
+        "Body": {
+            "imu": (t_est, *imu_body),
+            "gnss": (t_est, *gnss_body),
+            "fused": (t_est, *fused_body),
+        },
+    }
+    return frames
 
 
 def main():
@@ -122,13 +239,14 @@ def main():
     ap.add_argument(
         "--output", default="results", help="directory for the generated PDFs"
     )
-    ap.add_argument(
-        "--ref-lat", type=float, help="reference latitude in degrees"
-    )
-    ap.add_argument(
-        "--ref-lon", type=float, help="reference longitude in degrees"
-    )
+    ap.add_argument("--ref-lat", type=float, help="reference latitude in degrees")
+    ap.add_argument("--ref-lon", type=float, help="reference longitude in degrees")
     ap.add_argument("--ref-r0", type=float, nargs=3, help="ECEF origin [m]")
+    ap.add_argument(
+        "--index-align",
+        action="store_true",
+        help="Match states by sample index instead of time",
+    )
     args = ap.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
@@ -154,56 +272,74 @@ def main():
             ref_r0 = np.asarray(v).squeeze()
 
     if ref_lat is None or ref_lon is None or ref_r0 is None:
-        ref_lat = np.deg2rad(-32.026554)
-        ref_lon = np.deg2rad(133.455801)
-        ref_r0 = np.array([-3729051, 3935676, -3348394])
+        ap.error(
+            "ref_lat, ref_lon and ref_r0 must be provided via command line or contained in the estimate file"
+        )
 
     C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
 
     t_truth = truth[:, 1]
     truth_pos_ned = np.array([C @ (p - ref_r0) for p in truth[:, 2:5]])
 
-    # ensure estimate arrays use the same length for time and states
     t_est = np.asarray(est["time"]).squeeze()
     pos_est = np.asarray(est["pos"])
-    n_pos = min(len(t_est), len(pos_est))
-    t_pos = t_est[:n_pos]
-    pos_est = pos_est[:n_pos]
-
-    est_pos_interp = np.vstack(
-        [np.interp(t_truth, t_pos, pos_est[:, i]) for i in range(3)]
-    ).T
-
-    err_pos = est_pos_interp - truth_pos_ned
+    err_pos = None
     err_vel = None
     err_quat = None
 
-    if est.get("vel") is not None:
-        truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
-        vel_est = np.asarray(est["vel"])
-        n_vel = min(len(t_est), len(vel_est))
-        t_vel = t_est[:n_vel]
-        vel_est = vel_est[:n_vel]
-        est_vel_interp = np.vstack(
-            [np.interp(t_truth, t_vel, vel_est[:, i]) for i in range(3)]
+    if args.index_align:
+        n = min(len(pos_est), truth_pos_ned.shape[0])
+        err_pos = pos_est[:n] - truth_pos_ned[:n]
+        if est.get("vel") is not None:
+            truth_vel_ned = np.array([C @ v for v in truth[:n, 5:8]])
+            vel_est = np.asarray(est["vel"])
+            err_vel = vel_est[:n] - truth_vel_ned
+    else:
+        n_pos = min(len(t_est), len(pos_est))
+        t_pos = t_est[:n_pos]
+        pos_est = pos_est[:n_pos]
+        est_pos_interp = np.vstack(
+            [np.interp(t_truth, t_pos, pos_est[:, i]) for i in range(3)]
         ).T
-        err_vel = est_vel_interp - truth_vel_ned
+        err_pos = est_pos_interp - truth_pos_ned
+
+        if est.get("vel") is not None:
+            truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
+            vel_est = np.asarray(est["vel"])
+            n_vel = min(len(t_est), len(vel_est))
+            t_vel = t_est[:n_vel]
+            vel_est = vel_est[:n_vel]
+            est_vel_interp = np.vstack(
+                [np.interp(t_truth, t_vel, vel_est[:, i]) for i in range(3)]
+            ).T
+            err_vel = est_vel_interp - truth_vel_ned
 
     if est.get("quat") is not None:
         q_true = truth[:, 8:12]
-        r_true = R.from_quat(q_true[:, [1, 2, 3, 0]])
         quat_est = np.asarray(est["quat"])
-        n_q = min(len(t_est), len(quat_est))
-        t_q = t_est[:n_q]
-        r_est = R.from_quat(quat_est[:n_q][:, [1, 2, 3, 0]])
-        slerp = Slerp(t_q, r_est)
-        r_interp = slerp(np.clip(t_truth, t_q[0], t_q[-1]))
-        r_err = r_interp * r_true.inv()
+        if args.index_align:
+            n_q = min(len(quat_est), q_true.shape[0])
+            r_true = R.from_quat(q_true[:n_q, [1, 2, 3, 0]])
+            r_est = R.from_quat(quat_est[:n_q, [1, 2, 3, 0]])
+            r_err = r_est * r_true.inv()
+        else:
+            n_q = min(len(t_est), len(quat_est))
+            t_q = t_est[:n_q]
+            r_est = R.from_quat(quat_est[:n_q][:, [1, 2, 3, 0]])
+            r_true = R.from_quat(q_true[:, [1, 2, 3, 0]])
+            slerp = Slerp(t_q, r_est)
+            r_interp = slerp(np.clip(t_truth, t_q[0], t_q[-1]))
+            r_err = r_interp * r_true.inv()
         err_quat = r_err.as_quat()[:, [3, 0, 1, 2]]
+        # magnitude of the quaternion error in degrees
+        err_angles = 2 * np.arccos(np.clip(np.abs(err_quat[:, 0]), -1.0, 1.0))
+        err_deg = np.degrees(err_angles)
+        final_att_error = err_deg[-1]
+        rmse_att = np.sqrt(np.mean(err_deg**2))
 
     # --- Performance metrics ----------------------------------------------
     final_pos_error = np.linalg.norm(err_pos[-1])
-    rmse_pos = np.sqrt(np.mean(np.sum(err_pos ** 2, axis=1)))
+    rmse_pos = np.sqrt(np.mean(np.sum(err_pos**2, axis=1)))
     summary_lines = [
         f"Final position error: {final_pos_error:.2f} m",
         f"RMSE position error: {rmse_pos:.2f} m",
@@ -211,10 +347,15 @@ def main():
     final_vel_error = rmse_vel = None
     if err_vel is not None:
         final_vel_error = np.linalg.norm(err_vel[-1])
-        rmse_vel = np.sqrt(np.mean(np.sum(err_vel ** 2, axis=1)))
+        rmse_vel = np.sqrt(np.mean(np.sum(err_vel**2, axis=1)))
         summary_lines += [
             f"Final velocity error: {final_vel_error:.2f} m/s",
             f"RMSE velocity error: {rmse_vel:.2f} m/s",
+        ]
+    if err_quat is not None:
+        summary_lines += [
+            f"Final attitude error: {final_att_error:.4f} deg",
+            f"RMSE attitude error: {rmse_att:.4f} deg",
         ]
 
     for line in summary_lines:
@@ -230,25 +371,37 @@ def main():
     sigma_pos = sigma_vel = sigma_quat = None
     if est["P"] is not None:
         diag = np.diagonal(est["P"], axis1=1, axis2=2)
-        # some files store one more covariance entry than timestamps
-        n_sigma = min(len(t_est), diag.shape[0])
-        t_sigma = t_est[:n_sigma]
-        diag = diag[:n_sigma]
+        if args.index_align:
+            n_sigma = min(err_pos.shape[0], diag.shape[0])
+            diag = diag[:n_sigma]
+        else:
+            n_sigma = min(len(t_est), diag.shape[0])
+            t_sigma = t_est[:n_sigma]
+            diag = diag[:n_sigma]
         if diag.shape[1] >= 3:
             tmp = 3 * np.sqrt(diag[:, :3])
-            sigma_pos = np.vstack(
-                [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(3)]
-            ).T
+            if args.index_align:
+                sigma_pos = tmp[: n_sigma, :]
+            else:
+                sigma_pos = np.vstack(
+                    [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(3)]
+                ).T
         if diag.shape[1] >= 6:
             tmp = 3 * np.sqrt(diag[:, 3:6])
-            sigma_vel = np.vstack(
-                [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(3)]
-            ).T
+            if args.index_align:
+                sigma_vel = tmp[: n_sigma, :]
+            else:
+                sigma_vel = np.vstack(
+                    [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(3)]
+                ).T
         if diag.shape[1] >= 10:
             tmp = 3 * np.sqrt(diag[:, 6:10])
-            sigma_quat = np.vstack(
-                [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(4)]
-            ).T
+            if args.index_align:
+                sigma_quat = tmp[: n_sigma, :]
+            else:
+                sigma_quat = np.vstack(
+                    [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(4)]
+                ).T
 
     def plot_err(t, err, sigma, labels, prefix):
         for i, lbl in enumerate(labels):
@@ -264,13 +417,139 @@ def main():
             plt.savefig(os.path.join(args.output, f"{prefix}_{lbl}.pdf"))
             plt.close()
 
-    plot_err(t_truth, err_pos, sigma_pos, ["X", "Y", "Z"], "pos_err")
+    t_plot = t_truth if not args.index_align else np.arange(err_pos.shape[0])
+    plot_err(t_plot, err_pos, sigma_pos, ["X", "Y", "Z"], "pos_err")
     if err_vel is not None:
-        plot_err(t_truth, err_vel, sigma_vel, ["Vx", "Vy", "Vz"], "vel_err")
+        plot_err(t_plot, err_vel, sigma_vel, ["Vx", "Vy", "Vz"], "vel_err")
     if err_quat is not None:
-        plot_err(
-            t_truth, err_quat, sigma_quat, ["q0", "q1", "q2", "q3"], "att_err"
-        )
+        plot_err(t_plot, err_quat, sigma_quat, ["q0", "q1", "q2", "q3"], "att_err")
+
+    m = re.match(
+        r"(IMU_\w+)_GNSS_(\w+)_([A-Za-z]+)_kf_output", os.path.basename(args.est_file)
+    )
+    if m:
+        imu_file = f"{m.group(1)}.dat"
+        gnss_file = f"{m.group(2)}.csv"
+        method = m.group(3)
+        try:
+            frames = assemble_frames(est, imu_file, gnss_file)
+            for frame_name, data in frames.items():
+                t_i, p_i, v_i, a_i = data["imu"]
+                t_g, p_g, v_g, a_g = data["gnss"]
+                t_f, p_f, v_f, a_f = data["fused"]
+                plot_overlay(
+                    frame_name,
+                    method,
+                    t_i,
+                    p_i,
+                    v_i,
+                    a_i,
+                    t_g,
+                    p_g,
+                    v_g,
+                    a_g,
+                    t_f,
+                    p_f,
+                    v_f,
+                    a_f,
+                    args.output,
+                )
+        except Exception as e:
+            print(f"Overlay plot failed: {e}")
+
+        # --- Additional comparison with reference state -------------------
+        try:
+            truth = np.loadtxt(args.truth_file)
+            t_true = truth[:, 1]
+            pos_ecef_true = truth[:, 2:5]
+            vel_ecef_true = truth[:, 5:8]
+            dt_t = np.diff(t_true, prepend=t_true[0])
+            acc_ecef_true = np.zeros_like(vel_ecef_true)
+            acc_ecef_true[1:] = np.diff(vel_ecef_true, axis=0) / dt_t[1:, None]
+
+            C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+            pos_ned_true = np.array([C @ (p - ref_r0) for p in pos_ecef_true])
+            vel_ned_true = np.array([C @ v for v in vel_ecef_true])
+            acc_ned_true = np.array([C @ a for a in acc_ecef_true])
+
+            q_true = truth[:, 8:12]
+            rot_true = R.from_quat(q_true[:, [1, 2, 3, 0]])
+            pos_body_true = rot_true.apply(pos_ned_true)
+            vel_body_true = rot_true.apply(vel_ned_true)
+            acc_body_true = rot_true.apply(acc_ned_true)
+
+            t_est = np.asarray(est["time"]).squeeze()
+            pos_est = np.asarray(est["pos"])[: len(t_est)]
+            vel_est = np.asarray(est["vel"])[: len(t_est)]
+            acc_est = np.zeros_like(vel_est)
+            pos_est_i = np.vstack([
+                np.interp(t_true, t_est, pos_est[:, i]) for i in range(3)
+            ]).T
+            vel_est_i = np.vstack([
+                np.interp(t_true, t_est, vel_est[:, i]) for i in range(3)
+            ]).T
+            acc_est_i = np.zeros_like(vel_est_i)
+            if len(t_true) > 1:
+                dt_i = np.diff(t_true, prepend=t_true[0])
+                acc_est_i[1:] = np.diff(vel_est_i, axis=0) / dt_i[1:, None]
+
+            C_N2E = C.T
+            pos_ecef_est = (C_N2E @ pos_est_i.T).T + ref_r0
+            vel_ecef_est = (C_N2E @ vel_est_i.T).T
+            acc_ecef_est = (C_N2E @ acc_est_i.T).T
+
+            q_est = est.get("quat")
+            if q_est is not None:
+                q_est = np.asarray(q_est)[: len(t_est)]
+                r_est = R.from_quat(q_est[:, [1, 2, 3, 0]])
+                slerp = Slerp(t_est[: len(q_est)], r_est)
+                r_interp = slerp(np.clip(t_true, t_est[0], t_est[len(q_est) - 1]))
+                pos_body_est = r_interp.apply(pos_est_i)
+                vel_body_est = r_interp.apply(vel_est_i)
+                acc_body_est = r_interp.apply(acc_est_i)
+            else:
+                pos_body_est = pos_est_i
+                vel_body_est = vel_est_i
+                acc_body_est = acc_est_i
+
+            plot_frame(
+                "NED",
+                t_true,
+                pos_ned_true,
+                vel_ned_true,
+                acc_ned_true,
+                t_true,
+                pos_est_i,
+                vel_est_i,
+                acc_est_i,
+                args.output,
+            )
+            plot_frame(
+                "ECEF",
+                t_true,
+                pos_ecef_true,
+                vel_ecef_true,
+                acc_ecef_true,
+                t_true,
+                pos_ecef_est,
+                vel_ecef_est,
+                acc_ecef_est,
+                args.output,
+            )
+            plot_frame(
+                "BODY",
+                t_true,
+                pos_body_true,
+                vel_body_true,
+                acc_body_true,
+                t_true,
+                pos_body_est,
+                vel_body_est,
+                acc_body_est,
+                args.output,
+            )
+        except Exception as e:
+            print(f"Frame plot failed: {e}")
 
 
 if __name__ == "__main__":
