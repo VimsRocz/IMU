@@ -156,15 +156,6 @@ If the measured magnitude differs by more than a few percent, the IMU may not be
 
 ## Running all methods
 
-Use `run_all_methods.py` to execute the fusion script with the TRIAD,
-Davenport and SVD initialisation methods in sequence.  Provide a YAML
-configuration file to specify the datasets:
-
-```bash
-python run_all_methods.py --config your_config.yml
-```
-
-Running the script without `--config` processes the bundled example data sets.
 
 
 ## Running all data sets
