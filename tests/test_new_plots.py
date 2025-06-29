@@ -39,7 +39,7 @@ def test_body_frame_plots(tmp_path, monkeypatch):
     res_dir = Path("results")
     expected = [
         "*_task4_all_body.pdf",
-        "*_task5_all_body.pdf",
+        "*_task5_compare_body.pdf",
     ]
     for pattern in expected:
         matches = list(res_dir.glob(pattern))
