@@ -1,7 +1,10 @@
 import os
 from pathlib import Path
 import numpy as np
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except Exception:  # pragma: no cover - optional plotting dependency
+    plt = None
 
 
 def _norm(v: np.ndarray) -> np.ndarray:

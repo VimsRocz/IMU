@@ -4,7 +4,10 @@ import os
 import numpy as np
 from scipy.io import loadmat
 from scipy.spatial.transform import Rotation as R, Slerp
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except Exception:  # pragma: no cover - optional plotting dependency
+    plt = None
 
 from utils import compute_C_ECEF_to_NED
 from plot_overlay import plot_overlay

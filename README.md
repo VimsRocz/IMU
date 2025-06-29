@@ -18,8 +18,9 @@ pip install numpy matplotlib filterpy
 ```
 
 The tests, however, require the **full** `requirements.txt`, including hefty
-dependencies like `cartopy`. Installing them inside a virtual environment or
-a container helps keep your base Python setup clean.
+dependencies like `cartopy`. Plotting checks additionally rely on
+`matplotlib`. Installing the dependencies inside a virtual environment or a
+container helps keep your base Python setup clean.
 
 If you run into issues with filterpy on Ubuntu:
 
@@ -39,7 +40,9 @@ pip3 install filterpy
 
 ### Installing test requirements
 
-To run the unit tests you need `numpy`, `pandas`, `scipy` and `cartopy` which are all included in `requirements.txt`. Install them together with `pytest` via:
+To run the unit tests you need `numpy`, `pandas`, `scipy`, `cartopy` and
+`matplotlib`. They are all included in `requirements.txt`. Install them together
+with `pytest` via:
 
 ```bash
 pip install -r requirements-dev.txt -r requirements.txt

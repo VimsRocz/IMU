@@ -5,7 +5,10 @@ import os
 from pathlib import Path
 
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except Exception:  # pragma: no cover - optional plotting dependency
+    plt = None
 import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
