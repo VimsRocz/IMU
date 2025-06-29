@@ -68,6 +68,9 @@ from gnss_imu_fusion.kalman_filter import (
     quat2euler,
 )
 
+# Minimum number of samples required from a static interval for bias estimation
+MIN_STATIC_SAMPLES = 500
+
 
 def main():
     # Parse command-line arguments
@@ -898,8 +901,10 @@ def main():
         # Use up to the first 4000 samples (10 s) for bias estimation but
         # fall back to the available amount when running truncated logs.
         N_static = min(4000, len(imu_data))
-        if N_static < 500:
-            raise ValueError("Insufficient static samples for bias estimation.")
+        if N_static < MIN_STATIC_SAMPLES:
+            raise ValueError(
+                f"Insufficient static samples for bias estimation; require at least {MIN_STATIC_SAMPLES}."
+            )
         
         # Compute static bias for accelerometers and gyroscopes
         static_acc = np.mean(acc_body[:N_static], axis=0)
@@ -1224,8 +1229,10 @@ def main():
     # Use at most 4000 samples but allow shorter sequences when running the
     # trimmed datasets used in unit tests.
     N_static = min(4000, len(imu_data))
-    if N_static < 500:
-        raise ValueError("Insufficient static samples.")
+    if N_static < MIN_STATIC_SAMPLES:
+        raise ValueError(
+            f"Insufficient static samples; require at least {MIN_STATIC_SAMPLES}."
+        )
     static_acc = np.mean(acc_body[:N_static], axis=0)
     
     
