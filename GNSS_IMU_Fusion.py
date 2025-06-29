@@ -44,170 +44,25 @@ logging.basicConfig(
     format="%(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
+from gnss_imu_fusion.init_vectors import (
+    average_rotation_matrices,
+    svd_alignment,
+    butter_lowpass_filter,
+    angle_between,
+    compute_wahba_errors,
+)
+from gnss_imu_fusion.plots import (
+    save_zupt_variance,
+    save_euler_angles,
+    save_residual_plots,
+    save_attitude_over_time,
+)
+from gnss_imu_fusion.kalman_filter import (
+    quat_multiply,
+    quat_from_rate,
+    quat2euler,
+)
 
-def average_rotation_matrices(rotations):
-    """Average a list of rotation matrices and re-orthonormalise."""
-    A = sum(rotations) / len(rotations)
-    U, _, Vt = np.linalg.svd(A)
-    return U @ Vt
-
-def svd_alignment(body_vecs, ref_vecs, weights=None):
-    """Return body->NED rotation using SVD for an arbitrary number of vector pairs."""
-    if weights is None:
-        weights = np.ones(len(body_vecs))
-    B = sum(
-        w * np.outer(r / np.linalg.norm(r), b / np.linalg.norm(b))
-        for b, r, w in zip(body_vecs, ref_vecs, weights)
-    )
-    U, _, Vt = np.linalg.svd(B)
-    M = np.diag([1, 1, np.sign(np.linalg.det(U @ Vt))])
-    return U @ M @ Vt
-
-def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):
-    """Apply a zero-phase Butterworth low-pass filter to the data."""
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(order, normal_cutoff, btype="low", analog=False)
-    return filtfilt(b, a, data, axis=0)
-
-
-def angle_between(a: np.ndarray, b: np.ndarray) -> float:
-    """Return the angle in degrees between two vectors."""
-    a = np.asarray(a)
-    b = np.asarray(b)
-    if a.shape != (3,) or b.shape != (3,):
-        raise ValueError("angle_between expects 3D vectors")
-    na = np.linalg.norm(a)
-    nb = np.linalg.norm(b)
-    if na == 0 or nb == 0:
-        return float("nan")
-    cosang = np.dot(a, b) / (na * nb)
-    cosang = np.clip(cosang, -1.0, 1.0)
-    return float(np.degrees(np.arccos(cosang)))
-
-
-def compute_wahba_errors(
-    C_bn: np.ndarray,
-    g_body: np.ndarray,
-    omega_ie_body: np.ndarray,
-    g_ref_ned: np.ndarray,
-    omega_ref_ned: np.ndarray,
-) -> Tuple[float, float]:
-    """Return gravity and Earth-rate angle errors for a DCM."""
-
-    g_pred_ned = C_bn @ g_body
-    omega_pred_ned = C_bn @ omega_ie_body
-
-    grav_err = angle_between(g_pred_ned, g_ref_ned)
-    earth_err = angle_between(omega_pred_ned, omega_ref_ned)
-    return grav_err, earth_err
-
-
-def save_zupt_variance(
-    accel: np.ndarray,
-    zupt_mask: np.ndarray,
-    dt: float,
-    dataset_id: str,
-    threshold: float,
-    window_size: int = 100,
-) -> None:
-    """Plot ZUPT-detected intervals and accelerometer variance."""
-    t = np.arange(accel.shape[0]) * dt
-    accel_norm = np.linalg.norm(accel, axis=1)
-    mean_conv = np.ones(window_size) / window_size
-    var = np.convolve(accel_norm ** 2, mean_conv, mode="same") - np.convolve(
-        accel_norm, mean_conv, mode="same"
-    ) ** 2
-
-    plt.figure(figsize=(12, 4))
-    plt.plot(t, var, label="Accel Norm Variance", color="tab:blue")
-    plt.axhline(threshold, color="gray", linestyle="--", label="ZUPT threshold")
-    plt.fill_between(
-        t,
-        0,
-        np.max(var),
-        where=zupt_mask,
-        color="tab:orange",
-        alpha=0.3,
-        label="ZUPT Detected",
-    )
-    plt.xlabel("Time [s]")
-    plt.ylabel("Variance")
-    plt.tight_layout()
-    plt.title("ZUPT Detection and Accelerometer Variance")
-    filename = f"results/IMU_{dataset_id}_ZUPT_variance.pdf"
-    plt.savefig(filename)
-    plt.close()
-
-
-def save_euler_angles(t: np.ndarray, euler_angles: np.ndarray, dataset_id: str) -> None:
-    """Plot roll, pitch and yaw over time."""
-    plt.figure()
-    plt.plot(t, euler_angles[:, 0], label="Roll")
-    plt.plot(t, euler_angles[:, 1], label="Pitch")
-    plt.plot(t, euler_angles[:, 2], label="Yaw")
-    plt.xlabel("Time [s]")
-    plt.ylabel("Angle [deg]")
-    plt.legend()
-    plt.tight_layout()
-    plt.title("Attitude Angles (Roll/Pitch/Yaw) vs. Time")
-    filename = f"results/IMU_{dataset_id}_EulerAngles_time.pdf"
-    plt.savefig(filename)
-    plt.close()
-
-
-def save_residual_plots(
-    t: np.ndarray,
-    pos_filter: np.ndarray,
-    pos_gnss: np.ndarray,
-    vel_filter: np.ndarray,
-    vel_gnss: np.ndarray,
-    dataset_id: str,
-) -> None:
-    """Plot position and velocity residuals for N/E/D."""
-    residual_pos = pos_filter - pos_gnss
-    residual_vel = vel_filter - vel_gnss
-    labels = ["North", "East", "Down"]
-    for i, label in enumerate(labels):
-        plt.figure()
-        plt.plot(t, residual_pos[:, i])
-        plt.xlabel("Time [s]")
-        plt.ylabel("Position Residual [m]")
-        plt.tight_layout()
-        plt.title(f"Position Residuals ({label}) vs. Time")
-        fname = (
-            f"results/IMU_{dataset_id}_GNSS_{dataset_id}_pos_residuals_{label}.pdf"
-        )
-        plt.savefig(fname)
-        plt.close()
-
-        plt.figure()
-        plt.plot(t, residual_vel[:, i])
-        plt.xlabel("Time [s]")
-        plt.ylabel("Velocity Residual [m/s]")
-        plt.tight_layout()
-        plt.title(f"Velocity Residuals ({label}) vs. Time")
-        fname = (
-            f"results/IMU_{dataset_id}_GNSS_{dataset_id}_vel_residuals_{label}.pdf"
-        )
-        plt.savefig(fname)
-        plt.close()
-
-
-def save_attitude_over_time(t: np.ndarray, euler_angles: np.ndarray, dataset_id: str) -> None:
-    """Plot roll, pitch and yaw over the entire dataset."""
-    plt.figure()
-    plt.plot(t, euler_angles[:, 0], label="Roll")
-    plt.plot(t, euler_angles[:, 1], label="Pitch")
-    plt.plot(t, euler_angles[:, 2], label="Yaw")
-    plt.xlabel("Time [s]")
-    plt.ylabel("Angle [deg]")
-    plt.legend()
-    plt.tight_layout()
-    plt.title("Attitude Angles (Roll/Pitch/Yaw) Over Time")
-    fname = f"results/IMU_{dataset_id}_GNSS_{dataset_id}_attitude_time.pdf"
-    plt.savefig(fname)
-    plt.close()
 
 def main():
     # Parse command-line arguments
@@ -1437,37 +1292,6 @@ def main():
     zupt_counts = {}
     zupt_events_all = {}
 
-    def quat_multiply(q, r):
-        w0, x0, y0, z0 = q
-        w1, x1, y1, z1 = r
-        return np.array([
-            w0*w1 - x0*x1 - y0*y1 - z0*z1,
-            w0*x1 + x0*w1 + y0*z1 - z0*y1,
-            w0*y1 - x0*z1 + y0*w1 + z0*x1,
-            w0*z1 + x0*y1 - y0*x1 + z0*w1,
-        ])
-
-    def quat_from_rate(omega, dt):
-        theta = np.linalg.norm(omega) * dt
-        if theta == 0:
-            return np.array([1.0, 0.0, 0.0, 0.0])
-        axis = omega / np.linalg.norm(omega)
-        half = theta / 2.0
-        return np.array([np.cos(half), *(np.sin(half) * axis)])
-
-    def quat2euler(q):
-        """Return roll, pitch, yaw (rad) from w-x-y-z quaternion."""
-        w, x, y, z = q
-        t2 = +2.0 * (w * y - z * x)
-        t2 = np.clip(t2, -1.0, 1.0)
-        pitch = np.arcsin(t2)
-        t0 = +2.0 * (w * x + y * z)
-        t1 = +1.0 - 2.0 * (x * x + y * y)
-        roll = np.arctan2(t0, t1)
-        t3 = +2.0 * (w * z + x * y)
-        t4 = +1.0 - 2.0 * (y * y + z * z)
-        yaw = np.arctan2(t3, t4)
-        return roll, pitch, yaw
     for m in methods:
         kf = KalmanFilter(dim_x=9, dim_z=6)
         kf.x = np.hstack((imu_pos[m][0], imu_vel[m][0], imu_acc[m][0]))
