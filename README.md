@@ -297,6 +297,11 @@ script with the `.mat` file and the reference trajectory:
 ```bash
 python validate_with_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat --truth-file STATE_X001.txt
 ```
+Add `--index-align` to skip time interpolation and compare samples by index:
+
+```bash
+python validate_with_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat --truth-file STATE_X001.txt --index-align
+```
 
 ### Interpolating to Ground Truth
 
