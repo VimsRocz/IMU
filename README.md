@@ -94,6 +94,9 @@ ground truth file such as `STATE_X001.txt` is available the script
 automatically calls `validate_with_truth.py` to compare the estimated trajectory
 against it. The validation summary and plots are saved alongside the exported
 `.mat` files in `results/`.
+`validate_with_truth.py` requires the reference latitude, longitude and origin
+to be specified via `--ref-lat`, `--ref-lon` and `--ref-r0` or embedded in the
+estimate file. If none are provided the script exits with an error.
 
 ## 🚀 Developing & Debugging in GitHub Codespaces
 
@@ -305,6 +308,8 @@ python validate_with_truth.py \
   --ref-lat -32.026554 --ref-lon 133.455801 \
   --ref-r0 -3729051 3935676 -3348394
 ```
+These parameters are mandatory unless the estimate file includes
+`ref_lat`, `ref_lon` and `ref_r0`.
 Add `--index-align` to skip time interpolation and compare samples by index:
 
 ```bash
