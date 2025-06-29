@@ -24,11 +24,16 @@ subprocess.run(cmd, check=True)
 # --- Validate results when STATE_<id>.txt exists -----------------------------
 results = HERE / "results"
 for mat in results.glob("*_TRIAD_kf_output.mat"):
-    m = re.match(r"IMU_(X\d+)_.*_TRIAD_kf_output\.mat", mat.name)
+    m = re.match(r"IMU_(X\d+)(?:_small)?_.*_TRIAD_kf_output\.mat", mat.name)
     if not m:
         continue
-    truth = HERE / f"STATE_{m.group(1)}.txt"
-    if not truth.exists():
+    dataset = m.group(1)
+    candidates = [
+        HERE / f"STATE_{dataset}_small.txt",
+        HERE / f"STATE_{dataset}.txt",
+    ]
+    truth = next((c for c in candidates if c.exists()), None)
+    if truth is None:
         continue
     vcmd = [
         sys.executable,
