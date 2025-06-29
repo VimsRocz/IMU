@@ -1,8 +1,5 @@
 import numpy as np
-try:
-    import matplotlib.pyplot as plt
-except Exception:  # pragma: no cover - optional plotting dependency
-    plt = None
+
 
 
 def compute_residuals(gnss_times, gnss_pos, filt_times, filt_pos):
@@ -15,6 +12,7 @@ def compute_residuals(gnss_times, gnss_pos, filt_times, filt_pos):
 
 
 def plot_residuals(gnss_times, res, outpath):
+    import matplotlib.pyplot as plt
     fig, axs = plt.subplots(2, 1, figsize=(8, 6))
     axs[0].plot(gnss_times, res[:, 0], label='North')
     axs[0].plot(gnss_times, res[:, 1], label='East')

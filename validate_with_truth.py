@@ -4,10 +4,7 @@ import os
 import numpy as np
 from scipy.io import loadmat
 from scipy.spatial.transform import Rotation as R, Slerp
-try:
-    import matplotlib.pyplot as plt
-except Exception:  # pragma: no cover - optional plotting dependency
-    plt = None
+
 
 from utils import compute_C_ECEF_to_NED
 from plot_overlay import plot_overlay
@@ -250,6 +247,11 @@ def main():
     args = ap.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
+
+    try:
+        import matplotlib.pyplot as plt
+    except Exception as e:
+        raise ImportError("matplotlib is required for plotting") from e
 
     est = load_estimate(args.est_file)
     truth = np.loadtxt(args.truth_file)
