@@ -162,12 +162,9 @@ fprintf('-> 15-State filter initialized.\n');
 % =========================================================================
 fprintf('\nSubtask 5.6: Running Kalman Filter for sensor fusion.\n');
 
-% Interpolate GNSS measurements to IMU timestamps
-gnss_pos_interp = interp1(gnss_time, gnss_pos_ned, imu_time, 'linear', 'extrap');
-gnss_vel_interp = interp1(gnss_time, gnss_vel_ned, imu_time, 'linear', 'extrap');
-
 % --- Main Filter Loop ---
 fprintf('-> Starting filter loop over %d IMU samples...\n', num_imu_samples);
+gnss_idx = 1;
 for i = 1:num_imu_samples
     % --- 1. State Propagation (Prediction) ---
     F = eye(15);
@@ -195,12 +192,16 @@ for i = 1:num_imu_samples
     acc_log(:,i) = a_ned;
     
     % --- 3. Measurement Update (Correction) ---
-    z = [gnss_pos_interp(i,:)'; gnss_vel_interp(i,:)'];
-    y = z - H * x;
-    S = H * P * H' + R;
-    K = (P * H') / S;
-    x = x + K * y;
-    P = (eye(15) - K * H) * P;
+    if gnss_idx <= numel(gnss_time) && ...
+            abs(imu_time(i) - gnss_time(gnss_idx)) <= dt_imu/2
+        z = [gnss_pos_ned(gnss_idx,:)'; gnss_vel_ned(gnss_idx,:)'];
+        y = z - H * x;
+        S = H * P * H' + R;
+        K = (P * H') / S;
+        x = x + K * y;
+        P = (eye(15) - K * H) * P;
+        gnss_idx = gnss_idx + 1;
+    end
 
     % update integrator history after correction
     prev_vel = x(4:6);
@@ -208,20 +209,8 @@ for i = 1:num_imu_samples
     
     % --- 4. Zero-Velocity Update (ZUPT) ---
     win_size = 80;
-    static_start = 297;
-    static_end   = min(479907, num_imu_samples);
 
-    if i >= static_start && i <= static_end
-        zupt_count = zupt_count + 1;
-        zupt_log(i) = 1;
-        H_z = [zeros(3,3), eye(3), zeros(3,9)];
-        R_z = eye(3) * 1e-4;
-        y_z = -H_z * x;
-        S_z = H_z * P * H_z' + R_z;
-        K_z = (P * H_z') / S_z;
-        x = x + K_z * y_z;
-        P = (eye(15) - K_z * H_z) * P;
-    elseif i > win_size
+    if i > win_size
         acc_win = acc_body_raw(i-win_size+1:i, :);
         gyro_win = gyro_body_raw(i-win_size+1:i, :);
         if is_static(acc_win, gyro_win)
