@@ -375,6 +375,19 @@ pip install numpy scipy
 python /path/to/IMU/export_mat.py
 ```
 
+## Additional scripts
+
+The repository contains a few helper scripts that are not part of the regular
+pipeline but can be handy for quick experiments:
+
+- `fusion_single.py` &ndash; early stand‑alone prototype of the IMU&ndash;GNSS
+  fusion routine. It exposes the full bias estimation and Kalman logic in a
+  single file and is useful for debugging or exploring tuning options.
+- `validate_filter.py` &ndash; command&ndash;line tool to compare a saved filter
+  state history against GNSS measurements and plot the residuals.
+
+These utilities are optional and not exercised by the unit tests.
+
 ## Next Steps
 
 - **Logging:** Extend the built-in `logging` with the `rich` console handler to
