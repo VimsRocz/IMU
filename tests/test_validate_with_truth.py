@@ -76,6 +76,21 @@ def test_validate_with_truth(monkeypatch):
         assert key in npz, f"{key} missing from npz"
         assert key in mat, f"{key} missing from mat"
 
+    # generate frame comparison plots
+    args = [
+        "--est-file",
+        str(mat_path),
+        "--truth-file",
+        "STATE_X001.txt",
+    ]
+    monkeypatch.setattr(sys, "argv", ["validate_with_truth.py"] + args)
+    from validate_with_truth import main as vmain
+    vmain()
+
+    for frame in ["ECEF", "NED", "BODY"]:
+        png = Path("results") / f"Task5_compare_{frame}.png"
+        assert png.exists(), f"Missing {png}"
+
 
 @pytest.mark.parametrize(
     "pos_key,vel_key",
