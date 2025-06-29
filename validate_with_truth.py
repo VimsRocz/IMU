@@ -200,6 +200,11 @@ def main():
         r_interp = slerp(np.clip(t_truth, t_q[0], t_q[-1]))
         r_err = r_interp * r_true.inv()
         err_quat = r_err.as_quat()[:, [3, 0, 1, 2]]
+        # magnitude of the quaternion error in degrees
+        err_angles = 2 * np.arccos(np.clip(np.abs(err_quat[:, 0]), -1.0, 1.0))
+        err_deg = np.degrees(err_angles)
+        final_att_error = err_deg[-1]
+        rmse_att = np.sqrt(np.mean(err_deg ** 2))
 
     # --- Performance metrics ----------------------------------------------
     final_pos_error = np.linalg.norm(err_pos[-1])
@@ -215,6 +220,11 @@ def main():
         summary_lines += [
             f"Final velocity error: {final_vel_error:.2f} m/s",
             f"RMSE velocity error: {rmse_vel:.2f} m/s",
+        ]
+    if err_quat is not None:
+        summary_lines += [
+            f"Final attitude error: {final_att_error:.4f} deg",
+            f"RMSE attitude error: {rmse_att:.4f} deg",
         ]
 
     for line in summary_lines:
