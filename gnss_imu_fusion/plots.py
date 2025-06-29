@@ -1,6 +1,9 @@
 """Plotting helpers extracted from the original script."""
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except Exception:  # pragma: no cover - optional plotting dependency
+    plt = None
 import numpy as np
 
 

@@ -12,7 +12,10 @@ import os
 from typing import Iterable, Tuple
 
 import pandas as pd
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except Exception:  # pragma: no cover - optional plotting dependency
+    plt = None
 import numpy as np
 
 from utils import compute_C_ECEF_to_NED

@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import shutil
 from pathlib import Path
+from typing import Tuple
 import numpy as np
 import pandas as pd
 import scipy.io
@@ -42,14 +43,14 @@ def run_matlab_pipeline(imu_file: str, gnss_file: str, method: str) -> Path:
     return Path("results") / f"{imu_stem}_{gnss_stem}_{method}_task5_results.mat"
 
 
-def load_python_metrics(mat_path: Path) -> tuple[float, float]:
+def load_python_metrics(mat_path: Path) -> Tuple[float, float]:
     data = scipy.io.loadmat(mat_path)
     rmse = float(np.squeeze(data["rmse_pos"]))
     final = float(np.squeeze(data["final_pos"]))
     return rmse, final
 
 
-def load_matlab_metrics(mat_path: Path, imu_file: str, gnss_file: str) -> tuple[float, float]:
+def load_matlab_metrics(mat_path: Path, imu_file: str, gnss_file: str) -> Tuple[float, float]:
     data = scipy.io.loadmat(mat_path)
     x_log = data["x_log"]
     gnss_pos = data["gnss_pos_ned"]

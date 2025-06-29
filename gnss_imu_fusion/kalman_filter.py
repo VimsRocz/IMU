@@ -1,5 +1,7 @@
 """Kalman filter utilities extracted from the original script."""
 
+from __future__ import annotations
+
 import numpy as np
 
 

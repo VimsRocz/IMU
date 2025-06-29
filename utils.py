@@ -1,11 +1,11 @@
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Optional
 import pathlib
 import subprocess
 import sys
 
 
-def ensure_dependencies(requirements: pathlib.Path | None = None) -> None:
+def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
     """Install packages from ``requirements.txt`` if key deps are missing."""
     try:
         import tabulate  # noqa: F401
@@ -159,6 +159,16 @@ def compute_C_ECEF_to_NED(lat: float, lon: float) -> np.ndarray:
         [-s_lon, c_lon, 0.0],
         [-c_lat * c_lon, -c_lat * s_lon, -s_lat],
     ])
+
+
+def ecef_to_ned(pos_ecef: np.ndarray, ref_lat: float, ref_lon: float,
+                ref_ecef: np.ndarray) -> np.ndarray:
+    """Convert ECEF coordinates to NED frame relative to *ref_ecef*."""
+    pos_ecef = np.asarray(pos_ecef)
+    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+    if pos_ecef.ndim == 1:
+        return C @ (pos_ecef - ref_ecef)
+    return np.array([C @ (p - ref_ecef) for p in pos_ecef])
 
 
 def ecef_to_geodetic(x: float, y: float, z: float) -> Tuple[float, float, float]:
