@@ -133,7 +133,7 @@ x(4:6)  = gnss_vel_ned(1,:)';
 x(7:9)  = init_eul;
 x(10:12) = accel_bias(:);
 x(13:15) = gyro_bias(:);
-% Increase initial bias uncertainty for better convergence
+% Increase initial bias covariance (was 1e-4/1e-8) for faster convergence
 P = blkdiag(eye(9)*0.01, eye(3)*1e-2, eye(3)*1e-2);
 Q = blkdiag(eye(9)*0.01, eye(3)*1e-6, eye(3)*1e-6);
 R = eye(6) * 0.1;
