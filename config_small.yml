@@ -5,5 +5,3 @@ datasets:
     gnss: GNSS_X002_small.csv
   - imu: IMU_X003_small.dat
     gnss: GNSS_X002_small.csv
-methods:
-  - TRIAD

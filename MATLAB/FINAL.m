@@ -207,6 +207,9 @@ save(matfile, 'fused_pos', 'fused_vel', 'summary');
 
 fprintf('Saved %s\n', matfile);
 
+% Simple overlay figure using fused results only
+plot_overlay(imu_time, fused_pos, fused_vel, acc_log', gnss_time, pos_gnss, vel_gnss, gnss_accel_ned, imu_time, fused_pos, fused_vel, acc_log', 'NED', method, resultsDir);
+
 end
 
 %% Helper functions ------------------------------------------------------

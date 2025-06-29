@@ -5,7 +5,10 @@ import os
 from pathlib import Path
 
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except Exception:  # pragma: no cover - optional plotting dependency
+    plt = None
 import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
@@ -30,10 +33,8 @@ except ImportError:
 
 try:
     console = Console()
-    log = console.log
 except Exception:
     logging.basicConfig(level=logging.INFO)
-    log = logging.info
 TAG = "{imu}_{gnss}_{method}".format  # helper
 
 # Colour palette for plotting per attitude-initialisation method
@@ -67,6 +68,9 @@ from gnss_imu_fusion.kalman_filter import (
     quat_from_rate,
     quat2euler,
 )
+
+# Minimum number of samples required from a static interval for bias estimation
+MIN_STATIC_SAMPLES = 500
 
 
 def main():
@@ -895,9 +899,7 @@ def main():
         acc_body = butter_lowpass_filter(acc_body)
         gyro_body = butter_lowpass_filter(gyro_body)
         
-        N_static = min(4000, max(len(imu_data) // 10, 100))
-        if len(imu_data) < N_static:
-            N_static = len(imu_data) // 2
+
         
         # Compute static bias for accelerometers and gyroscopes
         static_acc = np.mean(acc_body[:N_static], axis=0)
@@ -1165,9 +1167,6 @@ def main():
     # --------------------------------
     # Subtask 5.1: Configure Logging
     # --------------------------------
-    # --------------------------------
-    # Subtask 5.1: Configure Logging
-    # --------------------------------
     logging.info("Subtask 5.1: Configuring logging.")
     
     # --------------------------------
@@ -1219,9 +1218,7 @@ def main():
     imu_time = np.arange(len(imu_data)) * dt_ilu + gnss_time[0]
     acc_body = imu_data[[5,6,7]].values / dt_ilu
     acc_body = butter_lowpass_filter(acc_body)
-    N_static = min(4000, max(len(imu_data) // 10, 100))
-    if len(imu_data) < N_static:
-        N_static = len(imu_data) // 2
+
     static_acc = np.mean(acc_body[:N_static], axis=0)
     
     
@@ -1527,58 +1524,73 @@ def main():
             ax = ax_ned_all[i, j]
             if i == 0:
                 ax.plot(t_rel_gnss, gnss_pos_ned[:, j], 'k-', label='GNSS')
+                ax.plot(t_rel_ilu, imu_pos[method][:, j], '--', color='gray',
+                        label='IMU (no fusion)')
                 ax.plot(t_rel_ilu, fused_pos[method][:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                        label='Fused (KF)')
                 ax.set_title(f'Position {dirs_ned[j]}')
             elif i == 1:
                 ax.plot(t_rel_gnss, gnss_vel_ned[:, j], 'k-', label='GNSS')
+                ax.plot(t_rel_ilu, imu_vel[method][:, j], '--', color='gray',
+                        label='IMU (no fusion)')
                 ax.plot(t_rel_ilu, fused_vel[method][:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                        label='Fused (KF)')
                 ax.set_title(f'Velocity V{dirs_ned[j]}')
             else:
                 ax.plot(t_rel_gnss, gnss_acc_ned[:, j], 'k-', label='GNSS')
+                ax.plot(t_rel_ilu, imu_acc[method][:, j], '--', color='gray',
+                        label='IMU (no fusion)')
                 ax.plot(t_rel_ilu, fused_acc[method][:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                        label='Fused (KF)')
                 ax.set_title(f'Acceleration {dirs_ned[j]}')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_ned.pdf")
+        plt.savefig(f"results/{tag}_task5_compare_ned.pdf")
     plt.close()
     logging.info("All data in NED frame plot saved")
 
     logging.info("Plotting all data in ECEF frame.")
     fig_ecef_all, ax_ecef_all = plt.subplots(3, 3, figsize=(15, 10))
     dirs_ecef = ['X', 'Y', 'Z']
-    pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
-    vel_ecef = (C_NED_to_ECEF @ fused_vel[method].T).T
-    acc_ecef = (C_NED_to_ECEF @ fused_acc[method].T).T
+    pos_ecef_fused = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
+    vel_ecef_fused = (C_NED_to_ECEF @ fused_vel[method].T).T
+    acc_ecef_fused = (C_NED_to_ECEF @ fused_acc[method].T).T
+    pos_ecef_imu = np.array([C_NED_to_ECEF @ p + ref_r0 for p in imu_pos[method]])
+    vel_ecef_imu = (C_NED_to_ECEF @ imu_vel[method].T).T
+    acc_ecef_imu = (C_NED_to_ECEF @ imu_acc[method].T).T
     for i in range(3):
         for j in range(3):
             ax = ax_ecef_all[i, j]
             if i == 0:
                 ax.plot(t_rel_gnss, gnss_pos_ecef[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, pos_ecef[:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                ax.plot(t_rel_ilu, pos_ecef_imu[:, j], '--', color='gray',
+                        label='IMU (no fusion)')
+                ax.plot(t_rel_ilu, pos_ecef_fused[:, j], c, alpha=0.7,
+                        label='Fused (KF)')
                 ax.set_title(f'Position {dirs_ecef[j]}_ECEF')
             elif i == 1:
                 ax.plot(t_rel_gnss, gnss_vel_ecef[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, vel_ecef[:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                ax.plot(t_rel_ilu, vel_ecef_imu[:, j], '--', color='gray',
+                        label='IMU (no fusion)')
+                ax.plot(t_rel_ilu, vel_ecef_fused[:, j], c, alpha=0.7,
+                        label='Fused (KF)')
                 ax.set_title(f'Velocity V{dirs_ecef[j]}_ECEF')
             else:
                 ax.plot(t_rel_gnss, gnss_acc_ecef[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, acc_ecef[:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                ax.plot(t_rel_ilu, acc_ecef_imu[:, j], '--', color='gray',
+                        label='IMU (no fusion)')
+                ax.plot(t_rel_ilu, acc_ecef_fused[:, j], c, alpha=0.7,
+                        label='Fused (KF)')
                 ax.set_title(f'Acceleration {dirs_ecef[j]}_ECEF')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_ecef.pdf")
+        plt.savefig(f"results/{tag}_task5_compare_ecef.pdf")
     plt.close()
     logging.info("All data in ECEF frame plot saved")
 
@@ -1586,9 +1598,12 @@ def main():
     fig_body_all, ax_body_all = plt.subplots(3, 3, figsize=(15, 10))
     dirs_body = ['X', 'Y', 'Z']
     C_N_B = C_B_N_methods[method].T
-    pos_body = (C_N_B @ fused_pos[method].T).T
-    vel_body = (C_N_B @ fused_vel[method].T).T
-    acc_body = (C_N_B @ fused_acc[method].T).T
+    pos_body_fused = (C_N_B @ fused_pos[method].T).T
+    vel_body_fused = (C_N_B @ fused_vel[method].T).T
+    acc_body_fused = (C_N_B @ fused_acc[method].T).T
+    pos_body_imu = (C_N_B @ imu_pos[method].T).T
+    vel_body_imu = (C_N_B @ imu_vel[method].T).T
+    acc_body_imu = (C_N_B @ imu_acc[method].T).T
     gnss_pos_body = (C_N_B @ gnss_pos_ned.T).T
     gnss_vel_body = (C_N_B @ gnss_vel_ned.T).T
     gnss_acc_body = (C_N_B @ gnss_acc_ned.T).T
@@ -1597,25 +1612,31 @@ def main():
             ax = ax_body_all[i, j]
             if i == 0:
                 ax.plot(t_rel_gnss, gnss_pos_body[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, pos_body[:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                ax.plot(t_rel_ilu, pos_body_imu[:, j], '--', color='gray',
+                        label='IMU (no fusion)')
+                ax.plot(t_rel_ilu, pos_body_fused[:, j], c, alpha=0.7,
+                        label='Fused (KF)')
                 ax.set_title(f'Position r{dirs_body[j]}_body')
             elif i == 1:
                 ax.plot(t_rel_gnss, gnss_vel_body[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, vel_body[:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                ax.plot(t_rel_ilu, vel_body_imu[:, j], '--', color='gray',
+                        label='IMU (no fusion)')
+                ax.plot(t_rel_ilu, vel_body_fused[:, j], c, alpha=0.7,
+                        label='Fused (KF)')
                 ax.set_title(f'Velocity v{dirs_body[j]}_body')
             else:
                 ax.plot(t_rel_gnss, gnss_acc_body[:, j], 'k-', label='GNSS')
-                ax.plot(t_rel_ilu, acc_body[:, j], c, alpha=0.7,
-                        label=f'Fused {method}')
+                ax.plot(t_rel_ilu, acc_body_imu[:, j], '--', color='gray',
+                        label='IMU (no fusion)')
+                ax.plot(t_rel_ilu, acc_body_fused[:, j], c, alpha=0.7,
+                        label='Fused (KF)')
                 ax.set_title(f'Acceleration A{dirs_body[j]}_body')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend()
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_body.pdf")
+        plt.savefig(f"results/{tag}_task5_compare_body.pdf")
     plt.close()
     logging.info("All data in body frame plot saved")
 
@@ -1656,9 +1677,9 @@ def main():
         f'{tag}_task4_all_ecef.pdf': 'Integrated data in ECEF frame',
         f'{tag}_task4_all_body.pdf': 'Integrated data in body frame',
         f'{tag}_task5_results_{method}.pdf': f'Kalman filter results using {method}',
-        f'{tag}_task5_all_ned.pdf': 'Kalman filter results in NED frame',
-        f'{tag}_task5_all_ecef.pdf': 'Kalman filter results in ECEF frame',
-        f'{tag}_task5_all_body.pdf': 'Kalman filter results in body frame',
+        f'{tag}_task5_compare_ned.pdf': 'GNSS/IMU/KF comparison in NED frame',
+        f'{tag}_task5_compare_ecef.pdf': 'GNSS/IMU/KF comparison in ECEF frame',
+        f'{tag}_task5_compare_body.pdf': 'GNSS/IMU/KF comparison in body frame',
         f'{tag}_{method.lower()}_residuals.pdf': 'Position and velocity residuals',
         f'{tag}_{method.lower()}_innovations.pdf': 'Pre-fit innovations',
         f'{tag}_{method.lower()}_attitude_angles.pdf': 'Attitude angles over time'

@@ -33,3 +33,15 @@ All reported results and plots are for the TRIAD initialization method.
 **Filename:** IMU_Xnnn_GNSS_Xnnn_attitude_time.pdf
 **Description:** Roll, pitch, and yaw estimates over the full dataset, useful for spotting jumps or drift.
 
+## 9. GNSS vs IMU vs Fused in NED
+**Filename:** <tag>_task5_compare_ned.pdf
+**Description:** Comparison of GNSS, IMU-only dead reckoning and the fused Kalman filter trajectory in the NED frame.
+
+## 10. GNSS vs IMU vs Fused in ECEF
+**Filename:** <tag>_task5_compare_ecef.pdf
+**Description:** Same comparison as above but transformed to the ECEF frame.
+
+## 11. GNSS vs IMU vs Fused in Body Frame
+**Filename:** <tag>_task5_compare_body.pdf
+**Description:** Position, velocity and acceleration plotted in the vehicle body frame for GNSS, IMU-only and fused data.
+
