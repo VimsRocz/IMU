@@ -193,7 +193,6 @@ for i = 1:num_imu_samples
     x(1:3) = pos_new;
     x(7:9) = quat_to_euler(q_b_n);
     acc_log(:,i) = a_ned;
-    
     % --- 3. Measurement Update (Correction) ---
     z = [gnss_pos_interp(i,:)'; gnss_vel_interp(i,:)'];
     y = z - H * x;
@@ -205,7 +204,6 @@ for i = 1:num_imu_samples
     % update integrator history after correction
     prev_vel = x(4:6);
     prev_a_ned = a_ned;
-    
     % --- 4. Zero-Velocity Update (ZUPT) ---
     win_size = 80;
     static_start = 297;
