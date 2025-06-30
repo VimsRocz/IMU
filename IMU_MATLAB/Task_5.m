@@ -335,6 +335,13 @@ else
     truth_candidates = {sprintf('STATE_%s_small.txt',dataset_id), sprintf('STATE_%s.txt',dataset_id)};
 end
 truth_data = [];
+% Pre-allocate truth arrays to avoid "undefined variable" errors when no
+% reference solution is available. These will remain empty if truth data is
+% not found and downstream plotting code will simply skip drawing the Truth
+% overlay.
+pos_t_ecef = []; vel_t_ecef = []; acc_t_ecef = [];
+pos_t_ned  = []; vel_t_ned  = []; acc_t_ned  = [];
+pos_t_body = []; vel_t_body = []; acc_t_body = [];
 for i=1:numel(truth_candidates)
     if exist(truth_candidates{i},'file')
         truth_data = load(truth_candidates{i});
