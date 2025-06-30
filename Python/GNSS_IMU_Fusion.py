@@ -4,6 +4,9 @@ import sys
 import os
 from pathlib import Path
 
+HERE = Path(__file__).resolve().parent
+RESULTS_DIR = HERE / "results"
+
 
 
 import numpy as np
@@ -141,7 +144,7 @@ def main():
     gnss_file = args.gnss_file
     imu_file = args.imu_file
 
-    os.makedirs("results", exist_ok=True)
+    RESULTS_DIR.mkdir(exist_ok=True)
 
     imu_stem = Path(args.imu_file).stem
     gnss_stem = Path(args.gnss_file).stem
@@ -301,7 +304,7 @@ def main():
 
             # Set plot title and save
             plt.title("Initial Location on Earth Map")
-            plt.savefig(f"results/{tag}_location_map.pdf")
+            plt.savefig(RESULTS_DIR / f"{tag}_location_map.pdf")
             plt.close()
             logging.info("Location map saved")
     else:
@@ -807,7 +810,7 @@ def main():
     
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task3_errors_comparison.pdf")
+        plt.savefig(RESULTS_DIR / f"{tag}_task3_errors_comparison.pdf")
     plt.close()
     logging.info("Error comparison plot saved")
     
@@ -837,7 +840,7 @@ def main():
     
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task3_quaternions_comparison.pdf")
+        plt.savefig(RESULTS_DIR / f"{tag}_task3_quaternions_comparison.pdf")
     plt.close()
     logging.info("Quaternion comparison plot saved")
     
@@ -1088,7 +1091,7 @@ def main():
         ax.legend()
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_comparison_ned.pdf")
+        plt.savefig(RESULTS_DIR / f"{tag}_task4_comparison_ned.pdf")
     plt.close()
     logging.info("Comparison plot in NED frame saved")
     
@@ -1117,7 +1120,7 @@ def main():
             ax.legend()
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_mixed_frames.pdf")
+        plt.savefig(RESULTS_DIR / f"{tag}_task4_mixed_frames.pdf")
     plt.close()
     logging.info("Mixed frames plot saved")
     
@@ -1145,7 +1148,7 @@ def main():
             ax.legend()
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_all_ned.pdf")
+        plt.savefig(RESULTS_DIR / f"{tag}_task4_all_ned.pdf")
     plt.close()
     logging.info("All data in NED frame plot saved")
     
@@ -1174,7 +1177,7 @@ def main():
             ax.legend()
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_all_ecef.pdf")
+        plt.savefig(RESULTS_DIR / f"{tag}_task4_all_ecef.pdf")
     plt.close()
     logging.info("All data in ECEF frame plot saved")
     
@@ -1203,7 +1206,7 @@ def main():
             ax.legend()
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_all_body.pdf")
+        plt.savefig(RESULTS_DIR / f"{tag}_task4_all_body.pdf")
     plt.close()
     logging.info("All data in body frame plot saved")
     
@@ -1595,8 +1598,8 @@ def main():
                 ax.set_ylabel("Value")
                 ax.legend()
         plt.tight_layout()
-        out_pdf = f"results/{dataset_id}_{frame}_Truth_GNSS_IMU.pdf"
-        legacy = f"results/{tag}_task5_compare_{frame.lower()}.pdf"
+        out_pdf = RESULTS_DIR / f"{dataset_id}_{frame}_Truth_GNSS_IMU.pdf"
+        legacy = RESULTS_DIR / f"{tag}_task5_compare_{frame.lower()}.pdf"
         if not args.no_plots:
             plt.savefig(out_pdf)
             plt.savefig(legacy)
@@ -1617,7 +1620,7 @@ def main():
     ax_innov[-1].set_xlabel('GNSS update index')
     fig_innov.suptitle('Pre-fit Innovations (GNSS – prediction)')
     fig_innov.tight_layout()
-    innov_pdf = f"results/{tag}_{method.lower()}_innovations.pdf"
+    innov_pdf = RESULTS_DIR / f"{tag}_{method.lower()}_innovations.pdf"
     if not args.no_plots:
         save_plot(fig_innov, innov_pdf, 'Pre-fit Innovations')
     
@@ -1625,9 +1628,9 @@ def main():
     if not args.no_plots:
         res = compute_residuals(gnss_time, gnss_pos_ned, imu_time, fused_pos[method])
         plot_residuals(gnss_time, res,
-                       f"results/residuals_{tag}_{method}.pdf")
+                       RESULTS_DIR / f"residuals_{tag}_{method}.pdf")
         plot_attitude(imu_time, attitude_q_all[method],
-                      f"results/attitude_angles_{tag}_{method}.pdf")
+                      RESULTS_DIR / f"attitude_angles_{tag}_{method}.pdf")
     
     # Create plot summary
     summary = {
@@ -1646,7 +1649,7 @@ def main():
         f'{tag}_{method.lower()}_innovations.pdf': 'Pre-fit innovations',
         f'{tag}_{method.lower()}_attitude_angles.pdf': 'Attitude angles over time'
     }
-    summary_path = os.path.join("results", f"{tag}_plot_summary.md")
+    summary_path = RESULTS_DIR / f"{tag}_plot_summary.md"
     with open(summary_path, 'w') as f:
         for name, desc in summary.items():
             f.write(f'- **{name}**: {desc}\n')
@@ -1685,11 +1688,11 @@ def main():
         plt.ylabel('Angle (deg)')
         plt.legend()
         plt.title(f'{tag} Attitude Angles')
-        plt.savefig(f'results/{tag}_{method}_attitude_angles.png')
+        plt.savefig(RESULTS_DIR / f'{tag}_{method}_attitude_angles.png')
         plt.close()
 
     np.savez(
-        f"results/{tag}_kf_output.npz",
+        RESULTS_DIR / f"{tag}_kf_output.npz",
         summary=dict(
             rmse_pos=rmse_pos,
             final_pos=final_pos,
@@ -1716,7 +1719,7 @@ def main():
     # Also export results as MATLAB-compatible .mat for post-processing
     from scipy.io import savemat
     savemat(
-        f"results/{tag}_kf_output.mat",
+        RESULTS_DIR / f"{tag}_kf_output.mat",
         {
             "rmse_pos": np.array([rmse_pos]),
             "final_pos": np.array([final_pos]),
@@ -1751,7 +1754,7 @@ def main():
         "pos_gnss" : gnss_pos_ned,
         "vel_gnss" : gnss_vel_ned,
     }
-    fname = Path("results") / f"{summary_tag}_{method}_compare.pkl.gz"
+    fname = RESULTS_DIR / f"{summary_tag}_{method}_compare.pkl.gz"
     with gzip.open(fname, "wb") as f:
         pickle.dump(pack, f)
 

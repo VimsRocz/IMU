@@ -76,15 +76,15 @@ def main(argv=None):
     else:
         cases, methods = list(DEFAULT_DATASETS), list(DEFAULT_METHODS)
 
-    os.makedirs("results", exist_ok=True)
+    (HERE / "results").mkdir(exist_ok=True)
 
     for (imu, gnss), m in itertools.product(cases, methods):
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
-        log_path = pathlib.Path("results") / f"{tag}.log"
+        log_path = HERE / "results" / f"{tag}.log"
         print(f"\u25B6 {tag}")
         cmd = [
             sys.executable,
-            "GNSS_IMU_Fusion.py",
+            str(HERE / "GNSS_IMU_Fusion.py"),
             "--imu-file",
             str(DATA_DIR / imu),
             "--gnss-file",
