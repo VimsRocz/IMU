@@ -118,12 +118,13 @@ end
 % Simplified constant-position Kalman filter just for demonstration
 KF.x = [pos(1,:) vel(1,:)];
 KF.P = eye(6);
+KF.x = KF.x';
 Q = 1e-3 * eye(6);
 R = 1e-2 * eye(6);
 for k = 2:N
     % predict
     A = [eye(3) eye(3)*dt; zeros(3) eye(3)];
-    KF.x = A * KF.x';
+    KF.x = A * KF.x;
     KF.P = A*KF.P*A' + Q;
     % update with pseudo-measurement of position & velocity from integration
     z = [pos(k,:) vel(k,:)];
