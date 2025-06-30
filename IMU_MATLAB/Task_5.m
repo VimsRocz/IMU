@@ -54,6 +54,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, truthFile)
         error('Method %s not found in task3_results', method);
     end
     C_B_N = task3_results.(method).R;
+    C_N_B = C_B_N';
 
     % Load GNSS data to obtain time and velocity
     gnss_tbl = readtable(gnss_path);
@@ -180,7 +181,7 @@ for i = 1:num_imu_samples
     % --- 2. Attitude Propagation ---
     corrected_gyro = gyro_body_raw(i,:)' - x(13:15);
     corrected_accel = acc_body_raw(i,:)' - x(10:12);
-    current_omega_ie_b = C_B_N' * omega_ie_NED;
+    current_omega_ie_b = C_N_B * omega_ie_NED;
     w_b = corrected_gyro - current_omega_ie_b;
     q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
     C_B_N = quat_to_rot(q_b_n);
