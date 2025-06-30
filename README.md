@@ -313,7 +313,7 @@ writes `results/summary.csv`. Each row contains:
 Run the unit tests with `pytest`. **Installing the required Python packages is
 mandatory** before executing any tests. The suite relies on all packages listed
 in both requirement files. The tests load the bundled datasets from the
-repository root (or `IMU_MATLAB/data`), so keep those files in place when
+repository root (or `matlab/pipeline_tasks/data`), so keep those files in place when
 running `pytest`.
 
 Install the dependencies first:
@@ -334,11 +334,11 @@ If you prefer `make`, invoke `make deps-test` to install the requirements or
 ## MATLAB Compatibility
 
 Each run now exports a MATLAB `.mat` file alongside the NPZ results. The plotting
-and validation functions live in the `MATLAB/` directory. Add it to your path
+and validation functions live in `matlab/helpers/`. Add the folder to your path
 before calling them:
 
 ```matlab
-addpath('MATLAB')
+addpath('matlab/helpers')
 plot_results('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat');
 validate_3sigma('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat', 'STATE_X001.txt');
 ```
@@ -404,19 +404,19 @@ main(imu_path, gnss_path);
 
 `main.m` now takes the full paths to the IMU and GNSS files as arguments.
 The helper function `get_data_file` searches both the repository root and
-`IMU_MATLAB/data`, letting `TRIAD` and related scripts locate the bundled
-sample logs automatically when you pass just the file names.
+`matlab/pipeline_tasks/data`, letting `TRIAD` and related scripts locate the
+bundled sample logs automatically when you pass just the file names.
 
-### IMU_MATLAB vs MATLAB Scripts
+### MATLAB Folder Layout
 
 Two sets of MATLAB code are provided:
 
-- **`IMU_MATLAB/`** replicates the Python pipeline via modular `Task_1`–`Task_5`
-  functions. Call `main.m` or the individual tasks when you need to debug or
-  inspect each processing step in detail.
-- **`MATLAB/`** offers lightweight stand‑alone scripts (`TRIAD.m`, `FINAL.m`,
-  `plot_results.m`, `validate_3sigma.m`). Use these for quick experiments or to
-  validate the `.mat` files exported from Python.
+- **`matlab/pipeline_tasks/`** replicates the Python pipeline via modular
+  `Task_1`–`Task_5` functions. Call `main.m` or the individual tasks when you
+  need to debug or inspect each processing step in detail.
+- **`matlab/helpers/`** offers lightweight stand‑alone scripts (`TRIAD.m`,
+  `FINAL.m`, `plot_results.m`, `validate_3sigma.m`). Use these for quick
+  experiments or to validate the `.mat` files exported from Python.
 
 To run `TRIAD.m` with the new data-file detection logic simply resolve the file
 paths with `get_data_file` and pass them to the script:
@@ -427,7 +427,7 @@ gnss = get_data_file('GNSS_X001.csv');
 TRIAD(imu, gnss);
 ```
 
-`get_data_file` searches `IMU_MATLAB/data/` first and falls back to the
+`get_data_file` searches `matlab/pipeline_tasks/data/` first and falls back to the
 repository root, so the command works from any location.
 
 ### Sequential Task Execution

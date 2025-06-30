@@ -2,7 +2,7 @@
 
 ### Recent Updates
 
-- **Bias estimation fix** (`IMU_MATLAB/Task_2.m`, `fusion_single.py`)
+- **Bias estimation fix** (`matlab/pipeline_tasks/Task_2.m`, `fusion_single.py`)
   - Detects a low-motion segment to compute accelerometer and gyroscope biases.
   - Scales the accelerometer magnitude to match 9.81 m/s² for more stable attitude initialisation.
 

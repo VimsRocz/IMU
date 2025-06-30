@@ -13,6 +13,8 @@ def test_matlab_tasks(tmp_path):
     if not matlab:
         pytest.skip("MATLAB not available")
     cmd = (
+        "addpath('matlab/pipeline_tasks');"
+        "addpath('matlab/helpers');"
         "imu=get_data_file('IMU_X001.dat');"
         "gnss=get_data_file('GNSS_X001.csv');"
         "Task_1(imu, gnss, 'TRIAD');"

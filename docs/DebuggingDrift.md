@@ -1,6 +1,6 @@
 # Debugging Large Position Drift in the MATLAB Pipeline
 
-This guide explains how to track down extremely large position errors (tens of kilometres) when running the `IMU_MATLAB` pipeline. The Python implementation normally finishes with a final position error around **1 cm**, so any huge discrepancy is a strong indicator of a bug in the MATLAB code or its configuration.
+This guide explains how to track down extremely large position errors (tens of kilometres) when running the `matlab/pipeline_tasks` pipeline. The Python implementation normally finishes with a final position error around **1 cm**, so any huge discrepancy is a strong indicator of a bug in the MATLAB code or its configuration.
 
 ## 1. Detecting the Root Cause
 

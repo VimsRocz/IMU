@@ -13,6 +13,8 @@ def test_matlab_accuracy(tmp_path):
     if not matlab:
         pytest.skip("MATLAB not available")
     cmd = (
+        "addpath('matlab/pipeline_tasks');"
+        "addpath('matlab/helpers');"
         "imu_path=get_data_file('IMU_X001.dat');"
         "gnss_path=get_data_file('GNSS_X001.csv');"
         "main(imu_path, gnss_path, 'TRIAD');"
