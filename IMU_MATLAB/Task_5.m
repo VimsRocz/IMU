@@ -233,7 +233,6 @@ for i = 1:num_imu_samples
     % --- Log State and Attitude ---
     x_log(:, i) = x;
     euler_log(:, i) = quat_to_euler(q_b_n);
-end
 fprintf('-> Filter loop complete. Total ZUPT applications: %d\n', zupt_count);
 
 %% ========================================================================
@@ -489,6 +488,7 @@ fprintf('Method-specific results saved to %s\n', method_file);
 % Return results structure and store in base workspace
 result = results;
 assignin('base', 'task5_results', result);
+
 
 end % end main function
 
