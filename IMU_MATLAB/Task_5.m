@@ -323,7 +323,8 @@ truth_data = [];
 for i=1:numel(truth_candidates)
     if exist(truth_candidates{i},'file')
         truth_data = load(truth_candidates{i});
-        break; end
+        break;
+    end
 end
 if ~isempty(truthFile) && isempty(truth_data)
     warning('Reference file %s not found. Skipping overlay.', truthFile);
@@ -488,12 +489,10 @@ fprintf('Method-specific results saved to %s\n', method_file);
 result = results;
 assignin('base', 'task5_results', result);
 
-end % End of main function
-
 %% ========================================================================
 %  LOCAL HELPER FUNCTIONS
 % =========================================================================
-    function q_new = propagate_quaternion(q_old, w, dt)
+function q_new = propagate_quaternion(q_old, w, dt)
         w_norm = norm(w);
         if w_norm > 1e-9
             axis = w / w_norm;
@@ -505,7 +504,7 @@ end % End of main function
         q_new = quat_multiply(q_old, dq);
     end
 
-    function q_out = quat_multiply(q1, q2)
+function q_out = quat_multiply(q1, q2)
         w1 = q1(1); x1 = q1(2); y1 = q1(3); z1 = q1(4);
         w2 = q2(1); x2 = q2(2); y2 = q2(3); z2 = q2(4);
         q_out = [w1*w2 - x1*x2 - y1*y2 - z1*z2;
@@ -514,7 +513,7 @@ end % End of main function
                  w1*z2 + x1*y2 - y1*x2 + z1*w2];
     end
 
-    function euler = quat_to_euler(q)
+function euler = quat_to_euler(q)
         w = q(1); x = q(2); y = q(3); z = q(4);
         sinr_cosp = 2 * (w * x + y * z);
         cosr_cosp = 1 - 2 * (x * x + y * y);
@@ -533,14 +532,14 @@ end % End of main function
         euler = [roll; pitch; yaw];
     end
 
-    function R = quat_to_rot(q)
+function R = quat_to_rot(q)
         qw = q(1); qx = q(2); qy = q(3); qz = q(4);
         R = [1 - 2 * (qy^2 + qz^2), 2 * (qx*qy - qw*qz), 2 * (qx*qz + qw*qy);
              2 * (qx*qy + qw*qz), 1 - 2 * (qx^2 + qz^2), 2 * (qy*qz - qw*qx);
              2 * (qx*qz - qw*qy), 2 * (qy*qz + qw*qx), 1 - 2 * (qx^2 + qy^2)];
     end
 
-    function q = rot_to_quaternion(R)
+function q = rot_to_quaternion(R)
         tr = trace(R);
         if tr > 0
             S = sqrt(tr + 1.0) * 2;
@@ -572,13 +571,13 @@ end % End of main function
         q = q / norm(q);
     end
 
-    function is_stat = is_static(acc, gyro)
+function is_stat = is_static(acc, gyro)
         acc_thresh = 0.01; gyro_thresh = 1e-6;
         is_stat = all(var(acc,0,1) < acc_thresh) && ...
                    all(var(gyro,0,1) < gyro_thresh);
     end
 
-    function R = euler_to_rot(eul)
+function R = euler_to_rot(eul)
         cr = cos(eul(1)); sr = sin(eul(1));
         cp = cos(eul(2)); sp = sin(eul(2));
         cy = cos(eul(3)); sy = sin(eul(3));
