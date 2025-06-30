@@ -126,6 +126,8 @@ validate the results, run either the Python or MATLAB helper script:
 ```bash
 python run_triad_only.py
 ```
+This processes datasets `X001` and `X002`. Use `--datasets` to select a
+different subset, e.g. `python run_triad_only.py --datasets X002`.
 
 ```matlab
 run_triad_only
@@ -234,6 +236,8 @@ If you want to process all datasets using just the TRIAD initialisation method, 
 ```bash
 python run_triad_only.py
 ```
+By default this runs datasets `X001` and `X002` with the TRIAD initialisation.
+Pass `--datasets` to override the selection.
 ```matlab
 run_triad_only
 % run_triad_only('STATE_X001.txt')
