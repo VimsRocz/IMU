@@ -193,6 +193,9 @@ def main():
     z_ecef = float(initial_row['Z_ECEF_m'])
 
     dataset_id = Path(imu_file).stem.split('_')[1]
+    # Altitude is always derived from the ECEF coordinates
+    lat_tmp, lon_tmp, alt = ecef_to_geodetic(x_ecef, y_ecef, z_ecef)
+
     REF_COORDS = {
         'X001': (-32.026554, 133.455801),
         'X002': (-32.026538, 133.455811),
@@ -205,7 +208,7 @@ def main():
             f"{lat_deg:.6f}°, {lon_deg:.6f}°"
         )
     else:
-        lat_deg, lon_deg, _ = ecef_to_geodetic(x_ecef, y_ecef, z_ecef)
+        lat_deg, lon_deg = lat_tmp, lon_tmp
         logging.info(
             f"Computed initial latitude: {lat_deg:.6f}°, "
             f"longitude: {lon_deg:.6f}° from ECEF coordinates."
