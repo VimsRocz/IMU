@@ -73,6 +73,8 @@ The repository includes three IMU logs and two GNSS traces:
 * `IMU_X001.dat` with `GNSS_X001.csv`
 * `IMU_X002.dat` with `GNSS_X002.csv`
 * `IMU_X003.dat` with `GNSS_X002.csv` (no dedicated GNSS log was recorded)
+* `STATE_X001.txt` contains the common reference trajectory for all three
+  datasets (there are no `STATE_X002.txt` or `STATE_X003.txt` files)
 
 For quick tests the repository also provides truncated versions of each
 file:
@@ -81,7 +83,8 @@ file:
   contain the first 1 000 IMU samples (about 2.5 s each)
 * `GNSS_X001_small.csv`, `GNSS_X002_small.csv` contain the first ten GNSS
   epochs
-* `STATE_X001_small.txt` holds the first 100 reference states
+* `STATE_X001_small.txt` holds the first 100 states of the same reference
+  trajectory
 
 These mini logs drastically reduce runtimes when validating the pipeline or
 the MATLAB scripts.  Use the helper configuration `config_small.yml` to run all
@@ -107,11 +110,12 @@ python run_triad_only.py
 run_triad_only
 ```
 
-All output files are written to the `results/` directory.  When a matching
-ground truth file such as `STATE_X001.txt` is available the script
-automatically calls `validate_with_truth.py` to compare the estimated trajectory
-against it. The validation summary and plots are saved alongside the exported
-`.mat` files in `results/`.
+All output files are written to the `results/` directory.  The scripts first
+look for `STATE_<id>.txt` and fall back to `STATE_X001.txt` when a dataset does
+not provide its own truth file.  If such a reference is found
+`validate_with_truth.py` is invoked automatically to compare the estimated
+trajectory against it. The validation summary and plots are saved alongside the
+exported `.mat` files in `results/`.
 `validate_with_truth.py` requires the reference latitude, longitude and origin
 to be specified via `--ref-lat`, `--ref-lon` and `--ref-r0` or embedded in the
 estimate file. If none are provided the script exits with an error.
