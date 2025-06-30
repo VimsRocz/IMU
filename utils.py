@@ -172,27 +172,33 @@ def ecef_to_ned(pos_ecef: np.ndarray, ref_lat: float, ref_lon: float,
 
 
 def ecef_to_geodetic(x: float, y: float, z: float) -> Tuple[float, float, float]:
-    """Convert ECEF coordinates to geodetic latitude, longitude and altitude.
+    """Convert ECEF coordinates to geodetic coordinates using WGS‑84.
 
-    Parameters
-    ----------
-    x, y, z : float
-        Coordinates in the Earth-Centred Earth-Fixed (ECEF) frame, metres.
-
-    Returns
-    -------
-    tuple of float
-        ``(latitude_deg, longitude_deg, altitude_m)`` using the WGS‑84 model.
+    This implementation follows Bowring's iterative method which offers
+    improved accuracy over the previous closed form approximation.  The
+    returned latitude and longitude are given in degrees while altitude is in
+    metres.
     """
+
+    # WGS‑84 parameters
     a = 6378137.0
     e_sq = 6.69437999014e-3
-    p = np.sqrt(x ** 2 + y ** 2)
-    theta = np.arctan2(z * a, p * (1 - e_sq))
-    lon = np.arctan2(y, x)
-    lat = np.arctan2(
-        z + e_sq * a * np.sin(theta) ** 3 / (1 - e_sq),
-        p - e_sq * a * np.cos(theta) ** 3,
-    )
-    N = a / np.sqrt(1 - e_sq * np.sin(lat) ** 2)
+    b = a * np.sqrt(1.0 - e_sq)
+    ep_sq = (a**2 - b**2) / b**2
+
+    p = np.sqrt(x * x + y * y)
+    if p == 0:
+        lon = 0.0
+    else:
+        lon = np.arctan2(y, x)
+
+    theta = np.arctan2(z * a, p * b)
+    sin_t = np.sin(theta)
+    cos_t = np.cos(theta)
+    lat = np.arctan2(z + ep_sq * b * sin_t**3, p - e_sq * a * cos_t**3)
+
+    # Radius of curvature in the prime vertical
+    N = a / np.sqrt(1.0 - e_sq * np.sin(lat) ** 2)
     alt = p / np.cos(lat) - N
+
     return float(np.degrees(lat)), float(np.degrees(lon)), float(alt)

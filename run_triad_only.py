@@ -40,6 +40,13 @@ if truth_arg and not truth_arg.exists():
     print(f"Warning: truth file {truth_arg} not found, skipping reference overlay")
     truth_arg = None
 
+# Reference latitude/longitude from Task 1.1 for each dataset
+REF_COORDS = {
+    "X001": (-32.026554, 133.455801),
+    "X002": (-32.026538, 133.455811),
+    "X003": (-32.026538, 133.455811),
+}
+
 for mat in results.glob("*_TRIAD_kf_output.mat"):
     m = re.match(r"IMU_(X\d+)(?:_small)?_.*_TRIAD_kf_output\.mat", mat.name)
     if not m:
@@ -77,10 +84,11 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
             imu_file = HERE / f"{m2.group(1)}.dat"
             gnss_file = HERE / f"{m2.group(2)}.csv"
             gnss = pd.read_csv(gnss_file, nrows=1)
-            x0, y0, z0 = (
-                gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].iloc[0].to_numpy()
-            )
-            lat0, lon0, _ = ecef_to_geodetic(x0, y0, z0)
+            x0, y0, z0 = gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].iloc[0].to_numpy()
+            if dataset in REF_COORDS:
+                lat0, lon0 = REF_COORDS[dataset]
+            else:
+                lat0, lon0, _ = ecef_to_geodetic(x0, y0, z0)
             frames = assemble_frames(
                 est,
                 imu_file,
