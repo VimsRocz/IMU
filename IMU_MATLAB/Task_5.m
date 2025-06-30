@@ -233,6 +233,9 @@ for i = 1:num_imu_samples
             P = (eye(15) - K_z * H_z) * P;
         end
 
+        % close win_size check
+    end
+
 
     % --- Log State and Attitude ---
     x_log(:, i) = x;
