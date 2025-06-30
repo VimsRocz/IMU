@@ -598,57 +598,31 @@ def main():
                 vel_body_est = vel_est_i
                 acc_body_est = acc_est_i
 
-            plot_frame(
-                "NED",
-                method,
-                t_true,
-                pos_est_i,
-                vel_est_i,
-                acc_est_i,
-                t_true,
-                pos_ned_true,
-                vel_ned_true,
-                acc_ned_true,
-                t_true,
-                pos_est_i,
-                vel_est_i,
-                acc_est_i,
-                args.output,
-            )
-            plot_frame(
-                "ECEF",
-                method,
-                t_true,
-                pos_ecef_est,
-                vel_ecef_est,
-                acc_ecef_est,
-                t_true,
-                pos_ecef_true,
-                vel_ecef_true,
-                acc_ecef_true,
-                t_true,
-                pos_ecef_est,
-                vel_ecef_est,
-                acc_ecef_est,
-                args.output,
-            )
-            plot_frame(
-                "BODY",
-                method,
-                t_true,
-                pos_body_est,
-                vel_body_est,
-                acc_body_est,
-                t_true,
-                pos_body_true,
-                vel_body_true,
-                acc_body_true,
-                t_true,
-                pos_body_est,
-                vel_body_est,
-                acc_body_est,
-                args.output,
-            )
+            frames_data = {
+                "NED": (pos_est_i, vel_est_i, acc_est_i, pos_ned_true, vel_ned_true, acc_ned_true),
+                "ECEF": (pos_ecef_est, vel_ecef_est, acc_ecef_est, pos_ecef_true, vel_ecef_true, acc_ecef_true),
+                "BODY": (pos_body_est, vel_body_est, acc_body_est, pos_body_true, vel_body_true, acc_body_true),
+            }
+
+            for frame_name, data in frames_data.items():
+                est_p, est_v, est_a, tru_p, tru_v, tru_a = data
+                plot_frame(
+                    frame_name,
+                    method,
+                    t_true,
+                    est_p,
+                    est_v,
+                    est_a,
+                    t_true,
+                    tru_p,
+                    tru_v,
+                    tru_a,
+                    t_true,
+                    est_p,
+                    est_v,
+                    est_a,
+                    args.output,
+                )
         except Exception as e:
             print(f"Frame plot failed: {e}")
 
