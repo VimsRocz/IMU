@@ -1518,7 +1518,7 @@ def main():
     C_N_B = C_B_N_methods[method].T
     for name in ["GNSS", "IMU", "Fused"]:
         pos, vel, acc = data_sets[name]["NED"]
-        data_sets[name]["BODY"] = (
+        data_sets[name]["Body"] = (
             (C_N_B @ pos.T).T,
             (C_N_B @ vel.T).T,
             (C_N_B @ acc.T).T,
@@ -1548,14 +1548,14 @@ def main():
         data_sets["Truth"] = {
             "ECEF": (pos_ecef_t, vel_ecef_t, acc_ecef_t),
             "NED": (pos_ned_t, vel_ned_t, acc_ned_t),
-            "BODY": (pos_body_t, vel_body_t, acc_body_t),
+            "Body": (pos_body_t, vel_body_t, acc_body_t),
         }
 
     # --- Plot frames ------------------------------------------------------
     frame_axes = {
         "NED": ["N", "E", "D"],
         "ECEF": ["X", "Y", "Z"],
-        "BODY": ["X", "Y", "Z"],
+        "Body": ["X", "Y", "Z"],
     }
 
     for frame, labels in frame_axes.items():
@@ -1618,7 +1618,7 @@ def main():
         f'{tag}_task4_all_body.pdf': 'Integrated data in body frame',
         f'{dataset_id}_NED_Truth_GNSS_IMU.pdf': 'Comparison with truth in NED frame',
         f'{dataset_id}_ECEF_Truth_GNSS_IMU.pdf': 'Comparison with truth in ECEF frame',
-        f'{dataset_id}_BODY_Truth_GNSS_IMU.pdf': 'Comparison with truth in body frame',
+        f'{dataset_id}_Body_Truth_GNSS_IMU.pdf': 'Comparison with truth in body frame',
         f'{tag}_{method.lower()}_residuals.pdf': 'Position and velocity residuals',
         f'{tag}_{method.lower()}_innovations.pdf': 'Pre-fit innovations',
         f'{tag}_{method.lower()}_attitude_angles.pdf': 'Attitude angles over time'
