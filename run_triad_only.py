@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Run all datasets using only the TRIAD initialisation method.
+"""Run selected datasets using only the TRIAD initialisation method.
+
+By default datasets ``X001`` and ``X002`` are processed. Use ``--datasets``
+to override the list.
 
 Optionally validate the Kalman filter output against a reference state
 with ``--truth-file PATH``. The file is passed to ``validate_with_truth``
@@ -19,8 +22,13 @@ import pandas as pd
 
 HERE = pathlib.Path(__file__).resolve().parent
 
-ap = argparse.ArgumentParser(description="Run TRIAD initialisation on all datasets")
+ap = argparse.ArgumentParser(description="Run TRIAD initialisation on selected datasets")
 ap.add_argument("--truth-file", help="Reference state file for validation")
+ap.add_argument(
+    "--datasets",
+    default="X001,X002",
+    help="Comma separated dataset IDs (e.g. X001,X002) passed to run_all_datasets.py",
+)
 args, rest = ap.parse_known_args()
 
 # --- Run the batch processor -------------------------------------------------
@@ -29,6 +37,8 @@ cmd = [
     str(HERE / "run_all_datasets.py"),
     "--method",
     "TRIAD",
+    "--datasets",
+    args.datasets,
     *rest,
 ]
 subprocess.run(cmd, check=True)
