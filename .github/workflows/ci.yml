@@ -1,6 +1,4 @@
 name: CI
-permissions:
-  contents: read
 on: [push, pull_request]
 jobs:
   build-and-test:
