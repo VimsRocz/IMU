@@ -489,6 +489,8 @@ fprintf('Method-specific results saved to %s\n', method_file);
 result = results;
 assignin('base', 'task5_results', result);
 
+end % end main function
+
 %% ========================================================================
 %  LOCAL HELPER FUNCTIONS
 % =========================================================================
