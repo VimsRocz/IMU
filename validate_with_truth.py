@@ -598,6 +598,11 @@ def main():
 
             plot_frame(
                 "NED",
+                method,
+                t_true,
+                pos_est_i,
+                vel_est_i,
+                acc_est_i,
                 t_true,
                 pos_ned_true,
                 vel_ned_true,
@@ -610,6 +615,11 @@ def main():
             )
             plot_frame(
                 "ECEF",
+                method,
+                t_true,
+                pos_ecef_est,
+                vel_ecef_est,
+                acc_ecef_est,
                 t_true,
                 pos_ecef_true,
                 vel_ecef_true,
@@ -622,6 +632,11 @@ def main():
             )
             plot_frame(
                 "BODY",
+                method,
+                t_true,
+                pos_body_est,
+                vel_body_est,
+                acc_body_est,
                 t_true,
                 pos_body_true,
                 vel_body_true,
