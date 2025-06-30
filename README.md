@@ -108,6 +108,8 @@ python run_triad_only.py
 
 ```matlab
 run_triad_only
+% Optionally specify a reference file for all datasets:
+% run_triad_only('STATE_X001.txt')
 ```
 
 All output files are written to the `results/` directory.  The scripts first
@@ -213,6 +215,7 @@ python run_triad_only.py
 ```
 ```matlab
 run_triad_only
+% run_triad_only('STATE_X001.txt')
 ```
 This is equivalent to running `run_all_datasets.py --method TRIAD`.
 
