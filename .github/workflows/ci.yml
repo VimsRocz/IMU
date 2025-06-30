@@ -22,6 +22,8 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: pip install -r requirements-dev.txt -r requirements.txt
+      - name: Run flake8
+        run: flake8
       - name: Run tests
         run: pytest -q
       - name: MATLAB smoke test
