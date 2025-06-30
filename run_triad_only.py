@@ -85,10 +85,7 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
             gnss_file = HERE / f"{m2.group(2)}.csv"
             gnss = pd.read_csv(gnss_file, nrows=1)
             x0, y0, z0 = gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].iloc[0].to_numpy()
-            if dataset in REF_COORDS:
-                lat0, lon0 = REF_COORDS[dataset]
-            else:
-                lat0, lon0, _ = ecef_to_geodetic(x0, y0, z0)
+            lat0, lon0 = REF_COORDS.get(dataset, ecef_to_geodetic(x0, y0, z0)[:2])
             frames = assemble_frames(
                 est,
                 imu_file,

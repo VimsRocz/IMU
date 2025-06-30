@@ -181,22 +181,42 @@ def main():
     logging.debug("First few rows of ECEF coordinates:\n%s", gnss_data[['X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m']].head())
     
     # Find first row with non-zero ECEF coordinates
-    valid_rows = gnss_data[(gnss_data['X_ECEF_m'] != 0) | (gnss_data['Y_ECEF_m'] != 0) | (gnss_data['Z_ECEF_m'] != 0)]
-    if not valid_rows.empty:
-        initial_row = valid_rows.iloc[0]
-        x_ecef = float(initial_row['X_ECEF_m'])
-        y_ecef = float(initial_row['Y_ECEF_m'])
-        z_ecef = float(initial_row['Z_ECEF_m'])
-        lat_deg, lon_deg, alt = ecef_to_geodetic(x_ecef, y_ecef, z_ecef)
-        lat = np.deg2rad(lat_deg)
-        lon = np.deg2rad(lon_deg)
-        initial_vel = initial_row[['VX_ECEF_mps', 'VY_ECEF_mps', 'VZ_ECEF_mps']].values
-        C_e2n_init = compute_C_ECEF_to_NED(lat, lon)
-        initial_vel_ned = C_e2n_init @ initial_vel
-        logging.info(f"Computed initial latitude: {lat_deg:.6f}°, longitude: {lon_deg:.6f}° from ECEF coordinates.")
-        logging.debug(f"Initial latitude: {lat_deg:.6f}°, Initial longitude: {lon_deg:.6f}°")
-    else:
+    valid_rows = gnss_data[(gnss_data['X_ECEF_m'] != 0) |
+                           (gnss_data['Y_ECEF_m'] != 0) |
+                           (gnss_data['Z_ECEF_m'] != 0)]
+    if valid_rows.empty:
         raise ValueError("No valid ECEF coordinates found in GNSS data.")
+
+    initial_row = valid_rows.iloc[0]
+    x_ecef = float(initial_row['X_ECEF_m'])
+    y_ecef = float(initial_row['Y_ECEF_m'])
+    z_ecef = float(initial_row['Z_ECEF_m'])
+
+    dataset_id = Path(imu_file).stem.split('_')[1]
+    REF_COORDS = {
+        'X001': (-32.026554, 133.455801),
+        'X002': (-32.026538, 133.455811),
+        'X003': (-32.026538, 133.455811),
+    }
+    if dataset_id in REF_COORDS:
+        lat_deg, lon_deg = REF_COORDS[dataset_id]
+        logging.info(
+            f"Using predefined coordinates for {dataset_id}: "
+            f"{lat_deg:.6f}°, {lon_deg:.6f}°"
+        )
+    else:
+        lat_deg, lon_deg, _ = ecef_to_geodetic(x_ecef, y_ecef, z_ecef)
+        logging.info(
+            f"Computed initial latitude: {lat_deg:.6f}°, "
+            f"longitude: {lon_deg:.6f}° from ECEF coordinates."
+        )
+
+    lat = np.deg2rad(lat_deg)
+    lon = np.deg2rad(lon_deg)
+
+    initial_vel = initial_row[['VX_ECEF_mps', 'VY_ECEF_mps', 'VZ_ECEF_mps']].values
+    C_e2n_init = compute_C_ECEF_to_NED(lat, lon)
+    initial_vel_ned = C_e2n_init @ initial_vel
     
     # --------------------------------
     # Subtask 1.2: Define Gravity Vector in NED

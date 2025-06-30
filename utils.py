@@ -202,3 +202,31 @@ def ecef_to_geodetic(x: float, y: float, z: float) -> Tuple[float, float, float]
     alt = p / np.cos(lat) - N
 
     return float(np.degrees(lat)), float(np.degrees(lon)), float(alt)
+
+
+def geodetic_to_ecef(lat_deg: float, lon_deg: float, alt: float = 0.0) -> Tuple[float, float, float]:
+    """Return ECEF coordinates for geodetic ``lat_deg``/``lon_deg``.
+
+    Parameters
+    ----------
+    lat_deg, lon_deg : float
+        Latitude and longitude in degrees.
+    alt : float, optional
+        Altitude above the ellipsoid in metres, defaults to 0.
+
+    Returns
+    -------
+    tuple of float
+        ``(x, y, z)`` ECEF coordinates in metres.
+    """
+
+    a = 6378137.0
+    e_sq = 6.69437999014e-3
+
+    lat = np.deg2rad(lat_deg)
+    lon = np.deg2rad(lon_deg)
+    N = a / np.sqrt(1.0 - e_sq * np.sin(lat) ** 2)
+    x = (N + alt) * np.cos(lat) * np.cos(lon)
+    y = (N + alt) * np.cos(lat) * np.sin(lon)
+    z = (N * (1.0 - e_sq) + alt) * np.sin(lat)
+    return float(x), float(y), float(z)

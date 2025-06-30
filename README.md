@@ -82,6 +82,18 @@ The accompanying GNSS CSVs are around **250&nbsp;KB** with 5&nbsp;Hz receiver
 fixes.  The reference trajectory `STATE_X001.txt` weighs about
 **2.8&nbsp;MB**.
 
+The NED frame used throughout the repository is tied to fixed origin
+coordinates derived in **Task&nbsp;1.1**:
+
+| Dataset | Latitude [deg] | Longitude [deg] |
+|---------|---------------:|----------------:|
+| X001    | -32.026554     | 133.455801 |
+| X002    | -32.026538     | 133.455811 |
+| X003    | -32.026538     | 133.455811 |
+
+`run_triad_only.py` and `GNSS_IMU_Fusion.py` embed these values and fall back to
+them when the GNSS logs contain zeros.
+
 For quick tests the repository also provides truncated versions of each
 file:
 

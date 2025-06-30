@@ -7,6 +7,8 @@ from utils import (
     save_static_zupt_params,
     ecef_to_ned,
     compute_C_ECEF_to_NED,
+    geodetic_to_ecef,
+    ecef_to_geodetic,
 )
 
 
@@ -52,3 +54,10 @@ def test_ecef_to_ned_multi_vector():
     C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
     expected = np.array([C @ (p - ref_ecef) for p in pos_ecef])
     assert np.allclose(ned, expected)
+
+
+def test_geodetic_roundtrip():
+    lat, lon, alt = -32.026554, 133.455801, 0.0
+    x, y, z = geodetic_to_ecef(lat, lon, alt)
+    lat2, lon2, alt2 = ecef_to_geodetic(x, y, z)
+    assert np.allclose([lat, lon, alt], [lat2, lon2, alt2], atol=1e-6)
