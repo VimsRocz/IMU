@@ -323,6 +323,9 @@ if ~isempty(truthFile)
     truth_candidates = {truthFile};
 else
     truth_candidates = {sprintf('STATE_%s_small.txt',dataset_id), sprintf('STATE_%s.txt',dataset_id)};
+    if ~any(cellfun(@(f) exist(f,'file'), truth_candidates))
+        truth_candidates = [truth_candidates, {'STATE_X001_small.txt','STATE_X001.txt'}];
+    end
 end
 truth_data = [];
 for i=1:numel(truth_candidates)
@@ -333,6 +336,8 @@ for i=1:numel(truth_candidates)
 end
 if ~isempty(truthFile) && isempty(truth_data)
     warning('Reference file %s not found. Skipping overlay.', truthFile);
+elseif isempty(truthFile) && isempty(truth_data)
+    warning('No truth file for %s. Skipping overlay.', dataset_id);
 end
 if ~isempty(truth_data)
     t_truth = truth_data(:,2) + gnss_time(1);

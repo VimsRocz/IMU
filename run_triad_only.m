@@ -31,8 +31,21 @@ for k = 1:numel(mat_files)
         continue
     end
     ds = tokens{1}{1};
-    truth_file = fullfile(here, ['STATE_' ds '.txt']);
-    if ~isfile(truth_file)
+    candidates = {fullfile(here, ['STATE_' ds '_small.txt']), ...
+                  fullfile(here, ['STATE_' ds '.txt'])};
+    if ~any(cellfun(@(f) isfile(f), candidates))
+        candidates = [candidates, {fullfile(here,'STATE_X001_small.txt'), ...
+                                   fullfile(here,'STATE_X001.txt')}];
+    end
+    truth_file = '';
+    for c = candidates
+        if isfile(c{1})
+            truth_file = c{1};
+            break
+        end
+    end
+    if isempty(truth_file)
+        warning('No truth file for %s, skipping validation', ds);
         continue
     end
     validate_py = fullfile(here, 'validate_with_truth.py');

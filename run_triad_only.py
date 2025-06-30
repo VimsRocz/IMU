@@ -52,6 +52,10 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
             HERE / f"STATE_{dataset}_small.txt",
             HERE / f"STATE_{dataset}.txt",
         ]
+        if not any(c.exists() for c in candidates):
+            candidates.extend(
+                [HERE / "STATE_X001_small.txt", HERE / "STATE_X001.txt"]
+            )
         truth = next((c for c in candidates if c.exists()), None)
     if truth is None:
         if args.truth_file:
