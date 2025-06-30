@@ -1,9 +1,12 @@
 import os
 from pathlib import Path
 import numpy as np
+import logging
+
 try:
     import matplotlib.pyplot as plt
-except Exception:  # pragma: no cover - optional plotting dependency
+except Exception as e:  # pragma: no cover - optional plotting dependency
+    logging.warning("matplotlib not available, overlay plots disabled: %s", e)
     plt = None
 
 

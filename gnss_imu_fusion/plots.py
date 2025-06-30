@@ -1,8 +1,10 @@
 """Plotting helpers extracted from the original script."""
 
+import logging
 try:
     import matplotlib.pyplot as plt
-except Exception:  # pragma: no cover - optional plotting dependency
+except Exception as e:  # pragma: no cover - optional plotting dependency
+    logging.warning("matplotlib not available, plots disabled: %s", e)
     plt = None
 import numpy as np
 

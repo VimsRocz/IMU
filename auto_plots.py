@@ -12,9 +12,11 @@ import os
 from typing import Iterable, Tuple
 
 import pandas as pd
+import logging
 try:
     import matplotlib.pyplot as plt
-except Exception:  # pragma: no cover - optional plotting dependency
+except Exception as e:  # pragma: no cover - optional plotting dependency
+    logging.warning("matplotlib not available, auto plot generation disabled: %s", e)
     plt = None
 import numpy as np
 
