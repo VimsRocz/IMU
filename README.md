@@ -288,15 +288,22 @@ writes `results/summary.csv`. Each row contains:
 
 Run the unit tests with `pytest`. **Installing the required Python packages is
 mandatory** before executing any tests. The suite relies on all packages listed
-in both requirement files:
+in both requirement files.
+
+Install the dependencies first:
 
 ```bash
 pip install -r requirements-dev.txt -r requirements.txt
+```
+
+Then run the tests:
+
+```bash
 pytest -q
 ```
 
-Once the Makefile defines a `test` target you can instead run `make test` to
-install the dependencies and execute the suite in one command.
+If you prefer `make`, invoke `make deps-test` to install the requirements or
+`make test` to install them and execute the suite in one command.
 
 ## MATLAB Compatibility
 
