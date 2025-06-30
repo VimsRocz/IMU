@@ -6,5 +6,5 @@ deps-test:
 
 # Install dependencies and execute the test suite
 test: deps-test
-	pytest -q
+        pytest -q Python/tests
 

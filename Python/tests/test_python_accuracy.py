@@ -6,10 +6,11 @@ pd = pytest.importorskip("pandas")
 
 from GNSS_IMU_Fusion import main
 
+DATA_DIR = Path(__file__).resolve().parents[1] / "Data"
 DATASETS = {
-    'X001': ("IMU_X001.dat", "GNSS_X001.csv"),
-    'X002': ("IMU_X002.dat", "GNSS_X002.csv"),
-    'X003': ("IMU_X003.dat", "GNSS_X002.csv"),
+    'X001': (DATA_DIR / "IMU_X001.dat", DATA_DIR / "GNSS_X001.csv"),
+    'X002': (DATA_DIR / "IMU_X002.dat", DATA_DIR / "GNSS_X002.csv"),
+    'X003': (DATA_DIR / "IMU_X003.dat", DATA_DIR / "GNSS_X002.csv"),
 }
 
 @pytest.mark.parametrize("imu_file,gnss_file", DATASETS.values(), ids=DATASETS.keys())
@@ -21,7 +22,7 @@ def test_python_accuracy(monkeypatch, imu_file, gnss_file):
         return df.head(5000)
 
     monkeypatch.setattr(pd, "read_csv", head5000)
-    args = ["--imu-file", imu_file, "--gnss-file", gnss_file,
+    args = ["--imu-file", str(imu_file), "--gnss-file", str(gnss_file),
             "--method", "TRIAD", "--no-plots"]
     monkeypatch.setattr(sys, "argv", ["GNSS_IMU_Fusion.py"] + args)
     main()

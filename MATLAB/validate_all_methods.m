@@ -5,7 +5,7 @@ function validate_all_methods()
 %   Generates plots and prints a summary table.
 
 methods = {'TRIAD','Davenport','SVD'};
-truth = load('STATE_X001.txt');
+truth = load(fullfile('..', 'Data', 'STATE_X001.txt'));
 resultsDir = 'results';
 
 summary = cell(numel(methods),4);

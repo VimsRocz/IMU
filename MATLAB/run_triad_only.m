@@ -21,9 +21,10 @@ if nargin < 1
 end
 
 here = fileparts(mfilename('fullpath'));
+py_dir = fullfile(here, '..', 'Python');
 
 %% -- Run the Python batch processor ---------------------------------------
-py_script = fullfile(here, 'run_all_datasets.py');
+py_script = fullfile(py_dir, 'run_all_datasets.py');
 cmd = sprintf('python "%s" --method TRIAD', py_script);
 status = system(cmd);
 if status ~= 0
@@ -31,7 +32,7 @@ if status ~= 0
 end
 
 %% -- Validate each result when ground truth is available ------------------
-results_dir = fullfile(here, 'results');
+results_dir = fullfile(py_dir, 'results');
 mat_files = dir(fullfile(results_dir, '*_TRIAD_kf_output.mat'));
 
 for k = 1:numel(mat_files)
@@ -44,8 +45,9 @@ for k = 1:numel(mat_files)
     if ~isempty(truthFile)
         candidates = {truthFile};
     else
-        candidates = {fullfile(here, ['STATE_' ds '_small.txt']), ...
-                      fullfile(here, ['STATE_' ds '.txt'])};
+        data_dir = fullfile(here, '..', 'Data');
+        candidates = {fullfile(data_dir, ['STATE_' ds '_small.txt']), ...
+                      fullfile(data_dir, ['STATE_' ds '.txt'])};
     end
     truth_file = '';
     for c = candidates

@@ -28,6 +28,7 @@ from tqdm import tqdm
 
 HERE     = pathlib.Path(__file__).resolve().parent
 SCRIPT   = HERE / "GNSS_IMU_Fusion.py"
+DATA_DIR = HERE.parent / "Data"
 LOG_DIR  = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -46,7 +47,7 @@ SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
 def run_one(imu, gnss, method, verbose=False):
     ts    = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log   = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
+    log   = LOG_DIR / f"{pathlib.Path(imu).name}_{pathlib.Path(gnss).name}_{method}_{ts}.log"
     cmd   = [
         sys.executable,
         SCRIPT,
@@ -87,7 +88,7 @@ def main():
     parser.add_argument('--config', help='YAML configuration file')
     args = parser.parse_args()
 
-    here_files = {p.name for p in HERE.iterdir()}
+    data_files = {p.name for p in DATA_DIR.iterdir()}
 
     if args.config:
         with open(args.config) as fh:
@@ -131,10 +132,12 @@ def main():
             print("GNSS Head:\n", gnss_df.head())
             print("IMU Head:\n", imu_data[:5])
             print("============================")
-        if imu not in here_files or gnss not in here_files:
-            raise FileNotFoundError(f"Missing {imu} or {gnss} in {HERE}")
+        if imu not in data_files or gnss not in data_files:
+            raise FileNotFoundError(f"Missing {imu} or {gnss} in {DATA_DIR}")
+        imu_path = DATA_DIR / imu
+        gnss_path = DATA_DIR / gnss
         start = time.time()
-        summaries = run_one(imu, gnss, method, verbose=args.verbose)
+        summaries = run_one(str(imu_path), str(gnss_path), method, verbose=args.verbose)
         runtime = time.time() - start
         for summary in summaries:
             kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))

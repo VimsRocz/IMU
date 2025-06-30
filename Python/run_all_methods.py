@@ -27,6 +27,8 @@ import sys
 from typing import Iterable, Tuple
 import logging
 
+HERE = pathlib.Path(__file__).resolve().parent
+DATA_DIR = HERE.parent / "Data"
 try:
     import yaml
 except ModuleNotFoundError:  # allow running without PyYAML installed
@@ -84,9 +86,9 @@ def main(argv=None):
             sys.executable,
             "GNSS_IMU_Fusion.py",
             "--imu-file",
-            imu,
+            str(DATA_DIR / imu),
             "--gnss-file",
-            gnss,
+            str(DATA_DIR / gnss),
             "--method",
             m,
         ]

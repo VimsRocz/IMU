@@ -24,7 +24,7 @@ PythonRef(:,:,2) = PythonRef(:,:,1); % Davenport
 PythonRef(:,:,3) = PythonRef(:,:,1); % SVD
 
 % Load true state ------------------------------------------------------------
-truth = load('STATE_X001.txt');  % columns: ECEF-pos, ECEF-vel, quaternion
+truth = load(fullfile('..', 'Data', 'STATE_X001.txt'));  % columns: ECEF-pos, ECEF-vel, quaternion
 
 % Loop over methods and datasets -------------------------------------------
 MySummary = nan(numel(datasets), numel(metrics), numel(methods));
@@ -89,7 +89,7 @@ for mi = 1:numel(methods)
         ds = datasets{di};
         validate_3sigma( ...
             sprintf('results/IMU_%s_GNSS_%s_%s_kf_output.mat', ds, ds, method), ...
-            'STATE_X001.txt');
+            fullfile('..', 'Data', 'STATE_X001.txt')); 
     end
 end
 

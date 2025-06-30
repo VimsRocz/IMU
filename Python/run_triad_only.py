@@ -21,6 +21,7 @@ from utils import ecef_to_geodetic
 import pandas as pd
 
 HERE = pathlib.Path(__file__).resolve().parent
+DATA_DIR = HERE.parent / "Data"
 
 ap = argparse.ArgumentParser(description="Run TRIAD initialisation on selected datasets")
 ap.add_argument("--truth-file", help="Reference state file for validation")
@@ -66,8 +67,8 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         truth = truth_arg
     else:
         candidates = [
-            HERE / f"STATE_{dataset}_small.txt",
-            HERE / f"STATE_{dataset}.txt",
+            DATA_DIR / f"STATE_{dataset}_small.txt",
+            DATA_DIR / f"STATE_{dataset}.txt",
         ]
         truth = next((c for c in candidates if c.exists()), None)
     if truth is None:
@@ -91,8 +92,8 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         est = load_estimate(str(mat))
         m2 = re.match(r"(IMU_\w+)_GNSS_(\w+)_TRIAD_kf_output", mat.stem)
         if m2:
-            imu_file = HERE / f"{m2.group(1)}.dat"
-            gnss_file = HERE / f"{m2.group(2)}.csv"
+            imu_file = DATA_DIR / f"{m2.group(1)}.dat"
+            gnss_file = DATA_DIR / f"{m2.group(2)}.csv"
             gnss = pd.read_csv(gnss_file, nrows=1)
             x0, y0, z0 = gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].iloc[0].to_numpy()
             lat0, lon0 = REF_COORDS.get(dataset, ecef_to_geodetic(x0, y0, z0)[:2])
