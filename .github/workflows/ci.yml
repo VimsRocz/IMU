@@ -14,8 +14,6 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/vscode/devcontainers/python:0-3.11
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
