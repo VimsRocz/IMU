@@ -5,7 +5,7 @@ This folder contains a MATLAB translation of the Python pipeline.
 ## Structure
 
 ```
-IMU_MATLAB/
+MATLAB/
     main.m
     Task_1.m   % function
     Task_2.m   % function
@@ -91,12 +91,12 @@ ensure you are using the `'WGS84'` string in `Task_1.m` when calling
 ## GitHub Usage
 
 1. Clone or open this repository.
-2. Add your data files to `IMU_MATLAB/data/` (or keep them in the repository
+2. Add your data files to `MATLAB/data/` (or keep them in the repository
    root).
-3. In MATLAB, navigate to `IMU_MATLAB/` and run `main`.
+3. In MATLAB, navigate to `MATLAB/` and run `main`.
 4. Commit new scripts or results with:
    ```bash
-   git add IMU_MATLAB
+   git add MATLAB
    git commit -m "Update MATLAB pipeline"
    git push
    ```

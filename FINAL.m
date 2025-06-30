@@ -13,7 +13,7 @@ gnss_file = 'GNSS_X001.csv';
 % Create results directory
 results_dir = 'results';
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
-addpath('IMU_MATLAB');
+addpath('MATLAB');
 
 %% ========================================================================
 %% Task 1: Define reference vectors in NED

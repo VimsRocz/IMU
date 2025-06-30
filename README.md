@@ -37,7 +37,7 @@ Both scripts write their results to `results/` and, when a reference trajectory 
 
 ## MATLAB usage
 
-A MATLAB implementation of the same pipeline lives under `IMU_MATLAB/`. See [IMU_MATLAB/README.md](IMU_MATLAB/README.md) for instructions on running `main.m` and the individual task scripts.
+A MATLAB implementation of the same pipeline lives under `MATLAB/`. See [MATLAB/README.md](MATLAB/README.md) for instructions on running `main.m` and the individual task scripts.
 
 ## Further documentation
 
