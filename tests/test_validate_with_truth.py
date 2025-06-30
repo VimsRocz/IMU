@@ -29,7 +29,6 @@ def test_validate_with_truth(monkeypatch):
         "GNSS_X001.csv",
         "--method",
         "TRIAD",
-        "--no-plots",
     ]
     monkeypatch.setattr(sys, "argv", ["GNSS_IMU_Fusion.py"] + args)
     main()
@@ -132,7 +131,6 @@ def test_index_align(monkeypatch):
         "GNSS_X001.csv",
         "--method",
         "TRIAD",
-        "--no-plots",
     ]
     monkeypatch.setattr(sys, "argv", ["GNSS_IMU_Fusion.py"] + run_args)
     main()
