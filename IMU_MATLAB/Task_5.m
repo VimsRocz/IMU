@@ -76,6 +76,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, truthFile)
     dt_gnss = diff(gnss_time);
     gnss_accel_ned = [zeros(1,3); diff(gnss_vel_ned) ./ dt_gnss];
     gnss_accel_ecef = [zeros(1,3); diff(gnss_vel_ecef) ./ dt_gnss];
+    N_gnss = size(gnss_pos_ned,1);  % number of available GNSS samples
 
     % Load IMU data
     imu_raw = readmatrix(imu_path);
@@ -313,9 +314,15 @@ for k = 1:N
     pos_body_imu(k,:)   = (C_N_Bk * imu_pos(:,k))';
     vel_body_imu(k,:)   = (C_N_Bk * imu_vel(:,k))';
     acc_body_imu(k,:)   = (C_N_Bk * imu_acc(:,k))';
-    gnss_pos_body(k,:)  = (C_N_Bk * gnss_pos_ned(k,:)')';
-    gnss_vel_body(k,:)  = (C_N_Bk * gnss_vel_ned(k,:)')';
-    gnss_acc_body(k,:)  = (C_N_Bk * gnss_accel_ned(k,:)')';
+    if k <= N_gnss
+        gnss_pos_body(k,:) = (C_N_Bk * gnss_pos_ned(k,:)')';
+        gnss_vel_body(k,:) = (C_N_Bk * gnss_vel_ned(k,:)')';
+        gnss_acc_body(k,:) = (C_N_Bk * gnss_accel_ned(k,:)')';
+    else
+        gnss_pos_body(k,:) = [NaN NaN NaN];
+        gnss_vel_body(k,:) = [NaN NaN NaN];
+        gnss_acc_body(k,:) = [NaN NaN NaN];
+    end
 end
 
 
