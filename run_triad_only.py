@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Run all datasets using only the TRIAD initialisation method and
-validate results when ground truth data is available."""
+"""Run all datasets using only the TRIAD initialisation method.
 
+Optionally validate the Kalman filter output against a reference state
+with ``--truth-file PATH``. The file is passed to ``validate_with_truth``
+and skipped if not found.
+"""
+
+import argparse
 import subprocess
 import sys
 import pathlib
 import re
+import numpy as np
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
 from utils import ecef_to_geodetic
@@ -13,29 +19,45 @@ import pandas as pd
 
 HERE = pathlib.Path(__file__).resolve().parent
 
+ap = argparse.ArgumentParser(description="Run TRIAD initialisation on all datasets")
+ap.add_argument("--truth-file", help="Reference state file for validation")
+args, rest = ap.parse_known_args()
+
 # --- Run the batch processor -------------------------------------------------
 cmd = [
     sys.executable,
     str(HERE / "run_all_datasets.py"),
     "--method",
     "TRIAD",
-    *sys.argv[1:],
+    *rest,
 ]
 subprocess.run(cmd, check=True)
 
 # --- Validate results when STATE_<id>.txt exists -----------------------------
 results = HERE / "results"
+truth_arg = pathlib.Path(args.truth_file).expanduser() if args.truth_file else None
+if truth_arg and not truth_arg.exists():
+    print(f"Warning: truth file {truth_arg} not found, skipping reference overlay")
+    truth_arg = None
+
 for mat in results.glob("*_TRIAD_kf_output.mat"):
     m = re.match(r"IMU_(X\d+)(?:_small)?_.*_TRIAD_kf_output\.mat", mat.name)
     if not m:
         continue
     dataset = m.group(1)
-    candidates = [
-        HERE / f"STATE_{dataset}_small.txt",
-        HERE / f"STATE_{dataset}.txt",
-    ]
-    truth = next((c for c in candidates if c.exists()), None)
+    if truth_arg is not None:
+        truth = truth_arg
+    else:
+        candidates = [
+            HERE / f"STATE_{dataset}_small.txt",
+            HERE / f"STATE_{dataset}.txt",
+        ]
+        truth = next((c for c in candidates if c.exists()), None)
     if truth is None:
+        if args.truth_file:
+            print(f"Warning: reference file {truth_arg} not found, skipping validation")
+        else:
+            print(f"Warning: no truth file for {dataset}, skipping validation")
         continue
     vcmd = [
         sys.executable,
