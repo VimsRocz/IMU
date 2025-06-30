@@ -21,7 +21,8 @@ def test_python_accuracy(monkeypatch, imu_file, gnss_file):
         return df.head(5000)
 
     monkeypatch.setattr(pd, "read_csv", head5000)
-    args = ["--imu-file", imu_file, "--gnss-file", gnss_file, "--method", "TRIAD", "--no-plots"]
+    args = ["--imu-file", imu_file, "--gnss-file", gnss_file,
+            "--method", "TRIAD", "--no-plots"]
     monkeypatch.setattr(sys, "argv", ["GNSS_IMU_Fusion.py"] + args)
     main()
 
