@@ -60,6 +60,6 @@ def plot_overlay(
 
     fig.suptitle(f"{method} - {frame} frame comparison")
     fig.tight_layout(rect=[0, 0, 1, 0.97])
-    out_path = Path(out_dir) / f"{method}_{frame}_overlay.pdf"
+    out_path = Path(out_dir) / f"Task5_compare_{frame.upper()}.pdf"
     fig.savefig(out_path)
     plt.close(fig)

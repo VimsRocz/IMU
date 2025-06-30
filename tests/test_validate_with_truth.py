@@ -88,8 +88,8 @@ def test_validate_with_truth(monkeypatch):
     vmain()
 
     for frame in ["ECEF", "NED", "BODY"]:
-        png = Path("results") / f"Task5_compare_{frame}.png"
-        assert png.exists(), f"Missing {png}"
+        pdf = Path("results") / f"Task5_compare_{frame}.pdf"
+        assert pdf.exists(), f"Missing {pdf}"
 
 
 @pytest.mark.parametrize(
@@ -155,5 +155,5 @@ def test_index_align(monkeypatch):
     vmain()
 
     for frame in ["NED", "ECEF", "BODY"]:
-        f = Path("results") / f"Task5_compare_{frame}.png"
+        f = Path("results") / f"Task5_compare_{frame}.pdf"
         assert f.exists(), f"Missing {f}"
