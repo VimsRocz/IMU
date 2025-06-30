@@ -18,6 +18,17 @@ jobs:
       image: mcr.microsoft.com/vscode/devcontainers/python:0-3.10
     steps:
       - uses: actions/checkout@v4
+      - name: Get Python version
+        id: python-version
+        run: |
+          echo "version=$(python -c 'import sys; print("%s.%s" % (sys.version_info.major, sys.version_info.minor))')" >> "$GITHUB_OUTPUT"
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ steps.python-version.outputs.version }}-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ steps.python-version.outputs.version }}-
       - name: Install dependencies
         run: pip install -r requirements-dev.txt -r requirements.txt
       - name: Run tests
