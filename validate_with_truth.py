@@ -6,9 +6,9 @@ from scipy.io import loadmat
 from scipy.spatial.transform import Rotation as R, Slerp
 
 
-from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
-from plot_overlay import plot_overlay
-from plots import plot_frame
+from imu_fusion.utils import compute_C_ECEF_to_NED, ecef_to_geodetic
+from imu_fusion.plot_overlay import plot_overlay
+from imu_fusion.plots import plot_frame
 import pandas as pd
 import re
 

@@ -1,10 +1,12 @@
 import os, sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+repo_root = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(repo_root, "src"))
+sys.path.insert(0, repo_root)
 import builtins
 import sys
 import pytest
 pd = pytest.importorskip("pandas")
-from GNSS_IMU_Fusion import main
+from imu_fusion.GNSS_IMU_Fusion import main
 
 
 def test_no_plots_without_cartopy(monkeypatch):

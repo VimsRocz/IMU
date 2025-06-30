@@ -1,6 +1,8 @@
 import os, sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+repo_root = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(repo_root, "src"))
+sys.path.insert(0, repo_root)
 from pathlib import Path
 import pytest
 
@@ -8,7 +10,7 @@ np = pytest.importorskip("numpy")
 pd = pytest.importorskip("pandas")
 pytest.importorskip("matplotlib")
 
-from GNSS_IMU_Fusion import main
+from imu_fusion.GNSS_IMU_Fusion import main
 from validate_with_truth import load_estimate
 
 
@@ -38,7 +40,7 @@ def test_validate_with_truth(monkeypatch):
     assert mat_path.exists(), f"Missing {mat_path}"
 
     est = load_estimate(str(mat_path))
-    from utils import compute_C_ECEF_to_NED
+    from imu_fusion.utils import compute_C_ECEF_to_NED
 
     truth = np.loadtxt("STATE_X001.txt")
     C = compute_C_ECEF_to_NED(np.deg2rad(-32.026554), np.deg2rad(133.455801))

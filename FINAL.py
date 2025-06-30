@@ -21,7 +21,7 @@ import yaml
 
 HERE = pathlib.Path(__file__).resolve().parent
 
-from utils import ensure_dependencies
+from imu_fusion.utils import ensure_dependencies
 
 ensure_dependencies()
 
@@ -48,7 +48,7 @@ def run_one(imu, gnss, method, verbose=False):
     ts  = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log = LOG_DIR / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_{ts}.log"
 
-    fusion = importlib.import_module("GNSS_IMU_Fusion")
+    fusion = importlib.import_module("imu_fusion.GNSS_IMU_Fusion")
     argv = [
         "GNSS_IMU_Fusion.py",
         "--imu-file", imu,

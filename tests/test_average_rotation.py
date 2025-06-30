@@ -1,8 +1,10 @@
 import os, sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+repo_root = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(repo_root, "src"))
+sys.path.insert(0, repo_root)
 import pytest
 np = pytest.importorskip("numpy")
-from gnss_imu_fusion.init_vectors import average_rotation_matrices
+from imu_fusion.init_vectors import average_rotation_matrices
 
 def test_average_rotation_identity():
     R1 = np.eye(3)

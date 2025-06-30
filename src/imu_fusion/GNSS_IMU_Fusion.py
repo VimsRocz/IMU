@@ -12,7 +12,7 @@ from filterpy.kalman import KalmanFilter
 from scipy.signal import butter, filtfilt
 from typing import Tuple
 
-from utils import (
+from .utils import (
     detect_static_interval,
     is_static,
     compute_C_ECEF_to_NED,
@@ -45,14 +45,14 @@ logging.basicConfig(
     format="%(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
-from gnss_imu_fusion.init_vectors import (
+from .init_vectors import (
     average_rotation_matrices,
     svd_alignment,
     butter_lowpass_filter,
     angle_between,
     compute_wahba_errors,
 )
-from gnss_imu_fusion.kalman_filter import (
+from .kalman_filter import (
     quat_multiply,
     quat_from_rate,
     quat2euler,
@@ -103,7 +103,7 @@ def main():
             import matplotlib.pyplot as plt
             from scripts.plot_utils import save_plot, plot_attitude
             from scripts.validate_filter import compute_residuals, plot_residuals
-            from gnss_imu_fusion.plots import (
+            from .lowlevel_plots import (
                 save_zupt_variance,
                 save_euler_angles,
                 save_residual_plots,
@@ -911,7 +911,7 @@ def main():
     # Subtask 4.7: Convert GNSS Data to NED Frame
     # --------------------------------
     logging.info("Subtask 4.7: Converting GNSS data to NED frame.")
-    from utils import ecef_to_ned
+    from .utils import ecef_to_ned
     gnss_pos_ned = ecef_to_ned(gnss_pos_ecef, ref_lat, ref_lon, ref_r0)
     gnss_vel_ned = np.array([C_ECEF_to_NED @ v for v in gnss_vel_ecef])
     logging.info("GNSS data transformed to NED frame.")
@@ -1251,7 +1251,7 @@ def main():
     C_ECEF_to_NED = compute_C_ECEF_to_NED(ref_lat, ref_lon)
 
     # Convert GNSS to NED
-    from utils import ecef_to_ned
+    from .utils import ecef_to_ned
     gnss_pos_ned = ecef_to_ned(gnss_pos_ecef, ref_lat, ref_lon, ref_r0)
     gnss_vel_ned = np.array([C_ECEF_to_NED @ v for v in gnss_vel_ecef])
     

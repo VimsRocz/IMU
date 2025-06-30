@@ -1,4 +1,4 @@
-"""GNSS-IMU Fusion modules."""
+"""IMU fusion utilities."""
 
 from .init_vectors import (
     average_rotation_matrices,
@@ -7,7 +7,7 @@ from .init_vectors import (
     angle_between,
     compute_wahba_errors,
 )
-from .plots import (
+from .lowlevel_plots import (
     save_zupt_variance,
     save_euler_angles,
     save_residual_plots,

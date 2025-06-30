@@ -5,11 +5,11 @@ IMU data processing and initialization tools (Python)
 ## Installation
 
 `run_all_datasets.py` installs the required packages automatically the first
-time you run it. If you'd rather set them up beforehand, install the
-dependencies manually with:
+time you run it. To work on the project directly, install the package in
+editable mode:
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
 For a minimal setup you can also install the packages individually:
@@ -271,14 +271,14 @@ as `./FINAL.py` instead.
 
 ## Automated figure generation
 
-The module `auto_plots.py` contains helper routines for creating the standard
+The module `imu_fusion.auto_plots` contains helper routines for creating the standard
 set of plots and a summary table of metrics for each batch run.  Integrate
 these helpers into your own batch script to automatically export the six
 "must‑have" figures (tasks 3–5 and validation plots) and a CSV/LaTeX table of
 RMSE and innovation statistics.
 
 ```python
-from auto_plots import run_batch
+from imu_fusion.auto_plots import run_batch
 
 # one IMU/GNSS pair and one method for brevity
 datasets = [("IMU_X001.dat", "GNSS_X001.csv")]

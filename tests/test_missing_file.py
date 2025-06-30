@@ -1,7 +1,9 @@
 import os, sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+repo_root = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(repo_root, "src"))
+sys.path.insert(0, repo_root)
 import pytest
-from GNSS_IMU_Fusion import main
+from imu_fusion.GNSS_IMU_Fusion import main
 
 
 def test_missing_gnss_file(monkeypatch):

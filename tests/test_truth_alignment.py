@@ -3,7 +3,9 @@ import sys
 import types
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+repo_root = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(repo_root, "src"))
+sys.path.insert(0, repo_root)
 
 np = pytest.importorskip("numpy")
 pd = pytest.importorskip("pandas")
@@ -13,7 +15,7 @@ plots.plot_frame = lambda *a, **k: None
 sys.modules.setdefault("plots", plots)
 
 from validate_with_truth import prepare_truth_frames, assemble_frames
-from utils import ecef_to_geodetic, compute_C_ECEF_to_NED
+from imu_fusion.utils import ecef_to_geodetic, compute_C_ECEF_to_NED
 
 
 def test_truth_alignment():

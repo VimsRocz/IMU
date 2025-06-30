@@ -4,7 +4,7 @@ import pytest
 np = pytest.importorskip("numpy")
 pd = pytest.importorskip("pandas")
 
-from GNSS_IMU_Fusion import main
+from imu_fusion.GNSS_IMU_Fusion import main
 
 DATASETS = {
     'X001': ("IMU_X001.dat", "GNSS_X001.csv"),

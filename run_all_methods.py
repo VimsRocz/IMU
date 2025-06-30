@@ -56,7 +56,7 @@ def load_config(path: str):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Run GNSS_IMU_Fusion with multiple datasets and methods",
+        description="Run imu_fusion.GNSS_IMU_Fusion with multiple datasets and methods",
     )
     parser.add_argument(
         "--config",
@@ -82,7 +82,8 @@ def main(argv=None):
         print(f"\u25B6 {tag}")
         cmd = [
             sys.executable,
-            "GNSS_IMU_Fusion.py",
+            "-m",
+            "imu_fusion.GNSS_IMU_Fusion",
             "--imu-file",
             imu,
             "--gnss-file",

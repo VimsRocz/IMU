@@ -11,8 +11,8 @@ try:
 except Exception as e:  # pragma: no cover - optional plotting dependency
     logging.warning("matplotlib not available, plotting disabled: %s", e)
     plt = None
-from kalman import GNSSIMUKalman, rts_smoother
-from utils import compute_C_ECEF_to_NED
+from imu_fusion.kalman import GNSSIMUKalman, rts_smoother
+from imu_fusion.utils import compute_C_ECEF_to_NED
 
 
 def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):

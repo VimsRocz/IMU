@@ -20,7 +20,7 @@ except Exception as e:  # pragma: no cover - optional plotting dependency
     plt = None
 import numpy as np
 
-from utils import compute_C_ECEF_to_NED
+from .utils import compute_C_ECEF_to_NED
 
 # ---------------------------------------------------------------------------
 # Where figures and tables should be written

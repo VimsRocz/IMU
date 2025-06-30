@@ -19,7 +19,7 @@ import yaml
 
 HERE = pathlib.Path(__file__).resolve().parent
 
-from utils import ensure_dependencies
+from imu_fusion.utils import ensure_dependencies
 
 ensure_dependencies()
 
@@ -27,7 +27,7 @@ from tabulate import tabulate
 from tqdm import tqdm
 
 HERE     = pathlib.Path(__file__).resolve().parent
-SCRIPT   = HERE / "GNSS_IMU_Fusion.py"
+SCRIPT   = "imu_fusion.GNSS_IMU_Fusion"
 LOG_DIR  = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -49,6 +49,7 @@ def run_one(imu, gnss, method, verbose=False):
     log   = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
     cmd   = [
         sys.executable,
+        "-m",
         SCRIPT,
         "--imu-file",
         imu,

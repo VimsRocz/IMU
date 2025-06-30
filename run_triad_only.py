@@ -15,9 +15,9 @@ import sys
 import pathlib
 import re
 import numpy as np
-from plot_overlay import plot_overlay
+from imu_fusion.plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
-from utils import ecef_to_geodetic
+from imu_fusion.utils import ecef_to_geodetic
 import pandas as pd
 
 HERE = pathlib.Path(__file__).resolve().parent

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "imu_fusion"
+version = "0.1.0"
+description = "IMU and GNSS fusion utilities"
+authors = [{name = "Unknown"}]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "cartopy",
+    "filterpy",
+    "scipy",
+    "rich",
+    "tabulate",
+    "tqdm",
+    "pyyaml",
+    "jupyter",
+    "fpdf",
+    "geomag",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

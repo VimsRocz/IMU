@@ -1,8 +1,10 @@
 import os, sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+repo_root = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(repo_root, "src"))
+sys.path.insert(0, repo_root)
 import pytest
 np = pytest.importorskip("numpy")
-from utils import compute_C_ECEF_to_NED
+from imu_fusion.utils import compute_C_ECEF_to_NED
 
 
 def test_rotation_matrix_orthonormal():
