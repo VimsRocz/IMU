@@ -75,6 +75,8 @@ def plot_frame(
 
     fig.suptitle(f"{method} comparison in {frame} frame")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out_path = Path(out_dir) / f"Task5_compare_{frame.upper()}.png"
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"Task5_compare_{frame.upper()}.png"
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
