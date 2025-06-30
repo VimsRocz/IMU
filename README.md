@@ -1,4 +1,5 @@
 # IMU_GNSS_Fusion
+[![CI](https://github.com/VimsRocz/IMU/actions/workflows/ci.yml/badge.svg)](https://github.com/VimsRocz/IMU/actions/workflows/ci.yml)
 IMU data processing and initialization tools (Python)
 
 ## Installation
