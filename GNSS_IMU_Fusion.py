@@ -1477,10 +1477,10 @@ def main():
     dataset_id = imu_stem.split("_")[1]
     truth_path = None
     candidates = [f"STATE_{dataset_id}_small.txt", f"STATE_{dataset_id}.txt"]
-    if not any(os.path.exists(c) for c in candidates):
+    if not any(os.path.isfile(c) for c in candidates):
         candidates += ["STATE_X001_small.txt", "STATE_X001.txt"]
     for cand in candidates:
-        if os.path.exists(cand):
+        if os.path.isfile(cand):
             truth_path = cand
             break
 

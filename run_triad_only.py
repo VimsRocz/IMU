@@ -36,7 +36,7 @@ subprocess.run(cmd, check=True)
 # --- Validate results when STATE_<id>.txt exists -----------------------------
 results = HERE / "results"
 truth_arg = pathlib.Path(args.truth_file).expanduser() if args.truth_file else None
-if truth_arg and not truth_arg.exists():
+if truth_arg and not truth_arg.is_file():
     print(f"Warning: truth file {truth_arg} not found, skipping reference overlay")
     truth_arg = None
 
@@ -52,11 +52,11 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
             HERE / f"STATE_{dataset}_small.txt",
             HERE / f"STATE_{dataset}.txt",
         ]
-        if not any(c.exists() for c in candidates):
+        if not any(c.is_file() for c in candidates):
             candidates.extend(
                 [HERE / "STATE_X001_small.txt", HERE / "STATE_X001.txt"]
             )
-        truth = next((c for c in candidates if c.exists()), None)
+        truth = next((c for c in candidates if c.is_file()), None)
     if truth is None:
         if args.truth_file:
             print(f"Warning: reference file {truth_arg} not found, skipping validation")
