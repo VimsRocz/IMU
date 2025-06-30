@@ -1,4 +1,4 @@
-function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
+function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, truthFile)
 %TASK_5  Run 9-state KF using IMU & GNSS NED positions
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
@@ -8,6 +8,12 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     end
     if nargin < 3 || isempty(method)
         method = 'TRIAD';
+    end
+    if nargin < 4
+        gnss_pos_ned = [];
+    end
+    if nargin < 5
+        truthFile = '';
     end
 
     results_dir = 'results';
@@ -308,12 +314,19 @@ end
 % --- Frame comparisons with Truth ----------------------------------
 token = regexp(imu_name,'IMU_(X\d+)','tokens');
 dataset_id = token{1}{1};
-truth_candidates = {sprintf('STATE_%s_small.txt',dataset_id), sprintf('STATE_%s.txt',dataset_id)};
+if ~isempty(truthFile)
+    truth_candidates = {truthFile};
+else
+    truth_candidates = {sprintf('STATE_%s_small.txt',dataset_id), sprintf('STATE_%s.txt',dataset_id)};
+end
 truth_data = [];
 for i=1:numel(truth_candidates)
     if exist(truth_candidates{i},'file')
         truth_data = load(truth_candidates{i});
         break; end
+end
+if ~isempty(truthFile) && isempty(truth_data)
+    warning('Reference file %s not found. Skipping overlay.', truthFile);
 end
 if ~isempty(truth_data)
     t_truth = truth_data(:,2) + gnss_time(1);
