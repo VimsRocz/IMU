@@ -1774,6 +1774,9 @@ def main():
         time_residuals=time_res_all[method],
         attitude_q=attitude_q_all[method],
         P_hist=P_hist_all[method],
+        ref_lat=ref_lat,
+        ref_lon=ref_lon,
+        ref_r0=ref_r0,
     )
 
     # Also export results as MATLAB-compatible .mat for post-processing
@@ -1797,6 +1800,9 @@ def main():
             "time_residuals": time_res_all[method],
             "attitude_q": attitude_q_all[method],
             "P_hist": P_hist_all[method],
+            "ref_lat": ref_lat,
+            "ref_lon": ref_lon,
+            "ref_r0": ref_r0,
         },
     )
 

@@ -60,9 +60,9 @@ def load_estimate(path):
             "vel": vel,
             "quat": quat,
             "P": pick_key(["P", "P_hist"], data) if pos_found else None,
-            "ref_lat": data.get("ref_lat") or data.get("lat0"),
-            "ref_lon": data.get("ref_lon") or data.get("lon0"),
-            "ref_r0": data.get("ref_r0") or data.get("r0"),
+            "ref_lat": data.get("ref_lat") if "ref_lat" in data else data.get("lat0"),
+            "ref_lon": data.get("ref_lon") if "ref_lon" in data else data.get("lon0"),
+            "ref_r0": data.get("ref_r0") if "ref_r0" in data else data.get("r0"),
         }
     else:
         m = loadmat(path)
@@ -92,9 +92,9 @@ def load_estimate(path):
             "vel": vel,
             "quat": quat,
             "P": pick_key(["P", "P_hist"], m) if pos_found else None,
-            "ref_lat": m.get("ref_lat") or m.get("lat0"),
-            "ref_lon": m.get("ref_lon") or m.get("lon0"),
-            "ref_r0": m.get("ref_r0") or m.get("r0"),
+            "ref_lat": m.get("ref_lat") if "ref_lat" in m else m.get("lat0"),
+            "ref_lon": m.get("ref_lon") if "ref_lon" in m else m.get("lon0"),
+            "ref_r0": m.get("ref_r0") if "ref_r0" in m else m.get("r0"),
         }
 
     if est["time"] is None:
