@@ -9,8 +9,11 @@ from scipy.spatial.transform import Rotation as R, Slerp
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
 from plot_overlay import plot_overlay
 from plots import plot_frame
+
+DATA_DIR = Path(__file__).resolve().parents[1] / "Data"
 import pandas as pd
 import re
+from pathlib import Path
 
 
 def load_estimate(path):
@@ -99,9 +102,7 @@ def load_estimate(path):
 
     if est["time"] is None:
         try:
-            est["time"] = np.loadtxt("STATE_X001.txt", comments="#", usecols=1)[
-                : len(est["pos"])
-            ]
+            est["time"] = np.loadtxt(DATA_DIR / "STATE_X001.txt", comments="#", usecols=1)[: len(est["pos"])]
         except OSError:
             est["time"] = np.arange(len(est["pos"]))
 

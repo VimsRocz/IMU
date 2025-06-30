@@ -9,7 +9,9 @@ import numpy as np
 from scipy.io import savemat
 import pathlib
 
-if not os.path.exists('STATE_X001.txt'):
+DATA_DIR = pathlib.Path(script_dir).parent / "Data"
+
+if not os.path.exists(DATA_DIR / 'STATE_X001.txt'):
     print("ERROR: export_mat.py must be run from its own folder or with full path.")
     sys.exit(1)
 

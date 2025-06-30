@@ -22,11 +22,12 @@ def test_validate_with_truth(monkeypatch):
 
     monkeypatch.setattr(pd, "read_csv", head5000)
 
+    data_dir = Path(__file__).resolve().parents[1] / "Data"
     args = [
         "--imu-file",
-        "IMU_X001.dat",
+        str(data_dir / "IMU_X001.dat"),
         "--gnss-file",
-        "GNSS_X001.csv",
+        str(data_dir / "GNSS_X001.csv"),
         "--method",
         "TRIAD",
     ]
@@ -40,7 +41,7 @@ def test_validate_with_truth(monkeypatch):
     est = load_estimate(str(mat_path))
     from utils import compute_C_ECEF_to_NED
 
-    truth = np.loadtxt("STATE_X001.txt")
+    truth = np.loadtxt(data_dir / "STATE_X001.txt")
     C = compute_C_ECEF_to_NED(np.deg2rad(-32.026554), np.deg2rad(133.455801))
     truth_pos_ned = np.array(
         [
@@ -81,7 +82,7 @@ def test_validate_with_truth(monkeypatch):
         "--est-file",
         str(mat_path),
         "--truth-file",
-        "STATE_X001.txt",
+        str(data_dir / "STATE_X001.txt"),
     ]
     monkeypatch.setattr(sys, "argv", ["validate_with_truth.py"] + args)
     from validate_with_truth import main as vmain
@@ -124,11 +125,12 @@ def test_index_align(monkeypatch):
 
     monkeypatch.setattr(pd, "read_csv", head5000)
 
+    data_dir = Path(__file__).resolve().parents[1] / "Data"
     run_args = [
         "--imu-file",
-        "IMU_X001.dat",
+        str(data_dir / "IMU_X001.dat"),
         "--gnss-file",
-        "GNSS_X001.csv",
+        str(data_dir / "GNSS_X001.csv"),
         "--method",
         "TRIAD",
     ]
@@ -139,7 +141,7 @@ def test_index_align(monkeypatch):
         "--est-file",
         "results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat",
         "--truth-file",
-        "STATE_X001.txt",
+        str(data_dir / "STATE_X001.txt"),
         "--ref-lat",
         "-32.026554",
         "--ref-lon",

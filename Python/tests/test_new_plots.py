@@ -25,11 +25,12 @@ def test_body_frame_plots(tmp_path, monkeypatch):
     monkeypatch.setattr(pd, "read_csv", head_subset)
 
     repo_root = Path(__file__).resolve().parents[1]
+    data_dir = repo_root / "Data"
     args = [
         "--imu-file",
-        str(repo_root / "IMU_X001_small.dat"),
+        str(data_dir / "IMU_X001_small.dat"),
         "--gnss-file",
-        str(repo_root / "GNSS_X001_small.csv"),
+        str(data_dir / "GNSS_X001_small.csv"),
         "--method",
         "TRIAD",
     ]

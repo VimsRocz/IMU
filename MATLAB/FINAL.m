@@ -1,265 +1,374 @@
-function FINAL(imu_path, gnss_path, varargin)
-%FINAL  MATLAB reimplementation of GNSS_IMU_Fusion.py
-%   FINAL(IMU_PATH, GNSS_PATH, METHOD) processes a pair of IMU and GNSS
-%   files using a selected attitude initialisation method.  The script
-%   is a simplified port of the Python reference implementation.  It
-%   performs the following steps:
-%     1) compute reference vectors in the NED frame from the first GNSS
-%        sample (gravity and Earth rotation rate)
-%     2) estimate gravity and Earth rate in the body frame from a static
-%        interval of IMU data
-%     3) determine the initial attitude using the TRIAD, Davenport or SVD
-%        method
-%     4) integrate IMU acceleration in the NED frame
-%     5) run a simple Kalman filter to fuse GNSS position/velocity with
-%        inertial data
-%   Results are written to results/<tag>_final.mat
+%% FINAL.m - IMU/GNSS alignment and fusion demonstration
+% This script performs IMU/GNSS alignment, dead-reckoning and fusion
+% using the TRIAD method and two alternative Wahba solutions. Results and
+% plots are stored under the 'results/' directory.
 %
-%   Example:
-%      FINAL('IMU_X001.dat','GNSS_X001.csv','Davenport');
-%
-%   This implementation focusses on clarity rather than completeness and
-%   therefore omits some of the advanced functionality of the Python
-%   version such as magnetometer handling and extensive plotting.
+% The dataset filenames can be changed below. Each logical block is
+% annotated with "Subtask X.Y" comments for clarity.
 
-if numel(dbstack) <= 1
-    error(['FINAL must be called as a function with two file names. Example:\n',...
-          '    FINAL(''IMU_X001.dat'',''GNSS_X001.csv'');']);
+% ------------ User configuration -----------------------------------------
+imu_file  = 'IMU_X001.dat';
+gnss_file = 'GNSS_X001.csv';
+
+% Create results directory
+results_dir = 'results';
+if ~exist(results_dir, 'dir'); mkdir(results_dir); end
+addpath('MATLAB');
+
+%% ========================================================================
+%% Task 1: Define reference vectors in NED
+%% ========================================================================
+fprintf('\nTASK 1: Define reference vectors in NED\n');
+
+% Subtask 1.1: Load GNSS ECEF file and convert first valid row to lat/lon
+fprintf('Subtask 1.1: Loading GNSS file %s ...\n', gnss_file);
+try
+    gnss_tbl = readtable(gnss_file);
+catch ME
+    error('Failed to read %s: %s', gnss_file, ME.message);
 end
+idx = find(gnss_tbl.X_ECEF_m ~= 0 | gnss_tbl.Y_ECEF_m ~= 0 | ...
+            gnss_tbl.Z_ECEF_m ~= 0, 1, 'first');
+if isempty(idx); error('No valid ECEF row found in %s', gnss_file); end
+[x0,y0,z0] = deal(gnss_tbl.X_ECEF_m(idx), gnss_tbl.Y_ECEF_m(idx), ...
+                   gnss_tbl.Z_ECEF_m(idx));
+[lat0, lon0, ~] = ecef2geodetic_custom(x0, y0, z0);
+fprintf(' -> lat0=%.6f deg, lon0=%.6f deg\n', lat0, lon0);
 
-if nargin < 2
-    error('Usage: FINAL(''IMU_PATH'',''GNSS_PATH'',[METHOD])');
+% Subtask 1.2: Define gravity vector in NED
+fprintf('Subtask 1.2: Defining gravity vector\n');
+g_ned = [0;0;9.81];
+
+% Subtask 1.3: Compute Earth rate in NED
+fprintf('Subtask 1.3: Computing Earth rotation rate\n');
+omega_ie = 7.292115e-5; % [rad/s]
+omega_ie_ned = omega_ie * [cosd(lat0); 0; sind(lat0)];
+
+% Subtask 1.4: Validate magnitudes
+assert(abs(norm(g_ned) - 9.81) < 1e-3, 'Gravity magnitude check failed');
+assert(abs(norm(omega_ie_ned) - omega_ie) < 1e-6, 'Earth rate magnitude check failed');
+
+% Subtask 1.5: Plot lat0, lon0 on world map
+fprintf('Subtask 1.5: Plotting initial location\n');
+load coastlines
+fig = figure('Visible','off');
+plot(coastlon, coastlat, 'k.'); hold on; grid on;
+plot(lon0, lat0, 'ro','MarkerSize',8,'LineWidth',2);
+title('Initial Location'); xlabel('Longitude'); ylabel('Latitude');
+set(gcf,'PaperPositionMode','auto');
+loc_file = fullfile(results_dir, 'Task1_location_map.pdf');
+saveas(fig, loc_file);
+close(fig);
+
+%% ========================================================================
+%% Task 2: Measure vectors in the body frame
+%% ========================================================================
+fprintf('\nTASK 2: Measure vectors in the body frame\n');
+
+% Subtask 2.1: Load IMU file
+fprintf('Subtask 2.1: Loading IMU file %s ...\n', imu_file);
+try
+    imu = readmatrix(imu_file);
+catch ME
+    error('Failed to read %s: %s', imu_file, ME.message);
 end
+if size(imu,2) < 8; error('Unexpected IMU format'); end
 
-if nargin < 3
-    method = 'Davenport';
+% Convert increments to rates
+if size(imu,1) > 1
+    dt_imu = mean(diff(imu(1:100,2)));
 else
-    method = varargin{1};
+    dt_imu = 1/400; % default
+end
+accel = imu(:,6:8) / dt_imu; % m/s^2
+gyro  = imu(:,3:5) / dt_imu; % rad/s
+
+% Subtask 2.2: Detect long static interval using sliding variance
+fprintf('Subtask 2.2: Detecting static window\n');
+win = 200;
+acc_var  = sliding_variance(accel, win);
+gyro_var = sliding_variance(gyro,  win);
+stat_mask = max(acc_var,[],2) < 0.01 & max(gyro_var,[],2) < 1e-6;
+[start_idx,end_idx] = longest_true_segment(stat_mask);
+fprintf(' -> static samples from %d to %d\n', start_idx, end_idx);
+
+% Subtask 2.3: Compute mean accel and gyro in static window
+accel_meas = mean(accel(start_idx:end_idx,:),1)';
+gyro_meas  = mean(gyro(start_idx:end_idx,:),1)';
+
+% Subtask 2.4: Convert to body vectors and report biases
+fprintf('Subtask 2.4: Computing body-frame vectors and biases\n');
+g_body = -accel_meas;
+omega_ie_body = gyro_meas;
+accel_bias = accel_meas;
+gyro_bias  = gyro_meas;
+fprintf(' -> accel bias [m/s^2]: [% .4e % .4e % .4e]\n', accel_bias);
+fprintf(' -> gyro  bias [rad/s]: [% .4e % .4e % .4e]\n', gyro_bias);
+
+%% ========================================================================
+%% Task 3: Solve Wahba''s problem for initial attitude
+%% ========================================================================
+fprintf('\nTASK 3: Solve Wahba\''s problem for initial attitude\n');
+
+% Subtask 3.1: Assemble vector pairs
+v1_n = g_ned;       v2_n = omega_ie_ned;
+v1_b = g_body;      v2_b = omega_ie_body;
+
+% Subtask 3.2: TRIAD method
+fprintf('Subtask 3.2: Computing TRIAD solution\n');
+R_tri = triad_method(v1_n, v2_n, v1_b, v2_b);
+
+% Subtask 3.3: Davenport q-method
+fprintf('Subtask 3.3: Computing Davenport q-method\n');
+R_dav = davenport_method(v1_n, v2_n, v1_b, v2_b);
+
+% Subtask 3.4: SVD-based Procrustes
+fprintf('Subtask 3.4: Computing SVD Procrustes solution\n');
+R_svd = svd_procrustes(v1_n, v2_n, v1_b, v2_b);
+
+% Subtask 3.5: Convert each DCM to quaternion and Euler angles
+quat_tri = dcm2quat_custom(R_tri); eul_tri = quat2euler(quat_tri);
+quat_dav = dcm2quat_custom(R_dav); eul_dav = quat2euler(quat_dav);
+quat_svd = dcm2quat_custom(R_svd); eul_svd = quat2euler(quat_svd);
+fprintf(' -> TRIAD  Euler [deg]: %7.3f %7.3f %7.3f\n', rad2deg(eul_tri));
+fprintf(' -> Davenport Euler [deg]: %7.3f %7.3f %7.3f\n', rad2deg(eul_dav));
+fprintf(' -> SVD     Euler [deg]: %7.3f %7.3f %7.3f\n', rad2deg(eul_svd));
+
+% Subtask 3.6: Compute alignment errors
+err_tri = [norm(R_tri*g_body - g_ned), norm(R_tri*omega_ie_body - omega_ie_ned)];
+err_dav = [norm(R_dav*g_body - g_ned), norm(R_dav*omega_ie_body - omega_ie_ned)];
+err_svd = [norm(R_svd*g_body - g_ned), norm(R_svd*omega_ie_body - omega_ie_ned)];
+
+% Subtask 3.7: Plot error comparisons and quaternion components
+fprintf('Subtask 3.7: Plotting Task 3 results\n');
+fig = figure('Visible','off');
+bar([err_tri; err_dav; err_svd]);
+set(gca,'XTickLabel',{'TRIAD','Davenport','SVD'});
+legend({'Gravity','Earth-rate'}); ylabel('Error');
+title('Alignment Errors'); grid on;
+set(gcf,'PaperPositionMode','auto');
+err_file = fullfile(results_dir,'Task3_errors.pdf');
+saveas(fig, err_file); close(fig);
+
+fig = figure('Visible','off');
+quat_mat = [quat_tri; quat_dav; quat_svd];
+bar(quat_mat);
+set(gca,'XTickLabel',{'q0','q1','q2','q3'});
+legend({'TRIAD','Davenport','SVD'}); grid on;
+title('Quaternion Components');
+set(gcf,'PaperPositionMode','auto');
+q_file = fullfile(results_dir,'Task3_quaternions.pdf');
+saveas(fig, q_file); close(fig);
+
+% Subtask 3.8: Save all DCMs/quaternions
+fprintf('Subtask 3.8: Saving Task 3 results\n');
+task3_results.TRIAD.R = R_tri; task3_results.TRIAD.q = quat_tri;
+task3_results.Davenport.R = R_dav; task3_results.Davenport.q = quat_dav;
+task3_results.SVD.R = R_svd; task3_results.SVD.q = quat_svd;
+save(fullfile(results_dir,'Task3_results.mat'),'task3_results');
+
+%% ========================================================================
+%% Task 4: GNSS + IMU dead-reckoning comparison
+%% ========================================================================
+fprintf('\nTASK 4: GNSS + IMU dead-reckoning comparison\n');
+
+% Subtask 4.1: Load DCM from Task 3 (TRIAD)
+R_nb = task3_results.TRIAD.R;
+
+% Subtask 4.2: Reload GNSS and convert all ECEF to NED
+pos_ecef = [gnss_tbl.X_ECEF_m gnss_tbl.Y_ECEF_m gnss_tbl.Z_ECEF_m];
+vel_ecef = [gnss_tbl.VX_ECEF_mps gnss_tbl.VY_ECEF_mps gnss_tbl.VZ_ECEF_mps];
+C_e2n = compute_C_ECEF_to_NED(deg2rad(lat0), deg2rad(lon0));
+r0 = [x0; y0; z0];
+pos_ned = (C_e2n*(pos_ecef' - r0))';
+vel_ned = (C_e2n*vel_ecef')';
+dt_gnss = [diff(gnss_tbl.Posix_Time); mean(diff(gnss_tbl.Posix_Time))];
+acc_ned_gnss = [zeros(1,3); diff(vel_ned)./dt_gnss(1:end-1)];
+
+% Subtask 4.3 is GNSS accel computed above
+
+% Subtask 4.4: Reload IMU, subtract biases, rotate accel into NED
+f_b = accel - accel_bias';
+a_ned = (R_nb * f_b')' + repmat([0 0 9.81],size(f_b,1),1);
+
+% Subtask 4.5: Integrate a_ned to velocity and position
+vel_ins = zeros(size(a_ned));
+pos_ins = zeros(size(a_ned));
+for k=2:size(a_ned,1)
+    vel_ins(k,:) = vel_ins(k-1,:) + a_ned(k-1,:)*dt_imu;
+    pos_ins(k,:) = pos_ins(k-1,:) + vel_ins(k-1,:)*dt_imu + 0.5*a_ned(k-1,:)*dt_imu^2;
 end
 
-%% ----- Task 1: reference vectors in NED -------------------------------
-T = readtable(gnss_path);
-valid = find(T.X_ECEF_m ~= 0 | T.Y_ECEF_m ~= 0 | T.Z_ECEF_m ~= 0, 1);
-if isempty(valid)
-    error('No valid GNSS rows in %s', gnss_path);
-end
-x = T.X_ECEF_m(valid); y = T.Y_ECEF_m(valid); z = T.Z_ECEF_m(valid);
-[lat, lon, ~] = ecef2geod(x, y, z);
+% Subtask 4.6: Plot GNSS vs INS
+fprintf('Subtask 4.6: Plotting dead-reckoning comparison\n');
+fig = figure('Visible','off');
+plot(pos_ned(:,1), pos_ned(:,2),'k','DisplayName','GNSS'); hold on;
+plot(pos_ins(:,1), pos_ins(:,2),'r','DisplayName','INS');
+legend; xlabel('North [m]'); ylabel('East [m]'); axis equal; grid on;
+title('Dead-Reckoning Comparison');
+set(gcf,'PaperPositionMode','auto');
+ins_file = fullfile(results_dir,'Task4_path.pdf');
+saveas(fig, ins_file); close(fig);
 
-g_NED = [0;0;9.81];
-omegaE = 7.2921159e-5;
-omega_ie_NED = omegaE * [cosd(lat);0;-sind(lat)];
+% Subtask 4.7: Save dead-reckoning results
+save(fullfile(results_dir,'Task4_results.mat'), 'pos_ins', 'vel_ins', ...
+     'pos_ned', 'vel_ned');
 
-%% ----- Task 2: body frame vectors from IMU ----------------------------
-D = dlmread(imu_path);
-if size(D,2) < 8
-    error('Unexpected IMU format');
-end
-Nstatic = min(4000, size(D,1));
-acc = D(1:Nstatic,6:8);
-gyro = D(1:Nstatic,3:5);
-if size(D,1) > 1
-    dt = mean(diff(D(1:100,2)));
-else
-    dt = 1/400;
-end
-acc = acc ./ dt;
-gyro = gyro ./ dt;
-acc_mean = mean(acc,1);
-gyro_mean = mean(gyro,1);
-g_mag = norm(acc_mean);
-if abs(g_mag - 9.81) > 0.5
-    scale_factor = 9.81 / g_mag;
-    D(:,6:8) = D(:,6:8) * scale_factor;
-    acc = D(1:Nstatic,6:8) ./ dt;
-    acc_mean = mean(acc,1);
-end
-acc_bias = acc_mean;
-gyro_bias = gyro_mean;
-g_body = -acc_bias';
-omega_ie_body = gyro_bias';
+%% ========================================================================
+%% Task 5: GNSS/INS fusion with 9-state Kalman filter
+%% ========================================================================
+fprintf('\nTASK 5: GNSS/INS fusion with 9-state Kalman filter\n');
 
-%% ----- Task 3: attitude initialisation -------------------------------
-[g_b_u, w_b_u, g_n_u, w_n_u] = normalise_vectors(g_body, omega_ie_body, g_NED, omega_ie_NED);
+% Subtask 5.1: Initialize covariance and process noise
+P = eye(9); Q = 1e-3*eye(9);
 
-switch upper(method)
-    case 'TRIAD'
-        % classical TRIAD algorithm
-        T1_b = g_b_u;
-        T2_b = cross(g_b_u, w_b_u); T2_b = T2_b./norm(T2_b);
-        T3_b = cross(T1_b, T2_b);
-        T1_n = g_n_u;
-        T2_n = cross(g_n_u, w_n_u); T2_n = T2_n./norm(T2_n);
-        T3_n = cross(T1_n, T2_n);
-        R_nb = [T1_n T2_n T3_n] * [T1_b T2_b T3_b]';
-    case 'DAVENPORT'
-        % Davenport q-method
-        B = g_n_u*g_b_u' + w_n_u*w_b_u';
-        S = B + B';
-        sigma = trace(B);
-        Z = [B(2,3)-B(3,2); B(3,1)-B(1,3); B(1,2)-B(2,1)];
-        K = [sigma Z'; Z S - sigma*eye(3)];
-        [V,Dq] = eig(K);
-        [~,idx] = max(diag(Dq));
-        q = V(:,idx);
-        if q(1) < 0, q = -q; end
-        R_nb = quat2rotm([q(1) -q(2:4)']);
-    case 'SVD'
-        % SVD alignment of two vector pairs
-        B = g_n_u*g_b_u' + w_n_u*w_b_u';
-        [U,~,V] = svd(B);
-        M = diag([1 1 sign(det(U*V'))]);
-        R_nb = U*M*V';
-    otherwise
-        error('Unknown method %s', method);
-end
+% Subtask 5.2: Measurement models
+R_zupt = 1e-2*eye(3); R_gnss = blkdiag(5^2*eye(3), 0.5^2*eye(3));
 
-q_nb = rotm2quat(R_nb);  % quaternion form
+% Storage for logs
+N = size(imu,1); x_log = zeros(9,N); eul_log = zeros(3,N);
+pos_f = zeros(3,1); vel_f = zeros(3,1); R_f = R_nb; x = zeros(9,1);
 
-%% ----- Task 4: simple IMU integration --------------------------------
-acc_all = D(:,6:8) ./ dt;
-gyro_all = D(:,3:5) ./ dt; %#ok<NASGU>
-acc_all = acc_all - acc_bias;
-gyro_all = gyro_all - gyro_bias; %#ok<NASGU>
-N = size(D,1);
-vel = zeros(N,3); pos = zeros(N,3);
-for k = 2:N
-    f_b = acc_all(k,:)';
-    f_n = R_nb * f_b - g_NED;
-    vel(k,:) = vel(k-1,:) + (f_n'*dt);
-    pos(k,:) = pos(k-1,:) + vel(k-1,:)*dt + 0.5*f_n'*dt^2;
-end
-
-%% ----- Task 5: simple Kalman filter fusion with GNSS ------------------
-pos_gnss_ecef = [T.X_ECEF_m T.Y_ECEF_m T.Z_ECEF_m];
-vel_gnss_ecef = [T.VX_ECEF_mps T.VY_ECEF_mps T.VZ_ECEF_mps];
-C = C_ECEF_to_NED(deg2rad(lat), deg2rad(lon));
-pos_gnss = (C * (pos_gnss_ecef - [x y z])')';
-vel_gnss = (C * vel_gnss_ecef')';
-
-time_imu = D(:,2);
-if isempty(time_imu)
-    time_imu = (0:N-1)' * dt + T.Posix_Time(1);
-end
-
-gyro_all = D(:,3:5) ./ dt;
-KF.x = [pos_gnss(1,:) vel_gnss(1,:) zeros(1,3)];
-KF.P = eye(9);
-Q = 1e-2 * eye(9);
-Rk = 1e-1 * eye(6);
-fused_pos(1,:) = KF.x(1:3);
-fused_vel(1,:) = KF.x(4:6);
-q_cur = q_nb; q_log = zeros(N,4); q_log(1,:) = q_cur;
-win = 80; acc_win = []; gyro_win = []; zupt_count = 0;
-for k = 2:N
-    dt_k = time_imu(k) - time_imu(k-1);
-    %% propagate quaternion using corrected gyro
-    w_b = gyro_all(k,:)' - gyro_bias;
-    dq = quat_from_rate(w_b, dt_k);
-    q_cur = quat_multiply(q_cur, dq);
-    q_cur = q_cur ./ norm(q_cur);
-    q_log(k,:) = q_cur;
-
-    %% Kalman time update
-    A = eye(9);
-    A(1:3,4:6) = eye(3)*dt_k;
-    A(4:6,7:9) = eye(3)*dt_k;
-    KF.x = (A * KF.x')';
-    KF.P = A*KF.P*A' + Q;
-
-    %% Measurement update with GNSS
-    z = [pos_gnss(min(k,size(pos_gnss,1)),:) vel_gnss(min(k,size(vel_gnss,1)),:)];
-    H = [eye(6) zeros(6,3)];
-    K = KF.P*H'/(H*KF.P*H'+Rk);
-    KF.x = (KF.x' + K*(z' - H*KF.x'))';
-    KF.P = (eye(9)-K*H)*KF.P;
-
-    fused_pos(k,:) = KF.x(1:3);
-    fused_vel(k,:) = KF.x(4:6);
-
-    %% ZUPT using rolling variance
-    acc_win = [acc_win; acc_all(k,:) - accel_bias'];
-    gyro_win = [gyro_win; gyro_all(k,:) - gyro_bias'];
-    if size(acc_win,1) > win
-        acc_win(1,:) = []; gyro_win(1,:) = [];
+% Subtask 5.3: Loop over IMU samples
+gnss_idx = 1; gnss_time = gnss_tbl.Posix_Time;
+for k=2:N
+    dt = dt_imu;
+    % Predict step using mechanization
+    w_ib = gyro(k,:)' - gyro_bias; 
+    f_ib = accel(k,:)' - accel_bias;
+    R_f = R_f * expm(skew(w_ib*dt));
+    f_n = R_f * f_ib + g_ned;
+    vel_f = vel_f + f_n*dt;
+    pos_f = pos_f + vel_f*dt + 0.5*f_n*dt^2;
+    F = [zeros(3), eye(3), zeros(3); zeros(3), zeros(3), -skew(f_n); zeros(3), zeros(3), zeros(3)];
+    Phi = eye(9) + F*dt; P = Phi*P*Phi' + Q*dt;
+    % ZUPT update if static
+    if stat_mask(k)
+        H = [zeros(3), eye(3), zeros(3)]; z = zeros(3,1);
+        [x,P] = kalman_update(x,P,z,H,R_zupt);
+        vel_f = vel_f + x(4:6); pos_f = pos_f + x(1:3); R_f = (eye(3)-skew(x(7:9)))*R_f; x(:)=0;
     end
-    if size(acc_win,1) == win && is_static(acc_win, gyro_win)
-        H_z = zeros(3,9); H_z(:,4:6) = eye(3);
-        R_z = 1e-4 * eye(3);
-        pred_v = KF.x(4:6)';
-        S = H_z*KF.P*H_z' + R_z;
-        Kz = KF.P*H_z'/S;
-        KF.x = (KF.x' + Kz*(-pred_v))';
-        KF.P = (eye(9)-Kz*H_z)*KF.P;
-        zupt_count = zupt_count + 1;
+    % GNSS update every 1 s
+    if gnss_idx < length(gnss_time) && abs((k-1)*dt - (gnss_time(gnss_idx+1)-gnss_time(1)))<dt/2
+        z = [pos_ned(gnss_idx+1,:)'; vel_ned(gnss_idx+1,:)'];
+        H = [eye(3) zeros(3,6); zeros(3) eye(3) zeros(3)];
+        [x,P] = kalman_update(x,P,z-[pos_f;vel_f],H,R_gnss);
+        pos_f = pos_f + x(1:3); vel_f = vel_f + x(4:6); R_f = (eye(3)-skew(x(7:9)))*R_f; x(:)=0;
+        gnss_idx = gnss_idx + 1;
     end
+    x_log(:,k) = [pos_f; vel_f; zeros(3,1)];
+    eul_log(:,k) = quat2euler(dcm2quat_custom(R_f));
 end
 
-%% ----- Save results ----------------------------------------------------
-[~,istem] = fileparts(imu_path); [~,gstem] = fileparts(gnss_path);
-resultsDir = 'results';
-if ~exist(resultsDir,'dir'), mkdir(resultsDir); end
-matfile = fullfile(resultsDir, sprintf('%s_%s_%s_final.mat', istem, gstem, method));
+% Subtask 5.4: Log estimated state done above
 
-summary.q0 = q_nb;
-summary.final_pos = norm(fused_pos(end,:) - pos_gnss(end,:));
-save(matfile, 'fused_pos', 'fused_vel', 'summary');
+% Subtask 5.5: Compute RMSE and final error
+err = pos_f - pos_ned(end,:)';
+rmse_pos = sqrt(mean(vecnorm((x_log(1:3,1:gnss_idx) - pos_ned(1:gnss_idx,:)').^2)));
+fprintf('RMSE position: %.3f m, final error %.3f m\n', rmse_pos, norm(err));
 
-fprintf('Saved %s\n', matfile);
+% Subtask 5.6: Plot fused position
+fprintf('Subtask 5.6: Plotting fusion results\n');
+fig = figure('Visible','off');
+plot(pos_ned(:,1), pos_ned(:,2),'k','DisplayName','GNSS'); hold on;
+plot(x_log(1,:), x_log(2,:),'b','DisplayName','KF'); grid on;
+legend; xlabel('North [m]'); ylabel('East [m]'); axis equal;
+title('KF Position');
+set(gcf,'PaperPositionMode','auto');
+file_kf = fullfile(results_dir,'Task5_fused_position.pdf');
+saveas(fig, file_kf); close(fig);
 
-% Simple overlay figure using fused results only
-plot_overlay(imu_time, fused_pos, fused_vel, acc_log', gnss_time, pos_gnss, vel_gnss, gnss_accel_ned, imu_time, fused_pos, fused_vel, acc_log', 'NED', method, resultsDir);
+% Subtask 5.7: Save results
+save(fullfile(results_dir,'Task5_results.mat'), 'x_log','eul_log');
 
+fprintf('All tasks completed. Results stored in %s\n', results_dir);
+
+%% ========================================================================
+%% Helper functions
+%% ========================================================================
+function [lat_deg, lon_deg, alt] = ecef2geodetic_custom(x,y,z)
+    a = 6378137.0; e = 8.1819190842622e-2;
+    b = sqrt(a^2*(1-e^2)); ep = sqrt((a^2-b^2)/b^2); p = sqrt(x.^2+y.^2);
+    th = atan2(a*z, b*p); lon = atan2(y,x);
+    lat = atan2( z + ep^2*b*sin(th).^3, p - e^2*a*cos(th).^3 );
+    N = a./sqrt(1-e^2*sin(lat).^2); alt = p./cos(lat) - N;
+    lat_deg = rad2deg(lat); lon_deg = rad2deg(lon);
 end
 
-%% Helper functions ------------------------------------------------------
-function [lat, lon, alt] = ecef2geod(x,y,z)
-a = 6378137.0; e2 = 6.69437999014e-3;
-p = sqrt(x.^2 + y.^2);
-theta = atan2(z*a, p*(1-e2));
-lon = atan2(y,x);
-lat = atan2(z + e2*a*sin(theta).^3./(1-e2), p - e2*a*cos(theta).^3);
-N = a ./ sqrt(1-e2*sin(lat).^2);
-alt = p./cos(lat) - N;
-lat = rad2deg(lat); lon = rad2deg(lon);
+function var_win = sliding_variance(x, w)
+    N=size(x,1); var_win=zeros(N-w+1,size(x,2));
+    cs=cumsum([zeros(1,size(x,2)); x]);
+    cs2=cumsum([zeros(1,size(x,2)); x.^2]);
+    for i=w:N
+        sumx=cs(i+1,:)-cs(i-w+1,:); sumx2=cs2(i+1,:)-cs2(i-w+1,:);
+        var_win(i-w+1,:)=(sumx2 - sumx.^2/w)/w;
+    end
+    % pad to original length
+    var_win=[var_win; repmat(var_win(end,:), w-1,1)];
 end
 
-function C = C_ECEF_to_NED(lat, lon)
-sphi = sin(lat); cphi = cos(lat);
-slam = sin(lon); clam = cos(lon);
-C = [ -sphi.*clam, -sphi.*slam,  cphi;...
-       -slam,       clam,       0;...
-       -cphi.*clam, -cphi.*slam, -sphi];
+function [i0,i1] = longest_true_segment(mask)
+    d=[false;mask(:);false];
+    s=find(diff(d)==1); e=find(diff(d)==-1)-1;
+    [~,idx]=max(e-s+1); i0=s(idx); i1=e(idx);
 end
 
-function [g_b_u, w_b_u, g_n_u, w_n_u] = normalise_vectors(g_b,w_b,g_n,w_n)
-    g_b_u = g_b./norm(g_b);
-    w_b_u = w_b./norm(w_b);
-    g_n_u = g_n./norm(g_n);
-    w_n_u = w_n./norm(w_n);
+function R = triad_method(v1_n,v2_n,v1_b,v2_b)
+    t1_b = v1_b/norm(v1_b); t2_b = cross(t1_b,v2_b); t2_b=t2_b/norm(t2_b); t3_b=cross(t1_b,t2_b);
+    t1_n = v1_n/norm(v1_n); t2_n = cross(t1_n,v2_n); t2_n=t2_n/norm(t2_n); t3_n=cross(t1_n,t2_n);
+    R = [t1_n t2_n t3_n]*[t1_b t2_b t3_b]';
 end
 
-function dq = quat_from_rate(w, dt)
-    w_norm = norm(w);
-    if w_norm > 1e-12
-        axis = w / w_norm;
-        angle = w_norm * dt;
-        dq = [cos(angle/2); axis*sin(angle/2)];
+function R = davenport_method(v1_n,v2_n,v1_b,v2_b)
+    B = v1_n*v1_b' + v2_n*v2_b';
+    S = B + B'; sigma = trace(B); Z=[B(2,3)-B(3,2); B(3,1)-B(1,3); B(1,2)-B(2,1)];
+    K = [sigma Z'; Z S - sigma*eye(3)];
+    [V,D] = eig(K); [~,idx]=max(diag(D)); q=V(:,idx); if q(1)<0, q=-q; end
+    R = quat2dcm_custom(q');
+end
+
+function R = svd_procrustes(v1_n,v2_n,v1_b,v2_b)
+    B = v1_n*v1_b' + v2_n*v2_b'; [U,~,V] = svd(B); M=diag([1 1 sign(det(U*V'))]);
+    R = U*M*V';
+end
+
+function q = dcm2quat_custom(R)
+    tr = trace(R);
+    if tr > 0
+        S = sqrt(tr+1.0)*2; q0=0.25*S; q1=(R(3,2)-R(2,3))/S; q2=(R(1,3)-R(3,1))/S; q3=(R(2,1)-R(1,2))/S;
     else
-        dq = [1;0;0;0];
+        [~,i] = max([R(1,1),R(2,2),R(3,3)]);
+        switch i
+            case 1
+                S=sqrt(1+R(1,1)-R(2,2)-R(3,3))*2; q0=(R(3,2)-R(2,3))/S; q1=0.25*S; q2=(R(1,2)+R(2,1))/S; q3=(R(1,3)+R(3,1))/S;
+            case 2
+                S=sqrt(1+R(2,2)-R(1,1)-R(3,3))*2; q0=(R(1,3)-R(3,1))/S; q1=(R(1,2)+R(2,1))/S; q2=0.25*S; q3=(R(2,3)+R(3,2))/S;
+            case 3
+                S=sqrt(1+R(3,3)-R(1,1)-R(2,2))*2; q0=(R(2,1)-R(1,2))/S; q1=(R(1,3)+R(3,1))/S; q2=(R(2,3)+R(3,2))/S; q3=0.25*S;
+        end
     end
+    q=[q0 q1 q2 q3];
 end
 
-function q_out = quat_multiply(q1, q2)
-    w1=q1(1); x1=q1(2); y1=q1(3); z1=q1(4);
-    w2=q2(1); x2=q2(2); y2=q2(3); z2=q2(4);
-    q_out=[w1*w2 - x1*x2 - y1*y2 - z1*z2;
-           w1*x2 + x1*w2 + y1*z2 - z1*y2;
-           w1*y2 - x1*z2 + y1*w2 + z1*x2;
-           w1*z2 + x1*y2 - y1*x2 + z1*w2];
+function R = quat2dcm_custom(q)
+    q0=q(1); q1=q(2); q2=q(3); q3=q(4);
+    R=[1-2*(q2^2+q3^2) 2*(q1*q2-q0*q3) 2*(q1*q3+q0*q2);...
+       2*(q1*q2+q0*q3) 1-2*(q1^2+q3^2) 2*(q2*q3-q0*q1);...
+       2*(q1*q3-q0*q2) 2*(q2*q3+q0*q1) 1-2*(q1^2+q2^2)];
 end
 
-function is_stat = is_static(acc, gyro)
-    acc_thresh = 0.01; gyro_thresh = 1e-6;
-    is_stat = all(var(acc,0,1) < acc_thresh) && all(var(gyro,0,1) < gyro_thresh);
+function eul = quat2euler(q)
+    R = quat2dcm_custom(q);
+    phi = atan2(R(3,2), R(3,3));
+    theta = -asin(R(3,1));
+    psi = atan2(R(2,1), R(1,1));
+    eul = [phi; theta; psi];
+end
+
+function S = skew(w)
+    S=[  0   -w(3)  w(2); w(3)   0   -w(1); -w(2) w(1)  0];
+end
+
+function [x,P] = kalman_update(x,P,y,H,R)
+    S = H*P*H' + R; K = P*H'/S; x = x + K*y; P = (eye(size(P))-K*H)*P;
 end
