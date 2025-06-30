@@ -26,6 +26,31 @@ def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
         ])
 
 
+def get_data_file(filename: str) -> pathlib.Path:
+    """Return the full path to *filename* searching common data folders.
+
+    The function mirrors the behaviour of the MATLAB ``get_data_file`` helper
+    and allows scripts to be executed from arbitrary locations.  Searches the
+    ``Data/`` folder next to this file, ``Python/data`` and the repository root
+    for ``filename``.  ``FileNotFoundError`` is raised if the file cannot be
+    located.
+    """
+
+    script_dir = pathlib.Path(__file__).resolve().parent
+    search_dirs = [
+        script_dir.parent / "Data",
+        script_dir / "data",
+        script_dir.parent,
+    ]
+
+    for d in search_dirs:
+        candidate = d / filename
+        if candidate.exists():
+            return candidate
+
+    raise FileNotFoundError(f"Data file not found: {filename}")
+
+
 def detect_static_interval(accel_data, gyro_data, window_size=200,
                            accel_var_thresh=0.01, gyro_var_thresh=1e-6,
                            min_length=100):

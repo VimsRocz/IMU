@@ -15,7 +15,7 @@ def _run_script(monkeypatch, args):
     monkeypatch.setattr(subprocess, 'run', fake_run)
     monkeypatch.setattr(pathlib.Path, 'glob', lambda self, pattern: [])
     monkeypatch.setattr(sys, 'argv', ['run_triad_only.py'] + args)
-    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    repo_root = pathlib.Path(__file__).resolve().parents[2]
     monkeypatch.syspath_prepend(str(repo_root))
     # stub heavy modules
     po = types.ModuleType('plot_overlay')
@@ -25,7 +25,8 @@ def _run_script(monkeypatch, args):
     vt.assemble_frames = lambda *a, **k: {}
     monkeypatch.setitem(sys.modules, 'plot_overlay', po)
     monkeypatch.setitem(sys.modules, 'validate_with_truth', vt)
-    runpy.run_path('run_triad_only.py', run_name='__main__')
+    script = repo_root / 'Python' / 'run_triad_only.py'
+    runpy.run_path(str(script), run_name='__main__')
     return cmd['value']
 
 

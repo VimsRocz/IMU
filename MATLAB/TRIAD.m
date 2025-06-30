@@ -101,7 +101,10 @@ T1_n = g_ref_u;
 T2_n = cross(g_ref_u, omega_ref_u); T2_n = T2_n./norm(T2_n);
 T3_n = cross(T1_n, T2_n);
 R_nb = [T1_n T2_n T3_n] * [T1_b T2_b T3_b]';
-q = rotm2quat(R_nb);  % MATLAB aerospace toolbox function
+% Convert rotation matrix to quaternion without relying on the Aerospace
+% Toolbox. "rotm2quat" is unavailable in some MATLAB installations so
+% provide an equivalent local implementation for portability.
+q = dcm2quat_custom(R_nb);
 
 %% ----- Task 4: IMU integration (simple) --------------------------------
 acc_all = D(:,6:8) ./ dt;  % m/s^2
@@ -177,4 +180,39 @@ function [g_b_u, w_b_u, g_n_u, w_n_u] = normalise_vectors(g_b, w_b, g_n, w_n)
     w_b_u = w_b./norm(w_b);
     g_n_u = g_n./norm(g_n);
     w_n_u = w_n./norm(w_n);
+end
+
+function q = dcm2quat_custom(R)
+    %DCM2QUAT_CUSTOM Convert direction cosine matrix to quaternion.
+    %   Replacement for the Aerospace Toolbox ``rotm2quat`` function.
+    tr = trace(R);
+    if tr > 0
+        S = sqrt(tr + 1.0) * 2;  q0 = 0.25 * S;
+        q1 = (R(3,2) - R(2,3)) / S;
+        q2 = (R(1,3) - R(3,1)) / S;
+        q3 = (R(2,1) - R(1,2)) / S;
+    else
+        [~, i] = max([R(1,1), R(2,2), R(3,3)]);
+        switch i
+            case 1
+                S = sqrt(1 + R(1,1) - R(2,2) - R(3,3)) * 2;
+                q0 = (R(3,2) - R(2,3)) / S;
+                q1 = 0.25 * S;
+                q2 = (R(1,2) + R(2,1)) / S;
+                q3 = (R(1,3) + R(3,1)) / S;
+            case 2
+                S = sqrt(1 + R(2,2) - R(1,1) - R(3,3)) * 2;
+                q0 = (R(1,3) - R(3,1)) / S;
+                q1 = (R(1,2) + R(2,1)) / S;
+                q2 = 0.25 * S;
+                q3 = (R(2,3) + R(3,2)) / S;
+            case 3
+                S = sqrt(1 + R(3,3) - R(1,1) - R(2,2)) * 2;
+                q0 = (R(2,1) - R(1,2)) / S;
+                q1 = (R(1,3) + R(3,1)) / S;
+                q2 = (R(2,3) + R(3,2)) / S;
+                q3 = 0.25 * S;
+        end
+    end
+    q = [q0 q1 q2 q3];
 end

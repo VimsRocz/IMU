@@ -20,6 +20,7 @@ from utils import (
     is_static,
     compute_C_ECEF_to_NED,
     ecef_to_geodetic,
+    get_data_file,
 )
 from scipy.spatial.transform import Rotation as R
 
@@ -141,13 +142,13 @@ def main():
         })()
 
     method = args.method
-    gnss_file = args.gnss_file
-    imu_file = args.imu_file
+    gnss_file = str(get_data_file(args.gnss_file))
+    imu_file = str(get_data_file(args.imu_file))
 
     RESULTS_DIR.mkdir(exist_ok=True)
 
-    imu_stem = Path(args.imu_file).stem
-    gnss_stem = Path(args.gnss_file).stem
+    imu_stem = Path(imu_file).stem
+    gnss_stem = Path(gnss_file).stem
     tag = TAG(imu=imu_stem, gnss=gnss_stem, method=method)
     summary_tag = f"{imu_stem}_{gnss_stem}"
 
