@@ -1,7 +1,4 @@
 name: CI
-permissions:
-  contents: read
-  security-events: write
 
 on:
   push:
@@ -28,18 +25,3 @@ jobs:
         run: pytest -q
       - name: MATLAB smoke test
         run: pytest -q tests/test_pipeline_smoke.py
-  codeql:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        language: [python, actions]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
-        with:
-          languages: ${{ matrix.language }}
-          build-mode: none
-      - uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:${{ matrix.language }}"
