@@ -52,7 +52,7 @@ Task_2('IMU_X001.dat','GNSS_X001.csv','TRIAD')
 
 
 ### Batch processing
-The helper script `run_all_datasets.m` iterates over every `IMU_X*.dat` and `GNSS_X*.csv` pair and runs all three methods. After each run the Task 5 results are loaded into workspace variables such as `result_IMU_X001_GNSS_X001_TRIAD` and saved in `results/` as `.mat` files.
+The helper script `run_all_datasets.m` iterates over every `IMU_X*.dat` and `GNSS_X*.csv` pair and runs all three methods. Paths are resolved with `get_data_file` so the script can be executed from any folder. After each run the Task 5 results are loaded into workspace variables such as `result_IMU_X001_GNSS_X001_TRIAD` and saved in `results/` as `.mat` files.
 
 ```matlab
 run_all_datasets
