@@ -5,26 +5,30 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
   schedule:
     - cron: '15 15 * * 1'
 
 jobs:
   build-and-test:
+    name: Build & Test
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/vscode/devcontainers/python:0-3.11
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Get Python version
         id: python-version
         run: |
           echo "version=$(python -c 'import sys; v=sys.version_info; print(f"{v.major}.{v.minor}")')" >> "$GITHUB_OUTPUT"
+
       - name: Cache pip
         uses: actions/cache@v4
         with:
@@ -32,24 +36,35 @@ jobs:
           key: ${{ runner.os }}-pip-${{ steps.python-version.outputs.version }}-${{ hashFiles('**/requirements*.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-${{ steps.python-version.outputs.version }}-
+
       - name: Install dependencies
         run: pip install -r requirements-dev.txt -r requirements.txt
-      - name: Run tests
+
+      - name: Run Python tests
         run: pytest -q
+
       - name: MATLAB smoke test
         run: pytest -q tests/test_pipeline_smoke.py
+
   codeql:
+    name: CodeQL Analysis
     needs: build-and-test
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        language: [python, actions]
+        language: [ actions, python ]
+        build-mode: [ none ]
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-          build-mode: none
-      - uses: github/codeql-action/analyze@v3
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Run CodeQL analysis
+        uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{ matrix.language }}"
