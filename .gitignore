@@ -194,3 +194,4 @@ cython_debug/
 triad_init_log.txt
 results/
 IMU_MATLAB/results/
+.DS_Store
