@@ -494,52 +494,54 @@ def main():
             )
         except Exception as e:
             print(f"Overlay plot failed: {e}")
-            return
-        for frame_name, data in frames.items():
-            t_i, p_i, v_i, a_i = data["imu"]
-            t_g, p_g, v_g, a_g = data["gnss"]
-            t_f, p_f, v_f, a_f = data["fused"]
-            try:
-                plot_overlay(
-                    frame_name,
-                    method,
-                    t_i,
-                    p_i,
-                    v_i,
-                    a_i,
-                    t_g,
-                    p_g,
-                    v_g,
-                    a_g,
-                    t_f,
-                    p_f,
-                    v_f,
-                    a_f,
-                    args.output,
-                )
-            except Exception as e:
-                print(f"Overlay plot failed: {e}")
-            try:
-                plot_frame(
-                    frame_name,
-                    method,
-                    t_i,
-                    p_i,
-                    v_i,
-                    a_i,
-                    t_g,
-                    p_g,
-                    v_g,
-                    a_g,
-                    t_f,
-                    p_f,
-                    v_f,
-                    a_f,
-                    args.output,
-                    truth_frames.get(frame_name),
-                )
-            except Exception as e:
-                print(f"Frame plot failed: {e}")
+            frames = {}
+            truth_frames = {}
+        if frames:
+            for frame_name, data in frames.items():
+                t_i, p_i, v_i, a_i = data["imu"]
+                t_g, p_g, v_g, a_g = data["gnss"]
+                t_f, p_f, v_f, a_f = data["fused"]
+                try:
+                    plot_overlay(
+                        frame_name,
+                        method,
+                        t_i,
+                        p_i,
+                        v_i,
+                        a_i,
+                        t_g,
+                        p_g,
+                        v_g,
+                        a_g,
+                        t_f,
+                        p_f,
+                        v_f,
+                        a_f,
+                        args.output,
+                    )
+                except Exception as e:
+                    print(f"Overlay plot failed: {e}")
+                try:
+                    plot_frame(
+                        frame_name,
+                        method,
+                        t_i,
+                        p_i,
+                        v_i,
+                        a_i,
+                        t_g,
+                        p_g,
+                        v_g,
+                        a_g,
+                        t_f,
+                        p_f,
+                        v_f,
+                        a_f,
+                        args.output,
+                        truth_frames.get(frame_name),
+                    )
+                except Exception as e:
+                    print(f"Frame plot failed: {e}")
 
         # --- Additional comparison with reference state -------------------
         try:
