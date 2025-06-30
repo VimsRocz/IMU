@@ -89,8 +89,7 @@ def test_validate_with_truth(monkeypatch):
 
     for frame in ["ECEF", "NED", "BODY"]:
         pattern = f"*_task5_compare_{frame.lower()}.pdf"
-        matches = list(Path("results").glob(pattern))
-        assert matches, f"Missing plot {pattern}"
+        assert any(Path("results").glob(pattern)), f"Missing plot {pattern}"
 
 
 @pytest.mark.parametrize(
@@ -157,5 +156,4 @@ def test_index_align(monkeypatch):
 
     for frame in ["NED", "ECEF", "BODY"]:
         pattern = f"*_task5_compare_{frame.lower()}.pdf"
-        matches = list(Path("results").glob(pattern))
-        assert matches, f"Missing plot {pattern}"
+        assert any(Path("results").glob(pattern)), f"Missing plot {pattern}"
