@@ -228,11 +228,11 @@ for i = 1:num_imu_samples
             x = x + K_z * y_z;
             P = (eye(15) - K_z * H_z) * P;
         end
-    end
 
     % --- Log State and Attitude ---
     x_log(:, i) = x;
     euler_log(:, i) = quat_to_euler(q_b_n);
+end  % end of main filter loop
 fprintf('-> Filter loop complete. Total ZUPT applications: %d\n', zupt_count);
 
 %% ========================================================================
