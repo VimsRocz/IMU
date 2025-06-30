@@ -25,7 +25,12 @@ end
 % producing the cryptic "You can only call nargin/nargout from within a
 % MATLAB function" error.  Use `dbstack` to detect that situation and emit
 % a clearer message before reaching the nargin check below.
-if numel(dbstack) <= 1
+% When this file is executed with the ``run`` command ``dbstack`` returns an
+% empty struct which results in the cryptic "You can only call nargin/nargout"
+% error.  Previously the check below triggered even when ``TRIAD`` was invoked
+% as a function without arguments from the command line.  Only guard against
+% the script execution case so ``TRIAD()`` works as documented.
+if isempty(dbstack)
     error(['TRIAD must be called as a function with two file names. Example:\n', ...
            '    TRIAD(''IMU_X001.dat'', ''GNSS_X001.csv'');']);
 end
