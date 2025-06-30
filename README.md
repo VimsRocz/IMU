@@ -1,5 +1,5 @@
 # IMU_GNSS_Fusion
-[![CI](https://github.com/VimsRocz/IMU/actions/workflows/ci.yml/badge.svg)](https://github.com/VimsRocz/IMU/actions/workflows/ci.yml)
+
 
 Python and MATLAB tools for initialising and validating IMU+GNSS trajectories.
 
