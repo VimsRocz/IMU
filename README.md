@@ -77,6 +77,11 @@ The repository includes three IMU logs and two GNSS traces:
 * `STATE_X001.txt` contains the common reference trajectory for all three
   datasets (there are no `STATE_X002.txt` or `STATE_X003.txt` files)
 
+Each IMU log is roughly **64&nbsp;MB** and holds ~400&nbsp;Hz inertial data.
+The accompanying GNSS CSVs are around **250&nbsp;KB** with 5&nbsp;Hz receiver
+fixes.  The reference trajectory `STATE_X001.txt` weighs about
+**2.8&nbsp;MB**.
+
 For quick tests the repository also provides truncated versions of each
 file:
 
@@ -86,6 +91,9 @@ file:
   epochs
 * `STATE_X001_small.txt` holds the first 100 states of the same reference
   trajectory
+
+These smaller logs are only about **130&nbsp;KB** for each IMU file,
+**2&nbsp;KB** for the GNSS traces and **14&nbsp;KB** for the reference states.
 
 These mini logs drastically reduce runtimes when validating the pipeline or
 the MATLAB scripts.  Use the helper configuration `config_small.yml` to run all
@@ -288,7 +296,9 @@ writes `results/summary.csv`. Each row contains:
 
 Run the unit tests with `pytest`. **Installing the required Python packages is
 mandatory** before executing any tests. The suite relies on all packages listed
-in both requirement files.
+in both requirement files. The tests load the bundled datasets from the
+repository root (or `IMU_MATLAB/data`), so keep those files in place when
+running `pytest`.
 
 Install the dependencies first:
 
