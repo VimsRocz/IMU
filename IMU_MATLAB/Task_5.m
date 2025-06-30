@@ -145,6 +145,10 @@ x(13:15) = gyro_bias(:);
 R = eye(6) * 0.1;
 H = [eye(6), zeros(6,9)];
 
+% Covariance matrices for Kalman filter
+P = eye(15);          % initial state covariance
+Q = 1e-2 * eye(15);   % process noise covariance
+
 % --- Attitude Initialization ---
 q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
 
