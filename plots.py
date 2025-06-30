@@ -1,5 +1,6 @@
 import numpy as np
 from pathlib import Path
+from typing import Optional
 try:
     import matplotlib.pyplot as plt
 except Exception:  # pragma: no cover - matplotlib optional
@@ -22,7 +23,7 @@ def plot_frame(
     vel_fused: np.ndarray,
     acc_fused: np.ndarray,
     out_dir: str,
-    truth: tuple | None = None,
+    truth: Optional[tuple] = None,
 ) -> None:
     """Plot comparison for one frame.
 
