@@ -11,7 +11,8 @@ Install the required Python packages with
 pip install -r requirements.txt
 ```
 
-During development you can also install the project itself in editable mode:
+With the project metadata available you can install the repository in
+editable mode:
 
 ```bash
 pip install -e .

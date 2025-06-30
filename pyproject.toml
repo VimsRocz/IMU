@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gnss-imu-fusion"
+version = "0.1.0"
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "cartopy",
+    "filterpy",
+    "scipy",
+    "rich",
+    "tabulate",
+    "tqdm",
+    "pyyaml",
+    "jupyter",
+    "fpdf",
+    "geomag",
+]
+
+[tool.setuptools]
+package-dir = {"" = "Python"}
+
+[tool.setuptools.packages.find]
+where = ["Python"]
+include = ["gnss_imu_fusion"]
