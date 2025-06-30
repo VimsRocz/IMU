@@ -145,6 +145,10 @@ x(13:15) = gyro_bias(:);
 R = eye(6) * 0.1;
 H = [eye(6), zeros(6,9)];
 
+% Covariance matrices for Kalman filter
+P = eye(15);          % initial state covariance
+Q = 1e-2 * eye(15);   % process noise covariance
+
 % --- Attitude Initialization ---
 q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
 
@@ -228,12 +232,12 @@ for i = 1:num_imu_samples
             x = x + K_z * y_z;
             P = (eye(15) - K_z * H_z) * P;
         end
-    end
-    end
+
 
     % --- Log State and Attitude ---
     x_log(:, i) = x;
     euler_log(:, i) = quat_to_euler(q_b_n);
+end  % end of main filter loop
 fprintf('-> Filter loop complete. Total ZUPT applications: %d\n', zupt_count);
 
 %% ========================================================================
