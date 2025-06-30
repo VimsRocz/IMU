@@ -214,8 +214,8 @@ for i = 1:num_imu_samples
     prev_a_ned = a_ned;
     % --- 4. Zero-Velocity Update (ZUPT) ---
     win_size = 80;
-
-        acc_win = acc_body_raw(i-win_size+1:i, :);
+    if i >= win_size
+        acc_win  = acc_body_raw(i-win_size+1:i, :);
         gyro_win = gyro_body_raw(i-win_size+1:i, :);
         if is_static(acc_win, gyro_win)
             zupt_count = zupt_count + 1;
@@ -228,6 +228,7 @@ for i = 1:num_imu_samples
             x = x + K_z * y_z;
             P = (eye(15) - K_z * H_z) * P;
         end
+    end
     end
 
     % --- Log State and Attitude ---
