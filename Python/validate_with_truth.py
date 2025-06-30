@@ -9,11 +9,11 @@ from scipy.spatial.transform import Rotation as R, Slerp
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
 from plot_overlay import plot_overlay
 from plots import plot_frame
+from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "Data"
 import pandas as pd
 import re
-from pathlib import Path
 
 
 def load_estimate(path):
