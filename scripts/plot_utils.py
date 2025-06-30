@@ -1,6 +1,8 @@
+import logging
 try:
     import matplotlib.pyplot as plt
-except Exception:  # pragma: no cover - optional plotting dependency
+except Exception as e:  # pragma: no cover - optional plotting dependency
+    logging.warning("matplotlib not available, plot utilities disabled: %s", e)
     plt = None
 from scipy.spatial.transform import Rotation as R
 from typing import List

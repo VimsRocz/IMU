@@ -1,9 +1,12 @@
 import numpy as np
 from pathlib import Path
 from typing import Optional
+import logging
+
 try:
     import matplotlib.pyplot as plt
-except Exception:  # pragma: no cover - matplotlib optional
+except Exception as e:  # pragma: no cover - matplotlib optional
+    logging.warning("matplotlib not available, plot functions disabled: %s", e)
     plt = None
 
 

@@ -1,8 +1,10 @@
 import numpy as np
+import logging
 try:
     import matplotlib.pyplot as plt
     from matplotlib.colors import rgb2hex
-except Exception:  # pragma: no cover - optional plotting dependency
+except Exception as e:  # pragma: no cover - optional plotting dependency
+    logging.warning("matplotlib not available, fractal visualisation disabled: %s", e)
     plt = None
     rgb2hex = None
 from typing import Optional

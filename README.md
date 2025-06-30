@@ -22,6 +22,18 @@ dependencies like `cartopy`. Plotting checks additionally rely on
 `matplotlib`. Installing the dependencies inside a virtual environment or a
 container helps keep your base Python setup clean.
 
+### Optional dependencies
+
+Some features rely on extra packages which are not strictly required:
+
+- `matplotlib` is used for generating plots throughout the project.
+- `cartopy` enables the map display in `GNSS_IMU_Fusion.py`.
+- `rich` improves console log output.
+- `PyYAML` allows `run_all_methods.py` to read a YAML configuration.
+
+The scripts fall back to simplified behaviour and emit warnings if any of
+these packages are missing.
+
 If you run into issues with filterpy on Ubuntu:
 
 ```bash

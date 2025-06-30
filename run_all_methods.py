@@ -25,10 +25,12 @@ import pathlib
 import subprocess
 import sys
 from typing import Iterable, Tuple
+import logging
 
 try:
     import yaml
 except ModuleNotFoundError:  # allow running without PyYAML installed
+    logging.warning("PyYAML not installed, configuration files will be ignored")
     yaml = None
 
 DEFAULT_DATASETS: Iterable[Tuple[str, str]] = [
