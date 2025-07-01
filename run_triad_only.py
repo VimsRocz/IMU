@@ -7,7 +7,7 @@ import sys
 import pathlib
 import re
 from plot_overlay import plot_overlay
-from validate_with_truth import load_estimate
+from validate_with_truth import load_estimate, assemble_frames
 import pandas as pd
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -44,7 +44,7 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
     subprocess.run(vcmd, check=True)
     try:
         est = load_estimate(str(mat))
-        m2 = re.match(r"(IMU_\w+)_GNSS_(\w+)_TRIAD_kf_output", mat.stem)
+        m2 = re.match(r"(IMU_\w+)_((?:GNSS_)?\w+)_TRIAD_kf_output", mat.stem)
         if m2:
             imu_file = HERE / f"{m2.group(1)}.dat"
             gnss_file = HERE / f"{m2.group(2)}.csv"
