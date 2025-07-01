@@ -2,9 +2,14 @@
 """Run every (IMU, GNSS, method) combo and log the output.
 
 The script processes each IMU/GNSS pair with all selected methods and writes
-the console output to ``results/<IMU>_<GNSS>_<method>.log``.  By default the
-bundled ``IMU_X`` data sets are used, but a YAML configuration file can
-override the data files and the list of methods.
+the console output to ``results/<IMU>_<GNSS>_<method>.log``.
+
+Config
+------
+Datasets and methods can be specified in a small YAML file.  Each entry
+under ``datasets`` must provide ``imu`` and ``gnss`` file names; ``methods`` is
+either a list or a mapping containing the attitude initialisation methods.
+If omitted, the built-in defaults are used.
 
 Example ``config.yml``::
 
@@ -20,15 +25,14 @@ Run the script with ``--config config.yml`` to process those files.
 
 import argparse
 import itertools
-import os
 import pathlib
 import subprocess
 import sys
 from typing import Iterable, Tuple
 import logging
+from utils import get_data_file
 
 HERE = pathlib.Path(__file__).resolve().parent
-DATA_DIR = HERE.parent / "Data"
 try:
     import yaml
 except ModuleNotFoundError:  # allow running without PyYAML installed
@@ -86,9 +90,9 @@ def main(argv=None):
             sys.executable,
             str(HERE / "GNSS_IMU_Fusion.py"),
             "--imu-file",
-            str(DATA_DIR / imu),
+            str(get_data_file(imu)),
             "--gnss-file",
-            str(DATA_DIR / gnss),
+            str(get_data_file(gnss)),
             "--method",
             m,
         ]

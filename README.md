@@ -36,8 +36,16 @@ export IMU_DATA_PATH=/path/to/my/datasets
 Process all datasets with every attitude initialisation method using
 
 ```bash
-python Python/run_all_datasets.py
+python Python/run_all_methods.py --config config_small.yml
 ```
+
+The `config_small.yml` file lists the dataset pairs and can be customised
+for new recordings.  Each entry specifies an ``imu`` and a ``gnss`` file
+name and an optional ``methods`` list to restrict processing.
+
+To add your own data simply append another mapping under ``datasets`` with
+the file names of your log pair and list any additional methods under the
+``methods`` key.
 
 To run only the TRIAD method use the helper script
 
