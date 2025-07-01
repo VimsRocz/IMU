@@ -2,9 +2,14 @@
 """Run every (IMU, GNSS, method) combo and log the output.
 
 The script processes each IMU/GNSS pair with all selected methods and writes
-the console output to ``results/<IMU>_<GNSS>_<method>.log``.  By default the
-bundled ``IMU_X`` data sets are used, but a YAML configuration file can
-override the data files and the list of methods.
+the console output to ``results/<IMU>_<GNSS>_<method>.log``.
+
+Config
+------
+Datasets and methods can be specified in a small YAML file.  Each entry
+under ``datasets`` must provide ``imu`` and ``gnss`` file names; ``methods`` is
+either a list or a mapping containing the attitude initialisation methods.
+If omitted, the built-in defaults are used.
 
 Example ``config.yml``::
 
