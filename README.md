@@ -20,7 +20,7 @@ pip install -e .
 ## Running the Python pipeline
 
 The repository bundles three IMU logs (`IMU_X001.dat`–`IMU_X003.dat`) and two GNSS traces (`GNSS_X001.csv`, `GNSS_X002.csv`) under the `Data/` folder.
-`IMU_X003.dat` pairs with the second GNSS file (`GNSS_X002.csv`).
+Note that `IMU_X003.dat` pairs with `GNSS_X002.csv`; there is no separate `GNSS_X003.csv`.
 
 If your data resides in a different location, set the environment variable
 `IMU_DATA_PATH` to point to that directory and the helper scripts will search it
