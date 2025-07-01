@@ -10,7 +10,8 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
         method = 'TRIAD';
     end
 
-    results_dir = 'results';
+    here = fileparts(mfilename('fullpath'));
+    results_dir = fullfile(here,'results');
     if ~exist(results_dir,'dir')
         mkdir(results_dir);
     end

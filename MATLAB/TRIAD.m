@@ -39,7 +39,8 @@ end
 if verbose && (nargin < 1 || isempty(imu_path) || nargin < 2 || isempty(gnss_path))
     fprintf('[INFO] Using default files: %s, %s\n', imu_path, gnss_path);
 end
-resultsDir = 'results';
+here = fileparts(mfilename('fullpath'));
+resultsDir = fullfile(here, 'results');
 if verbose && ~exist(resultsDir, 'dir')
     mkdir(resultsDir);
 end

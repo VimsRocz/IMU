@@ -5,7 +5,7 @@ Writes one log file per run in ./logs and prints a short SUMMARY line
 that `summarise_runs.py` can aggregate later.
 """
 
-import pathlib
+from pathlib import Path
 import subprocess
 import datetime
 import itertools
@@ -17,7 +17,7 @@ import pandas as pd
 import numpy as np
 import yaml
 
-HERE = pathlib.Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent
 
 from utils import ensure_dependencies
 
@@ -26,7 +26,6 @@ ensure_dependencies()
 from tabulate import tabulate
 from tqdm import tqdm
 
-HERE     = pathlib.Path(__file__).resolve().parent
 SCRIPT   = HERE / "GNSS_IMU_Fusion.py"
 LOG_DIR  = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -45,15 +44,22 @@ METHODS = DEFAULT_METHODS.copy()
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
 def run_one(imu, gnss, method, verbose=False):
-    ts    = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log   = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
-    cmd   = [
+    imu_path = Path(imu)
+    if not imu_path.is_absolute():
+        imu_path = HERE / imu_path
+    gnss_path = Path(gnss)
+    if not gnss_path.is_absolute():
+        gnss_path = HERE / gnss_path
+
+    ts  = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    log = LOG_DIR / f"{imu_path.name}_{gnss_path.name}_{method}_{ts}.log"
+    cmd = [
         sys.executable,
-        SCRIPT,
+        str(SCRIPT),
         "--imu-file",
-        imu,
+        str(imu_path),
         "--gnss-file",
-        gnss,
+        str(gnss_path),
         "--method",
         method,
     ]
@@ -87,8 +93,6 @@ def main():
     parser.add_argument('--config', help='YAML configuration file')
     args = parser.parse_args()
 
-    here_files = {p.name for p in HERE.iterdir()}
-
     if args.config:
         with open(args.config) as fh:
             cfg = yaml.safe_load(fh) or {}
@@ -102,7 +106,7 @@ def main():
         datasets = DATASETS
     else:
         ids = {d.strip() for d in args.datasets.split(',')}
-        datasets = [p for p in DATASETS if pathlib.Path(p[0]).stem.split('_')[1] in ids]
+        datasets = [p for p in DATASETS if Path(p[0]).stem.split('_')[1] in ids]
 
     if args.method.upper() == 'ALL':
         method_list = METHODS
@@ -115,13 +119,20 @@ def main():
     results_dir.mkdir(exist_ok=True)
 
     for imu, gnss, method in tqdm(cases, desc="All cases"):
+        imu_path = Path(imu)
+        if not imu_path.is_absolute():
+            imu_path = HERE / imu_path
+        gnss_path = Path(gnss)
+        if not gnss_path.is_absolute():
+            gnss_path = HERE / gnss_path
+
         if args.verbose:
             # Debugging information for file pairing and timestamps
             print("==== DEBUG: File Pairing ====")
-            print("IMU file:", imu)
-            print("GNSS file:", gnss)
-            gnss_df = pd.read_csv(gnss)
-            imu_data = np.loadtxt(imu)
+            print("IMU file:", imu_path)
+            print("GNSS file:", gnss_path)
+            gnss_df = pd.read_csv(gnss_path)
+            imu_data = np.loadtxt(imu_path)
             print("GNSS shape:", gnss_df.shape)
             print("IMU shape:", imu_data.shape)
             print("GNSS time [start, end]:", gnss_df['Posix_Time'].iloc[0], gnss_df['Posix_Time'].iloc[-1])
@@ -131,15 +142,16 @@ def main():
             print("GNSS Head:\n", gnss_df.head())
             print("IMU Head:\n", imu_data[:5])
             print("============================")
-        if imu not in here_files or gnss not in here_files:
-            raise FileNotFoundError(f"Missing {imu} or {gnss} in {HERE}")
+        if not imu_path.exists() or not gnss_path.exists():
+            raise FileNotFoundError(f"Missing {imu_path} or {gnss_path}")
+
         start = time.time()
-        summaries = run_one(imu, gnss, method, verbose=args.verbose)
+        summaries = run_one(str(imu_path), str(gnss_path), method, verbose=args.verbose)
         runtime = time.time() - start
         for summary in summaries:
             kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
             fusion_results.append({
-                "dataset"  : pathlib.Path(imu).stem.split("_")[1],
+                "dataset"  : Path(imu_path).stem.split("_")[1],
                 "method"   : kv.get("method", method),
                 "rmse_pos" : float(kv.get("rmse_pos", "nan").replace("m", "")),
                 "final_pos": float(kv.get("final_pos", "nan").replace("m", "")),

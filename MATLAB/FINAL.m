@@ -197,7 +197,8 @@ end
 
 %% ----- Save results ----------------------------------------------------
 [~,istem] = fileparts(imu_path); [~,gstem] = fileparts(gnss_path);
-resultsDir = 'results';
+here = fileparts(mfilename('fullpath'));
+resultsDir = fullfile(here, 'results');
 if ~exist(resultsDir,'dir'), mkdir(resultsDir); end
 matfile = fullfile(resultsDir, sprintf('%s_%s_%s_final.mat', istem, gstem, method));
 

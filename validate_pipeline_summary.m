@@ -4,6 +4,7 @@
 %   Also runs a 3-sigma consistency check for each filter output.
 
 % Configuration ---------------------------------------------------------------
+here     = fileparts(mfilename('fullpath'));
 datasets = {'X001','X002','X003'};
 methods  = {'TRIAD','Davenport','SVD'};
 metrics  = {'RMSEpos','EndError','RMSresidPos','MaxresidPos', ...
@@ -24,7 +25,7 @@ PythonRef(:,:,2) = PythonRef(:,:,1); % Davenport
 PythonRef(:,:,3) = PythonRef(:,:,1); % SVD
 
 % Load true state ------------------------------------------------------------
-truth = load('STATE_X001.txt');  % columns: ECEF-pos, ECEF-vel, quaternion
+truth = load(fullfile(here,'STATE_X001.txt'));  % columns: ECEF-pos, ECEF-vel, quaternion
 
 % Loop over methods and datasets -------------------------------------------
 MySummary = nan(numel(datasets), numel(metrics), numel(methods));
@@ -32,7 +33,7 @@ for mi = 1:numel(methods)
     method = methods{mi};
     for di = 1:numel(datasets)
         ds = datasets{di};
-        fname = sprintf('results/IMU_%s_GNSS_%s_%s_task5_results.mat', ds, ds, method);
+        fname = fullfile(here, 'results', sprintf('IMU_%s_GNSS_%s_%s_task5_results.mat', ds, ds, method));
         if ~isfile(fname)
             error('Missing result file: %s', fname);
         end
@@ -88,8 +89,8 @@ for mi = 1:numel(methods)
     for di = 1:numel(datasets)
         ds = datasets{di};
         validate_3sigma( ...
-            sprintf('results/IMU_%s_GNSS_%s_%s_kf_output.mat', ds, ds, method), ...
-            'STATE_X001.txt');
+            fullfile(here,'results',sprintf('IMU_%s_GNSS_%s_%s_kf_output.mat', ds, ds, method)), ...
+            fullfile(here,'STATE_X001.txt')); 
     end
 end
 

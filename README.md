@@ -157,7 +157,7 @@ Davenport and SVD initialisation methods in sequence.  Provide a YAML
 configuration file to specify the datasets:
 
 ```bash
-python run_all_methods.py --config your_config.yml
+python /path/to/IMU/run_all_methods.py --config your_config.yml
 ```
 
 Running the script without `--config` processes the bundled example data sets.
@@ -168,7 +168,7 @@ Running the script without `--config` processes the bundled example data sets.
 To process every IMU/GNSS pair defined in `run_all_datasets.py`, simply run:
 
 ```bash
-python run_all_datasets.py
+python /path/to/IMU/run_all_datasets.py
 ```
 By default this processes each dataset with the TRIAD, Davenport and SVD
 initialisation methods. To limit the run to a single method pass
@@ -384,15 +384,7 @@ commands above reproduces the Python `main` results while letting you inspect
 each stage individually.
 
 ## Export to MATLAB (.mat) files
-To convert the saved Python results into MATLAB `.mat` files, run from the repo root:
-
-```bash
-cd /path/to/IMU
-pip install numpy scipy
-python export_mat.py
-```
-
-Or from *any* directory by giving the full path:
+To convert the saved Python results into MATLAB `.mat` files simply run:
 
 ```bash
 pip install numpy scipy

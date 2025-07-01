@@ -20,8 +20,10 @@ end
 
 % Remove command-line side effects to behave like a normal function
 
-if ~exist('results','dir')
-    mkdir('results');
+here = fileparts(mfilename('fullpath'));
+results_dir = fullfile(here,'results');
+if ~exist(results_dir,'dir')
+    mkdir(results_dir);
 end
 
 if isempty(method)
@@ -32,7 +34,6 @@ end
 fprintf('TASK 1%s: Define reference vectors in NED frame\n', log_tag);
 
 % --- Configuration ---
-results_dir = 'results';
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 if isempty(method)

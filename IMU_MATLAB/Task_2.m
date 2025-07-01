@@ -46,8 +46,10 @@ end
 fprintf('TASK 2%s: Measure the vectors in the body frame\n', log_tag);
 
 % --- Configuration ---
-if ~exist('results','dir')
-    mkdir('results');
+here = fileparts(mfilename('fullpath'));
+results_dir = fullfile(here,'results');
+if ~exist(results_dir,'dir')
+    mkdir(results_dir);
 end
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
@@ -299,8 +301,8 @@ fprintf('From accelerometer (assuming static IMU): a_measured = -g_body \n');
 fprintf('From gyroscope (assuming static IMU):     w_measured = omega_ie_body \n');
 
 % Save results for later tasks
-save(fullfile('results', ['Task2_body_' tag '.mat']), 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
-fprintf('Body-frame vectors and biases saved to %s\n', fullfile('results', ['Task2_body_' tag '.mat']));
+save(fullfile(results_dir, ['Task2_body_' tag '.mat']), 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
+fprintf('Body-frame vectors and biases saved to %s\n', fullfile(results_dir, ['Task2_body_' tag '.mat']));
 
 % Return results and store in base workspace
 result = struct('g_body', g_body, 'g_body_scaled', g_body_scaled, ...

@@ -21,10 +21,12 @@ Run the script with ``--config config.yml`` to process those files.
 import argparse
 import itertools
 import os
-import pathlib
+from pathlib import Path
 import subprocess
 import sys
 from typing import Iterable, Tuple
+
+HERE = Path(__file__).resolve().parent
 
 try:
     import yaml
@@ -72,19 +74,29 @@ def main(argv=None):
     else:
         cases, methods = list(DEFAULT_DATASETS), list(DEFAULT_METHODS)
 
-    os.makedirs("results", exist_ok=True)
+    results_dir = HERE / "results"
+    results_dir.mkdir(exist_ok=True)
+
+    script = HERE / "GNSS_IMU_Fusion.py"
 
     for (imu, gnss), m in itertools.product(cases, methods):
-        tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
-        log_path = pathlib.Path("results") / f"{tag}.log"
+        imu_path = Path(imu)
+        if not imu_path.is_absolute():
+            imu_path = HERE / imu_path
+        gnss_path = Path(gnss)
+        if not gnss_path.is_absolute():
+            gnss_path = HERE / gnss_path
+
+        tag = f"{imu_path.stem}_{gnss_path.stem}_{m}"
+        log_path = results_dir / f"{tag}.log"
         print(f"\u25B6 {tag}")
         cmd = [
             sys.executable,
-            "GNSS_IMU_Fusion.py",
+            str(script),
             "--imu-file",
-            imu,
+            str(imu_path),
             "--gnss-file",
-            gnss,
+            str(gnss_path),
             "--method",
             m,
         ]
