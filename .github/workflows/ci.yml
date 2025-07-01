@@ -16,6 +16,6 @@ jobs:
         run: |
           pip install -r requirements-dev.txt -r requirements.txt
       - name: Run flake8
-        run: flake8 Python/tests
+        run: flake8
       - name: Run pytest
         run: pytest Python/tests
