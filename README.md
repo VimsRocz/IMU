@@ -79,7 +79,7 @@ To process the bundled datasets using only the TRIAD initialisation and
 validate the results, run either the Python or MATLAB helper script:
 
 ```bash
-python run_triad_only.py
+python src/run_triad_only.py
 ```
 
 ```matlab
@@ -106,7 +106,7 @@ against it. The validation summary and plots are saved alongside the exported
 4. **Run with diagnostics**  
    In the integrated terminal:
    ```bash
-   python run_all_datasets.py --verbose 2>&1 | tee debug_output.log
+   python src/run_all_datasets.py --verbose 2>&1 | tee debug_output.log
    ```
 
 This will print:
@@ -157,7 +157,7 @@ Davenport and SVD initialisation methods in sequence.  Provide a YAML
 configuration file to specify the datasets:
 
 ```bash
-python run_all_methods.py --config your_config.yml
+python src/run_all_methods.py --config your_config.yml
 ```
 
 Running the script without `--config` processes the bundled example data sets.
@@ -168,7 +168,7 @@ Running the script without `--config` processes the bundled example data sets.
 To process every IMU/GNSS pair defined in `run_all_datasets.py`, simply run:
 
 ```bash
-python run_all_datasets.py
+python src/run_all_datasets.py
 ```
 By default this processes each dataset with the TRIAD, Davenport and SVD
 initialisation methods. To limit the run to a single method pass
@@ -190,7 +190,7 @@ All cases: 100%|##########| 9/9 [00:12<00:00,  1.31s/it]
 If you want to process all datasets using just the TRIAD initialisation method, run the helper script `run_triad_only.py` or the MATLAB script `run_triad_only.m`:
 
 ```bash
-python run_triad_only.py
+python src/run_triad_only.py
 ```
 ```matlab
 run_triad_only
@@ -201,7 +201,7 @@ This is equivalent to running `run_all_datasets.py --method TRIAD`.
 After all runs complete you can compare the datasets side by side:
 
 ```bash
-python plot_compare_all.py
+python src/plot_compare_all.py
 ```
 This creates one `all_datasets_<method>_comparison.pdf` per method in
 `results/`.
@@ -213,14 +213,14 @@ initialisation methods.  The script calls the fusion routine directly, so no
 additional wrapper scripts are involved:
 
 ```bash
-python FINAL.py
+python src/FINAL.py
 ```
 This produces the same logs and summary table as `run_all_datasets.py` but
 only for `IMU_X001.dat` and `GNSS_X001.csv`. You can still pass `--method` or a
 YAML config file just like with the batch runner.
 If your shell complains about `event not found` when you try running the
-shebang line directly, simply invoke the script with `python FINAL.py` or run it
-as `./FINAL.py` instead.
+shebang line directly, simply invoke the script with `python src/FINAL.py` or run it
+as `./src/FINAL.py` instead.
 
 ## Automated figure generation
 
@@ -295,7 +295,7 @@ You can also check the exported results directly in Python. Run the helper
 script with the `.mat` file and the reference trajectory:
 
 ```bash
-python validate_with_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat --truth-file STATE_X001.txt
+python src/validate_with_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat --truth-file STATE_X001.txt
 ```
 
 ### Interpolating to Ground Truth
