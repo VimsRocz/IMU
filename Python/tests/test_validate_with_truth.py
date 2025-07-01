@@ -22,7 +22,7 @@ def test_validate_with_truth(monkeypatch):
 
     monkeypatch.setattr(pd, "read_csv", head5000)
 
-    data_dir = Path(__file__).resolve().parents[1] / "Data"
+    data_dir = Path(__file__).resolve().parents[2] / "Data"
     args = [
         "--imu-file",
         str(data_dir / "IMU_X001.dat"),
@@ -32,10 +32,12 @@ def test_validate_with_truth(monkeypatch):
         "TRIAD",
     ]
     monkeypatch.setattr(sys, "argv", ["GNSS_IMU_Fusion.py"] + args)
+    Path("results").mkdir(exist_ok=True)
     main()
 
     tag = "IMU_X001_GNSS_X001_TRIAD"
-    mat_path = Path("results") / f"{tag}_kf_output.mat"
+    results_dir = Path(__file__).resolve().parents[1] / "results"
+    mat_path = results_dir / f"{tag}_kf_output.mat"
     assert mat_path.exists(), f"Missing {mat_path}"
 
     est = load_estimate(str(mat_path))
@@ -68,7 +70,8 @@ def test_validate_with_truth(monkeypatch):
         sigma = 3 * np.sqrt(np.diagonal(est["P"], axis1=1, axis2=2)[:, :3])
         assert np.all(np.abs(err) <= sigma[: len(err)])
 
-    npz_path = Path("results") / f"{tag}_kf_output.npz"
+    results_dir = Path(__file__).resolve().parents[1] / "results"
+    npz_path = results_dir / f"{tag}_kf_output.npz"
     assert npz_path.exists(), f"Missing {npz_path}"
     npz = np.load(npz_path, allow_pickle=True)
     from scipy.io import loadmat
@@ -89,7 +92,7 @@ def test_validate_with_truth(monkeypatch):
     vmain()
 
     for frame in ["ECEF", "NED", "BODY"]:
-        pdf = Path("results") / f"Task5_compare_{frame}.pdf"
+        pdf = results_dir / f"Task5_compare_{frame}.pdf"
         assert pdf.exists(), f"Missing {pdf}"
 
 
@@ -125,7 +128,7 @@ def test_index_align(monkeypatch):
 
     monkeypatch.setattr(pd, "read_csv", head5000)
 
-    data_dir = Path(__file__).resolve().parents[1] / "Data"
+    data_dir = Path(__file__).resolve().parents[2] / "Data"
     run_args = [
         "--imu-file",
         str(data_dir / "IMU_X001.dat"),
@@ -135,11 +138,13 @@ def test_index_align(monkeypatch):
         "TRIAD",
     ]
     monkeypatch.setattr(sys, "argv", ["GNSS_IMU_Fusion.py"] + run_args)
+    Path("results").mkdir(exist_ok=True)
     main()
 
+    results_dir = Path(__file__).resolve().parents[1] / "results"
     args = [
         "--est-file",
-        "results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat",
+        str(results_dir / "IMU_X001_GNSS_X001_TRIAD_kf_output.mat"),
         "--truth-file",
         str(data_dir / "STATE_X001.txt"),
         "--ref-lat",
@@ -157,5 +162,5 @@ def test_index_align(monkeypatch):
     vmain()
 
     for frame in ["NED", "ECEF", "BODY"]:
-        f = Path("results") / f"Task5_compare_{frame}.pdf"
+        f = results_dir / f"Task5_compare_{frame}.pdf"
         assert f.exists(), f"Missing {f}"

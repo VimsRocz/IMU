@@ -20,15 +20,14 @@ Run the script with ``--config config.yml`` to process those files.
 
 import argparse
 import itertools
-import os
 import pathlib
 import subprocess
 import sys
 from typing import Iterable, Tuple
 import logging
+from utils import get_data_file
 
 HERE = pathlib.Path(__file__).resolve().parent
-DATA_DIR = HERE.parent / "Data"
 try:
     import yaml
 except ModuleNotFoundError:  # allow running without PyYAML installed
@@ -86,9 +85,9 @@ def main(argv=None):
             sys.executable,
             str(HERE / "GNSS_IMU_Fusion.py"),
             "--imu-file",
-            str(DATA_DIR / imu),
+            str(get_data_file(imu)),
             "--gnss-file",
-            str(DATA_DIR / gnss),
+            str(get_data_file(gnss)),
             "--method",
             m,
         ]

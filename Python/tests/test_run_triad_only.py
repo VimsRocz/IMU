@@ -19,7 +19,7 @@ def _run_script(monkeypatch, args):
     monkeypatch.setattr(pathlib.Path, 'glob', lambda self, pattern: [])
     monkeypatch.setattr(sys, 'argv', ['run_triad_only.py'] + args)
     repo_root = pathlib.Path(__file__).resolve().parents[2]
-    monkeypatch.syspath_prepend(str(repo_root))
+    monkeypatch.syspath_prepend(str(repo_root / 'Python'))
     # stub heavy modules
     po = types.ModuleType('plot_overlay')
     po.plot_overlay = lambda *a, **k: None

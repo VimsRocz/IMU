@@ -21,10 +21,10 @@ HERE = pathlib.Path(__file__).resolve().parent
 
 from tabulate import tabulate
 from tqdm import tqdm
+from utils import get_data_file
 
 HERE     = pathlib.Path(__file__).resolve().parent
 SCRIPT   = HERE / "GNSS_IMU_Fusion.py"
-DATA_DIR = HERE.parent / "Data"
 LOG_DIR  = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -84,8 +84,6 @@ def main():
     parser.add_argument('--config', help='YAML configuration file')
     args = parser.parse_args()
 
-    data_files = {p.name for p in DATA_DIR.iterdir()}
-
     if args.config:
         with open(args.config) as fh:
             cfg = yaml.safe_load(fh) or {}
@@ -112,13 +110,15 @@ def main():
     results_dir.mkdir(exist_ok=True)
 
     for imu, gnss, method in tqdm(cases, desc="All cases"):
+        imu_path = get_data_file(imu)
+        gnss_path = get_data_file(gnss)
         if args.verbose:
             # Debugging information for file pairing and timestamps
             print("==== DEBUG: File Pairing ====")
-            print("IMU file:", imu)
-            print("GNSS file:", gnss)
-            gnss_df = pd.read_csv(gnss)
-            imu_data = np.loadtxt(imu)
+            print("IMU file:", imu_path)
+            print("GNSS file:", gnss_path)
+            gnss_df = pd.read_csv(gnss_path)
+            imu_data = np.loadtxt(imu_path)
             print("GNSS shape:", gnss_df.shape)
             print("IMU shape:", imu_data.shape)
             print("GNSS time [start, end]:", gnss_df['Posix_Time'].iloc[0], gnss_df['Posix_Time'].iloc[-1])
@@ -128,10 +128,6 @@ def main():
             print("GNSS Head:\n", gnss_df.head())
             print("IMU Head:\n", imu_data[:5])
             print("============================")
-        if imu not in data_files or gnss not in data_files:
-            raise FileNotFoundError(f"Missing {imu} or {gnss} in {DATA_DIR}")
-        imu_path = DATA_DIR / imu
-        gnss_path = DATA_DIR / gnss
         start = time.time()
         summaries = run_one(str(imu_path), str(gnss_path), method, verbose=args.verbose)
         runtime = time.time() - start
