@@ -12,6 +12,10 @@ metrics  = {'RMSEpos','EndError','RMSresidPos','MaxresidPos', ...
             'ZUPTcnt','Runtime','Pxx','Pyy','Pzz'};
 tol = 1e-2;
 
+script_dir = fileparts(mfilename('fullpath'));
+results_dir = fullfile(script_dir, 'results');
+if ~exist(results_dir,'dir'); mkdir(results_dir); end
+
 % Python reference summary values
 PythonRef = nan(numel(datasets), numel(metrics), numel(methods));
 % PythonRef(:,:,1) corresponds to TRIAD:
@@ -32,7 +36,7 @@ for mi = 1:numel(methods)
     method = methods{mi};
     for di = 1:numel(datasets)
         ds = datasets{di};
-        fname = sprintf('results/IMU_%s_GNSS_%s_%s_task5_results.mat', ds, ds, method);
+        fname = fullfile(results_dir, sprintf('IMU_%s_GNSS_%s_%s_task5_results.mat', ds, ds, method));
         if ~isfile(fname)
             error('Missing result file: %s', fname);
         end
@@ -88,8 +92,8 @@ for mi = 1:numel(methods)
     for di = 1:numel(datasets)
         ds = datasets{di};
         validate_3sigma( ...
-            sprintf('results/IMU_%s_GNSS_%s_%s_kf_output.mat', ds, ds, method), ...
-            fullfile('..', 'Data', 'STATE_X001.txt')); 
+            fullfile(results_dir, sprintf('IMU_%s_GNSS_%s_%s_kf_output.mat', ds, ds, method)), ...
+            fullfile('..', 'Data', 'STATE_X001.txt'));
     end
 end
 

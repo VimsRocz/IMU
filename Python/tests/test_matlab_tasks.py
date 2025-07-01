@@ -21,7 +21,7 @@ def test_matlab_tasks(tmp_path):
         "Task_4(imu, gnss, 'TRIAD');"
     )
     subprocess.run([matlab, "-batch", cmd], check=True)
-    mat_file = Path('results/Task3_results_IMU_X001_GNSS_X001.mat')
+    mat_file = Path('MATLAB/results') / 'Task3_results_IMU_X001_GNSS_X001.mat'
     assert mat_file.exists(), f"Missing {mat_file}"
     data = scipy.io.loadmat(mat_file, struct_as_record=False, squeeze_me=True)
     task3 = data['task3_results']
@@ -31,7 +31,7 @@ def test_matlab_tasks(tmp_path):
     assert R.shape == (3, 3)
     assert np.isfinite(R).all()
 
-    mat_file4 = Path('results/Task4_results_IMU_X001_GNSS_X001.mat')
+    mat_file4 = Path('MATLAB/results') / 'Task4_results_IMU_X001_GNSS_X001.mat'
     assert mat_file4.exists(), f"Missing {mat_file4}"
     data4 = scipy.io.loadmat(mat_file4)
     assert 'gnss_pos_ned' in data4
