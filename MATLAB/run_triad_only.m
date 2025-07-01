@@ -23,9 +23,16 @@ end
 here = fileparts(mfilename('fullpath'));
 py_dir = fullfile(here, '..', 'Python');
 
+%% Determine which Python executable to use
+py = pyenv;
+pyexe = py.Executable;
+if isempty(pyexe)
+    pyexe = 'python3';  % fallback
+end
+
 %% -- Run the Python batch processor ---------------------------------------
 py_script = fullfile(py_dir, 'run_all_datasets.py');
-cmd = sprintf('python "%s" --method TRIAD', py_script);
+cmd = sprintf('"%s" "%s" --method TRIAD', pyexe, py_script);
 status = system(cmd);
 if status ~= 0
     error('run_all_datasets.py failed');
@@ -64,8 +71,8 @@ for k = 1:numel(mat_files)
         continue
     end
     validate_py = fullfile(here, 'validate_with_truth.py');
-    vcmd = sprintf('python "%s" --est-file "%s" --truth-file "%s" --output "%s"', ...
-        validate_py, fullfile(results_dir, name), truth_file, results_dir);
+    vcmd = sprintf('"%s" "%s" --est-file "%s" --truth-file "%s" --output "%s"', ...
+        pyexe, validate_py, fullfile(results_dir, name), truth_file, results_dir);
     vstatus = system(vcmd);
     if vstatus ~= 0
         warning('Validation failed for %s', name);
