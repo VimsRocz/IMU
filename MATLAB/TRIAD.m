@@ -39,11 +39,13 @@ if isempty(dbstack)
            '    TRIAD(''IMU_X001.dat'', ''GNSS_X001.csv'');']);
 end
 
+% Default to the noisy dataset with sensor bias
+% IMU_X003.dat has additional noise and bias and pairs with GNSS_X002.csv
 if nargin < 1 || isempty(imu_path)
-    imu_path = {'IMU_X001.dat'};
+    imu_path = {'IMU_X003.dat'};
 end
 if nargin < 2 || isempty(gnss_path)
-    gnss_path = {'GNSS_X001.csv'};
+    gnss_path = {'GNSS_X002.csv'};
 end
 
 % normalise inputs to cell arrays
@@ -185,14 +187,21 @@ matfile = fullfile(resultsDir, sprintf('%s_%s_TRIAD_output.mat', istem, gstem));
 summary.q0 = q;
 summary.final_pos = norm(pos(end,:));
 
-results.pos = pos;
-results.vel = vel;
+results.pos_ned = pos;
+results.vel_ned = vel;
 results.q = q;
 results.summary = summary;
 
 if verbose
-    save(matfile, 'pos', 'vel', 'q', 'summary');
+    save(matfile, 'pos_ned', 'vel_ned', 'q', 'summary');
     fprintf('Saved %s\n', matfile);
+    % Validate against the reference trajectory using sample index alignment
+    truth_path = get_data_file('STATE_X001.txt');
+    if isfile(truth_path)
+        validate_with_truth_index(matfile, truth_path);
+    else
+        warning('Truth file %s not found. Skipping validation.', truth_path);
+    end
 end
 end
 
