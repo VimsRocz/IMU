@@ -3,6 +3,7 @@ from typing import Tuple, Optional
 import pathlib
 import subprocess
 import sys
+import os
 
 
 def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
@@ -26,22 +27,38 @@ def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
         ])
 
 
+
 def get_data_file(filename: str) -> pathlib.Path:
     """Return the full path to *filename* searching common data folders.
 
     The function mirrors the behaviour of the MATLAB ``get_data_file`` helper
-    and allows scripts to be executed from arbitrary locations.  Searches the
-    ``Data/`` folder next to this file, ``Python/data`` and the repository root
-    for ``filename``.  ``FileNotFoundError`` is raised if the file cannot be
-    located.
+    and allows scripts to be executed from arbitrary locations.  Searches a
+    directory specified via the ``IMU_DATA_PATH`` environment variable first,
+    then falls back to the ``Data/`` folder next to this file, ``Python/data``
+    and the repository root. ``FileNotFoundError`` is raised if the file cannot
+    be located.
     """
 
     script_dir = pathlib.Path(__file__).resolve().parent
-    search_dirs = [
+    search_dirs = []
+
+    candidate = pathlib.Path(filename)
+    if candidate.is_absolute():
+        if candidate.exists():
+            return candidate
+        filename = candidate.name
+
+    env_path = os.environ.get("IMU_DATA_PATH")
+    if env_path:
+        for p in env_path.split(os.pathsep):
+            if p:
+                search_dirs.append(pathlib.Path(p))
+
+    search_dirs.extend([
         script_dir.parent / "Data",
         script_dir / "data",
         script_dir.parent,
-    ]
+    ])
 
     for d in search_dirs:
         candidate = d / filename

@@ -21,6 +21,17 @@ pip install -e .
 
 The repository bundles three IMU logs (`IMU_X001.dat`–`IMU_X003.dat`) and two GNSS traces (`GNSS_X001.csv`, `GNSS_X002.csv`) under the `Data/` folder.
 
+If your data resides in a different location, set the environment variable
+`IMU_DATA_PATH` to point to that directory and the helper scripts will search it
+before falling back to the bundled `Data/` folder.
+Multiple paths can be specified using the platform's path separator (``:`` on
+Unix).
+For example:
+
+```bash
+export IMU_DATA_PATH=/path/to/my/datasets
+```
+
 Process all datasets with every attitude initialisation method using
 
 ```bash
