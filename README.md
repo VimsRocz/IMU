@@ -45,7 +45,7 @@ To run only the TRIAD method use the helper script
 python Python/run_triad_only.py
 ```
 
-Both scripts write their results to `Python/results/` and, when a reference trajectory is available, automatically validate the output.
+Both scripts write their results to `Python/results/` by default. Use `--output-dir DIR` to select a different location. When a reference trajectory is available, the output is automatically validated.
 
 ## Running the TRIAD pipeline in MATLAB
 Execute `TRIAD.m` from the `MATLAB` folder to run Tasks 1–5 on the bundled

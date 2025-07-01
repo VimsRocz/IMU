@@ -82,6 +82,11 @@ def main():
     parser.add_argument('--method', choices=['TRIAD','Davenport','SVD','ALL'],
                         default='ALL')
     parser.add_argument('--config', help='YAML configuration file')
+    parser.add_argument(
+        '--output-dir',
+        default=str(HERE / 'results'),
+        help='Directory for summary.csv and other outputs',
+    )
     args = parser.parse_args()
 
     data_files = {p.name for p in DATA_DIR.iterdir()}
@@ -108,8 +113,8 @@ def main():
     cases = [(imu, gnss, m) for (imu, gnss) in datasets for m in method_list]
     fusion_results = []
 
-    results_dir = HERE / "results"
-    results_dir.mkdir(exist_ok=True)
+    results_dir = pathlib.Path(args.output_dir)
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     for imu, gnss, method in tqdm(cases, desc="All cases"):
         if args.verbose:

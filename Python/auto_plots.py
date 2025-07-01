@@ -9,6 +9,7 @@ hooked into :mod:`run_all_datasets` or another driver script.
 from __future__ import annotations
 
 import os
+import pathlib
 from typing import Iterable, Tuple
 
 import pandas as pd
@@ -25,7 +26,8 @@ from utils import compute_C_ECEF_to_NED
 # ---------------------------------------------------------------------------
 # Where figures and tables should be written
 # ---------------------------------------------------------------------------
-OUTPUT_DIR = "results/auto_plots"
+OUTPUT_BASE = pathlib.Path(os.environ.get("OUTPUT_DIR", "results"))
+OUTPUT_DIR = OUTPUT_BASE / "auto_plots"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Collect metrics for the summary table
