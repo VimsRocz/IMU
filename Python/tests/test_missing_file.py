@@ -12,7 +12,7 @@ from GNSS_IMU_Fusion import main
 
 
 def test_missing_gnss_file(monkeypatch):
-    data_dir = Path(__file__).resolve().parents[1] / "Data"
+    data_dir = Path(__file__).resolve().parents[2] / "Data"
     args = ["--imu-file", str(data_dir / "IMU_X001.dat"), "--gnss-file", "missing.csv"]
     monkeypatch.setattr("sys.argv", ["GNSS_IMU_Fusion.py"] + args)
     with pytest.raises(FileNotFoundError):

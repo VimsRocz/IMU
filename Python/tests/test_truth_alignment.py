@@ -18,7 +18,7 @@ from utils import ecef_to_geodetic, compute_C_ECEF_to_NED
 
 
 def test_truth_alignment():
-    data_dir = Path(__file__).resolve().parents[1] / "Data"
+    data_dir = Path(__file__).resolve().parents[2] / "Data"
     gnss = pd.read_csv(data_dir / "GNSS_X001.csv")
     start = gnss["Posix_Time"].iloc[0]
     gnss = gnss[gnss["Posix_Time"] - start <= 2]

@@ -14,6 +14,7 @@ from GNSS_IMU_Fusion import main
 def test_body_frame_plots(tmp_path, monkeypatch):
     # run from a temporary working directory so plots are written under tmp_path
     monkeypatch.chdir(tmp_path)
+    Path("results").mkdir(exist_ok=True)
 
     # limit dataset size for speed
     orig_read_csv = pd.read_csv

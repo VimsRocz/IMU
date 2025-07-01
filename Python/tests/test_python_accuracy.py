@@ -6,7 +6,7 @@ pd = pytest.importorskip("pandas")
 
 from GNSS_IMU_Fusion import main
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "Data"
+DATA_DIR = Path(__file__).resolve().parents[2] / "Data"
 DATASETS = {
     'X001': (DATA_DIR / "IMU_X001.dat", DATA_DIR / "GNSS_X001.csv"),
     'X002': (DATA_DIR / "IMU_X002.dat", DATA_DIR / "GNSS_X002.csv"),
@@ -28,7 +28,7 @@ def test_python_accuracy(monkeypatch, imu_file, gnss_file):
     main()
 
     tag = f"{Path(imu_file).stem}_{Path(gnss_file).stem}_TRIAD"
-    npz_path = Path("results") / f"{tag}_kf_output.npz"
+    npz_path = Path(__file__).resolve().parents[1] / "results" / f"{tag}_kf_output.npz"
     data = np.load(npz_path, allow_pickle=True)
     final_pos = data["summary"].item()["final_pos"]
     assert final_pos < 0.05, f"final position error {final_pos:.3f} m >= 0.05 m"

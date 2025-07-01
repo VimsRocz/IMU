@@ -25,7 +25,7 @@ def test_no_plots_without_cartopy(monkeypatch):
         return df.head(5000)
     monkeypatch.setattr(pd, "read_csv", head5000)
 
-    data_dir = Path(__file__).resolve().parents[1] / "Data"
+    data_dir = Path(__file__).resolve().parents[2] / "Data"
     args = [
         "--imu-file",
         str(data_dir / "IMU_X001.dat"),
