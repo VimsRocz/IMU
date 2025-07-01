@@ -55,7 +55,7 @@ the results automatically.
 
 A MATLAB implementation of the same pipeline lives under `MATLAB/`. All example
 datasets reside in the top-level `Data/` folder, and the plotting scripts write
-their PDFs to `results/`. See [MATLAB/README.md](MATLAB/README.md) for
+their PDFs to `MATLAB/results/`. See [MATLAB/README.md](MATLAB/README.md) for
 instructions on running `main.m` and the individual task scripts.
 
 ## Further documentation

@@ -15,11 +15,15 @@ PythonRef = [
 
 MySummary = nan(numel(datasets), numel(metrics));
 
+script_dir = fileparts(mfilename('fullpath'));
+results_dir = fullfile(script_dir, 'results');
+if ~exist(results_dir,'dir'); mkdir(results_dir); end
+
 for k = 1:numel(datasets)
     ds = datasets{k};
     tag = sprintf('IMU_%s_GNSS_%s_TRIAD', ds, ds);
-    resFile = fullfile('results', [tag '_task5_results.mat']);
-    t2File  = fullfile('results', ['Task2_body_' tag '.mat']);
+    resFile = fullfile(results_dir, [tag '_task5_results.mat']);
+    t2File  = fullfile(results_dir, ['Task2_body_' tag '.mat']);
     if ~isfile(resFile)
         error('Missing result file: %s', resFile);
     end

@@ -62,8 +62,9 @@ if verbose && (nargin < 1 || isempty(imu_path) || nargin < 2 || isempty(gnss_pat
     fprintf('[INFO] Using default files: %s, %s\n', imu_list{1}, gnss_list{1});
 end
 
-resultsDir = 'results';
-if verbose && ~exist(resultsDir, 'dir')
+script_dir = fileparts(mfilename('fullpath'));
+resultsDir = fullfile(script_dir, 'results');
+if ~exist(resultsDir,'dir')
     mkdir(resultsDir);
 end
 

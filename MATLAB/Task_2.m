@@ -48,7 +48,7 @@ fprintf('TASK 2%s: Measure the vectors in the body frame\n', log_tag);
 % --- Configuration ---
 script_dir = fileparts(mfilename('fullpath'));
 results_dir = fullfile(script_dir, 'results');
-if ~exist(results_dir, 'dir'); mkdir(results_dir); end
+if ~exist(results_dir,'dir'); mkdir(results_dir); end
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 if isempty(method)

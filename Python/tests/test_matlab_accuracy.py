@@ -18,7 +18,7 @@ def test_matlab_accuracy(tmp_path):
         "main(imu_path, gnss_path, 'TRIAD');"
     )
     subprocess.run([matlab, "-batch", cmd], check=True)
-    mat_file = Path("results/Task5_results_IMU_X001_GNSS_X001.mat")
+    mat_file = Path("MATLAB/results") / "Task5_results_IMU_X001_GNSS_X001.mat"
     assert mat_file.exists(), f"Missing {mat_file}"
     data = scipy.io.loadmat(mat_file)
     x_log = data["x_log"]

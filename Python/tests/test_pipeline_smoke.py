@@ -18,8 +18,8 @@ def test_pipeline_smoke(tmp_path):
         "main(imu_path, gnss_path);"
     )
     subprocess.run([matlab, "-batch", cmd], check=True)
-    out4 = Path("results/task4_results.mat")
-    out5 = Path("results/task5_results.mat")
+    out4 = Path("MATLAB/results") / "task4_results.mat"
+    out5 = Path("MATLAB/results") / "task5_results.mat"
     assert out4.exists(), f"Missing {out4}"
     assert out5.exists(), f"Missing {out5}"
     data4 = scipy.io.loadmat(out4)
