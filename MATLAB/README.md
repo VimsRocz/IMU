@@ -58,7 +58,19 @@ The helper script `run_all_datasets.m` iterates over every `IMU_X*.dat` and `GNS
 run_all_datasets
 ```
 
-To run only the TRIAD method use:
+To reproduce the Python helper `run_triad_only.py`, use `run_triad_only.m`:
+
+```matlab
+run_triad_only
+```
+
+This MATLAB script calls the Python batch processor with the TRIAD method and
+validates the generated MAT files when reference logs are present.
+
+The `TRIAD` function described below is a simplified single-pair demonstration
+and **not** the batch runner.
+
+For a simplified single-pair demonstration call `TRIAD` directly:
 
 ```matlab
 % process all bundled datasets (paths resolved with get_data_file)

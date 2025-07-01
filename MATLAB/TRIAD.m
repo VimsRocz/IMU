@@ -19,6 +19,10 @@ end
 %       TRIAD('IMU_X001.dat','GNSS_X001.csv');
 %
 %   See docs/TRIAD_Task*.md for a detailed description of the algorithm.
+%
+%   This function demonstrates the algorithm on a single dataset. For
+%   batch processing across all logs use ``run_triad_only.m`` or
+%   ``run_all_datasets.m``.
 
 % Detect accidental execution as a script. When run with the `run` command
 % the file is evaluated line-by-line and `nargin` cannot be called,
