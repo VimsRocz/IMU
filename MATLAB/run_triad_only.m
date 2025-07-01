@@ -9,7 +9,7 @@ function run_triad_only(truthFile)
 %   run_triad_only(TRUTHFILE)
 %
 % When TRUTHFILE is provided it is used for all datasets. If omitted the
-% script searches for STATE_<id>_small.txt or STATE_<id>.txt next to this
+% script searches for STATE_<id>.txt next to this
 % file.
 %
 % All .mat files are written to the 'results' folder in the repository root.
@@ -46,8 +46,7 @@ for k = 1:numel(mat_files)
         candidates = {truthFile};
     else
         data_dir = fullfile(here, '..', 'Data');
-        candidates = {fullfile(data_dir, ['STATE_' ds '_small.txt']), ...
-                      fullfile(data_dir, ['STATE_' ds '.txt'])};
+        candidates = {fullfile(data_dir, ['STATE_' ds '.txt'])};
     end
     truth_file = '';
     for c = candidates
