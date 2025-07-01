@@ -1,6 +1,6 @@
 function path = get_data_file(filename)
     %GET_DATA_FILE Returns the full path to a data file.
-    %   Searches in IMU_MATLAB/data and repository root.
+    %   Searches in MATLAB/data and repository root.
     script_dir = fileparts(mfilename('fullpath'));
     p1 = fullfile(script_dir, 'data', filename);
     if exist(p1, 'file')
