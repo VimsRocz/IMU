@@ -5,7 +5,7 @@ This folder contains a MATLAB translation of the Python pipeline.
 ## Structure
 
 ```
-IMU_MATLAB/
+MATLAB/
     main.m
     Task_1.m   % function
     Task_2.m   % function
@@ -64,16 +64,16 @@ To run only the TRIAD method use:
 
 ```matlab
 % process all bundled datasets (paths resolved with get_data_file)
-results = TRIAD();
+results = TRIAD_batch();
 
 % or run a specific pair
-% result = TRIAD('IMU_X001.dat','GNSS_X001.csv');
+% result = TRIAD_batch('IMU_X001.dat','GNSS_X001.csv');
 
 % multiple pairs can be given as cell arrays
-% results = TRIAD({'IMU_X001.dat','IMU_X002.dat'}, {'GNSS_X001.csv','GNSS_X002.csv'});
+% results = TRIAD_batch({'IMU_X001.dat','IMU_X002.dat'}, {'GNSS_X001.csv','GNSS_X002.csv'});
 ```
 
-`TRIAD` resolves file names with `get_data_file`, so the bundled logs are
+`TRIAD_batch` resolves file names with `get_data_file`, so the bundled logs are
 found even if you run the command from another folder.  When more than one
 pair is processed the function returns a cell array of result structs, each
 matching the corresponding `results/Result_<IMU>_<GNSS>_TRIAD.mat` file.
@@ -91,12 +91,12 @@ ensure you are using the `'WGS84'` string in `Task_1.m` when calling
 ## GitHub Usage
 
 1. Clone or open this repository.
-2. Add your data files to `IMU_MATLAB/data/` (or keep them in the repository
+2. Add your data files to `MATLAB/data/` (or keep them in the repository
    root).
-3. In MATLAB, navigate to `IMU_MATLAB/` and run `main`.
+3. In MATLAB, navigate to `MATLAB/` and run `main`.
 4. Commit new scripts or results with:
    ```bash
-   git add IMU_MATLAB
+   git add MATLAB
    git commit -m "Update MATLAB pipeline"
    git push
    ```
