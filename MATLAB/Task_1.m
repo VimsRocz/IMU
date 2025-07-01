@@ -18,11 +18,11 @@ if ~isfile(imu_path)
           imu_path);
 end
 
-% Remove command-line side effects to behave like a normal function
 
-if ~exist('results','dir')
-    mkdir('results');
-end
+% Remove command-line side effects to behave like a normal function
+script_dir = fileparts(mfilename('fullpath'));
+results_dir = fullfile(script_dir, 'results');
+if ~exist(results_dir,'dir'); mkdir(results_dir); end
 
 if isempty(method)
     log_tag = '';
@@ -32,7 +32,6 @@ end
 fprintf('TASK 1%s: Define reference vectors in NED frame\n', log_tag);
 
 % --- Configuration ---
-results_dir = 'results';
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 if isempty(method)

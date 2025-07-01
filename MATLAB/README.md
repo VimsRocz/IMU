@@ -16,7 +16,7 @@ MATLAB/
 ```
 
 Place your `.dat` and `.csv` data files inside the top-level `Data/` folder.
-The scripts look there by default and save outputs and plots in `results/`.
+The scripts look there by default and save outputs and plots in `MATLAB/results/`.
 
 Run the entire pipeline from MATLAB by executing `main.m`. The script now
 accepts optional file names **and** a list of methods so you can run:
@@ -35,11 +35,11 @@ method (TRIAD, Davenport and SVD by default). Output files include the
 method name so results are preserved for every run.
 
 `Task_4` expects the rotation matrices produced by `Task_3` to be saved as
-`results/task3_results.mat`. Make sure `Task_3` completes before running
+`MATLAB/results/task3_results.mat`. Make sure `Task_3` completes before running
 `Task_4` separately.
 
 `Task_4` also saves the NED-converted GNSS position array `gnss_pos_ned` to
-`results/task4_results.mat`.
+`MATLAB/results/task4_results.mat`.
 `Task_5` looks for this file when started or you can pass `gnss_pos_ned`
 directly as an argument.
 
@@ -52,7 +52,7 @@ Task_2('IMU_X001.dat','GNSS_X001.csv','TRIAD')
 
 
 ### Batch processing
-The helper script `run_all_datasets.m` iterates over every `IMU_X*.dat` and `GNSS_X*.csv` pair and runs all three methods. Paths are resolved with `get_data_file` so the script can be executed from any folder. After each run the Task 5 results are loaded into workspace variables such as `result_IMU_X001_GNSS_X001_TRIAD` and saved in `results/` as `.mat` files.
+The helper script `run_all_datasets.m` iterates over every `IMU_X*.dat` and `GNSS_X*.csv` pair and runs all three methods. Paths are resolved with `get_data_file` so the script can be executed from any folder. After each run the Task 5 results are loaded into workspace variables such as `result_IMU_X001_GNSS_X001_TRIAD` and saved in `MATLAB/results/` as `.mat` files.
 
 ```matlab
 run_all_datasets
@@ -95,7 +95,7 @@ TRIAD('IMU_X001.dat','GNSS_X001.csv', true)
 `TRIAD` resolves file names with `get_data_file`, so the bundled logs are
 found even if you run the command from another folder.  When more than one
 pair is processed the function returns a cell array of result structs, each
-matching the corresponding `results/Result_<IMU>_<GNSS>_TRIAD.mat` file.
+matching the corresponding `MATLAB/results/Result_<IMU>_<GNSS>_TRIAD.mat` file.
 
 ### Compatibility notes
 
@@ -135,8 +135,8 @@ modifying or extending the code so both implementations stay aligned:
    position/velocity RMSE and the final position error. Save these in a struct
    called `results` along with the biases.
 5. **Result Logging** – Write the struct to
-   `results/IMU_GNSS_bias_and_performance.mat` and optionally append the printed
-   summary to `results/IMU_GNSS_summary.txt`.
+   `MATLAB/results/IMU_GNSS_bias_and_performance.mat` and optionally append the printed
+   summary to `MATLAB/results/IMU_GNSS_summary.txt`.
 
 Add comments in the code where each step occurs (e.g. `% Task 2.3: Gravity and
 Bias`) to help future maintainers keep the MATLAB and Python versions

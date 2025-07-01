@@ -16,9 +16,9 @@ if nargin < 3
     method = '';
 end
 
-if ~exist('results','dir')
-    mkdir('results');
-end
+script_dir = fileparts(mfilename('fullpath'));
+results_dir = fullfile(script_dir, 'results');
+if ~exist(results_dir,'dir'); mkdir(results_dir); end
 if ~isfile(gnss_path)
     error('Task_4:GNSSFileNotFound', ...
           'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
@@ -29,7 +29,6 @@ if ~isfile(imu_path)
           'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
           imu_path);
 end
-results_dir = 'results';
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 pair_tag = [imu_name '_' gnss_name];

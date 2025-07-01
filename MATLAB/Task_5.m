@@ -16,8 +16,9 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, truthFile)
         truthFile = '';
     end
 
-    results_dir = 'results';
-    if ~exist(results_dir,'dir')
+    script_dir = fileparts(mfilename('fullpath'));
+    results_dir = fullfile(script_dir, 'results');
+    if ~exist(results_dir,'dir');
         mkdir(results_dir);
     end
     if ~isfile(gnss_path)

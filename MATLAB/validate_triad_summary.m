@@ -13,13 +13,17 @@ PythonRef = [
     0.29,0.01,0.03,0.30,0.10,0.42,6.92,0.00,NaN,NaN,NaN,NaN,479587,177.53;
     0.29,0.01,0.03,0.30,0.10,0.42,6.92,0.00,NaN,NaN,NaN,NaN,479587,179.14];
 
+script_dir = fileparts(mfilename('fullpath'));
+results_dir = fullfile(script_dir, 'results');
+if ~exist(results_dir,'dir'); error('Results directory not found: %s', results_dir); end
+
 MySummary = nan(numel(datasets), numel(metrics));
 
 for k = 1:numel(datasets)
     ds = datasets{k};
     tag = sprintf('IMU_%s_GNSS_%s_TRIAD', ds, ds);
-    resFile = fullfile('results', [tag '_task5_results.mat']);
-    t2File  = fullfile('results', ['Task2_body_' tag '.mat']);
+    resFile = fullfile(results_dir, [tag '_task5_results.mat']);
+    t2File  = fullfile(results_dir, ['Task2_body_' tag '.mat']);
     if ~isfile(resFile)
         error('Missing result file: %s', resFile);
     end

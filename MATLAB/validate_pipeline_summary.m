@@ -23,6 +23,10 @@ PythonRef(:,:,1) = [ ...
 PythonRef(:,:,2) = PythonRef(:,:,1); % Davenport
 PythonRef(:,:,3) = PythonRef(:,:,1); % SVD
 
+script_dir = fileparts(mfilename('fullpath'));
+results_dir = fullfile(script_dir, 'results');
+if ~exist(results_dir,'dir'); error('Results directory not found: %s', results_dir); end
+
 % Load true state ------------------------------------------------------------
 truth = load(fullfile('..', 'Data', 'STATE_X001.txt'));  % columns: ECEF-pos, ECEF-vel, quaternion
 
@@ -32,7 +36,7 @@ for mi = 1:numel(methods)
     method = methods{mi};
     for di = 1:numel(datasets)
         ds = datasets{di};
-        fname = sprintf('results/IMU_%s_GNSS_%s_%s_task5_results.mat', ds, ds, method);
+        fname = fullfile(results_dir, sprintf('IMU_%s_GNSS_%s_%s_task5_results.mat', ds, ds, method));
         if ~isfile(fname)
             error('Missing result file: %s', fname);
         end
@@ -88,7 +92,7 @@ for mi = 1:numel(methods)
     for di = 1:numel(datasets)
         ds = datasets{di};
         validate_3sigma( ...
-            sprintf('results/IMU_%s_GNSS_%s_%s_kf_output.mat', ds, ds, method), ...
+            fullfile(results_dir, sprintf('IMU_%s_GNSS_%s_%s_kf_output.mat', ds, ds, method)), ...
             fullfile('..', 'Data', 'STATE_X001.txt')); 
     end
 end
