@@ -343,7 +343,7 @@ pos_t_ned  = []; vel_t_ned  = []; acc_t_ned  = [];
 pos_t_body = []; vel_t_body = []; acc_t_body = [];
 for i=1:numel(truth_candidates)
     if exist(truth_candidates{i},'file')
-        truth_data = load(truth_candidates{i});
+        truth_data = readmatrix(truth_candidates{i}, 'CommentStyle','#');
         break;
     end
 end

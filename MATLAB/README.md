@@ -43,6 +43,13 @@ method name so results are preserved for every run.
 `MATLAB/results/task4_results.mat`.
 `Task_5` looks for this file when started or you can pass `gnss_pos_ned`
 directly as an argument.
+If a reference state log such as `STATE_X001.txt` is available,
+`Task_5` reads it using
+```matlab
+readmatrix(path, 'CommentStyle','#')
+```
+to skip the header comments. Provide the path as the optional
+`truthFile` argument when running the task.
 
 `Task_1` and `Task_2` are now functions that accept an optional method name,
 so you can call them directly as
