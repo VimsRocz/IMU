@@ -17,6 +17,7 @@ MATLAB/
 
 Place your `.dat` and `.csv` data files inside the top-level `Data/` folder.
 The scripts look there by default and save outputs and plots in `MATLAB/results/`.
+`IMU_X003.dat` is bundled without a matching `GNSS_X003.csv`; use `GNSS_X002.csv` instead.
 
 Run the entire pipeline from MATLAB by executing `main.m`. The script now
 accepts optional file names **and** a list of methods so you can run:
