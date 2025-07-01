@@ -1,0 +1,9 @@
+[flake8]
+ignore = F401,F403
+max-line-length = 120
+exclude =
+    Data,
+    MATLAB,
+    logs,
+    notebooks,
+    Python/*.py

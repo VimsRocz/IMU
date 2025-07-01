@@ -2,7 +2,7 @@
 
 ### Recent Updates
 
-- **Bias estimation fix** (`IMU_MATLAB/Task_2.m`, `fusion_single.py`)
+- **Bias estimation fix** (`MATLAB/Task_2.m`, `fusion_single.py`)
   - Detects a low-motion segment to compute accelerometer and gyroscope biases.
   - Scales the accelerometer magnitude to match 9.81 m/s² for more stable attitude initialisation.
 
@@ -13,6 +13,9 @@
 - **Plotting helpers** (`auto_plots.py`, `summarise_runs.py`, `generate_summary.py`)
   - Automates generation of standard figures and summary tables.
   - Useful for batch processing of multiple datasets and visualising results.
+- **Configurable output directory**
+  - `run_all_datasets.py` and `run_all_methods.py` accept `--output-dir`.
+  - Submodules read the `IMU_OUTPUT_DIR` environment variable.
 
 These utilities were added to streamline the fusion pipeline and assist with
 debugging and analysis.

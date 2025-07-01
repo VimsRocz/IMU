@@ -1,2 +1,3 @@
 pytest
-matplotlib  # required for plotting tests
+flake8
+

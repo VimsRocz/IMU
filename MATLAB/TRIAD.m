@@ -19,30 +19,79 @@ end
 %       TRIAD('IMU_X001.dat','GNSS_X001.csv');
 %
 %   See docs/TRIAD_Task*.md for a detailed description of the algorithm.
+%
+%   This function demonstrates the algorithm on a single dataset. For
+%   batch processing across all logs use ``run_triad_only.m`` or
+%   ``run_all_datasets.m``.
 
 % Detect accidental execution as a script. When run with the `run` command
 % the file is evaluated line-by-line and `nargin` cannot be called,
 % producing the cryptic "You can only call nargin/nargout from within a
 % MATLAB function" error.  Use `dbstack` to detect that situation and emit
 % a clearer message before reaching the nargin check below.
-if numel(dbstack) <= 1
+% When this file is executed with the ``run`` command ``dbstack`` returns an
+% empty struct which results in the cryptic "You can only call nargin/nargout"
+% error.  Previously the check below triggered even when ``TRIAD`` was invoked
+% as a function without arguments from the command line.  Only guard against
+% the script execution case so ``TRIAD()`` works as documented.
+if isempty(dbstack)
     error(['TRIAD must be called as a function with two file names. Example:\n', ...
            '    TRIAD(''IMU_X001.dat'', ''GNSS_X001.csv'');']);
 end
 
+% Default to the noisy dataset with sensor bias
+% IMU_X003.dat has additional noise and bias and pairs with GNSS_X002.csv
 if nargin < 1 || isempty(imu_path)
-    imu_path = 'IMU_X001.dat';
+    imu_path = {'IMU_X003.dat'};
 end
 if nargin < 2 || isempty(gnss_path)
-    gnss_path = 'GNSS_X001.csv';
+    gnss_path = {'GNSS_X002.csv'};
 end
+
+% normalise inputs to cell arrays
+if ischar(imu_path) || isstring(imu_path)
+    imu_list = {char(imu_path)};
+else
+    imu_list = imu_path;
+end
+if ischar(gnss_path) || isstring(gnss_path)
+    gnss_list = {char(gnss_path)};
+else
+    gnss_list = gnss_path;
+end
+
 if verbose && (nargin < 1 || isempty(imu_path) || nargin < 2 || isempty(gnss_path))
-    fprintf('[INFO] Using default files: %s, %s\n', imu_path, gnss_path);
+    fprintf('[INFO] Using default files: %s, %s\n', imu_list{1}, gnss_list{1});
 end
-resultsDir = 'results';
-if verbose && ~exist(resultsDir, 'dir')
+
+script_dir = fileparts(mfilename('fullpath'));
+resultsDir = fullfile(script_dir, 'results');
+if ~exist(resultsDir,'dir')
     mkdir(resultsDir);
 end
+
+if numel(imu_list) ~= numel(gnss_list)
+    error('Number of IMU and GNSS files must match.');
+end
+
+% iterate over datasets when cell arrays are given
+if numel(imu_list) > 1
+    results = cell(1, numel(imu_list));
+    for idx = 1:numel(imu_list)
+        results{idx} = triad_single(imu_list{idx}, gnss_list{idx}, verbose, resultsDir);
+    end
+    return;
+end
+
+imu_path = imu_list{1};
+gnss_path = gnss_list{1};
+
+% Locate data files bundled with the repository
+results = triad_single(imu_path, gnss_path, verbose, resultsDir);
+end
+
+function results = triad_single(imu_path, gnss_path, verbose, resultsDir)
+%TRIAD_SINGLE Process one IMU/GNSS dataset pair.
 
 % Locate data files bundled with the repository
 imu_path = get_data_file(imu_path);
@@ -96,7 +145,10 @@ T1_n = g_ref_u;
 T2_n = cross(g_ref_u, omega_ref_u); T2_n = T2_n./norm(T2_n);
 T3_n = cross(T1_n, T2_n);
 R_nb = [T1_n T2_n T3_n] * [T1_b T2_b T3_b]';
-q = rotm2quat(R_nb);  % MATLAB aerospace toolbox function
+% Convert rotation matrix to quaternion without relying on the Aerospace
+% Toolbox. "rotm2quat" is unavailable in some MATLAB installations so
+% provide an equivalent local implementation for portability.
+q = dcm2quat_custom(R_nb);
 
 %% ----- Task 4: IMU integration (simple) --------------------------------
 acc_all = D(:,6:8) ./ dt;  % m/s^2
@@ -113,12 +165,13 @@ end
 % Simplified constant-position Kalman filter just for demonstration
 KF.x = [pos(1,:) vel(1,:)];
 KF.P = eye(6);
+KF.x = KF.x';
 Q = 1e-3 * eye(6);
 R = 1e-2 * eye(6);
 for k = 2:N
     % predict
     A = [eye(3) eye(3)*dt; zeros(3) eye(3)];
-    KF.x = A * KF.x';
+    KF.x = A * KF.x;
     KF.P = A*KF.P*A' + Q;
     % update with pseudo-measurement of position & velocity from integration
     z = [pos(k,:) vel(k,:)];
@@ -134,16 +187,22 @@ matfile = fullfile(resultsDir, sprintf('%s_%s_TRIAD_output.mat', istem, gstem));
 summary.q0 = q;
 summary.final_pos = norm(pos(end,:));
 
-results.pos = pos;
-results.vel = vel;
+results.pos_ned = pos;
+results.vel_ned = vel;
 results.q = q;
 results.summary = summary;
 
 if verbose
-    save(matfile, 'pos', 'vel', 'q', 'summary');
+    save(matfile, 'pos_ned', 'vel_ned', 'q', 'summary');
     fprintf('Saved %s\n', matfile);
+    % Validate against the reference trajectory using sample index alignment
+    truth_path = get_data_file('STATE_X001.txt');
+    if isfile(truth_path)
+        validate_with_truth_index(matfile, truth_path);
+    else
+        warning('Truth file %s not found. Skipping validation.', truth_path);
+    end
 end
-
 end
 
 %% Helper functions
@@ -171,4 +230,39 @@ function [g_b_u, w_b_u, g_n_u, w_n_u] = normalise_vectors(g_b, w_b, g_n, w_n)
     w_b_u = w_b./norm(w_b);
     g_n_u = g_n./norm(g_n);
     w_n_u = w_n./norm(w_n);
+end
+
+function q = dcm2quat_custom(R)
+    %DCM2QUAT_CUSTOM Convert direction cosine matrix to quaternion.
+    %   Replacement for the Aerospace Toolbox ``rotm2quat`` function.
+    tr = trace(R);
+    if tr > 0
+        S = sqrt(tr + 1.0) * 2;  q0 = 0.25 * S;
+        q1 = (R(3,2) - R(2,3)) / S;
+        q2 = (R(1,3) - R(3,1)) / S;
+        q3 = (R(2,1) - R(1,2)) / S;
+    else
+        [~, i] = max([R(1,1), R(2,2), R(3,3)]);
+        switch i
+            case 1
+                S = sqrt(1 + R(1,1) - R(2,2) - R(3,3)) * 2;
+                q0 = (R(3,2) - R(2,3)) / S;
+                q1 = 0.25 * S;
+                q2 = (R(1,2) + R(2,1)) / S;
+                q3 = (R(1,3) + R(3,1)) / S;
+            case 2
+                S = sqrt(1 + R(2,2) - R(1,1) - R(3,3)) * 2;
+                q0 = (R(1,3) - R(3,1)) / S;
+                q1 = (R(1,2) + R(2,1)) / S;
+                q2 = 0.25 * S;
+                q3 = (R(2,3) + R(3,2)) / S;
+            case 3
+                S = sqrt(1 + R(3,3) - R(1,1) - R(2,2)) * 2;
+                q0 = (R(2,1) - R(1,2)) / S;
+                q1 = (R(1,3) + R(3,1)) / S;
+                q2 = (R(2,3) + R(3,2)) / S;
+                q3 = 0.25 * S;
+        end
+    end
+    q = [q0 q1 q2 q3];
 end
