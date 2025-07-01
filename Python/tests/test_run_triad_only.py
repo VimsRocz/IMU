@@ -44,3 +44,10 @@ def test_override_dataset(monkeypatch):
     cmd = _run_script(monkeypatch, ['--datasets', 'X002'])
     idx = cmd.index('--datasets')
     assert cmd[idx + 1] == 'X002'
+
+
+def test_output_dir_passthrough(monkeypatch):
+    cmd = _run_script(monkeypatch, ['--output-dir', 'out'])
+    assert '--output-dir' in cmd
+    idx = cmd.index('--output-dir')
+    assert cmd[idx + 1] == 'out'

@@ -4,7 +4,7 @@ Compare the three data sets (X001,X002,X003) on the same axes
 for each attitude-initialisation method (TRIAD | Davenport | SVD).
 """
 
-import pathlib, gzip, pickle
+import pathlib, gzip, pickle, os
 import logging
 try:
     import matplotlib.pyplot as plt
@@ -13,7 +13,7 @@ except Exception as e:  # pragma: no cover - optional plotting dependency
     plt = None
 import numpy as np
 
-RESULTS_DIR = pathlib.Path("results")
+RESULTS_DIR = pathlib.Path(os.environ.get("IMU_OUTPUT_DIR", "results"))
 COLOURS     = {"X001": "tab:blue", "X002": "tab:orange", "X003": "tab:green"}
 LABEL_MAP   = {"N": "North", "E": "East", "D": "Down"}
 

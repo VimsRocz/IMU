@@ -53,8 +53,7 @@ To run only the TRIAD method use the helper script
 python Python/run_triad_only.py
 ```
 
-
-Both scripts write their results to `Python/results/` and, when a reference trajectory is available, automatically validate the output.
+Both scripts write their results to `Python/results/` by default. Use `--output-dir DIR` with either helper to store logs and results elsewhere. When a reference trajectory is available the output is validated automatically.
 
 ## Exporting Python Results to MATLAB
 

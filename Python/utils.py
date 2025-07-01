@@ -65,6 +65,17 @@ def get_data_file(filename: str) -> pathlib.Path:
     raise FileNotFoundError(f"Data file not found: {filename}")
 
 
+def get_output_dir() -> pathlib.Path:
+    """Return the directory for results and create it if necessary."""
+    env = os.environ.get("IMU_OUTPUT_DIR")
+    if env:
+        out = pathlib.Path(env)
+    else:
+        out = pathlib.Path(__file__).resolve().parent / "results"
+    out.mkdir(parents=True, exist_ok=True)
+    return out
+
+
 def detect_static_interval(accel_data, gyro_data, window_size=200,
                            accel_var_thresh=0.01, gyro_var_thresh=1e-6,
                            min_length=100):

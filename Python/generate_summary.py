@@ -3,7 +3,8 @@ import pandas as pd
 from fpdf import FPDF
 
 # Load run results produced by ``summarise_runs.py``
-DF_PATH = "results/summary.csv"
+BASE_DIR = os.environ.get("IMU_OUTPUT_DIR", "results")
+DF_PATH = f"{BASE_DIR}/summary.csv"
 
 
 def main():
@@ -19,11 +20,11 @@ def main():
         pdf.set_font("Arial", size=12)
         pdf.multi_cell(0, 8, f"RMSEpos = {row['rmse_pos']} m, Final Error = {row['final_pos']} m")
         base = os.path.splitext(row['imu'])[0]
-        image = f"results/{base}_{row['method']}_plots.pdf"
+        image = f"{BASE_DIR}/{base}_{row['method']}_plots.pdf"
         if os.path.exists(image):
             pdf.image(image, w=180)
 
-    pdf.output('results/project_summary.pdf')
+    pdf.output(f"{BASE_DIR}/project_summary.pdf")
 
 
 if __name__ == '__main__':

@@ -6,6 +6,7 @@ that `summarise_runs.py` can aggregate later.
 """
 
 import pathlib
+import os
 import subprocess
 import datetime
 import itertools
@@ -41,7 +42,7 @@ METHODS = DEFAULT_METHODS.copy()
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
-def run_one(imu, gnss, method, verbose=False):
+def run_one(imu, gnss, method, verbose=False, output_dir=None):
     ts    = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log   = LOG_DIR / f"{pathlib.Path(imu).name}_{pathlib.Path(gnss).name}_{method}_{ts}.log"
     cmd   = [
@@ -57,12 +58,16 @@ def run_one(imu, gnss, method, verbose=False):
     if verbose:
         cmd.append("--verbose")
     summary_lines = []
+    env = os.environ.copy()
+    if output_dir is not None:
+        env["IMU_OUTPUT_DIR"] = str(output_dir)
     with log.open("w") as fh:
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            env=env,
         )
         for line in proc.stdout:  # live-stream to console & file
             print(line, end="")
@@ -82,6 +87,11 @@ def main():
     parser.add_argument('--method', choices=['TRIAD','Davenport','SVD','ALL'],
                         default='ALL')
     parser.add_argument('--config', help='YAML configuration file')
+    parser.add_argument(
+        '--output-dir',
+        default='results',
+        help='Directory for logs and results'
+    )
     args = parser.parse_args()
 
     if args.config:
@@ -106,8 +116,10 @@ def main():
     cases = [(imu, gnss, m) for (imu, gnss) in datasets for m in method_list]
     fusion_results = []
 
-    results_dir = HERE / "results"
-    results_dir.mkdir(exist_ok=True)
+    results_dir = pathlib.Path(args.output_dir)
+    if not results_dir.is_absolute():
+        results_dir = HERE / results_dir
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     for imu, gnss, method in tqdm(cases, desc="All cases"):
         imu_path = get_data_file(imu)
@@ -129,7 +141,13 @@ def main():
             print("IMU Head:\n", imu_data[:5])
             print("============================")
         start = time.time()
-        summaries = run_one(str(imu_path), str(gnss_path), method, verbose=args.verbose)
+        summaries = run_one(
+            str(imu_path),
+            str(gnss_path),
+            method,
+            verbose=args.verbose,
+            output_dir=results_dir,
+        )
         runtime = time.time() - start
         for summary in summaries:
             kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
