@@ -67,8 +67,17 @@ results = TRIAD();
 % or run a specific pair
 % result = TRIAD('IMU_X001.dat','GNSS_X001.csv');
 
+% enable verbose output for step-by-step messages
+% result = TRIAD('IMU_X001.dat','GNSS_X001.csv', true);
+
 % multiple pairs can be given as cell arrays
 % results = TRIAD({'IMU_X001.dat','IMU_X002.dat'}, {'GNSS_X001.csv','GNSS_X002.csv'});
+```
+
+Passing a third `verbose` argument toggles step-by-step output:
+
+```matlab
+TRIAD('IMU_X001.dat','GNSS_X001.csv', true)
 ```
 
 `TRIAD` resolves file names with `get_data_file`, so the bundled logs are
