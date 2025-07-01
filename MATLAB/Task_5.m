@@ -429,6 +429,129 @@ for f = 1:3
     print(gcf, out_pdf, '-dpdf', '-bestfit');
 end
 
+%% ========================================================================
+% Subtask 5.8a: Fusion Comparison Across Methods
+% =========================================================================
+fprintf('\nSubtask 5.8a: Plotting fused output against GNSS for all methods.\n');
+
+% Interpolate GNSS data to IMU timeline
+gnss_pos_i = interp1(gnss_time, gnss_pos_ned, imu_time, 'linear', 'extrap');
+gnss_vel_i = interp1(gnss_time, gnss_vel_ned, imu_time, 'linear', 'extrap');
+gnss_acc_i = interp1(gnss_time, gnss_accel_ned, imu_time, 'linear', 'extrap');
+
+% Collect fused results for each attitude initialisation method
+method_list = {'TRIAD','Davenport','SVD'};
+col_map = struct('TRIAD',[0 0.4470 0.7410], ...
+                 'Davenport',[0.8500 0.3250 0.0980], ...
+                 'SVD',[0.4660 0.6740 0.1880]);
+fused = struct();
+for mIdx = 1:numel(method_list)
+    m = method_list{mIdx};
+    res_file = fullfile(results_dir, ...
+        sprintf('%s_%s_%s_task5_results.mat', imu_name, gnss_name, m));
+    if isfile(res_file)
+        dat = load(res_file, 'x_log', 'vel_log', 'accel_from_vel');
+        fused.(m).pos = dat.x_log(1:3,:)';
+        fused.(m).vel = dat.vel_log';
+        fused.(m).acc = dat.accel_from_vel';
+    elseif strcmpi(m, method)
+        % current run results have not been saved yet
+        fused.(m).pos = x_log(1:3,:)';
+        fused.(m).vel = x_log(4:6,:)';
+        if numel(imu_time) > 1
+            dv = diff(fused.(m).vel); dtv = diff(imu_time);
+            fused.(m).acc = [zeros(1,3); dv ./ dtv];
+        else
+            fused.(m).acc = zeros(size(fused.(m).vel));
+        end
+    end
+end
+
+labels = {'N','E','D'};
+for mIdx = 1:numel(method_list)
+    m = method_list{mIdx};
+    if ~isfield(fused, m); continue; end
+    data = fused.(m);
+    fig = figure('Name',['Fusion ' m],'Position',[100 100 1200 900]);
+    tlo = tiledlayout(3,3);
+    for r = 1:3
+        for c = 1:3
+            nexttile; hold on;
+            switch r
+                case 1
+                    plot(imu_time, gnss_pos_i(:,c),'k-','DisplayName','GNSS');
+                    plot(imu_time, data.pos(:,c),'Color',col_map.(m), ...
+                        'DisplayName',m);
+                    ylabel('[m]');
+                    title(['Position ' labels{c}]);
+                case 2
+                    plot(imu_time, gnss_vel_i(:,c),'k-','DisplayName','GNSS');
+                    plot(imu_time, data.vel(:,c),'Color',col_map.(m), ...
+                        'DisplayName',m);
+                    ylabel('[m/s]');
+                    title(['Velocity ' labels{c}]);
+                otherwise
+                    plot(imu_time, gnss_acc_i(:,c),'k-','DisplayName','GNSS');
+                    plot(imu_time, data.acc(:,c),'Color',col_map.(m), ...
+                        'DisplayName',m);
+                    ylabel('[m/s^2]');
+                    title(['Acceleration ' labels{c}]);
+            end
+            xlabel('Time (s)'); grid on;
+            if r==1 && c==3, legend; end
+        end
+    end
+    sgtitle(['Task 5: Sensor Fusion Results – ' m]);
+    out_pdf = fullfile(results_dir, sprintf('5_Fusion_Results_%s.pdf', m));
+    set(gcf,'PaperPositionMode','auto');
+    print(gcf, out_pdf, '-dpdf', '-bestfit');
+end
+
+% --- Combined figure with all methods ---------------------------------
+avail_methods = fieldnames(fused);
+if ~isempty(avail_methods)
+    fig = figure('Name','Fusion All Methods','Position',[100 100 1200 900]);
+    tlo = tiledlayout(3,3);
+    for r = 1:3
+        for c = 1:3
+            nexttile; hold on;
+            switch r
+                case 1
+                    plot(imu_time, gnss_pos_i(:,c),'k-','DisplayName','GNSS');
+                    for j=1:numel(avail_methods)
+                        m = avail_methods{j};
+                        plot(imu_time, fused.(m).pos(:,c),'Color',col_map.(m), ...
+                            'DisplayName',m);
+                    end
+                    ylabel('[m]');
+                    title(['Position ' labels{c}]);
+                case 2
+                    plot(imu_time, gnss_vel_i(:,c),'k-','DisplayName','GNSS');
+                    for j=1:numel(avail_methods)
+                        m = avail_methods{j};
+                        plot(imu_time, fused.(m).vel(:,c),'Color',col_map.(m));
+                    end
+                    ylabel('[m/s]');
+                    title(['Velocity ' labels{c}]);
+                otherwise
+                    plot(imu_time, gnss_acc_i(:,c),'k-','DisplayName','GNSS');
+                    for j=1:numel(avail_methods)
+                        m = avail_methods{j};
+                        plot(imu_time, fused.(m).acc(:,c),'Color',col_map.(m));
+                    end
+                    ylabel('[m/s^2]');
+                    title(['Acceleration ' labels{c}]);
+            end
+            xlabel('Time (s)'); grid on;
+            if r==1 && c==3, legend; end
+        end
+    end
+    sgtitle('Task 5: Sensor Fusion Results – All Methods');
+    out_pdf = fullfile(results_dir,'5_Fusion_Results_All_Methods.pdf');
+    set(gcf,'PaperPositionMode','auto');
+    print(gcf, out_pdf, '-dpdf', '-bestfit');
+end
+
 %% --- End-of-run summary statistics --------------------------------------
 % Interpolate filter estimates to GNSS timestamps for residual analysis
 % The transpose on x_log ensures interp1 operates over rows (time). The
