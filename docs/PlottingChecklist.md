@@ -39,6 +39,8 @@ Store short summaries for each figure in `results/plot_summary.md` or similar:
 
 ## 5. Documentation & Reproducibility
 - Document dataset-specific parameters and any script flags in the README.
+- All datasets live in `Data/` and the updated plotting scripts write PDFs to
+  `results/`.
 - If `filterpy` fails to install on Ubuntu:
 ```bash
 sudo apt-get install python3-pip
