@@ -169,6 +169,10 @@ acc_log = zeros(3, num_imu_samples); % Acceleration from propagated IMU data
 zupt_count = 0;
 fprintf('-> 15-State filter initialized.\n');
 
+% Interpolate GNSS measurements to IMU timestamps for continuous updates
+gnss_pos_interp = interp1(gnss_time, gnss_pos_ned, imu_time, 'linear', 'extrap');
+gnss_vel_interp = interp1(gnss_time, gnss_vel_ned, imu_time, 'linear', 'extrap');
+
 %% ========================================================================
 % Subtask 5.6: Kalman Filter for Sensor Fusion
 % =========================================================================
@@ -176,7 +180,6 @@ fprintf('\nSubtask 5.6: Running Kalman Filter for sensor fusion.\n');
 
 % --- Main Filter Loop ---
 fprintf('-> Starting filter loop over %d IMU samples...\n', num_imu_samples);
-gnss_idx = 1;
 for i = 1:num_imu_samples
     % --- 1. State Propagation (Prediction) ---
     F = eye(15);
@@ -203,16 +206,12 @@ for i = 1:num_imu_samples
     x(7:9) = quat_to_euler(q_b_n);
     acc_log(:,i) = a_ned;
     % --- 3. Measurement Update (Correction) ---
-    if gnss_idx <= numel(gnss_time) && ...
-            abs(imu_time(i) - gnss_time(gnss_idx)) <= dt_imu/2
-        z = [gnss_pos_ned(gnss_idx,:)'; gnss_vel_ned(gnss_idx,:)'];
-        y = z - H * x;
-        S = H * P * H' + R;
-        K = (P * H') / S;
-        x = x + K * y;
-        P = (eye(15) - K * H) * P;
-        gnss_idx = gnss_idx + 1;
-    end
+    z = [gnss_pos_interp(i,:)'; gnss_vel_interp(i,:)'];
+    y = z - H * x;
+    S = H * P * H' + R;
+    K = (P * H') / S;
+    x = x + K * y;
+    P = (eye(15) - K * H) * P;
 
     % update integrator history after correction
     prev_vel = x(4:6);
