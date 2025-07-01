@@ -14,6 +14,7 @@ import subprocess
 import sys
 import pathlib
 import re
+import os
 import numpy as np
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
@@ -45,7 +46,8 @@ cmd = [
 subprocess.run(cmd, check=True)
 
 # --- Validate results when STATE_<id>.txt exists -----------------------------
-results = HERE / "results"
+results_env = os.environ.get("IMU_OUTPUT_DIR")
+results = pathlib.Path(results_env) if results_env else HERE / "results"
 truth_arg = pathlib.Path(args.truth_file).expanduser() if args.truth_file else None
 if truth_arg and not truth_arg.exists():
     print(f"Warning: truth file {truth_arg} not found, skipping reference overlay")

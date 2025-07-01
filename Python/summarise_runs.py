@@ -5,9 +5,9 @@ Parse logs/* for lines that start with [SUMMARY] and emit:
   summary.md
 """
 
-import csv, pathlib, re
+import csv, pathlib, re, os
 
-RESULTS_DIR = pathlib.Path("results")
+RESULTS_DIR = pathlib.Path(os.environ.get("IMU_OUTPUT_DIR", "results"))
 RESULTS_DIR.mkdir(exist_ok=True)
 
 LOG_DIR = pathlib.Path("logs")
@@ -37,4 +37,4 @@ with open(RESULTS_DIR / "summary.md", "w") as fh:
     for r in rows:
         fh.write(" | ".join(r.values()) + "\n")
 
-print("Created results/summary.csv and results/summary.md")
+print(f"Created {RESULTS_DIR}/summary.csv and {RESULTS_DIR}/summary.md")

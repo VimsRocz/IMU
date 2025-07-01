@@ -28,6 +28,7 @@ import itertools
 import pathlib
 import subprocess
 import sys
+import os
 from typing import Iterable, Tuple
 import logging
 from utils import get_data_file
@@ -73,6 +74,11 @@ def main(argv=None):
         action="store_true",
         help="Skip plot generation for faster execution",
     )
+    parser.add_argument(
+        "--output-dir",
+        default="results",
+        help="Directory for log files and results",
+    )
     args = parser.parse_args(argv)
 
     if args.config:
@@ -80,11 +86,14 @@ def main(argv=None):
     else:
         cases, methods = list(DEFAULT_DATASETS), list(DEFAULT_METHODS)
 
-    (HERE / "results").mkdir(exist_ok=True)
+    results_dir = pathlib.Path(args.output_dir)
+    if not results_dir.is_absolute():
+        results_dir = HERE / results_dir
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     for (imu, gnss), m in itertools.product(cases, methods):
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
-        log_path = HERE / "results" / f"{tag}.log"
+        log_path = results_dir / f"{tag}.log"
         print(f"\u25B6 {tag}")
         cmd = [
             sys.executable,
@@ -98,12 +107,15 @@ def main(argv=None):
         ]
         if args.no_plots:
             cmd.append("--no-plots")
+        env = os.environ.copy()
+        env["IMU_OUTPUT_DIR"] = str(results_dir)
         with open(log_path, "w") as log:
             subprocess.run(
                 cmd,
                 stdout=log,
                 stderr=subprocess.STDOUT,
                 check=True,
+                env=env,
             )
 
 

@@ -25,7 +25,8 @@ from utils import compute_C_ECEF_to_NED
 # ---------------------------------------------------------------------------
 # Where figures and tables should be written
 # ---------------------------------------------------------------------------
-OUTPUT_DIR = "results/auto_plots"
+BASE_DIR = os.environ.get("IMU_OUTPUT_DIR", "results")
+OUTPUT_DIR = os.path.join(BASE_DIR, "auto_plots")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Collect metrics for the summary table

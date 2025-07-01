@@ -5,6 +5,7 @@ import subprocess
 import shutil
 from pathlib import Path
 from typing import Tuple
+import os
 import numpy as np
 import pandas as pd
 import scipy.io
@@ -23,7 +24,8 @@ def run_python_pipeline(imu_file: str, gnss_file: str, method: str) -> Path:
     subprocess.run(cmd, check=True)
     imu_stem = Path(imu_file).stem
     gnss_stem = Path(gnss_file).stem
-    return Path("results") / f"{imu_stem}_{gnss_stem}_{method}_kf_output.mat"
+    out_dir = Path(os.environ.get("IMU_OUTPUT_DIR", "results"))
+    return out_dir / f"{imu_stem}_{gnss_stem}_{method}_kf_output.mat"
 
 
 def run_matlab_pipeline(imu_file: str, gnss_file: str, method: str) -> Path:
@@ -42,7 +44,8 @@ def run_matlab_pipeline(imu_file: str, gnss_file: str, method: str) -> Path:
         subprocess.run([matlab, "-batch", cmd], check=True)
     imu_stem = Path(imu_file).stem
     gnss_stem = Path(gnss_file).stem
-    return Path("results") / f"{imu_stem}_{gnss_stem}_{method}_task5_results.mat"
+    out_dir = Path(os.environ.get("IMU_OUTPUT_DIR", "results"))
+    return out_dir / f"{imu_stem}_{gnss_stem}_{method}_task5_results.mat"
 
 
 def load_python_metrics(mat_path: Path) -> Tuple[float, float]:
@@ -96,7 +99,7 @@ def main() -> None:
     print(f"Difference:                  {abs(py_final - m_final):.3f} m")
 
     if args.csv:
-        out = Path("results") / "compare_summary.csv"
+        out = Path(os.environ.get("IMU_OUTPUT_DIR", "results")) / "compare_summary.csv"
         out.parent.mkdir(exist_ok=True)
         header = not out.exists()
         with open(out, "a") as fh:

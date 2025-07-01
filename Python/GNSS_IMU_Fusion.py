@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-RESULTS_DIR = HERE / "results"
+RESULTS_DIR = Path(os.environ.get("IMU_OUTPUT_DIR", HERE / "results"))
 
 
 

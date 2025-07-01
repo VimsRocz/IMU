@@ -1,6 +1,7 @@
 """Plotting helpers extracted from the original script."""
 
 import logging
+import os
 try:
     import matplotlib.pyplot as plt
 except Exception as e:  # pragma: no cover - optional plotting dependency
@@ -40,7 +41,8 @@ def save_zupt_variance(
     plt.ylabel("Variance")
     plt.tight_layout()
     plt.title("ZUPT Detection and Accelerometer Variance")
-    filename = f"results/Task2_IMU_{dataset_id}_ZUPT_variance.pdf"
+    base = os.environ.get("IMU_OUTPUT_DIR", "results")
+    filename = f"{base}/Task2_IMU_{dataset_id}_ZUPT_variance.pdf"
     plt.savefig(filename)
     plt.close()
 
@@ -56,7 +58,8 @@ def save_euler_angles(t: np.ndarray, euler_angles: np.ndarray, dataset_id: str) 
     plt.legend()
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) vs. Time")
-    filename = f"results/Task5_IMU_{dataset_id}_EulerAngles_time.pdf"
+    base = os.environ.get("IMU_OUTPUT_DIR", "results")
+    filename = f"{base}/Task5_IMU_{dataset_id}_EulerAngles_time.pdf"
     plt.savefig(filename)
     plt.close()
 
@@ -80,7 +83,8 @@ def save_residual_plots(
         plt.ylabel("Position Residual [m]")
         plt.tight_layout()
         plt.title(f"Position Residuals ({label}) vs. Time")
-        fname = f"results/Task5_IMU_{dataset_id}_GNSS_{dataset_id}_pos_residuals_{label}.pdf"
+        base = os.environ.get("IMU_OUTPUT_DIR", "results")
+        fname = f"{base}/Task5_IMU_{dataset_id}_GNSS_{dataset_id}_pos_residuals_{label}.pdf"
         plt.savefig(fname)
         plt.close()
         plt.figure()
@@ -89,7 +93,8 @@ def save_residual_plots(
         plt.ylabel("Velocity Residual [m/s]")
         plt.tight_layout()
         plt.title(f"Velocity Residuals ({label}) vs. Time")
-        fname = f"results/Task5_IMU_{dataset_id}_GNSS_{dataset_id}_vel_residuals_{label}.pdf"
+        base = os.environ.get("IMU_OUTPUT_DIR", "results")
+        fname = f"{base}/Task5_IMU_{dataset_id}_GNSS_{dataset_id}_vel_residuals_{label}.pdf"
         plt.savefig(fname)
         plt.close()
 
@@ -105,7 +110,8 @@ def save_attitude_over_time(t: np.ndarray, euler_angles: np.ndarray, dataset_id:
     plt.legend()
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) Over Time")
-    fname = f"results/Task5_IMU_{dataset_id}_GNSS_{dataset_id}_attitude_time.pdf"
+    base = os.environ.get("IMU_OUTPUT_DIR", "results")
+    fname = f"{base}/Task5_IMU_{dataset_id}_GNSS_{dataset_id}_attitude_time.pdf"
     plt.savefig(fname)
     plt.close()
 
