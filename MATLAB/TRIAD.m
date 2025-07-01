@@ -36,18 +36,55 @@ if isempty(dbstack)
 end
 
 if nargin < 1 || isempty(imu_path)
-    imu_path = 'IMU_X001.dat';
+    imu_path = {'IMU_X001.dat'};
 end
 if nargin < 2 || isempty(gnss_path)
-    gnss_path = 'GNSS_X001.csv';
+    gnss_path = {'GNSS_X001.csv'};
 end
+
+% normalise inputs to cell arrays
+if ischar(imu_path) || isstring(imu_path)
+    imu_list = {char(imu_path)};
+else
+    imu_list = imu_path;
+end
+if ischar(gnss_path) || isstring(gnss_path)
+    gnss_list = {char(gnss_path)};
+else
+    gnss_list = gnss_path;
+end
+
 if verbose && (nargin < 1 || isempty(imu_path) || nargin < 2 || isempty(gnss_path))
-    fprintf('[INFO] Using default files: %s, %s\n', imu_path, gnss_path);
+    fprintf('[INFO] Using default files: %s, %s\n', imu_list{1}, gnss_list{1});
 end
+
 resultsDir = 'results';
 if verbose && ~exist(resultsDir, 'dir')
     mkdir(resultsDir);
 end
+
+if numel(imu_list) ~= numel(gnss_list)
+    error('Number of IMU and GNSS files must match.');
+end
+
+% iterate over datasets when cell arrays are given
+if numel(imu_list) > 1
+    results = cell(1, numel(imu_list));
+    for idx = 1:numel(imu_list)
+        results{idx} = triad_single(imu_list{idx}, gnss_list{idx}, verbose, resultsDir);
+    end
+    return;
+end
+
+imu_path = imu_list{1};
+gnss_path = gnss_list{1};
+
+% Locate data files bundled with the repository
+results = triad_single(imu_path, gnss_path, verbose, resultsDir);
+end
+
+function results = triad_single(imu_path, gnss_path, verbose, resultsDir)
+%TRIAD_SINGLE Process one IMU/GNSS dataset pair.
 
 % Locate data files bundled with the repository
 imu_path = get_data_file(imu_path);
@@ -152,7 +189,6 @@ if verbose
     save(matfile, 'pos', 'vel', 'q', 'summary');
     fprintf('Saved %s\n', matfile);
 end
-
 end
 
 %% Helper functions
