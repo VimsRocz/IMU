@@ -11,7 +11,8 @@ imu_file  = 'IMU_X001.dat';
 gnss_file = 'GNSS_X001.csv';
 
 % Create results directory
-results_dir = 'results';
+script_dir = fileparts(mfilename('fullpath'));
+results_dir = fullfile(script_dir, 'results');
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 addpath('MATLAB');
 
