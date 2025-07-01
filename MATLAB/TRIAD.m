@@ -121,7 +121,7 @@ end
 % Simplified constant-position Kalman filter just for demonstration
 KF.x = [pos(1,:) vel(1,:)];
 KF.P = eye(6);
-KF.x = KF.x';
+KF.x = KF.x';  % keep state as a 6x1 column vector
 Q = 1e-3 * eye(6);
 R = 1e-2 * eye(6);
 for k = 2:N
