@@ -1,10 +1,20 @@
-function plot_results(matFile)
-% Load .mat result and recreate plots for attitude, residuals and NED
-% comparison.  Figures are saved next to the input file using the same
-% naming scheme as the Python scripts.
+function plot_results(resultFile)
+%PLOT_RESULTS Recreate plots from saved result files.
+%   PLOT_RESULTS(FILE) loads the given MAT or NPZ result file and produces
+%   the attitude, position and velocity residual plots.  Figures are saved
+%   next to the input file using the same naming scheme as the Python
+%   scripts.
 
-S = load(matFile);
-[~,name] = fileparts(matFile);
+    [~,name,ext] = fileparts(resultFile);
+    if strcmpi(ext, '.npz')
+        if exist('load_npz', 'file')
+            S = load_npz(resultFile);
+        else
+            error('NPZ file given but load_npz.m is missing.');
+        end
+    else
+        S = load(resultFile);
+    end
 
 if isfield(S, 'euler')
     figure; plot(S.euler);
