@@ -1466,13 +1466,76 @@ def main():
     # Subtask 5.7: Handle Event at 5000s (if needed)
     # --------------------------------
     logging.info("Subtask 5.7: No event handling needed as time < 5000s.")
-    
+
+    # --------------------------------
+    # Subtask 5.8: Fusion Results Comparison Plots
+    # --------------------------------
+
+    gnss_pos_ned_interp = np.vstack([
+        np.interp(imu_time, gnss_time, gnss_pos_ned[:, i])
+        for i in range(3)
+    ]).T
+    gnss_vel_ned_interp = np.vstack([
+        np.interp(imu_time, gnss_time, gnss_vel_ned[:, i])
+        for i in range(3)
+    ]).T
+    gnss_acc_ned_interp = np.vstack([
+        np.interp(imu_time, gnss_time, gnss_acc_ned[:, i])
+        for i in range(3)
+    ]).T
+
+    methods_plot = ["TRIAD", "Davenport", "SVD"]
+    directions = ["North", "East", "Down"]
+    components = ["Position", "Velocity", "Acceleration"]
+
+    for m in methods_plot:
+        fig, axes = plt.subplots(3, 3, figsize=(15, 10))
+        gnss_sets = [gnss_pos_ned_interp, gnss_vel_ned_interp, gnss_acc_ned_interp]
+        fused_sets = [fused_pos[m], fused_vel[m], fused_acc[m]]
+        for i in range(3):
+            for j in range(3):
+                ax = axes[i, j]
+                ax.plot(imu_time, gnss_sets[i][:, j], label="GNSS", color="k", linestyle="--")
+                ax.plot(imu_time, fused_sets[i][:, j], label=m, color=COLORS[m])
+                ax.set_title(f"{components[i]} {directions[j]}")
+                ax.set_xlabel("Time (s)")
+                ax.set_ylabel("Value")
+                ax.grid(True)
+                if i == 0 and j == 0:
+                    ax.legend()
+        plt.tight_layout()
+        out_file = RESULTS_DIR / f"5_Fusion_Results_{m}.pdf"
+        if not args.no_plots:
+            plt.savefig(out_file)
+        plt.close(fig)
+        logging.info(f"Saved Task 5_8_Fusion results for {m} to {out_file}")
+
+    fig_all, axes_all = plt.subplots(3, 3, figsize=(15, 10))
+    gnss_sets = [gnss_pos_ned_interp, gnss_vel_ned_interp, gnss_acc_ned_interp]
+    for i in range(3):
+        for j in range(3):
+            ax = axes_all[i, j]
+            ax.plot(imu_time, gnss_sets[i][:, j], label="GNSS", color="k", linestyle="--")
+            for m in methods_plot:
+                fused_sets = [fused_pos[m], fused_vel[m], fused_acc[m]]
+                ax.plot(imu_time, fused_sets[i][:, j], label=m, color=COLORS[m])
+            ax.set_title(f"{components[i]} {directions[j]}")
+            ax.set_xlabel("Time (s)")
+            ax.set_ylabel("Value")
+            ax.grid(True)
+            if i == 0 and j == 0:
+                ax.legend()
+    plt.tight_layout()
+    out_all = RESULTS_DIR / "5_Fusion_Results_All_Methods.pdf"
+    if not args.no_plots:
+        plt.savefig(out_all)
+    plt.close(fig_all)
+    logging.info(f"Saved Task 5_8_Fusion results overlay to {out_all}")
+
     # --------------------------------
     # Subtask 5.8: Plotting Results for All Methods
     # --------------------------------
-    
-    
-    
+
     # Configure logging if not already done
     
     # Define methods and colors
