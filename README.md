@@ -46,9 +46,17 @@ python Python/run_triad_only.py
 
 Both scripts write their results to `Python/results/` and, when a reference trajectory is available, automatically validate the output.
 
+## Running the TRIAD pipeline in MATLAB
+Execute `TRIAD.m` from the `MATLAB` folder to run Tasks 1–5 on the bundled
+data. The script prints the same log messages as the Python version and validates
+the results automatically.
+
 ## MATLAB usage
 
-A MATLAB implementation of the same pipeline lives under `MATLAB/`. See [MATLAB/README.md](MATLAB/README.md) for instructions on running `main.m` and the individual task scripts.
+A MATLAB implementation of the same pipeline lives under `MATLAB/`. All example
+datasets reside in the top-level `Data/` folder, and the plotting scripts write
+their PDFs to `results/`. See [MATLAB/README.md](MATLAB/README.md) for
+instructions on running `main.m` and the individual task scripts.
 
 ## Further documentation
 
