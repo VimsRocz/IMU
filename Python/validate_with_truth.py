@@ -568,7 +568,6 @@ def main():
             t_est = np.asarray(est["time"]).squeeze()
             pos_est = np.asarray(est["pos"])[: len(t_est)]
             vel_est = np.asarray(est["vel"])[: len(t_est)]
-            acc_est = np.zeros_like(vel_est)
             pos_est_i = np.vstack([
                 np.interp(t_true, t_est, pos_est[:, i]) for i in range(3)
             ]).T

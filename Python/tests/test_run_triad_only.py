@@ -3,6 +3,9 @@ import sys
 import subprocess
 import pathlib
 import types
+import pytest
+
+pytest.importorskip("numpy")
 
 
 def _run_script(monkeypatch, args):

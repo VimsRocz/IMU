@@ -133,7 +133,7 @@ def main():
         def dummy_subplots(nrows=1, ncols=1, *a, **k):
             return dummy, _DummyAxes()
 
-        plt = type('DummyPlt', (), {
+        plt = type('DummyPlt', (), {  # noqa: F811
             'figure': staticmethod(lambda *a, **k: dummy),
             'subplots': staticmethod(dummy_subplots),
             'close': lambda *a, **k: None,
@@ -717,8 +717,8 @@ def main():
     def normalise(q):
         return q / np.linalg.norm(q)
 
-    q_all_1 = normalise(sum(quats_case1[m] for m in methods))
-    q_all_2 = normalise(sum(quats_case2[m] for m in methods))
+    _q_all_1 = normalise(sum(quats_case1[m] for m in methods))  # noqa: F841
+    _q_all_2 = normalise(sum(quats_case2[m] for m in methods))  # noqa: F841
 
     def attitude_errors(q1, q2):
         def quat_to_rot(q):
@@ -1460,12 +1460,7 @@ def main():
         time_res_all[m] = time_res_arr
         P_hist_all[m] = np.stack(P_hist)
     
-    # Compute residuals for the selected method
-    residual_pos = res_pos_all[method]
-    residual_vel = res_vel_all[method]
-    time_residuals = time_res_all[method]
 
-    attitude_angles = np.rad2deg(euler_all[method])
     
     # --------------------------------
     # Subtask 5.7: Handle Event at 5000s (if needed)

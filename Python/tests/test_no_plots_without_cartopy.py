@@ -1,8 +1,12 @@
-import os, sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-import builtins
+import os
 import sys
+from pathlib import Path
+import builtins
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 import pytest
+
 pd = pytest.importorskip("pandas")
 from GNSS_IMU_Fusion import main
 
