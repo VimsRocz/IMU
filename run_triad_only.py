@@ -6,7 +6,7 @@ import subprocess
 import sys
 import pathlib
 import re
-from plot_overlay import plot_overlay, assemble_frames
+from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate
 import pandas as pd
 
