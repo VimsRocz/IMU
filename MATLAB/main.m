@@ -5,7 +5,8 @@ function main(imu_path, gnss_path, methods)
 %   main('imu.dat','gnss.csv','TRIAD')  - run one dataset with a single method
 %   main({'IMU_X001.dat','IMU_X002.dat'}, {'GNSS_X001.csv','GNSS_X002.csv'}, ...
 %        {'TRIAD','SVD'})               - iterate over both dataset pairs and
-%                                         selected methods
+%                             
+% selected methods
 
 % Resolve default data file paths or lists. The pipeline ships with three IMU
 % logs and two GNSS logs. By default we pair them as:
