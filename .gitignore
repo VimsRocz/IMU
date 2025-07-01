@@ -193,4 +193,3 @@ cython_debug/
 .cursorignore
 triad_init_log.txt
 results/
-IMU_MATLAB/results/

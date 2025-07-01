@@ -333,19 +333,15 @@ main(imu_path, gnss_path);
 
 `main.m` now takes the full paths to the IMU and GNSS files as arguments.
 The helper function `get_data_file` searches both the repository root and
-`IMU_MATLAB/data`, letting `TRIAD` and related scripts locate the bundled
+`MATLAB/data`, letting `TRIAD` and related scripts locate the bundled
 sample logs automatically when you pass just the file names.
 
-### IMU_MATLAB vs MATLAB Scripts
+### MATLAB Scripts
 
-Two sets of MATLAB code are provided:
-
-- **`IMU_MATLAB/`** replicates the Python pipeline via modular `Task_1`–`Task_5`
-  functions. Call `main.m` or the individual tasks when you need to debug or
-  inspect each processing step in detail.
-- **`MATLAB/`** offers lightweight stand‑alone scripts (`TRIAD.m`, `FINAL.m`,
-  `plot_results.m`, `validate_3sigma.m`). Use these for quick experiments or to
-  validate the `.mat` files exported from Python.
+All MATLAB code now resides in **`MATLAB/`**. It provides the helper
+scripts `TRIAD.m`, `FINAL.m`, `plot_results.m` and `validate_3sigma.m`
+for quick experiments or to validate the `.mat` files exported from
+Python.
 
 To run `TRIAD.m` with the new data-file detection logic simply resolve the file
 paths with `get_data_file` and pass them to the script:
@@ -356,32 +352,9 @@ gnss = get_data_file('GNSS_X001.csv');
 TRIAD(imu, gnss);
 ```
 
-`get_data_file` searches `IMU_MATLAB/data/` first and falls back to the
+`get_data_file` searches `MATLAB/data/` first and falls back to the
 repository root, so the command works from any location.
 
-### Sequential Task Execution
-
-To replicate the Python pipeline step by step, call each `Task_1`–`Task_5`
-function in order. Always resolve the data paths with `get_data_file` so the
-commands work from any folder. Every task writes a `.mat` file that the next one
-loads:
-
-```matlab
-imu  = get_data_file('IMU_X001.dat');
-gnss = get_data_file('GNSS_X001.csv');
-
-Task_1(imu, gnss, 'TRIAD');   % -> results/Task1_init_IMU_X001_GNSS_X001_TRIAD.mat
-Task_2(imu, gnss, 'TRIAD');   % -> results/Task2_body_IMU_X001_GNSS_X001_TRIAD.mat
-Task_3(imu, gnss, 'TRIAD');   % uses Task1/2 output, writes Task3_results_IMU_X001_GNSS_X001.mat
-Task_4(imu, gnss, 'TRIAD');   % uses Task3 results, writes Task4_results_IMU_X001_GNSS_X001.mat
-Task_5(imu, gnss, 'TRIAD');   % uses Task4 results, writes Task5_results_IMU_X001_GNSS_X001.mat
-```
-
-`Task_3` loads the initial vectors and biases from Tasks 1–2. `Task_4` requires
-`Task3_results_<pair>.mat` to compute the NED GNSS trajectory, and `Task_5`
-expects `Task4_results_<pair>.mat` to initialise the filter. Running the
-commands above reproduces the Python `main` results while letting you inspect
-each stage individually.
 
 ## Export to MATLAB (.mat) files
 To convert the saved Python results into MATLAB `.mat` files, run from the repo root:
