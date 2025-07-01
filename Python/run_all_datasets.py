@@ -19,10 +19,6 @@ import yaml
 
 HERE = pathlib.Path(__file__).resolve().parent
 
-from utils import ensure_dependencies
-
-ensure_dependencies()
-
 from tabulate import tabulate
 from tqdm import tqdm
 

@@ -1,30 +1,27 @@
 import numpy as np
 from typing import Tuple, Optional
 import pathlib
-import subprocess
-import sys
+
 import os
 
 
 def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
-    """Install packages from ``requirements.txt`` if key deps are missing."""
+    """Verify that ``tabulate`` and ``tqdm`` are installed.
+
+    If either package is missing an ``ImportError`` is raised suggesting the
+    user run ``pip install -r requirements.txt``.
+    """
     try:
         import tabulate  # noqa: F401
         import tqdm  # noqa: F401
-    except ModuleNotFoundError:
+    except ModuleNotFoundError as e:
         if requirements is None:
             requirements = pathlib.Path(__file__).resolve().parent / "requirements.txt"
         else:
             requirements = pathlib.Path(requirements)
-        print("Installing Python dependencies ...")
-        subprocess.check_call([
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "-r",
-            str(requirements),
-        ])
+        raise ImportError(
+            f"Required packages missing ({e.name}). Please run 'pip install -r {requirements}'."
+        )
 
 
 
