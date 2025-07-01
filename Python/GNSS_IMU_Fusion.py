@@ -1484,7 +1484,13 @@ def main():
         for i in range(3)
     ]).T
 
-    methods_plot = ["TRIAD", "Davenport", "SVD"]
+    # Use the same set of methods that were processed above. When the script is
+    # executed with a single method (e.g. via ``run_triad_only.py``) the lists
+    # ``fused_pos``/``fused_vel``/``fused_acc`` only contain that entry.  Using
+    # a fixed list here would therefore raise ``KeyError`` when accessing the
+    # missing results.  Reuse ``methods`` instead so the plotting logic adapts
+    # automatically to the selected method(s).
+    methods_plot = methods
     directions = ["North", "East", "Down"]
     components = ["Position", "Velocity", "Acceleration"]
 
