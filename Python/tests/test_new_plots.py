@@ -28,9 +28,9 @@ def test_body_frame_plots(tmp_path, monkeypatch):
     data_dir = repo_root / "Data"
     args = [
         "--imu-file",
-        str(data_dir / "IMU_X001_small.dat"),
+        str(data_dir / "IMU_X001.dat"),
         "--gnss-file",
-        str(data_dir / "GNSS_X001_small.csv"),
+        str(data_dir / "GNSS_X001.csv"),
         "--method",
         "TRIAD",
     ]

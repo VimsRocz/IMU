@@ -1,7 +1,7 @@
 datasets:
-  - imu: IMU_X001_small.dat
-    gnss: GNSS_X001_small.csv
-  - imu: IMU_X002_small.dat
-    gnss: GNSS_X002_small.csv
-  - imu: IMU_X003_small.dat
-    gnss: GNSS_X002_small.csv
+  - imu: IMU_X001.dat
+    gnss: GNSS_X001.csv
+  - imu: IMU_X002.dat
+    gnss: GNSS_X002.csv
+  - imu: IMU_X003.dat
+    gnss: GNSS_X002.csv

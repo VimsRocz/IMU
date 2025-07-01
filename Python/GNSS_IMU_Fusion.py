@@ -1561,10 +1561,9 @@ def main():
     # --- Build data sets ---------------------------------------------------
     dataset_id = imu_stem.split("_")[1]
     truth_path = None
-    for cand in [f"STATE_{dataset_id}_small.txt", f"STATE_{dataset_id}.txt"]:
-        if os.path.exists(cand):
-            truth_path = cand
-            break
+    cand = f"STATE_{dataset_id}.txt"
+    if os.path.exists(cand):
+        truth_path = cand
 
     def interp_all(t_src, arr):
         return np.vstack([np.interp(imu_time, t_src, arr[:, i]) for i in range(3)]).T

@@ -59,18 +59,15 @@ REF_COORDS = {
 }
 
 for mat in results.glob("*_TRIAD_kf_output.mat"):
-    m = re.match(r"IMU_(X\d+)(?:_small)?_.*_TRIAD_kf_output\.mat", mat.name)
+    m = re.match(r"IMU_(X\d+)_.*_TRIAD_kf_output\.mat", mat.name)
     if not m:
         continue
     dataset = m.group(1)
     if truth_arg is not None:
         truth = truth_arg
     else:
-        candidates = [
-            DATA_DIR / f"STATE_{dataset}_small.txt",
-            DATA_DIR / f"STATE_{dataset}.txt",
-        ]
-        truth = next((c for c in candidates if c.exists()), None)
+        cand = DATA_DIR / f"STATE_{dataset}.txt"
+        truth = cand if cand.exists() else None
     if truth is None:
         if args.truth_file:
             print(f"Warning: reference file {truth_arg} not found, skipping validation")

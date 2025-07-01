@@ -333,8 +333,7 @@ if ~isempty(truthFile)
     truth_candidates = {truthFile};
 else
     data_dir = fullfile(fileparts(mfilename('fullpath')), '..', 'Data');
-    truth_candidates = {fullfile(data_dir,sprintf('STATE_%s_small.txt',dataset_id)), ...
-                        fullfile(data_dir,sprintf('STATE_%s.txt',dataset_id))};
+    truth_candidates = {fullfile(data_dir, sprintf('STATE_%s.txt', dataset_id))};
 end
 truth_data = [];
 % Pre-allocate truth arrays to avoid "undefined variable" errors when no
