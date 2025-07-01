@@ -16,9 +16,9 @@ if nargin < 3
     method = ''; %#ok<NASGU>  % unused but kept for API compatibility
 end
 
-if ~exist('results','dir')
-    mkdir('results');
-end
+script_dir = fileparts(mfilename('fullpath'));
+results_dir = fullfile(script_dir, 'results');
+if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 if ~isfile(gnss_path)
     error('Task_3:GNSSFileNotFound', ...
           'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
@@ -39,7 +39,6 @@ else
     tag = [pair_tag '_' method];
     method_tag = method;
 end
-results_dir = 'results';
 
 % Load vectors produced by Task 1 and Task 2
 task1_file = fullfile(results_dir, ['Task1_init_' tag '.mat']);
