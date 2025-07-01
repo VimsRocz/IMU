@@ -12,7 +12,7 @@ def run_python_pipeline(imu_file: str, gnss_file: str, method: str) -> Path:
     """Run the Python fusion pipeline and return the .mat result path."""
     cmd = [
         "python",
-        "GNSS_IMU_Fusion.py",
+        str(Path(__file__).resolve().parent / "GNSS_IMU_Fusion.py"),
         "--imu-file", imu_file,
         "--gnss-file", gnss_file,
         "--method", method,

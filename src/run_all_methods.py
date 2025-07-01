@@ -80,7 +80,7 @@ def main(argv=None):
         print(f"\u25B6 {tag}")
         cmd = [
             sys.executable,
-            "GNSS_IMU_Fusion.py",
+            str(pathlib.Path(__file__).resolve().parent / "GNSS_IMU_Fusion.py"),
             "--imu-file",
             imu,
             "--gnss-file",
