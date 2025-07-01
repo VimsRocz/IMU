@@ -127,6 +127,24 @@ ensure you are using the `'WGS84'` string in `Task_1.m` when calling
    git push
    ```
 
+### Regenerating Plots from Saved Results
+
+After running the Python pipeline you can recreate the figures in MATLAB by
+loading the saved result file:
+
+```matlab
+plot_results('results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat')
+```
+
+If `load_npz.m` is on the MATLAB path, `plot_results` also accepts the
+NumPy `.npz` archives produced by the Python code:
+
+```matlab
+plot_results('results_X001.npz')
+```
+
+You can also call `load_npz` directly to access the arrays in a struct.
+
 ## Codex Integration Notes: Gravity, Bias and Metrics
 
 The MATLAB version mirrors the Python pipeline. Use the following steps when
