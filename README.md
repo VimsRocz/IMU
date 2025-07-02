@@ -438,6 +438,8 @@ These utilities are optional and not exercised by the unit tests.
   request.
 - **Debugging:** If the MATLAB pipeline produces kilometre-scale drift,
   consult `docs/DebuggingDrift.md` for troubleshooting steps.
+- **Security:** Disable GitHub's default CodeQL scanner as described in
+  [docs/disable-default-codeql.md](docs/disable-default-codeql.md).
 
 
 See [docs/CHANGELOG.md](docs/CHANGELOG.md) for a list of recent features.
