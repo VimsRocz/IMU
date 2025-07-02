@@ -276,10 +276,11 @@ mandatory** before executing any tests. The suite relies on *all* entries in
 `requirements-dev.txt` – including heavier libraries such as `cartopy` that can
 take some time to build. Using a dedicated virtual environment or container is
 strongly recommended.  The `test` target in the `Makefile` installs both
-requirement files for you:
+requirement files for you. Alternatively, run the helper script
+`scripts/setup_tests.sh` before invoking `pytest`:
 
 ```bash
-pip install -r requirements.txt -r requirements-dev.txt
+./scripts/setup_tests.sh
 pytest -q
 ```
 
