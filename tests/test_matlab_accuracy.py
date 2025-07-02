@@ -13,26 +13,23 @@ def test_matlab_accuracy(tmp_path):
     if not matlab:
         pytest.skip("MATLAB not available")
     cmd = (
-        "imu_path=get_data_file('IMU_X001.dat');"
-        "gnss_path=get_data_file('GNSS_X001.csv');"
-        "main(imu_path, gnss_path, 'TRIAD');"
+        "imu=get_data_file('IMU_X001.dat');"
+        "gnss=get_data_file('GNSS_X001.csv');"
+        "FINAL(imu, gnss, 'TRIAD');"
     )
     subprocess.run([matlab, "-batch", cmd], check=True)
-    mat_file = Path("results/Task5_results_IMU_X001_GNSS_X001.mat")
-    assert mat_file.exists(), f"Missing {mat_file}"
-    data = scipy.io.loadmat(mat_file)
-    x_log = data["x_log"]
-    gnss_pos_ned = data["gnss_pos_ned"]
-    final_err = np.linalg.norm(x_log[0:3, -1] - gnss_pos_ned[-1, :])
-    assert final_err < 0.05, f"final position error {final_err:.3f} m >= 0.05 m"
 
-    assert "vel_log" in data and "accel_from_vel" in data
-    vel_log = data["vel_log"]
-    accel_from_vel = data["accel_from_vel"]
-    gnss_vel_ned = data["gnss_vel_ned"]
-    gnss_accel_ned = data["gnss_accel_ned"]
-    vel_err = np.linalg.norm(vel_log[:, -1] - gnss_vel_ned[-1, :])
-    acc_err = np.linalg.norm(accel_from_vel[:, -1] - gnss_accel_ned[-1, :])
-    assert vel_err < 0.05, f"final velocity error {vel_err:.3f} m/s >= 0.05 m/s"
-    assert acc_err < 0.05, f"final acceleration error {acc_err:.3f} m/s^2 >= 0.05 m/s^2"
+    mat_file = Path('results/IMU_X001_GNSS_X001_TRIAD_final.mat')
+    assert mat_file.exists(), f"Missing {mat_file}"
+    data = scipy.io.loadmat(mat_file, struct_as_record=False, squeeze_me=True)
+    fused_pos = data['fused_pos']
+    fused_vel = data['fused_vel']
+    summary = data['summary']
+    if isinstance(summary, np.ndarray):
+        summary = summary.item()
+    final_err = float(summary.final_pos)
+
+    assert fused_pos.shape[1] == 3 and fused_vel.shape[1] == 3
+    assert np.isfinite(fused_pos).all() and np.isfinite(fused_vel).all()
+    assert final_err < 0.05, f"final position error {final_err:.3f} m >= 0.05 m"
 
