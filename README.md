@@ -400,6 +400,36 @@ expects `Task4_results_<pair>.mat` to initialise the filter. Running the
 commands above reproduces the Python `main` results while letting you inspect
 each stage individually.
 
+### MATLAB-only pipeline
+
+Run the entire pipeline directly in MATLAB:
+
+```matlab
+run_all_datasets_matlab
+```
+
+The script scans `Data/` (or the repository root if that folder is missing)
+for matching IMU and GNSS logs, executes `Task_1` through `Task_5` for each
+pair and saves the results as `IMU_<id>_GNSS_<id>_TRIAD_kf_output.mat` in
+`results/`. `plot_results` is invoked automatically to export the standard
+PDF figures.
+
+Prerequisites: MATLAB R2023a or newer with the Signal Processing and
+Navigation Toolboxes.
+
+### MATLAB+Python hybrid pipeline
+
+When Python (with `numpy`, `pandas` and `scipy`) is available you can drive
+the Python batch runner from MATLAB:
+
+```matlab
+run_all_datasets_with_python
+```
+
+The wrapper calls `src/run_all_datasets.py` and afterwards loads each
+`*_kf_output.mat` file to generate the plots in MATLAB.
+Install Python 3.x along with `numpy`, `pandas` and `scipy` (or simply `pip install -r requirements.txt`).
+
 ## Export to MATLAB (.mat) files
 To convert the saved Python results into MATLAB `.mat` files, run from the repo root:
 
