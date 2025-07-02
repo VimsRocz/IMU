@@ -8,7 +8,7 @@ time you run it. If you'd rather set them up beforehand, install the
 dependencies manually with:
 
 ```bash
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r requirements.txt
 ```
 
 For a minimal setup you can also install the packages individually:
@@ -17,9 +17,10 @@ For a minimal setup you can also install the packages individually:
 pip install numpy matplotlib filterpy
 ```
 
-The tests, however, require the **full** `requirements.txt`, including hefty
-dependencies like `cartopy`. Installing them inside a virtual environment or
-a container helps keep your base Python setup clean.
+The tests, however, require the **full** `requirements.txt` together with
+`requirements-dev.txt`, including hefty dependencies like `cartopy`. Installing
+them inside a virtual environment or container helps keep your base Python
+setup clean.
 
 If you run into issues with filterpy on Ubuntu:
 
