@@ -47,6 +47,8 @@ To run the unit tests you need `numpy`, `pandas`, `scipy` and `cartopy` which ar
 pip install -r requirements-dev.txt -r requirements.txt
 ```
 Both requirement files **must** be installed before executing `pytest`.
+`pytest` itself is only listed in `requirements-dev.txt`, so skipping that
+file will leave the `pytest` command unavailable.
 
 
 If the build error complains about Cython install it explicitly first:
