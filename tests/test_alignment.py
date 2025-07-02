@@ -1,7 +1,5 @@
 import glob
-import json
 import pathlib
-import re
 import pytest
 
 np = pytest.importorskip("numpy")

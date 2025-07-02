@@ -11,7 +11,6 @@ import sys
 import importlib
 import io
 import contextlib
-import subprocess
 import argparse
 import re
 import time
@@ -19,16 +18,13 @@ import pandas as pd
 import numpy as np
 import yaml
 
-HERE = pathlib.Path(__file__).resolve().parent
-
 from utils import ensure_dependencies
-
-ensure_dependencies()
-
 from tabulate import tabulate
 from tqdm import tqdm
 
-HERE     = pathlib.Path(__file__).resolve().parent
+HERE = pathlib.Path(__file__).resolve().parent
+
+ensure_dependencies()
 LOG_DIR  = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 

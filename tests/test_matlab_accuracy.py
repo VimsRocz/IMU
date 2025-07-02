@@ -1,11 +1,11 @@
 import subprocess
 import shutil
 from pathlib import Path
-
 import pytest
+import scipy.io
+
 np = pytest.importorskip("numpy")
 pytest.importorskip("scipy")
-import scipy.io
 
 
 def test_matlab_accuracy(tmp_path):

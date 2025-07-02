@@ -9,8 +9,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
-from scipy.signal import butter, filtfilt
-from typing import Tuple
 
 from scripts.plot_utils import save_plot, plot_attitude
 from utils import (
@@ -21,6 +19,23 @@ from utils import (
 )
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
+from gnss_imu_fusion.init_vectors import (
+    average_rotation_matrices,
+    svd_alignment,
+    butter_lowpass_filter,
+    compute_wahba_errors,
+)
+from gnss_imu_fusion.plots import (
+    save_zupt_variance,
+    save_euler_angles,
+    save_residual_plots,
+    save_attitude_over_time,
+)
+from gnss_imu_fusion.kalman_filter import (
+    quat_multiply,
+    quat_from_rate,
+    quat2euler,
+)
 
 try:
     from rich.console import Console
@@ -48,24 +63,6 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
-)
-from gnss_imu_fusion.init_vectors import (
-    average_rotation_matrices,
-    svd_alignment,
-    butter_lowpass_filter,
-    angle_between,
-    compute_wahba_errors,
-)
-from gnss_imu_fusion.plots import (
-    save_zupt_variance,
-    save_euler_angles,
-    save_residual_plots,
-    save_attitude_over_time,
-)
-from gnss_imu_fusion.kalman_filter import (
-    quat_multiply,
-    quat_from_rate,
-    quat2euler,
 )
 
 # Minimum number of samples required from a static interval for bias estimation
@@ -661,8 +658,6 @@ def main():
     def normalise(q):
         return q / np.linalg.norm(q)
 
-    q_all_1 = normalise(sum(quats_case1[m] for m in methods))
-    q_all_2 = normalise(sum(quats_case2[m] for m in methods))
 
     def attitude_errors(q1, q2):
         def quat_to_rot(q):
@@ -1420,11 +1415,11 @@ def main():
         P_hist_all[m] = np.stack(P_hist)
     
     # Compute residuals for the selected method
-    residual_pos = res_pos_all[method]
-    residual_vel = res_vel_all[method]
-    time_residuals = time_res_all[method]
+    _ = res_pos_all[method]
+    _ = res_vel_all[method]
+    _ = time_res_all[method]
 
-    attitude_angles = np.rad2deg(euler_all[method])
+    _ = np.rad2deg(euler_all[method])
     
     # --------------------------------
     # Subtask 5.7: Handle Event at 5000s (if needed)
@@ -1763,7 +1758,8 @@ def main():
     )
 
     # --- Persist for cross-dataset comparison ------------------------------
-    import pickle, gzip
+    import pickle
+    import gzip
     pack = {
         "method"   : method,
         "dataset"  : summary_tag.split("_")[1],

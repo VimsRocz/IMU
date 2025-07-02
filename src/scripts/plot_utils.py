@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from typing import List
+import numpy as np
 
 
 def save_plot(fig, outpath, title):
@@ -25,7 +26,6 @@ def plot_attitude(time, quats, outpath):
     fig.savefig(outpath)
     plt.close(fig)
 
-import numpy as np
 
 
 def plot_zupt_detection(accel_data: np.ndarray, gyro_data: np.ndarray,

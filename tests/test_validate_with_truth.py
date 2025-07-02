@@ -1,14 +1,11 @@
-import os, sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "src"))
+import sys
 from pathlib import Path
 import pytest
+from src.GNSS_IMU_Fusion import main
+from src.validate_with_truth import load_estimate
 
 np = pytest.importorskip("numpy")
 pd = pytest.importorskip("pandas")
-
-from GNSS_IMU_Fusion import main
-from validate_with_truth import load_estimate
 
 
 def test_validate_with_truth(monkeypatch):
