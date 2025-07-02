@@ -3,7 +3,7 @@ IMU data processing and initialization tools (Python)
 
 ## Installation
 
-`run_all_datasets.py` installs the required packages automatically the first
+`src/run_all_datasets.py` installs the required packages automatically the first
 time you run it. If you'd rather set them up beforehand, install the
 dependencies manually with:
 
@@ -101,7 +101,7 @@ against it. The validation summary and plots are saved alongside the exported
    Codespaces will automatically build the container (per `.devcontainer/`), install Python & your `requirements.txt`.
 
 3. **Enable verbose diagnostics**
-   We’ve added a `--verbose` flag to `run_all_datasets.py` that enables all the extra tables and timing you requested. `GNSS_IMU_Fusion.py` also accepts `--verbose` for the same detailed diagnostics.
+   We’ve added a `--verbose` flag to `src/run_all_datasets.py` that enables all the extra tables and timing you requested. `src/GNSS_IMU_Fusion.py` also accepts `--verbose` for the same detailed diagnostics.
 
 4. **Run with diagnostics**  
    In the integrated terminal:
@@ -130,7 +130,7 @@ Once it finishes, open debug_output.log, copy the console dump and paste it back
 
 ## Notes
 
-`GNSS_IMU_Fusion.py` now detects a low-motion interval in the IMU data to
+`src/GNSS_IMU_Fusion.py` now detects a low-motion interval in the IMU data to
 estimate the initial accelerometer and gyroscope biases. The magnitude of the
 static accelerometer vector is used to compute a simple scale factor so that the
 measured gravity is close to 9.81 m/s². This improves the attitude
@@ -152,7 +152,7 @@ If the measured magnitude differs by more than a few percent, the IMU may not be
 
 ## Running all methods
 
-Use `run_all_methods.py` to execute the fusion script with the TRIAD,
+Use `src/run_all_methods.py` to execute the fusion script with the TRIAD,
 Davenport and SVD initialisation methods in sequence.  Provide a YAML
 configuration file to specify the datasets:
 
@@ -165,7 +165,7 @@ Running the script without `--config` processes the bundled example data sets.
 
 ## Running all data sets
 
-To process every IMU/GNSS pair defined in `run_all_datasets.py`, simply run:
+To process every IMU/GNSS pair defined in `src/run_all_datasets.py`, simply run:
 
 ```bash
 python src/run_all_datasets.py
@@ -187,7 +187,7 @@ All cases: 100%|##########| 9/9 [00:12<00:00,  1.31s/it]
 
 ## Running only the TRIAD method
 
-If you want to process all datasets using just the TRIAD initialisation method, run the helper script `run_triad_only.py` or the MATLAB script `run_triad_only.m`:
+If you want to process all datasets using just the TRIAD initialisation method, run the helper script `src/run_triad_only.py` or the MATLAB script `run_triad_only.m`:
 
 ```bash
 python src/run_triad_only.py
@@ -195,7 +195,7 @@ python src/run_triad_only.py
 ```matlab
 run_triad_only
 ```
-This is equivalent to running `run_all_datasets.py --method TRIAD`.
+This is equivalent to running `python src/run_all_datasets.py --method TRIAD`.
 
 
 After all runs complete you can compare the datasets side by side:
@@ -208,14 +208,14 @@ This creates one `all_datasets_<method>_comparison.pdf` per method in
 
 ## Running a single dataset
 
-Run `FINAL.py` to process just the first IMU/GNSS pair with all three
+Run `src/FINAL.py` to process just the first IMU/GNSS pair with all three
 initialisation methods.  The script calls the fusion routine directly, so no
 additional wrapper scripts are involved:
 
 ```bash
 python src/FINAL.py
 ```
-This produces the same logs and summary table as `run_all_datasets.py` but
+This produces the same logs and summary table as `src/run_all_datasets.py` but
 only for `IMU_X001.dat` and `GNSS_X001.csv`. You can still pass `--method` or a
 YAML config file just like with the batch runner.
 If your shell complains about `event not found` when you try running the

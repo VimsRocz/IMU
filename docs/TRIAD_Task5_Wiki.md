@@ -1,6 +1,6 @@
 # TRIAD Method – Task 5 Kalman Filter Fusion
 
-This page documents **Task 5** of the `GNSS_IMU_Fusion.py` pipeline. After Task 4 provides an IMU-only trajectory, Task 5 fuses the inertial and GNSS data with a simple Kalman filter.
+This page documents **Task 5** of the `src/GNSS_IMU_Fusion.py` pipeline. After Task 4 provides an IMU-only trajectory, Task 5 fuses the inertial and GNSS data with a simple Kalman filter.
 
 ## Overview
 

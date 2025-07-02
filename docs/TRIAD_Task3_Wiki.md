@@ -1,6 +1,6 @@
 # TRIAD Method – Task 3 Attitude Determination
 
-This page documents **Task 3** of the `GNSS_IMU_Fusion.py` pipeline. After Tasks 1 and 2 provide matching reference and body-frame vectors, Task 3 solves Wahba’s problem to obtain the initial attitude. Only the TRIAD solution is described here.
+This page documents **Task 3** of the `src/GNSS_IMU_Fusion.py` pipeline. After Tasks 1 and 2 provide matching reference and body-frame vectors, Task 3 solves Wahba’s problem to obtain the initial attitude. Only the TRIAD solution is described here.
 
 ## Overview
 
@@ -45,4 +45,4 @@ Optional comparison plots
 
 ## Result
 
-Task 3 outputs the rotation matrix and quaternion describing the initial attitude. The error and quaternion plots are saved to the `results/` folder and listed in `plot_summary.md`. Use `run_triad_only.py` (or the MATLAB script `run_triad_only.m`) to process all datasets and generate these figures. The attitude estimate serves as the starting point for the IMU/GNSS comparison in **Task 4** and the subsequent Kalman filter fusion in **Task 5**.
+Task 3 outputs the rotation matrix and quaternion describing the initial attitude. The error and quaternion plots are saved to the `results/` folder and listed in `plot_summary.md`. Use `src/run_triad_only.py` (or the MATLAB script `run_triad_only.m`) to process all datasets and generate these figures. The attitude estimate serves as the starting point for the IMU/GNSS comparison in **Task 4** and the subsequent Kalman filter fusion in **Task 5**.
