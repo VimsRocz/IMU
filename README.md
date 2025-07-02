@@ -10,8 +10,8 @@ IMU data processing and initialization tools (Python)
 - [Datasets](#datasets)
 - [Running validation](#running-validation)
 - [Tests](#tests)
-- [Advanced Topics](#advanced-topics)
 - [Documentation](#documentation)
+- [Appendix: Advanced Topics](#appendix-advanced-topics)
 ### Installation
 
 `src/run_all_datasets.py` installs the required packages automatically the first
@@ -321,7 +321,7 @@ These utilities are optional and not exercised by the unit tests.
   consult `docs/DebuggingDrift.md` for troubleshooting steps.
 - **Security:** Disable GitHub's default CodeQL scanner as described in
   [docs/disable-default-codeql.md](docs/disable-default-codeql.md).
-### Advanced Topics
+### Appendix: Advanced Topics
 
 See [docs/AdvancedTopics.md](docs/AdvancedTopics.md) for GitHub Codespaces instructions and MATLAB usage.
 
