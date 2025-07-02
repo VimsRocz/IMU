@@ -17,10 +17,11 @@ For a minimal setup you can also install the packages individually:
 pip install numpy matplotlib filterpy
 ```
 
-The tests, however, require the **full** `requirements.txt` together with the
-`pytest` dependency from `requirements-dev.txt`, including hefty
-dependencies like `cartopy`. Installing them inside a virtual environment or
-a container helps keep your base Python setup clean.
+The tests, however, require **all** packages from `requirements.txt` *and* the
+development extras listed in `requirements-dev.txt`.  This pulls in heavier
+libraries such as `cartopy`.  Installing them in a virtual environment or
+container keeps your base Python setup clean.  Running `make test` installs
+both requirement files automatically before executing `pytest`.
 
 If you run into issues with filterpy on Ubuntu:
 
@@ -270,7 +271,8 @@ mandatory** before executing any tests. The suite relies on *all* entries in
 `requirements.txt` as well as the development dependencies in
 `requirements-dev.txt` – including heavier libraries such as `cartopy` that can
 take some time to build. Using a dedicated virtual environment or container is
-strongly recommended:
+strongly recommended.  The `test` target in the `Makefile` installs both
+requirement files for you:
 
 ```bash
 pip install -r requirements.txt -r requirements-dev.txt
