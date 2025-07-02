@@ -10,6 +10,7 @@ from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
 
 # --- Run the batch processor -------------------------------------------------
 cmd = [
@@ -45,8 +46,8 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         est = load_estimate(str(mat))
         m2 = re.match(r"(IMU_\w+)_((?:GNSS_)?\w+)_TRIAD_kf_output", mat.stem)
         if m2:
-            imu_file = HERE / f"{m2.group(1)}.dat"
-            gnss_file = HERE / f"{m2.group(2)}.csv"
+            imu_file = ROOT / f"{m2.group(1)}.dat"
+            gnss_file = ROOT / f"{m2.group(2)}.csv"
             frames = assemble_frames(est, imu_file, gnss_file)
             for frame_name, data in frames.items():
                 t_i, p_i, v_i, a_i = data["imu"]

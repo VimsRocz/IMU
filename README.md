@@ -96,6 +96,8 @@ All the batch scripts (for example `src/run_triad_only.py` and
 automatically calls `validate_with_truth.py` to compare the estimated trajectory
 against it. The validation summary and plots are saved alongside the exported
 `.mat` files in `results/`.
+The input data files are looked up relative to the repository root, so you can
+run the scripts from any directory.
 
 ## 🚀 Developing & Debugging in GitHub Codespaces
 

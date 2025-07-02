@@ -23,6 +23,7 @@ from tabulate import tabulate
 from tqdm import tqdm
 
 HERE = pathlib.Path(__file__).resolve().parent
+ROOT = HERE.parent
 
 ensure_dependencies()
 LOG_DIR  = HERE / "logs"
@@ -47,8 +48,8 @@ def run_one(imu, gnss, method, verbose=False):
     fusion = importlib.import_module("GNSS_IMU_Fusion")
     argv = [
         "GNSS_IMU_Fusion.py",
-        "--imu-file", imu,
-        "--gnss-file", gnss,
+        "--imu-file", str(ROOT / imu),
+        "--gnss-file", str(ROOT / gnss),
         "--method", method,
     ]
     summary_lines = []
@@ -81,7 +82,7 @@ def main():
     parser.add_argument('--config', help='YAML configuration file')
     args = parser.parse_args()
 
-    here_files = {p.name for p in HERE.iterdir()}
+    root_files = {p.name for p in ROOT.iterdir()}
 
     if args.config:
         with open(args.config) as fh:
@@ -105,7 +106,7 @@ def main():
     cases = [(imu, gnss, m) for (imu, gnss) in datasets for m in method_list]
     fusion_results = []
 
-    results_dir = HERE / "results"
+    results_dir = pathlib.Path.cwd() / "results"
     results_dir.mkdir(exist_ok=True)
 
     for imu, gnss, method in tqdm(cases, desc="All cases"):
@@ -125,8 +126,8 @@ def main():
             print("GNSS Head:\n", gnss_df.head())
             print("IMU Head:\n", imu_data[:5])
             print("============================")
-        if imu not in here_files or gnss not in here_files:
-            raise FileNotFoundError(f"Missing {imu} or {gnss} in {HERE}")
+        if imu not in root_files or gnss not in root_files:
+            raise FileNotFoundError(f"Missing {imu} or {gnss} in {ROOT}")
         start = time.time()
         summaries = run_one(imu, gnss, method, verbose=args.verbose)
         runtime = time.time() - start
