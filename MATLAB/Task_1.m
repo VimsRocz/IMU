@@ -89,7 +89,7 @@ end
 % ================================
 fprintf('\nSubtask 1.2: Defining gravity vector in NED frame.\n');
 
-g = 9.81; % Approximate gravity magnitude
+g = constants.GRAVITY; % Approximate gravity magnitude
 g_NED = [0; 0; g]; % Gravity vector in NED (North, East, Down)
 
 fprintf('Gravity vector in NED: [%.2f, %.2f, %.2f] m/s^2 (Down positive, magnitude g = %.2f m/s^2)\n', g_NED(1), g_NED(2), g_NED(3), g);
@@ -101,7 +101,7 @@ fprintf('Gravity vector in NED: [%.2f, %.2f, %.2f] m/s^2 (Down positive, magnitu
 fprintf('\nSubtask 1.3: Defining Earth rotation rate vector in NED frame.\n');
 
 % Earth rotation rate in rad/s
-omega_E = 7.2921159e-5;
+omega_E = constants.EARTH_RATE;
 
 % Earth rotation rate vector in NED frame: ω_ie,NED = ω_E * [cos(φ); 0; -sin(φ)]
 omega_ie_NED = omega_E * [cos(lat); 0; -sin(lat)];

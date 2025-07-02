@@ -60,7 +60,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     ref_r0 = gnss_pos_ecef(first_idx, :)';
     [lat_deg, lon_deg, ~] = ecef_to_geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
     C_ECEF_to_NED = compute_C_ECEF_to_NED(deg2rad(lat_deg), deg2rad(lon_deg));
-    omega_E = 7.2921159e-5;
+    omega_E = constants.EARTH_RATE;
     omega_ie_NED = omega_E * [cosd(lat_deg); 0; -sind(lat_deg)];
     if nargin < 4 || isempty(gnss_pos_ned)
         gnss_pos_ned = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
@@ -143,7 +143,7 @@ H = [eye(6), zeros(6,9)];
 q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
 
 % Gravity vector in NED frame
-g_NED = [0; 0; 9.81];
+g_NED = [0; 0; constants.GRAVITY];
 
 % Trapezoidal integration state
 prev_a_ned = zeros(3,1);

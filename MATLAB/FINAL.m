@@ -46,8 +46,8 @@ end
 x = T.X_ECEF_m(valid); y = T.Y_ECEF_m(valid); z = T.Z_ECEF_m(valid);
 [lat, lon, ~] = ecef2geod(x, y, z);
 
-g_NED = [0;0;9.81];
-omegaE = 7.2921159e-5;
+g_NED = [0;0;constants.GRAVITY];
+omegaE = constants.EARTH_RATE;
 omega_ie_NED = omegaE * [cosd(lat);0;-sind(lat)];
 
 %% ----- Task 2: body frame vectors from IMU ----------------------------
@@ -68,8 +68,8 @@ gyro = gyro ./ dt;
 acc_mean = mean(acc,1);
 gyro_mean = mean(gyro,1);
 g_mag = norm(acc_mean);
-if abs(g_mag - 9.81) > 0.5
-    scale_factor = 9.81 / g_mag;
+if abs(g_mag - constants.GRAVITY) > 0.5
+    scale_factor = constants.GRAVITY / g_mag;
     D(:,6:8) = D(:,6:8) * scale_factor;
     acc = D(1:Nstatic,6:8) ./ dt;
     acc_mean = mean(acc,1);

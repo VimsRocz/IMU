@@ -7,6 +7,7 @@ from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
 from kalman import GNSSIMUKalman, rts_smoother
 from utils import compute_C_ECEF_to_NED
+from constants import GRAVITY, EARTH_RATE
 
 
 def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):
@@ -98,8 +99,8 @@ def main():
     static_acc = acc[start:end].mean(axis=0)
     static_gyro = gyro[start:end].mean(axis=0)
 
-    g_ned = np.array([0,0,9.81])
-    omega_ned = 7.2921159e-5 * np.array([np.cos(lat0),0,-np.sin(lat0)])
+    g_ned = np.array([0, 0, GRAVITY])
+    omega_ned = EARTH_RATE * np.array([np.cos(lat0), 0, -np.sin(lat0)])
 
     v1_b = -static_acc/np.linalg.norm(static_acc)
     v2_b = static_gyro/np.linalg.norm(static_gyro) if np.linalg.norm(static_gyro)>0 else np.array([1,0,0])

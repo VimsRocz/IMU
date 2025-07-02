@@ -199,11 +199,11 @@ fprintf('  Accel variance: [%.4g %.4g %.4g]\n', acc_var);
 fprintf('  Gyro  variance: [%.4g %.4g %.4g]\n', gyro_var);
 
 g_norm = norm(static_acc_row);
-fprintf('Estimated gravity magnitude from IMU: %.4f m/s^2 (expected ~9.81)\n', g_norm);
+fprintf('Estimated gravity magnitude from IMU: %.4f m/s^2 (expected ~%.2f)\n', g_norm, constants.GRAVITY);
 
 % --- Simple accelerometer scale calibration ---
 scale_factor = 1.0;
-if g_norm > 1.0, scale_factor = 9.81 / g_norm; end
+if g_norm > 1.0, scale_factor = constants.GRAVITY / g_norm; end
 
 if abs(scale_factor - 1.0) > 0.05
     fprintf('Applying accelerometer scale factor: %.4f\n', scale_factor);
@@ -219,7 +219,7 @@ fprintf('\nSubtask 2.3: Defining gravity and Earth rotation rate in the body fra
 % By convention, vectors are column vectors. mean() returns a row, so we transpose it.
 g_body_raw = -static_acc_row';
 g_mag = norm(g_body_raw);
-g_body = (g_body_raw / g_mag) * 9.81;   % Normalize then scale to 9.81
+g_body = (g_body_raw / g_mag) * constants.GRAVITY;   % Normalize then scale to GRAVITY
 g_body_scaled = g_body;                  % explicitly store scaled gravity
 %% Compute Earth rotation in body frame using initial latitude
 % Load a GNSS sample to estimate the latitude so the expected
@@ -239,14 +239,14 @@ catch ME
     lat_deg = 0; lon_deg = 0;
 end
 lat_rad = deg2rad(lat_deg);
-omega_E = 7.2921159e-5;
+omega_E = constants.EARTH_RATE;
 omega_ie_NED = omega_E * [cos(lat_rad); 0; -sin(lat_rad)];
 
 % Use TRIAD with the measured vectors to obtain a rough attitude so that
 % the expected Earth rotation in the body frame can be determined.
 v1_B = -static_acc_row'/norm(static_acc_row);   % accelerometer measures -g
 v2_B = static_gyro_row'/norm(static_gyro_row);
-g_NED = [0;0;9.81];
+g_NED = [0;0;constants.GRAVITY];
 v1_N = g_NED/norm(g_NED);
 v2_N = omega_ie_NED/norm(omega_ie_NED);
 M_body = triad_basis(v1_B, v2_B);
@@ -276,20 +276,20 @@ fprintf('Estimated gyroscope bias:     [%.6e %.6e %.6e] rad/s\n', gyro_bias);
 % Subtask 2.4: Validate and Print Body-Frame Vectors
 % =================================
 fprintf('\nSubtask 2.4: Validating measured vectors in the body frame.\n');
-expected_omega_mag = 7.2921159e-5; % rad/s
+expected_omega_mag = constants.EARTH_RATE; % rad/s
 
 assert(isequal(size(g_body), [3, 1]), 'g_body must be a 3x1 column vector.');
 assert(isequal(size(omega_ie_body), [3, 1]), 'omega_ie_body must be a 3x1 column vector.');
 
-if norm(g_body) < 0.1 * 9.81
+if norm(g_body) < 0.1 * constants.GRAVITY
     warning('Gravity magnitude is very low; check accelerometer or static assumption.');
 end
 if norm(omega_ie_body) < 0.5 * expected_omega_mag
     warning('Earth rotation rate is low; check gyroscope or static assumption.');
 end
 
-fprintf('Magnitude of g_body:         %.6f m/s^2 (expected ~9.81 m/s^2)\n', norm(g_body));
-fprintf('Magnitude of omega_ie_body:  %.6e rad/s (expected ~7.29e-5 rad/s)\n', norm(omega_ie_body));
+fprintf('Magnitude of g_body:         %.6f m/s^2 (expected ~%.2f m/s^2)\n', norm(g_body), constants.GRAVITY);
+fprintf('Magnitude of omega_ie_body:  %.6e rad/s (expected ~%.2e rad/s)\n', norm(omega_ie_body), constants.EARTH_RATE);
 
 fprintf('\n==== Measured Vectors in the Body Frame ====\n');
 fprintf('Measured gravity vector (g_body):        [%.4f, %.4f, %.4f]'' m/s^2\n', g_body);

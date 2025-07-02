@@ -58,8 +58,8 @@ end
 x = T.X_ECEF_m(valid); y = T.Y_ECEF_m(valid); z = T.Z_ECEF_m(valid);
 [lat, lon, ~] = ecef2geod(x, y, z);
 % reference vectors
-g_NED = [0; 0; 9.81];
-omegaE = 7.2921159e-5;
+g_NED = [0; 0; constants.GRAVITY];
+omegaE = constants.EARTH_RATE;
 omega_ie_NED = omegaE * [cosd(lat); 0; -sind(lat)];
 
 %% ----- Task 2: Body-frame vectors from IMU ----------------------------

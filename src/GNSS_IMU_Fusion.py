@@ -17,6 +17,7 @@ from utils import (
     compute_C_ECEF_to_NED,
     ecef_to_geodetic,
 )
+from constants import GRAVITY, EARTH_RATE
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
 from gnss_imu_fusion.init_vectors import (
@@ -171,10 +172,11 @@ def main():
     # --------------------------------
     logging.info("Subtask 1.2: Defining gravity vector in NED frame.")
     
-    # Gravity vector in NED frame: g_NED = [0, 0, g], where g ≈ 9.81 m/s²
-    g = 9.81
-    g_NED = np.array([0.0, 0.0, g])
-    logging.info(f"Gravity vector in NED: {g_NED} m/s^2 (Down positive, magnitude g = {g:.2f} m/s^2)")
+    # Gravity vector in NED frame: g_NED = [0, 0, g]
+    g_NED = np.array([0.0, 0.0, GRAVITY])
+    logging.info(
+        f"Gravity vector in NED: {g_NED} m/s^2 (Down positive, magnitude g = {GRAVITY:.2f} m/s^2)"
+    )
     
     # --------------------------------
     # Subtask 1.3: Define Earth Rotation Rate Vector in NED
@@ -182,8 +184,7 @@ def main():
     logging.info("Subtask 1.3: Defining Earth rotation rate vector in NED frame.")
     
     # Earth rotation rate in NED frame: ω_ie,NED = ω_E * [cos(φ), 0, -sin(φ)]
-    omega_E = 7.2921159e-5
-    omega_ie_NED = omega_E * np.array([np.cos(lat), 0.0, -np.sin(lat)])
+    omega_ie_NED = EARTH_RATE * np.array([np.cos(lat), 0.0, -np.sin(lat)])
     logging.info(f"Earth rotation rate in NED: {omega_ie_NED} rad/s (North, East, Down)")
 
     mag_NED = None
@@ -343,11 +344,15 @@ def main():
         logf.write(f"gyro_mean={static_gyro} gyro_var={gyro_var}\n")
     g_norm = np.linalg.norm(static_acc)
     omega_norm = np.linalg.norm(static_gyro)
-    logging.info(f"Estimated gravity magnitude from IMU: {g_norm:.4f} m/s² (expected ~9.81)")
-    logging.info(f"Estimated Earth rotation magnitude from IMU: {omega_norm:.6e} rad/s (expected ~7.2921e-5)")
+    logging.info(
+        f"Estimated gravity magnitude from IMU: {g_norm:.4f} m/s² (expected ~{GRAVITY})"
+    )
+    logging.info(
+        f"Estimated Earth rotation magnitude from IMU: {omega_norm:.6e} rad/s (expected ~{EARTH_RATE:.2e})"
+    )
 
     # Simple accelerometer scale calibration
-    scale_factor = 9.81 / g_norm if g_norm > 0 else 1.0
+    scale_factor = GRAVITY / g_norm if g_norm > 0 else 1.0
     if abs(scale_factor - 1.0) > 0.05:
         logging.info(f"Applying accelerometer scale factor: {scale_factor:.4f}")
     acc *= scale_factor
@@ -386,17 +391,21 @@ def main():
     # Subtask 2.4: Validate and Print Body-Frame Vectors
     # --------------------------------
     logging.info("Subtask 2.4: Validating measured vectors in the body frame.")
-    expected_omega = 7.2921159e-5
     assert g_body.shape == (3,), "g_body must be a 3D vector."
     assert omega_ie_body.shape == (3,), "omega_ie_body must be a 3D vector."
     g_norm = np.linalg.norm(g_body)
     omega_norm = np.linalg.norm(omega_ie_body)
-    if g_norm < 0.1 * 9.81:
+    expected_omega = EARTH_RATE
+    if g_norm < 0.1 * GRAVITY:
         logging.warning("Gravity magnitude is very low; check accelerometer or static assumption.")
     if omega_norm < 0.5 * expected_omega:
         logging.warning("Earth rotation rate is low; check gyroscope or static assumption.")
-    logging.info(f"Magnitude of g_body: {g_norm:.6f} m/s^2 (expected ~9.81 m/s^2)")
-    logging.info(f"Magnitude of omega_ie_body: {omega_norm:.6e} rad/s (expected ~7.29e-5 rad/s)")
+    logging.info(
+        f"Magnitude of g_body: {g_norm:.6f} m/s^2 (expected ~{GRAVITY} m/s^2)"
+    )
+    logging.info(
+        f"Magnitude of omega_ie_body: {omega_norm:.6e} rad/s (expected ~{EARTH_RATE:.2e} rad/s)"
+    )
     logging.info("==== Measured Vectors in the Body Frame ====")
     logging.info(f"Measured gravity vector (g_body): {g_body} m/s^2")
     logging.info(f"Measured Earth rotation (omega_ie_body): {omega_ie_body} rad/s")
@@ -431,8 +440,7 @@ def main():
     logging.debug(f"Case 1 - Normalized NED Earth rate: {v2_N}")
     
     # Case 2: Recompute ω_ie,NED using document equation
-    omega_E = 7.2921159e-5  # Earth's rotation rate (rad/s)
-    omega_ie_NED_doc = omega_E * np.array([np.cos(lat), 0.0, -np.sin(lat)])
+    omega_ie_NED_doc = EARTH_RATE * np.array([np.cos(lat), 0.0, -np.sin(lat)])
     v2_N_doc = omega_ie_NED_doc / np.linalg.norm(omega_ie_NED_doc)  # Normalize for Case 2
     logging.debug(f"Case 2 - Normalized NED Earth rate (document equation): {v2_N_doc}")
     
@@ -915,10 +923,10 @@ def main():
 
             # Accelerometer bias: static_acc should equal -g_body_expected (since a_body = f_body - g_body)
             acc_bias = static_acc + g_body_expected  # Bias = measured - expected
-            scale = 9.81 / np.linalg.norm(static_acc - acc_bias)
+            scale = GRAVITY / np.linalg.norm(static_acc - acc_bias)
 
             # Gyroscope bias: static_gyro should equal C_N_B @ omega_ie_NED
-            omega_ie_NED = np.array([7.2921159e-5 * np.cos(ref_lat), 0.0, -7.2921159e-5 * np.sin(ref_lat)])
+            omega_ie_NED = np.array([EARTH_RATE * np.cos(ref_lat), 0.0, -EARTH_RATE * np.sin(ref_lat)])
             omega_ie_body_expected = C_N_B @ omega_ie_NED
             gyro_bias = static_gyro - omega_ie_body_expected  # Bias = measured - expected
 
@@ -943,7 +951,7 @@ def main():
     # Subtask 4.10: Set IMU Parameters and Gravity Vector
     # --------------------------------
     logging.info("Subtask 4.10: Setting IMU parameters and gravity vector.")
-    g_NED = np.array([0.0, 0.0, 9.81])
+    g_NED = np.array([0.0, 0.0, GRAVITY])
     logging.info(f"Gravity vector set: {g_NED}")
     
     # --------------------------------
@@ -1238,7 +1246,7 @@ def main():
         C_N_B = C_B_N_methods[m].T
         g_body_expected = C_N_B @ g_NED
         bias = static_acc + g_body_expected
-        scale = 9.81 / np.linalg.norm(static_acc - bias)
+        scale = GRAVITY / np.linalg.norm(static_acc - bias)
         acc_body_corrected[m] = scale * (acc_body - bias)
         logging.info(f"Method {m}: Bias computed: {bias}")
         logging.info(f"Method {m}: Scale factor: {scale:.4f}")
