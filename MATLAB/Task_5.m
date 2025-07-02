@@ -58,7 +58,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     gnss_vel_ecef = gnss_tbl{:, vel_cols};
     first_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
     ref_r0 = gnss_pos_ecef(first_idx, :)';
-    [lat_deg, lon_deg, ~] = ecef_to_geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
+    [lat_deg, lon_deg, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
     C_ECEF_to_NED = compute_C_ECEF_to_NED(deg2rad(lat_deg), deg2rad(lon_deg));
     omega_E = constants.EARTH_RATE;
     omega_ie_NED = omega_E * [cosd(lat_deg); 0; -sind(lat_deg)];
