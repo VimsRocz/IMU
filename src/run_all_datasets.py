@@ -26,7 +26,6 @@ ensure_dependencies()
 from tabulate import tabulate
 from tqdm import tqdm
 
-HERE     = pathlib.Path(__file__).resolve().parent
 SCRIPT   = HERE / "GNSS_IMU_Fusion.py"
 LOG_DIR  = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
