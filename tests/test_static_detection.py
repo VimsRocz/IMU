@@ -1,8 +1,7 @@
-import os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "src"))
 import pytest
+from src.utils import detect_static_interval, is_static
+
 np = pytest.importorskip("numpy")
-from utils import detect_static_interval, is_static
 
 
 def test_detect_static_interval_basic():

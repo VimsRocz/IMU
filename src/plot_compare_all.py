@@ -4,7 +4,10 @@ Compare the three data sets (X001,X002,X003) on the same axes
 for each attitude-initialisation method (TRIAD | Davenport | SVD).
 """
 
-import pathlib, gzip, pickle, matplotlib.pyplot as plt
+import pathlib
+import gzip
+import pickle
+import matplotlib.pyplot as plt
 import numpy as np
 
 RESULTS_DIR = pathlib.Path("results")
