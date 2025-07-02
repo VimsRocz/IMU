@@ -284,6 +284,17 @@ pytest -q
 You can also simply run `make test` to install both requirement files and
 execute the test suite in one command.
 
+## Linting
+
+Static checks run with [Ruff](https://github.com/astral-sh/ruff):
+
+```bash
+ruff check src tests
+```
+
+Rule `E402` is ignored in `pyproject.toml` as some modules rely on runtime
+imports.
+
 ## MATLAB Compatibility
 
 Each run now exports a MATLAB `.mat` file alongside the NPZ results. The plotting
