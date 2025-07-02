@@ -1,6 +1,6 @@
 # TRIAD Method – Task 4 GNSS/IMU Integration
 
-This page documents **Task 4** of the `GNSS_IMU_Fusion.py` pipeline. With the attitude known from Task 3, the script integrates the IMU measurements and contrasts the result with the GNSS trajectory.
+This page documents **Task 4** of the `src/GNSS_IMU_Fusion.py` pipeline. With the attitude known from Task 3, the script integrates the IMU measurements and contrasts the result with the GNSS trajectory.
 
 ## Overview
 

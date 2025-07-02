@@ -1,6 +1,6 @@
 # TRIAD Method – Task 2 Measuring Body Vectors
 
-This page documents **Task 2** of the `GNSS_IMU_Fusion.py` pipeline. After defining the reference vectors in Task 1, the script measures the same physical vectors in the IMU body frame. These body-frame vectors are required for the TRIAD attitude initialisation.
+This page documents **Task 2** of the `src/GNSS_IMU_Fusion.py` pipeline. After defining the reference vectors in Task 1, the script measures the same physical vectors in the IMU body frame. These body-frame vectors are required for the TRIAD attitude initialisation.
 
 ## Overview
 

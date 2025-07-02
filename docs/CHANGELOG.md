@@ -6,7 +6,7 @@
   - Detects a low-motion segment to compute accelerometer and gyroscope biases.
   - Scales the accelerometer magnitude to match 9.81 m/s² for more stable attitude initialisation.
 
-- **Kalman filter with GNSS updates** (`kalman.py`, `GNSS_IMU_Fusion.py`)
+- **Kalman filter with GNSS updates** (`kalman.py`, `src/GNSS_IMU_Fusion.py`)
   - Adds a bias-aware Kalman filter for fusing IMU data with GNSS measurements.
   - Provides helper functions to run the filter and to tune process noise.
 

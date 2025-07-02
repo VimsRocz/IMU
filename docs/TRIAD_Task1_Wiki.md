@@ -1,6 +1,6 @@
 # TRIAD Method – Task 1 Reference Vectors
 
-This page documents **Task&nbsp;1** of the `GNSS_IMU_Fusion.py` pipeline, which prepares the reference vectors required by the TRIAD attitude initialisation. The task consists of five subtasks executed before any IMU or GNSS data fusion.
+This page documents **Task&nbsp;1** of the `src/GNSS_IMU_Fusion.py` pipeline, which prepares the reference vectors required by the TRIAD attitude initialisation. The task consists of five subtasks executed before any IMU or GNSS data fusion.
 
 ## Overview
 
