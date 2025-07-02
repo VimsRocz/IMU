@@ -91,7 +91,8 @@ python src/run_triad_only.py
 run_triad_only
 ```
 
-All output files are written to the `results/` directory.  When a matching
+All batch scripts create a `results/` folder in the directory you launch them
+from. All output files are written to this directory.  When a matching
 ground truth file such as `STATE_X001.txt` is available the script
 automatically calls `validate_with_truth.py` to compare the estimated trajectory
 against it. The validation summary and plots are saved alongside the exported
@@ -209,7 +210,7 @@ After all runs complete you can compare the datasets side by side:
 python src/plot_compare_all.py
 ```
 This creates one `all_datasets_<method>_comparison.pdf` per method in
-`results/`.
+the `results/` directory you ran the script from.
 
 ## Running a single dataset
 

@@ -22,7 +22,7 @@ cmd = [
 subprocess.run(cmd, check=True)
 
 # --- Validate results when STATE_<id>.txt exists -----------------------------
-results = HERE / "results"
+results = pathlib.Path.cwd() / "results"
 for mat in results.glob("*_TRIAD_kf_output.mat"):
     m = re.match(r"IMU_(X\d+)_.*_TRIAD_kf_output\.mat", mat.name)
     if not m:
