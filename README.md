@@ -17,10 +17,26 @@ For a minimal setup you can also install the packages individually:
 pip install numpy matplotlib filterpy
 ```
 
-The tests, however, require the **full** `requirements.txt` together with the
-`pytest` dependency from `requirements-dev.txt`, including hefty
-dependencies like `cartopy`. Installing them inside a virtual environment or
-a container helps keep your base Python setup clean.
+To run the test suite you **must** install both requirement files at once and
+then invoke `pytest` with the source directory on the Python path:
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+PYTHONPATH=src:. pytest -q
+```
+
+You can also run `make deps` to install the required packages once before
+executing `pytest` manually.
+
+This pulls in the `pytest` dependency alongside heavier libraries like
+`cartopy`. Installing them inside a virtual environment or container helps keep
+your base Python setup clean.  Alternatively you can install the dependencies
+via the optional `tests` extras:
+
+```bash
+pip install .[tests]
+```
+The extras group is declared in `pyproject.toml`.
 
 If you run into issues with filterpy on Ubuntu:
 
@@ -40,12 +56,13 @@ pip3 install filterpy
 
 ### Installing test requirements
 
-To run the unit tests you need `numpy`, `pandas`, `scipy` and `cartopy` which are all included in `requirements.txt`. Install them together with `pytest` via:
+The unit tests rely on all packages in `requirements.txt` plus the `pytest`
+dependency from `requirements-dev.txt`:
 
 ```bash
-pip install -r requirements-dev.txt -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
+PYTHONPATH=src:. pytest -q
 ```
-Both requirement files **must** be installed before executing `pytest`.
 
 
 If the build error complains about Cython install it explicitly first:
@@ -96,16 +113,16 @@ against it. The validation summary and plots are saved alongside the exported
 
 ## 🚀 Developing & Debugging in GitHub Codespaces
 
-1. **Open in Codespace**  
+1. **Open in Codespace**
    Click **Code → Open with Codespaces** on the repo.
 
-2. **Install dependencies**  
+2. **Install dependencies**
    Codespaces will automatically build the container (per `.devcontainer/`), install Python & your `requirements.txt`.
 
 3. **Enable verbose diagnostics**
    We’ve added a `--verbose` flag to `src/run_all_datasets.py` that enables all the extra tables and timing you requested. `src/GNSS_IMU_Fusion.py` also accepts `--verbose` for the same detailed diagnostics.
 
-4. **Run with diagnostics**  
+4. **Run with diagnostics**
    In the integrated terminal:
    ```bash
    python src/run_all_datasets.py --verbose 2>&1 | tee debug_output.log
@@ -274,11 +291,12 @@ strongly recommended:
 
 ```bash
 pip install -r requirements.txt -r requirements-dev.txt
-pytest -q
+PYTHONPATH=src:. pytest -q
 ```
 
-You can also simply run `make test` to install both requirement files and
-execute the test suite in one command.
+You can also simply run `make test` to install both requirement files and run
+the suite with the correct `PYTHONPATH` in one command. If you only want to
+install dependencies, call `make deps`.
 
 ## MATLAB Compatibility
 
