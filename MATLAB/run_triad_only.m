@@ -15,6 +15,7 @@
 % validate_with_truth.py for the dataset.
 
 here = fileparts(mfilename('fullpath'));
+root = fileparts(here);
 
 % Initialise the Python environment. Try python3 then python if not loaded.
 py = pyenv;
@@ -32,7 +33,7 @@ if py.Status == "NotLoaded"
 end
 
 %% -- Run the Python batch processor ---------------------------------------
-py_script = fullfile(here, 'run_all_datasets.py');
+py_script = fullfile(root, 'src', 'run_all_datasets.py');
 cmd = sprintf('"%s" "%s" --method TRIAD', py.Executable, py_script);
 status = system(cmd);
 if status ~= 0
@@ -40,7 +41,7 @@ if status ~= 0
 end
 
 %% -- Validate each result when ground truth is available ------------------
-results_dir = fullfile(here, 'results');
+results_dir = fullfile(pwd, 'results');
 mat_files = dir(fullfile(results_dir, '*_TRIAD_kf_output.mat'));
 
 for k = 1:numel(mat_files)
@@ -50,11 +51,11 @@ for k = 1:numel(mat_files)
         continue
     end
     ds = tokens{1}{1};
-    truth_file = fullfile(here, ['STATE_' ds '.txt']);
+    truth_file = fullfile(root, ['STATE_' ds '.txt']);
     if ~isfile(truth_file)
         continue
     end
-    validate_py = fullfile(here, 'validate_with_truth.py');
+    validate_py = fullfile(root, 'src', 'validate_with_truth.py');
     vcmd = sprintf('"%s" "%s" --est-file "%s" --truth-file "%s" --output "%s"', ...
         py.Executable, validate_py, fullfile(results_dir, name), truth_file, results_dir);
     vstatus = system(vcmd);
