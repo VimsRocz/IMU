@@ -1,10 +1,10 @@
 import sys
 from pathlib import Path
 import pytest
+from src.GNSS_IMU_Fusion import main
+
 np = pytest.importorskip("numpy")
 pd = pytest.importorskip("pandas")
-
-from GNSS_IMU_Fusion import main
 
 DATASETS = {
     'X001': ("IMU_X001.dat", "GNSS_X001.csv"),

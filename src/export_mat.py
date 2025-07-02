@@ -2,12 +2,12 @@
 """Export results for MATLAB"""
 import os
 import sys
-script_dir = os.path.dirname(os.path.abspath(__file__))
-os.chdir(script_dir)
-
 import numpy as np
 from scipy.io import savemat
 import pathlib
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(script_dir)
 
 if not os.path.exists('STATE_X001.txt'):
     print("ERROR: export_mat.py must be run from its own folder or with full path.")
