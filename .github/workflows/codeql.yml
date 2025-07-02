@@ -14,8 +14,14 @@ name: "CodeQL Advanced"
 on:
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - '**/*.m'
+      - 'MATLAB/**'
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - '**/*.m'
+      - 'MATLAB/**'
   schedule:
     - cron: '15 15 * * 1'
 
