@@ -277,6 +277,20 @@ pytest -q
 You can also simply run `make test` to install the requirements and execute the
 test suite in one command.
 
+## Linting
+
+Run [Ruff](https://github.com/astral-sh/ruff) to check the coding style:
+
+```bash
+pip install ruff
+ruff check src tests
+```
+
+The rules are configured in `pyproject.toml`. Rule `E402` is ignored since some
+scripts need to import modules after runtime checks. Additional ignores relax
+line length and unused code warnings so that Ruff passes on the existing code
+base.
+
 ## MATLAB Compatibility
 
 Each run now exports a MATLAB `.mat` file alongside the NPZ results. The plotting

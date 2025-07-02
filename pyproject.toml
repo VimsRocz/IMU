@@ -1,0 +1,18 @@
+[tool.ruff]
+src = ["src", "tests"]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = [
+    "E402", # runtime imports allowed
+    "E501", # many long lines in legacy code
+    "F401", # unused imports in scripts and tests
+    "F841", # unused variables in legacy scripts
+    "E401", # multiple imports on one line
+    "E702", # multiple statements on one line
+    "E741", # ambiguous variable names
+    "W605", # invalid escape sequences
+    "W291", "W293" # whitespace issues
+]
