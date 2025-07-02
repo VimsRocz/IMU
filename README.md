@@ -1,6 +1,10 @@
 # IMU_GNSS_Fusion
 IMU data processing and initialization tools (Python)
 
+## Table of Contents
+- [Installation](#installation)
+- [Pipeline Overview](#pipeline-overview)
+
 ## Installation
 
 `src/run_all_datasets.py` installs the required packages automatically the first
@@ -57,6 +61,23 @@ If the build error complains about Cython install it explicitly first:
 pip3 install cython
 pip3 install filterpy
 ```
+
+## Pipeline Overview
+
+The five pipeline tasks roughly correspond to the steps of the MATLAB
+implementation. Each task produces intermediate results that feed into the
+next one:
+
+* **Task&nbsp;1 &ndash; Reference Vectors:** defines gravity and Earth-rotation
+  vectors from the first GNSS fix. [Details](docs/TRIAD_Task1_Wiki.md)
+* **Task&nbsp;2 &ndash; Body Vectors:** measures gravity and Earth-rate in the
+  IMU frame and estimates sensor biases. [Details](docs/TRIAD_Task2_Wiki.md)
+* **Task&nbsp;3 &ndash; Initial Attitude:** solves Wahba's problem with the
+  TRIAD algorithm. [Details](docs/TRIAD_Task3_Wiki.md)
+* **Task&nbsp;4 &ndash; IMU-Only Integration:** integrates the corrected IMU
+  data and compares the result with GNSS. [Details](docs/TRIAD_Task4_Wiki.md)
+* **Task&nbsp;5 &ndash; Kalman Fusion:** fuses IMU and GNSS with a simple
+  Kalman filter to produce the final trajectory. [Details](docs/TRIAD_Task5_Wiki.md)
 
 ## Datasets
 
