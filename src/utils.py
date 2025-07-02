@@ -12,7 +12,10 @@ def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
         import tqdm  # noqa: F401
     except ModuleNotFoundError:
         if requirements is None:
-            requirements = pathlib.Path(__file__).resolve().parent / "requirements.txt"
+            requirements = (
+                pathlib.Path(__file__).resolve().parents[1]
+                / "requirements.txt"
+            )
         else:
             requirements = pathlib.Path(requirements)
         print("Installing Python dependencies ...")
