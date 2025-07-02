@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools"]
+
+[project]
+name = "imu_gnss_fusion"
+version = "0.0.0"
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+tests = ["pytest"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
