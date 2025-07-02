@@ -328,18 +328,18 @@ the existing error metrics:
 ```matlab
 imu_path  = get_data_file('IMU_X001.dat');
 gnss_path = get_data_file('GNSS_X001.csv');
-main(imu_path, gnss_path);
+TRIAD(imu_path, gnss_path);
 ```
 
-`main.m` now takes the full paths to the IMU and GNSS files as arguments.
-The helper function `get_data_file` searches both the repository root and
-`MATLAB/data`, letting `TRIAD` and related scripts locate the bundled
-sample logs automatically when you pass just the file names.
+Scripts such as `TRIAD.m` take the full paths to the IMU and GNSS files as
+arguments. The helper function `get_data_file` searches both the repository
+root and `MATLAB/data`, letting `TRIAD` and related scripts locate the
+bundled sample logs automatically when you pass just the file names.
 
 ### MATLAB Scripts
 
 All MATLAB code now lives in the single `MATLAB/` directory. It contains the
-pipeline tasks (`main.m`, `Task_1`–`Task_5`) alongside helper scripts such as
+pipeline tasks (`Task_1`–`Task_5`) alongside helper scripts such as
 `TRIAD.m`, `FINAL.m`, `plot_results.m` and `validate_3sigma.m`. Use these files
 for quick experiments or to validate the `.mat` outputs produced by Python.
 
