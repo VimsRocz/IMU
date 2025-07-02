@@ -7,30 +7,25 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     steps:
-      # Check out the repository so the workflow can access it
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      # Set up a Python 3.x environment
-      - uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: '3.10'
 
-      # Install project dependencies
       - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      # Install flake8 separately for linting
-      - name: Install flake8
-        run: pip install flake8
-
-      # Run the unit tests
-      - name: Run tests
         run: |
-          pytest --maxfail=1 --disable-warnings -q
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8
 
-      # Lint the codebase
+      - name: Run tests
+        run: pytest
+
       - name: Run flake8
         run: flake8 .

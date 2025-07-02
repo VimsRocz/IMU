@@ -1,9 +1,10 @@
-numpy
+numpy==1.24.4
 pandas
-matplotlib
+matplotlib==3.7.2
 cartopy
 filterpy
-scipy
+scipy==1.11.3
+pytest==7.4.0
 rich
 tabulate
 tqdm
