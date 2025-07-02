@@ -7,12 +7,12 @@ set -euo pipefail
 
 mkdir -p vendor
 echo "\n📦 Downloading binary wheels for main requirements..."
-pip download --only-binary=:all: --dest vendor -r requirements.txt
+python -m pip download --only-binary=:all: --dest vendor -r requirements.txt
 
 echo "\n📦 Downloading wheel for flake8 (used in CI)..."
-pip download --only-binary=:all: --dest vendor flake8
+python -m pip download --only-binary=:all: --dest vendor flake8
 
 echo "\n📦 Downloading source distributions for packages without wheels..."
-pip download --no-binary=filterpy,fpdf,geomag --dest vendor filterpy fpdf geomag
+python -m pip download --no-binary=filterpy,fpdf,geomag --dest vendor filterpy fpdf geomag
 
 echo "\n✅ vendor/ directory is ready"
