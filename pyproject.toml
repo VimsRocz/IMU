@@ -7,7 +7,18 @@ version = "0.0.0"
 requires-python = ">=3.8"
 
 [project.optional-dependencies]
-tests = ["pytest"]
+# Packages needed when running the test suite.  They mirror the
+# main requirements so that `pip install -e .[tests]` pulls in the
+# full runtime stack together with pytest.
+tests = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "scipy",
+    "filterpy",
+    "cartopy",
+    "pytest",
+]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
