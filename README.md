@@ -493,6 +493,12 @@ These utilities are optional and not exercised by the unit tests.
   consult `docs/DebuggingDrift.md` for troubleshooting steps.
 - **Security:** Disable GitHub's default CodeQL scanner as described in
   [docs/disable-default-codeql.md](docs/disable-default-codeql.md).
+## Documentation
 
+- [docs/TRIAD_Task1_Wiki.md](docs/TRIAD_Task1_Wiki.md) – defining reference vectors
+- [docs/TRIAD_Task2_Wiki.md](docs/TRIAD_Task2_Wiki.md) – measuring body-frame vectors
+- [docs/TRIAD_Task3_Wiki.md](docs/TRIAD_Task3_Wiki.md) – initial attitude determination
+- [docs/TRIAD_Task4_Wiki.md](docs/TRIAD_Task4_Wiki.md) – GNSS/IMU integration
+- [docs/TRIAD_Task5_Wiki.md](docs/TRIAD_Task5_Wiki.md) – Kalman filter fusion
 
 See [docs/CHANGELOG.md](docs/CHANGELOG.md) for a list of recent features.
