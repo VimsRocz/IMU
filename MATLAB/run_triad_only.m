@@ -3,6 +3,10 @@
 % processor with the TRIAD method and then validates the generated MAT files
 % against the reference STATE_X*.txt logs when available.
 %
+% The script attempts to locate a Python interpreter using ``pyenv``.  If
+% Python is not loaded it tries ``python3`` then ``python``.  When no
+% interpreter can be found a helpful message is printed.
+%
 % Usage:
 %   run_triad_only
 %
@@ -12,9 +16,24 @@
 
 here = fileparts(mfilename('fullpath'));
 
+% Initialise the Python environment. Try python3 then python if not loaded.
+py = pyenv;
+if py.Status == "NotLoaded"
+    try
+        py = pyenv("Version", "python3");
+    catch
+        try
+            py = pyenv("Version", "python");
+        catch
+            fprintf('No usable Python interpreter found. Install Python 3 and configure pyenv to point to your installation.\n');
+            return;
+        end
+    end
+end
+
 %% -- Run the Python batch processor ---------------------------------------
 py_script = fullfile(here, 'run_all_datasets.py');
-cmd = sprintf('python "%s" --method TRIAD', py_script);
+cmd = sprintf('"%s" "%s" --method TRIAD', py.Executable, py_script);
 status = system(cmd);
 if status ~= 0
     error('run_all_datasets.py failed');
@@ -36,8 +55,8 @@ for k = 1:numel(mat_files)
         continue
     end
     validate_py = fullfile(here, 'validate_with_truth.py');
-    vcmd = sprintf('python "%s" --est-file "%s" --truth-file "%s" --output "%s"', ...
-        validate_py, fullfile(results_dir, name), truth_file, results_dir);
+    vcmd = sprintf('"%s" "%s" --est-file "%s" --truth-file "%s" --output "%s"', ...
+        py.Executable, validate_py, fullfile(results_dir, name), truth_file, results_dir);
     vstatus = system(vcmd);
     if vstatus ~= 0
         warning('Validation failed for %s', name);
