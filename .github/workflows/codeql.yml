@@ -1,5 +1,8 @@
 name: "CodeQL Advanced"
 
+# This workflow runs CodeQL analysis on the repository
+
+# Run on pushes or pull requests targeting main
 on:
   push:
     branches: [main]
@@ -11,39 +14,45 @@ on:
     paths-ignore:
       - 'MATLAB/**'
       - '**/*.m'
-  schedule:
-    - cron: '15 15 * * 1'
 
 jobs:
   analyze:
+    # Use the latest Ubuntu runner
     runs-on: ubuntu-latest
+    
+    # Allow the job to upload security results
     permissions:
       security-events: write
+    # Test different CodeQL languages in parallel
     strategy:
       fail-fast: false
       matrix:
-        language: [python, actions]
+        language: [actions, python]
 
     steps:
+      # Fetch the repository contents
       - uses: actions/checkout@v4
 
+      # Set up Python when analyzing Python code
       - name: Set up Python
         if: matrix.language == 'python'
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
 
+      # Install required Python packages
       - name: Install dependencies
         if: matrix.language == 'python'
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
+      # Initialize CodeQL using the selected language
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           build-mode: none
 
+      # Run the actual CodeQL analysis
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
