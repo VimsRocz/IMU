@@ -61,6 +61,17 @@ Both requirement files **must** be installed before executing `pytest`.
 `pytest` itself is only listed in `requirements-dev.txt`, so skipping that
 file will leave the `pytest` command unavailable.
 
+#### Offline installation
+
+If your CI environment cannot reach PyPI, download the required wheels
+and place them under `vendor/` by running:
+
+```bash
+scripts/download_vendor.sh
+```
+
+The workflow installs from this directory using `--no-index`.
+
 
 If the build error complains about Cython install it explicitly first:
 
