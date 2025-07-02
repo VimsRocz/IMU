@@ -8,7 +8,7 @@ time you run it. If you'd rather set them up beforehand, install the
 dependencies manually with:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 ```
 
 For a minimal setup you can also install the packages individually:
@@ -265,12 +265,12 @@ writes `results/summary.csv`. Each row contains:
 
 Run the unit tests with `pytest`. **Installing the required Python packages is
 mandatory** before executing any tests. The suite relies on *all* entries in
-`requirements.txt` – including heavier libraries such as `cartopy` that can take
+`requirements.txt` **and** `requirements-dev.txt` – including heavier libraries such as `cartopy` that can take
 some time to build. Using a dedicated virtual environment or container is
 strongly recommended:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 pytest -q
 ```
 

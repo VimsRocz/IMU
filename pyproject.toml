@@ -1,0 +1,25 @@
+[project]
+name = "imu_gnss_fusion"
+version = "0.0.0"
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "cartopy",
+    "filterpy",
+    "scipy",
+    "rich",
+    "tabulate",
+    "tqdm",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+tests = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+

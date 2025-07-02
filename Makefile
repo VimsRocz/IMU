@@ -1,5 +1,7 @@
-.PHONY: test
+.PHONY: test install-test-deps
 
-test:
-        pip install -r requirements.txt
-        PYTHONPATH=src pytest -q
+install-test-deps:
+	pip install -r requirements.txt -r requirements-dev.txt
+
+test: install-test-deps
+	PYTHONPATH=src pytest -q
