@@ -17,8 +17,7 @@ For a minimal setup you can also install the packages individually:
 pip install numpy matplotlib filterpy
 ```
 
-The tests, however, require the **full** `requirements.txt` together with the
-`pytest` dependency from `requirements-dev.txt`, including hefty
+The tests, however, require the **full** `requirements.txt`, including hefty
 dependencies like `cartopy`. Installing them inside a virtual environment or
 a container helps keep your base Python setup clean.
 
@@ -45,7 +44,6 @@ To run the unit tests you need `numpy`, `pandas`, `scipy` and `cartopy` which ar
 ```bash
 pip install -r requirements-dev.txt -r requirements.txt
 ```
-Both requirement files **must** be installed before executing `pytest`.
 
 
 If the build error complains about Cython install it explicitly first:
@@ -267,18 +265,17 @@ writes `results/summary.csv`. Each row contains:
 
 Run the unit tests with `pytest`. **Installing the required Python packages is
 mandatory** before executing any tests. The suite relies on *all* entries in
-`requirements.txt` as well as the development dependencies in
-`requirements-dev.txt` – including heavier libraries such as `cartopy` that can
-take some time to build. Using a dedicated virtual environment or container is
+`requirements.txt` – including heavier libraries such as `cartopy` that can take
+some time to build. Using a dedicated virtual environment or container is
 strongly recommended:
 
 ```bash
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r requirements.txt
 pytest -q
 ```
 
-You can also simply run `make test` to install both requirement files and
-execute the test suite in one command.
+You can also simply run `make test` to install the requirements and execute the
+test suite in one command.
 
 ## MATLAB Compatibility
 
