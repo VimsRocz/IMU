@@ -4,12 +4,12 @@ validate results when ground truth data is available."""
 
 import subprocess
 import sys
-import pathlib
+from pathlib import Path
 import re
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
 
-HERE = pathlib.Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent
 
 # --- Run the batch processor -------------------------------------------------
 cmd = [
@@ -22,7 +22,7 @@ cmd = [
 subprocess.run(cmd, check=True)
 
 # --- Validate results when STATE_<id>.txt exists -----------------------------
-results = pathlib.Path.cwd() / "results"
+results = Path.cwd() / "results"
 for mat in results.glob("*_TRIAD_kf_output.mat"):
     m = re.match(r"IMU_(X\d+)_.*_TRIAD_kf_output\.mat", mat.name)
     if not m:

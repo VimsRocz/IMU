@@ -91,9 +91,8 @@ python src/run_triad_only.py
 run_triad_only
 ```
 
-All batch scripts create a `results/` folder in the directory you launch them
-from. All output files are written to this directory.  When a matching
-ground truth file such as `STATE_X001.txt` is available the script
+All the batch scripts (for example `src/run_triad_only.py` and
+`src/run_all_datasets.py`) create a `results/` folder in the directory you launch them from. All output files are written to this directory. When a matching ground truth file such as `STATE_X001.txt` is available the script
 automatically calls `validate_with_truth.py` to compare the estimated trajectory
 against it. The validation summary and plots are saved alongside the exported
 `.mat` files in `results/`.
