@@ -3,6 +3,7 @@ from typing import Tuple, Optional
 import pathlib
 import subprocess
 import sys
+import logging
 
 
 def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
@@ -92,7 +93,6 @@ def is_static(accel_win, gyro_win, accel_var_thresh=0.01, gyro_var_thresh=1e-6):
             np.max(np.var(gyro_win, axis=0)) < gyro_var_thresh)
 
 # Additional utilities for logging and thresholding
-import logging
 
 
 def log_static_zupt_params(static_start: int, static_end: int,

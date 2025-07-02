@@ -8,7 +8,6 @@ import pathlib
 import re
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
-import pandas as pd
 
 HERE = pathlib.Path(__file__).resolve().parent
 

@@ -5,7 +5,9 @@ Parse logs/* for lines that start with [SUMMARY] and emit:
   summary.md
 """
 
-import csv, pathlib, re
+import csv
+import pathlib
+import re
 
 RESULTS_DIR = pathlib.Path("results")
 RESULTS_DIR.mkdir(exist_ok=True)

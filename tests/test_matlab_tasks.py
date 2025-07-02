@@ -1,11 +1,12 @@
 import subprocess
 import shutil
 from pathlib import Path
-
+import importlib
 import pytest
+
 np = pytest.importorskip("numpy")
 pytest.importorskip("scipy")
-import scipy.io
+scipy_io = importlib.import_module("scipy.io")
 
 
 def test_matlab_tasks(tmp_path):
@@ -21,7 +22,7 @@ def test_matlab_tasks(tmp_path):
 
     mat_file = Path('results/IMU_X001_GNSS_X001_TRIAD_output.mat')
     assert mat_file.exists(), f"Missing {mat_file}"
-    data = scipy.io.loadmat(mat_file, struct_as_record=False, squeeze_me=True)
+    data = scipy_io.loadmat(mat_file, struct_as_record=False, squeeze_me=True)
     assert {'pos', 'vel', 'q', 'summary'} <= set(data)
     pos = data['pos']
     vel = data['vel']

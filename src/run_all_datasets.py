@@ -8,7 +8,6 @@ that `summarise_runs.py` can aggregate later.
 import pathlib
 import subprocess
 import datetime
-import itertools
 import sys
 import argparse
 import re
@@ -17,16 +16,13 @@ import pandas as pd
 import numpy as np
 import yaml
 
-HERE = pathlib.Path(__file__).resolve().parent
-
 from utils import ensure_dependencies
-
-ensure_dependencies()
-
 from tabulate import tabulate
 from tqdm import tqdm
 
-HERE     = pathlib.Path(__file__).resolve().parent
+HERE = pathlib.Path(__file__).resolve().parent
+
+ensure_dependencies()
 SCRIPT   = HERE / "GNSS_IMU_Fusion.py"
 LOG_DIR  = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)

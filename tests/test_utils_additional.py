@@ -1,13 +1,16 @@
-import os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "src"))
+import importlib
+import os
+import sys
 import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "src"))
+
 np = pytest.importorskip("numpy")
-from utils import (
-    adaptive_zupt_threshold,
-    save_static_zupt_params,
-    ecef_to_ned,
-    compute_C_ECEF_to_NED,
-)
+utils = importlib.import_module("utils")
+adaptive_zupt_threshold = utils.adaptive_zupt_threshold
+save_static_zupt_params = utils.save_static_zupt_params
+ecef_to_ned = utils.ecef_to_ned
+compute_C_ECEF_to_NED = utils.compute_C_ECEF_to_NED
 
 
 def test_adaptive_zupt_threshold_constant():

@@ -1,14 +1,15 @@
-import os, sys
+import importlib
+import os
+import sys
 from pathlib import Path
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "src"))
 
 pytest.importorskip("matplotlib")
-
 pd = pytest.importorskip("pandas")
 
-from GNSS_IMU_Fusion import main
+main = importlib.import_module("GNSS_IMU_Fusion").main
 
 
 def test_body_frame_plots(tmp_path, monkeypatch):

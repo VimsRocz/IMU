@@ -1,10 +1,11 @@
-import os
+import importlib
 import subprocess
 import shutil
 from pathlib import Path
 import pytest
+
 pytest.importorskip("scipy")
-import scipy.io
+scipy_io = importlib.import_module("scipy.io")
 
 
 def test_pipeline_smoke(tmp_path):
@@ -22,8 +23,8 @@ def test_pipeline_smoke(tmp_path):
     out5 = Path("results/task5_results.mat")
     assert out4.exists(), f"Missing {out4}"
     assert out5.exists(), f"Missing {out5}"
-    data4 = scipy.io.loadmat(out4)
-    data5 = scipy.io.loadmat(out5)
+    data4 = scipy_io.loadmat(out4)
+    data5 = scipy_io.loadmat(out5)
     for data in (data4, data5):
         assert "gnss_pos_ned" in data
         assert "gnss_vel_ned" in data
