@@ -32,7 +32,7 @@ idx = find(gnss_tbl.X_ECEF_m ~= 0 | gnss_tbl.Y_ECEF_m ~= 0 | ...
 if isempty(idx); error('No valid ECEF row found in %s', gnss_file); end
 [x0,y0,z0] = deal(gnss_tbl.X_ECEF_m(idx), gnss_tbl.Y_ECEF_m(idx), ...
                    gnss_tbl.Z_ECEF_m(idx));
-[lat0, lon0, ~] = ecef2geodetic_custom(x0, y0, z0);
+[lat0, lon0, ~] = ecef2geodetic(x0, y0, z0);
 fprintf(' -> lat0=%.6f deg, lon0=%.6f deg\n', lat0, lon0);
 
 % Subtask 1.2: Define gravity vector in NED
@@ -286,14 +286,7 @@ fprintf('All tasks completed. Results stored in %s\n', results_dir);
 %% ========================================================================
 %% Helper functions
 %% ========================================================================
-function [lat_deg, lon_deg, alt] = ecef2geodetic_custom(x,y,z)
-    a = 6378137.0; e = 8.1819190842622e-2;
-    b = sqrt(a^2*(1-e^2)); ep = sqrt((a^2-b^2)/b^2); p = sqrt(x.^2+y.^2);
-    th = atan2(a*z, b*p); lon = atan2(y,x);
-    lat = atan2( z + ep^2*b*sin(th).^3, p - e^2*a*cos(th).^3 );
-    N = a./sqrt(1-e^2*sin(lat).^2); alt = p./cos(lat) - N;
-    lat_deg = rad2deg(lat); lon_deg = rad2deg(lon);
-end
+
 
 function var_win = sliding_variance(x, w)
     N=size(x,1); var_win=zeros(N-w+1,size(x,2));

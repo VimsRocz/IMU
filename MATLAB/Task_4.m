@@ -122,7 +122,7 @@ fprintf('\nSubtask 4.5: Defining reference point.\n');
 % These values should be consistent with those from Task 1
 first_valid_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
 ref_r0 = gnss_pos_ecef(first_valid_idx, :)'; % ECEF position vector as a column
-[lat_deg_ref, lon_deg_ref, ~] = ecef_to_geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
+[lat_deg_ref, lon_deg_ref, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
 ref_lat = deg2rad(lat_deg_ref);
 ref_lon = deg2rad(lon_deg_ref);
 fprintf('-> Reference point: lat=%.6f rad, lon=%.6f rad, r0=[%.1f, %.1f, %.1f]''\n', ref_lat, ref_lon, ref_r0);
