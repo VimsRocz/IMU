@@ -119,6 +119,9 @@ against it. The validation summary and plots are saved alongside the exported
 `.mat` files in `results/`.
 The input data files are looked up relative to the repository root, so you can
 run the scripts from any directory.
+### Sample Processing Report
+
+A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/` directory.
 
 ## 🚀 Developing & Debugging in GitHub Codespaces
 
@@ -501,4 +504,5 @@ These utilities are optional and not exercised by the unit tests.
 - [docs/TRIAD_Task4_Wiki.md](docs/TRIAD_Task4_Wiki.md) – GNSS/IMU integration
 - [docs/TRIAD_Task5_Wiki.md](docs/TRIAD_Task5_Wiki.md) – Kalman filter fusion
 
+- [Report/](Report/index.md) – summary of a typical run
 See [docs/CHANGELOG.md](docs/CHANGELOG.md) for a list of recent features.
