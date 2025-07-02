@@ -187,8 +187,8 @@ fprintf('Static acc var   =[%.4g %.4g %.4g]\n', acc_var);
 fprintf('Static gyro var  =[%.4g %.4g %.4g]\n', gyro_var);
 
 % Gravity vector and Earth rotation in NED frame (Task 1 results)
-g_NED = [0; 0; 9.81];
-omega_E = 7.2921159e-5;                     % rad/s
+g_NED = [0; 0; constants.GRAVITY];
+omega_E = constants.EARTH_RATE;                     % rad/s
 omega_ie_NED = omega_E * [cos(ref_lat); 0; -sin(ref_lat)];
 
 % Correct IMU measurements separately for each Wahba method
@@ -209,7 +209,7 @@ for i = 1:length(methods)
     acc_bias  = loaded_accel_bias(:);  % accelerometer bias from Task 2
     gyro_bias = loaded_gyro_bias(:);   % gyroscope bias from Task 2
     fprintf('Method %s: Using Task 2 biases.\n', method);
-    scale = 9.81 / norm(static_acc' - acc_bias);         % accelerometer scale
+    scale = constants.GRAVITY / norm(static_acc' - acc_bias);         % accelerometer scale
 
     % Apply bias and scale corrections
     acc_body_corrected.(method)  = scale * (acc_body_filt - acc_bias');

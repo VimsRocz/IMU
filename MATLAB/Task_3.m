@@ -91,7 +91,7 @@ else
 end
 if isfield(body_data,'gyro_bias'); gyro_bias = body_data.gyro_bias; else; gyro_bias = zeros(3,1); end
 
-omega_E = 7.2921159e-5; % Earth rotation rate [rad/s]
+omega_E = constants.EARTH_RATE; % Earth rotation rate [rad/s]
 
 if isempty(method)
     log_tag = '';

@@ -37,15 +37,15 @@ fprintf(' -> lat0=%.6f deg, lon0=%.6f deg\n', lat0, lon0);
 
 % Subtask 1.2: Define gravity vector in NED
 fprintf('Subtask 1.2: Defining gravity vector\n');
-g_ned = [0;0;9.81];
+g_ned = [0;0;constants.GRAVITY];
 
 % Subtask 1.3: Compute Earth rate in NED
 fprintf('Subtask 1.3: Computing Earth rotation rate\n');
-omega_ie = 7.292115e-5; % [rad/s]
+omega_ie = constants.EARTH_RATE; % [rad/s]
 omega_ie_ned = omega_ie * [cosd(lat0); 0; sind(lat0)];
 
 % Subtask 1.4: Validate magnitudes
-assert(abs(norm(g_ned) - 9.81) < 1e-3, 'Gravity magnitude check failed');
+assert(abs(norm(g_ned) - constants.GRAVITY) < 1e-3, 'Gravity magnitude check failed');
 assert(abs(norm(omega_ie_ned) - omega_ie) < 1e-6, 'Earth rate magnitude check failed');
 
 % Subtask 1.5: Plot lat0, lon0 on world map
@@ -189,7 +189,7 @@ acc_ned_gnss = [zeros(1,3); diff(vel_ned)./dt_gnss(1:end-1)];
 
 % Subtask 4.4: Reload IMU, subtract biases, rotate accel into NED
 f_b = accel - accel_bias';
-a_ned = (R_nb * f_b')' + repmat([0 0 9.81],size(f_b,1),1);
+a_ned = (R_nb * f_b')' + repmat([0 0 constants.GRAVITY],size(f_b,1),1);
 
 % Subtask 4.5: Integrate a_ned to velocity and position
 vel_ins = zeros(size(a_ned));
