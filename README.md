@@ -63,14 +63,16 @@ file will leave the `pytest` command unavailable.
 
 #### Offline installation
 
-If your CI environment cannot reach PyPI, download the required wheels
-and place them under `vendor/` by running:
+If your CI environment cannot reach PyPI, populate a local `vendor/`
+directory with all required packages by running:
 
 ```bash
 scripts/download_vendor.sh
 ```
 
-The workflow installs from this directory using `--no-index`.
+The script downloads binary wheels whenever possible and falls back to
+source archives for packages that do not provide wheels. The CI
+workflow installs from `vendor/` using `--no-index`.
 
 
 If the build error complains about Cython install it explicitly first:
