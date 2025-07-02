@@ -71,8 +71,8 @@ if ~isempty(valid_idx)
     y_ecef = initial_row.Y_ECEF_m;
     z_ecef = initial_row.Z_ECEF_m;
     
-    % Convert ECEF to geodetic coordinates using the helper function
-    [lat_deg, lon_deg, ~] = ecef_to_geodetic(x_ecef, y_ecef, z_ecef);
+    % Convert ECEF to geodetic coordinates using the shared helper
+    [lat_deg, lon_deg, ~] = ecef2geodetic(x_ecef, y_ecef, z_ecef);
     
     % Convert degrees to radians for calculations
     lat = deg2rad(lat_deg);

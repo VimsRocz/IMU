@@ -56,7 +56,7 @@ if isempty(valid)
     error('No valid GNSS rows in %s', gnss_path);
 end
 x = T.X_ECEF_m(valid); y = T.Y_ECEF_m(valid); z = T.Z_ECEF_m(valid);
-[lat, lon, ~] = ecef2geod(x, y, z);
+[lat, lon, ~] = ecef2geodetic(x, y, z);
 % reference vectors
 g_NED = [0; 0; constants.GRAVITY];
 omegaE = constants.EARTH_RATE;
@@ -148,14 +148,7 @@ end
 
 %% Helper functions
 function [lat, lon, alt] = ecef2geod(x, y, z)
-a = 6378137.0; e2 = 6.69437999014e-3;
-p = sqrt(x.^2 + y.^2);
-theta = atan2(z*a, p*(1-e2));
-lon = atan2(y, x);
-lat = atan2(z + e2*a*sin(theta).^3./(1-e2), p - e2*a*cos(theta).^3);
-N = a ./ sqrt(1-e2*sin(lat).^2);
-alt = p./cos(lat) - N;
-lat = rad2deg(lat); lon = rad2deg(lon);
+[lat, lon, alt] = ecef2geodetic(x, y, z);
 end
 
 function C = C_ECEF_to_NED(lat, lon)
