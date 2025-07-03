@@ -19,6 +19,8 @@ import yaml
 from utils import ensure_dependencies
 from tabulate import tabulate
 from tqdm import tqdm
+from plot_overlay import plot_overlay
+from validate_with_truth import load_estimate, assemble_frames
 
 ensure_dependencies()
 
@@ -160,6 +162,55 @@ def main():
                 "ZUPT_count": int(kv.get("ZUPT_count", "0")),
                 "runtime"  : runtime,
             })
+
+        tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}"
+        mat_path = results_dir / f"{tag}_kf_output.mat"
+        ds_id = pathlib.Path(imu).stem.replace("IMU_", "")
+        truth_path = pathlib.Path(imu).with_name(f"STATE_{ds_id}.txt")
+        if truth_path.exists():
+            vcmd = [
+                sys.executable,
+                str(HERE / "validate_with_truth.py"),
+                "--est-file",
+                str(mat_path),
+                "--truth-file",
+                str(truth_path),
+                "--output",
+                str(results_dir),
+            ]
+            subprocess.run(vcmd, check=True)
+            try:
+                est = load_estimate(str(mat_path))
+                frames = assemble_frames(
+                    est,
+                    ROOT / imu,
+                    ROOT / gnss,
+                    truth_file=str(truth_path),
+                )
+                for frame_name, data in frames.items():
+                    t_i, p_i, v_i, a_i = data["imu"]
+                    t_g, p_g, v_g, a_g = data["gnss"]
+                    t_f, p_f, v_f, a_f = data["fused"]
+                    plot_overlay(
+                        frame_name,
+                        method,
+                        t_i,
+                        p_i,
+                        v_i,
+                        a_i,
+                        t_g,
+                        p_g,
+                        v_g,
+                        a_g,
+                        t_f,
+                        p_f,
+                        v_f,
+                        a_f,
+                        results_dir,
+                        truth_file=str(truth_path),
+                    )
+            except Exception as e:
+                print(f"Overlay plot failed: {e}")
 
     # --- nicely formatted summary table --------------------------------------
     key_order = {m: i for i, m in enumerate(["TRIAD", "Davenport", "SVD"])}

@@ -25,10 +25,11 @@ subprocess.run(cmd, check=True)
 # --- Validate results when STATE_<id>.txt exists -----------------------------
 results = Path.cwd() / "results"
 for mat in results.glob("*_TRIAD_kf_output.mat"):
-    m = re.match(r"IMU_(X\d+)_.*_TRIAD_kf_output\.mat", mat.name)
+    m = re.match(r"IMU_(.+?)_GNSS_(.+?)_TRIAD_kf_output\.mat", mat.name)
     if not m:
         continue
-    truth = HERE / f"STATE_{m.group(1)}.txt"
+    ds_id = m.group(1)
+    truth = (ROOT / f"IMU_{ds_id}.dat").with_name(f"STATE_{ds_id}.txt")
     if not truth.exists():
         continue
     vcmd = [
@@ -44,31 +45,35 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
     subprocess.run(vcmd, check=True)
     try:
         est = load_estimate(str(mat))
-        m2 = re.match(r"(IMU_\w+)_((?:GNSS_)?\w+)_TRIAD_kf_output", mat.stem)
-        if m2:
-            imu_file = ROOT / f"{m2.group(1)}.dat"
-            gnss_file = ROOT / f"{m2.group(2)}.csv"
-            frames = assemble_frames(est, imu_file, gnss_file)
-            for frame_name, data in frames.items():
-                t_i, p_i, v_i, a_i = data["imu"]
-                t_g, p_g, v_g, a_g = data["gnss"]
-                t_f, p_f, v_f, a_f = data["fused"]
-                plot_overlay(
-                    frame_name,
-                    "TRIAD",
-                    t_i,
-                    p_i,
-                    v_i,
-                    a_i,
-                    t_g,
-                    p_g,
-                    v_g,
-                    a_g,
-                    t_f,
-                    p_f,
-                    v_f,
-                    a_f,
-                    results,
-                )
+        imu_file = ROOT / f"IMU_{ds_id}.dat"
+        gnss_file = ROOT / f"GNSS_{m.group(2)}.csv"
+        frames = assemble_frames(
+            est,
+            imu_file,
+            gnss_file,
+            truth_file=str(truth),
+        )
+        for frame_name, data in frames.items():
+            t_i, p_i, v_i, a_i = data["imu"]
+            t_g, p_g, v_g, a_g = data["gnss"]
+            t_f, p_f, v_f, a_f = data["fused"]
+            plot_overlay(
+                frame_name,
+                "TRIAD",
+                t_i,
+                p_i,
+                v_i,
+                a_i,
+                t_g,
+                p_g,
+                v_g,
+                a_g,
+                t_f,
+                p_f,
+                v_f,
+                a_f,
+                results,
+                truth_file=str(truth),
+            )
     except Exception as e:
         print(f"Overlay plot failed: {e}")
