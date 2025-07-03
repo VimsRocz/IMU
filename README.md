@@ -350,7 +350,10 @@ pipeline but can be handy for quick experiments:
 
 - `fusion_single.py` &ndash; early stand‑alone prototype of the IMU&ndash;GNSS
   fusion routine. It exposes the full bias estimation and Kalman logic in a
-  single file and is useful for debugging or exploring tuning options.
+  single file and is useful for debugging or exploring tuning options. The
+  script now allows custom process and measurement noise values for the Kalman
+  filter via command-line flags (see `--pos_noise`, `--vel_noise`,
+  `--pos_meas_noise` and `--vel_meas_noise`).
 - `validate_filter.py` &ndash; command&ndash;line tool to compare a saved filter
   state history against GNSS measurements and plot the residuals.
 

@@ -97,7 +97,6 @@ def test_load_estimate_alt_names(tmp_path, pos_key, vel_key):
 
 def test_overlay_truth_generation(tmp_path, monkeypatch):
     pd = pytest.importorskip("pandas")
-    np = pytest.importorskip("numpy")
     monkeypatch.chdir(tmp_path)
 
     orig_read_csv = pd.read_csv
