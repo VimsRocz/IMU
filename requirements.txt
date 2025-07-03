@@ -1,7 +1,7 @@
-numpy>=1.26
+numpy>=1.26.0
 scipy
-matplotlib
 pandas
+matplotlib
 pyyaml
 tqdm
 tabulate
@@ -9,4 +9,4 @@ rich
 fpdf
 filterpy
 cartopy
-geomaglib>=1.2.1  # Replace outdated 'geomag'
+geomaglib>=1.2.1
