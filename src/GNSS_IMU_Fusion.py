@@ -342,9 +342,13 @@ def main():
     # --- Determine the static interval used for bias estimation ---
     start_idx = args.static_start
     end_idx = args.static_end
-    if start_idx is None and end_idx is None and len(acc) >= 479907:
-        start_idx = 296
-        end_idx = min(479907, len(acc))
+    if start_idx is None and end_idx is None:
+        dataset_window = {
+            "IMU_X003.dat": (296, 479907),
+        }.get(Path(args.imu_file).name)
+        if dataset_window and len(acc) >= dataset_window[1]:
+            start_idx, end_idx = dataset_window
+            end_idx = min(end_idx, len(acc))
 
     if start_idx is not None:
         if end_idx is None:
@@ -935,9 +939,13 @@ def main():
         
         start_idx = args.static_start
         end_idx = args.static_end
-        if start_idx is None and end_idx is None and len(acc_body) >= 479907:
-            start_idx = 296
-            end_idx = min(479907, len(acc_body))
+        if start_idx is None and end_idx is None:
+            dataset_window = {
+                "IMU_X003.dat": (296, 479907),
+            }.get(Path(imu_file).name)
+            if dataset_window and len(acc_body) >= dataset_window[1]:
+                start_idx, end_idx = dataset_window
+                end_idx = min(end_idx, len(acc_body))
 
         if start_idx is not None:
             if end_idx is None:
