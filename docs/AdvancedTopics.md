@@ -85,7 +85,11 @@ Prerequisites: MATLAB R2023a or newer with the Signal Processing and Navigation 
 ```matlab
 run_all_datasets_with_python
 ```
-The wrapper calls `src/run_all_datasets.py` and afterwards loads each `*_kf_output.mat` file to generate the plots in MATLAB. Install Python 3.x along with `numpy`, `pandas` and `scipy` (or simply `pip install -r requirements.txt`).
+This wrapper simply invokes `src/run_all_datasets.py` using the active Python
+interpreter. The Python script handles both the batch processing and PDF figure
+generation, so MATLAB only launches the process. Install Python 3.x along with
+`numpy`, `pandas`, `scipy` and `matplotlib` (or simply `pip install -r
+requirements.txt`).
 
 ### Export to MATLAB (.mat) files
 To convert the saved Python results into MATLAB `.mat` files, run from the repo root:
