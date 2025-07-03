@@ -26,7 +26,7 @@ pip install -r requirements.txt
 For a minimal setup you can also install the packages individually:
 
 ```bash
-pip install numpy matplotlib filterpy
+pip install numpy matplotlib scipy filterpy
 ```
 
 The tests, however, require **all** packages from `requirements.txt` *and* the
