@@ -17,6 +17,8 @@ tests = [
     "scipy",
     "filterpy",
     "cartopy",
+    "tqdm",
+    "tabulate",
     "pytest",
 ]
 
