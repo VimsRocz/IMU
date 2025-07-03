@@ -8,13 +8,20 @@
 % annotated with "Subtask X.Y" comments for clarity.
 
 % ------------ User configuration -----------------------------------------
-imu_file  = 'IMU_X001.dat';
-gnss_file = 'GNSS_X001.csv';
+% Determine repository root based on this script's location
+script_dir = fileparts(mfilename('fullpath'));
+root_dir   = fileparts(script_dir);
 
-% Create results directory
-results_dir = 'results';
+% Dataset filenames relative to repository root
+imu_file  = fullfile(root_dir, 'IMU_X001.dat');
+gnss_file = fullfile(root_dir, 'GNSS_X001.csv');
+
+% Create results directory at repository root
+results_dir = fullfile(root_dir, 'results');
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
-addpath('MATLAB');
+
+% Ensure this script's directory is on the MATLAB path
+addpath(script_dir);
 
 %% ========================================================================
 %% Task 1: Define reference vectors in NED
