@@ -95,3 +95,50 @@ def test_load_estimate_alt_names(tmp_path, pos_key, vel_key):
     assert np.allclose(est["vel"], data[vel_key])
     assert np.allclose(est["quat"], data["attitude_q"])
     assert np.allclose(est["P"], data["P_hist"])
+
+
+def test_overlay_truth_generation(tmp_path, monkeypatch):
+    pd = pytest.importorskip("pandas")
+    np = pytest.importorskip("numpy")
+    monkeypatch.chdir(tmp_path)
+
+    orig_read_csv = pd.read_csv
+
+    def head_subset(*args, **kwargs):
+        df = orig_read_csv(*args, **kwargs)
+        return df.head(500)
+
+    monkeypatch.setattr(pd, "read_csv", head_subset)
+
+    repo = Path(__file__).resolve().parents[1]
+    args = [
+        "--imu-file",
+        str(repo / "IMU_X001_small.dat"),
+        "--gnss-file",
+        str(repo / "GNSS_X001_small.csv"),
+        "--method",
+        "TRIAD",
+    ]
+    monkeypatch.setattr(sys, "argv", ["GNSS_IMU_Fusion.py"] + args)
+    main()
+
+    est_file = Path("results") / "IMU_X001_small_GNSS_X001_small_TRIAD_kf_output.mat"
+    assert est_file.exists()
+
+    from src.validate_with_truth import main as validate_main
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validate_with_truth.py",
+            "--est-file",
+            str(est_file),
+            "--truth-file",
+            str(repo / "STATE_X001_small.txt"),
+            "--output",
+            str(Path("results")),
+        ],
+    )
+    validate_main()
+
+    assert list(Path("results").glob("*_overlay_truth.pdf"))
