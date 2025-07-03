@@ -16,6 +16,7 @@ tests = [
     "matplotlib",
     "scipy",
     "filterpy",
+    "rich",
     "cartopy",
     "tqdm",
     "tabulate",
