@@ -1,4 +1,6 @@
 from pathlib import Path
+from typing import Optional
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -24,11 +26,11 @@ def plot_overlay(
     acc_fused: np.ndarray,
     out_dir: str,
     *,
-    t_truth: np.ndarray | None = None,
-    pos_truth: np.ndarray | None = None,
-    vel_truth: np.ndarray | None = None,
-    acc_truth: np.ndarray | None = None,
-    suffix: str | None = None,
+    t_truth: Optional[np.ndarray] = None,
+    pos_truth: Optional[np.ndarray] = None,
+    vel_truth: Optional[np.ndarray] = None,
+    acc_truth: Optional[np.ndarray] = None,
+    suffix: Optional[str] = None,
 ) -> None:
     """Save a 4x1 overlay plot comparing IMU-only, GNSS and fused tracks.
 
