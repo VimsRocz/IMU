@@ -29,7 +29,7 @@ Optional magnetic field if a magnetometer file is provided
 ### 1.3 Define Earth Rotation Rate Vector
 - The Earth rotation rate in NED is
   $$\omega_{ie,NED} = \omega_E \begin{bmatrix}\cos\varphi \\ 0 \\ -\sin\varphi\end{bmatrix},$$
-  where `ω_E` is the Earth rate (`7.2921159e‑5 rad/s`) and `φ` is latitude.
+  where `ω_E` is the Earth rate (`7.2921e‑5 rad/s`) and `φ` is latitude.
 - `omega_ie_NED` is used together with the gravity vector in the TRIAD solution.
 - If a magnetometer file is supplied, the magnetic field in NED is also computed with `geomag`.
 
