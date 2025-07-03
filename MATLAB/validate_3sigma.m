@@ -34,6 +34,6 @@ if isfield(S,'gnss_pos_ned') && isfield(S,'x_log')
     pos_fused = S.x_log(1:3,:)';
     vel_fused = S.vel_log';
     acc_fused = S.accel_from_vel';
-    plot_overlay(t, pos_fused, vel_fused, acc_fused, gnss_t, S.gnss_pos_ned, S.gnss_vel_ned, S.gnss_accel_ned, t, pos_fused, vel_fused, acc_fused, 'NED', 'KF', fileparts(matFile));
+    plot_overlay('NED', 'KF', t, pos_fused, vel_fused, acc_fused, gnss_t, S.gnss_pos_ned, S.gnss_vel_ned, S.gnss_accel_ned, t, pos_fused, vel_fused, acc_fused, fileparts(matFile));
 end
 end
