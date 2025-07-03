@@ -107,8 +107,21 @@ def load_estimate(path):
     return est
 
 
-def assemble_frames(est, imu_file, gnss_file):
-    """Return aligned datasets in NED/ECEF/Body frames."""
+def assemble_frames(est, imu_file, gnss_file, truth_file: str | None = None):
+    """Return aligned datasets in NED/ECEF/Body frames.
+
+    Parameters
+    ----------
+    est : dict
+        Estimate dictionary as returned by :func:`load_estimate`.
+    imu_file : str
+        Path to the IMU data file (currently unused).
+    gnss_file : str
+        Path to the GNSS CSV file.
+    truth_file : str | None, optional
+        Path to ``STATE_*.txt`` containing ground truth.  When provided an
+        additional ``"truth"`` entry will be present in each returned frame.
+    """
     gnss = pd.read_csv(gnss_file)
     t_gnss = gnss["Posix_Time"].to_numpy()
     pos_ecef = gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].to_numpy()
@@ -164,6 +177,42 @@ def assemble_frames(est, imu_file, gnss_file):
     fused_ecef = ned_to_ecef(fused_pos, fused_vel, fused_acc)
     gnss_ecef = (pos_ecef, vel_ecef, acc_ecef)
 
+    # ------------------------------------------------------------------ Truth
+    if truth_file is not None:
+        truth = np.loadtxt(truth_file, comments="#")
+        t_truth = truth[:, 1]
+        pos_truth_ecef = truth[:, 2:5]
+        vel_truth_ecef = truth[:, 5:8]
+        dt_t = np.diff(t_truth, prepend=t_truth[0])
+        acc_truth_ecef = np.zeros_like(vel_truth_ecef)
+        acc_truth_ecef[1:] = np.diff(vel_truth_ecef, axis=0) / dt_t[1:, None]
+        pos_truth_ned = np.array([C @ (p - ref_r0) for p in pos_truth_ecef])
+        vel_truth_ned = np.array([C @ v for v in vel_truth_ecef])
+        acc_truth_ned = np.array([C @ a for a in acc_truth_ecef])
+
+        truth_pos_ned = np.vstack(
+            [np.interp(t_est, t_truth, pos_truth_ned[:, i]) for i in range(3)]
+        ).T
+        truth_vel_ned = np.vstack(
+            [np.interp(t_est, t_truth, vel_truth_ned[:, i]) for i in range(3)]
+        ).T
+        truth_acc_ned = np.vstack(
+            [np.interp(t_est, t_truth, acc_truth_ned[:, i]) for i in range(3)]
+        ).T
+
+        truth_pos_ecef = np.vstack(
+            [np.interp(t_est, t_truth, pos_truth_ecef[:, i]) for i in range(3)]
+        ).T
+        truth_vel_ecef = np.vstack(
+            [np.interp(t_est, t_truth, vel_truth_ecef[:, i]) for i in range(3)]
+        ).T
+        truth_acc_ecef = np.vstack(
+            [np.interp(t_est, t_truth, acc_truth_ecef[:, i]) for i in range(3)]
+        ).T
+    else:
+        truth_pos_ned = truth_vel_ned = truth_acc_ned = None
+        truth_pos_ecef = truth_vel_ecef = truth_acc_ecef = None
+
     q = est.get("quat")
     if q is not None:
         rot = R.from_quat(np.asarray(q)[: len(t_est)][:, [1, 2, 3, 0]])
@@ -184,6 +233,11 @@ def assemble_frames(est, imu_file, gnss_file):
                 [np.interp(t_est, t_gnss, acc_gnss_ned[:, i]) for i in range(3)]
             ).T,
         )
+        truth_body = (
+            to_body(truth_pos_ned, truth_vel_ned, truth_acc_ned)
+            if truth_pos_ned is not None
+            else None
+        )
     else:
         imu_body = imu_pos, imu_vel, imu_acc
         fused_body = fused_pos, fused_vel, fused_acc
@@ -197,6 +251,11 @@ def assemble_frames(est, imu_file, gnss_file):
             np.vstack(
                 [np.interp(t_est, t_gnss, acc_gnss_ned[:, i]) for i in range(3)]
             ).T,
+        )
+        truth_body = (
+            (truth_pos_ned, truth_vel_ned, truth_acc_ned)
+            if truth_pos_ned is not None
+            else None
         )
 
     frames = {
@@ -216,6 +275,21 @@ def assemble_frames(est, imu_file, gnss_file):
             "fused": (t_est, *fused_body),
         },
     }
+
+    if truth_pos_ned is not None:
+        frames["NED"]["truth"] = (
+            t_est,
+            truth_pos_ned,
+            truth_vel_ned,
+            truth_acc_ned,
+        )
+        frames["ECEF"]["truth"] = (
+            t_est,
+            truth_pos_ecef,
+            truth_vel_ecef,
+            truth_acc_ecef,
+        )
+        frames["Body"]["truth"] = (t_est, *truth_body)
     return frames
 
 
@@ -397,7 +471,7 @@ def main():
         gnss_file = f"{m.group(2)}.csv"
         method = m.group(3)
         try:
-            frames = assemble_frames(est, imu_file, gnss_file)
+            frames = assemble_frames(est, imu_file, gnss_file, args.truth_file)
             for frame_name, data in frames.items():
                 t_i, p_i, v_i, a_i = data["imu"]
                 t_g, p_g, v_g, a_g = data["gnss"]
