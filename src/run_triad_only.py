@@ -48,11 +48,18 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         if m2:
             imu_file = ROOT / f"{m2.group(1)}.dat"
             gnss_file = ROOT / f"{m2.group(2)}.csv"
-            frames = assemble_frames(est, imu_file, gnss_file)
+            frames = assemble_frames(est, imu_file, gnss_file, truth)
             for frame_name, data in frames.items():
                 t_i, p_i, v_i, a_i = data["imu"]
                 t_g, p_g, v_g, a_g = data["gnss"]
                 t_f, p_f, v_f, a_f = data["fused"]
+                truth_data = data.get("truth")
+                if truth_data is not None:
+                    t_t, p_t, v_t, a_t = truth_data
+                    suffix = "_overlay_truth.pdf"
+                else:
+                    t_t = p_t = v_t = a_t = None
+                    suffix = "_overlay.pdf"
                 plot_overlay(
                     frame_name,
                     "TRIAD",
@@ -69,6 +76,11 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
                     v_f,
                     a_f,
                     results,
+                    t_truth=t_t,
+                    pos_truth=p_t,
+                    vel_truth=v_t,
+                    acc_truth=a_t,
+                    suffix=suffix,
                 )
     except Exception as e:
         print(f"Overlay plot failed: {e}")
