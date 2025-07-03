@@ -365,8 +365,9 @@ def main():
 
     os.makedirs(args.output, exist_ok=True)
 
-    est = load_estimate(args.est_file)
     truth = np.loadtxt(args.truth_file)
+    t_truth = truth[:, 1]
+    est = load_estimate(args.est_file, times=t_truth)
 
     ref_lat = np.deg2rad(args.ref_lat) if args.ref_lat is not None else None
     ref_lon = np.deg2rad(args.ref_lon) if args.ref_lon is not None else None
@@ -392,45 +393,21 @@ def main():
 
     C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
 
-    t_truth = truth[:, 1]
     truth_pos_ned = np.array([C @ (p - ref_r0) for p in truth[:, 2:5]])
 
-    # ensure estimate arrays use the same length for time and states
-    t_est = np.asarray(est["time"]).squeeze()
-    pos_est = np.asarray(est["pos"])
-    n_pos = min(len(t_est), len(pos_est))
-    t_pos = t_est[:n_pos]
-    pos_est = pos_est[:n_pos]
-
-    est_pos_interp = np.vstack(
-        [np.interp(t_truth, t_pos, pos_est[:, i]) for i in range(3)]
-    ).T
-
-    err_pos = est_pos_interp - truth_pos_ned
+    err_pos = np.asarray(est["pos"]) - truth_pos_ned
     err_vel = None
     err_quat = None
 
     if est.get("vel") is not None:
         truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
-        vel_est = np.asarray(est["vel"])
-        n_vel = min(len(t_est), len(vel_est))
-        t_vel = t_est[:n_vel]
-        vel_est = vel_est[:n_vel]
-        est_vel_interp = np.vstack(
-            [np.interp(t_truth, t_vel, vel_est[:, i]) for i in range(3)]
-        ).T
-        err_vel = est_vel_interp - truth_vel_ned
+        err_vel = np.asarray(est["vel"]) - truth_vel_ned
 
     if est.get("quat") is not None:
         q_true = truth[:, 8:12]
         r_true = R.from_quat(q_true[:, [1, 2, 3, 0]])
-        quat_est = np.asarray(est["quat"])
-        n_q = min(len(t_est), len(quat_est))
-        t_q = t_est[:n_q]
-        r_est = R.from_quat(quat_est[:n_q][:, [1, 2, 3, 0]])
-        slerp = Slerp(t_q, r_est)
-        r_interp = slerp(np.clip(t_truth, t_q[0], t_q[-1]))
-        r_err = r_interp * r_true.inv()
+        r_est = R.from_quat(np.asarray(est["quat"])[:, [1, 2, 3, 0]])
+        r_err = r_est * r_true.inv()
         err_quat = r_err.as_quat()[:, [3, 0, 1, 2]]
         # magnitude of the quaternion error in degrees
         err_angles = 2 * np.arccos(np.clip(np.abs(err_quat[:, 0]), -1.0, 1.0))
@@ -471,6 +448,7 @@ def main():
 
     sigma_pos = sigma_vel = sigma_quat = None
     if est["P"] is not None:
+        t_est = np.asarray(est["time"]).squeeze()
         diag = np.diagonal(est["P"], axis1=1, axis2=2)
         # some files store one more covariance entry than timestamps
         n_sigma = min(len(t_est), diag.shape[0])
@@ -522,9 +500,8 @@ def main():
         gnss_file = dataset_dir / f"{m.group(2)}.csv"
         method = m.group(3)
         try:
-            est_overlay = load_estimate(args.est_file, times=t_truth)
             frames = assemble_frames(
-                est_overlay, imu_file, gnss_file, truth_file=args.truth_file
+                est, imu_file, gnss_file, truth_file=args.truth_file
             )
             for frame_name, data in frames.items():
                 t_i, p_i, v_i, a_i = data["imu"]
