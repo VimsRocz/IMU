@@ -36,6 +36,10 @@ GNSS ECEF → NED → comparison plots
 ### 4.13 Validate and Plot
 - Plot GNSS, raw IMU and integrated IMU data in NED, body and ECEF frames.
 - Save the PDFs as `results/<tag>_task4_*.pdf` and list them in `plot_summary.md`.
+- When a `STATE_*.txt` reference trajectory is available the helper
+  `plot_overlay_with_truth` overlays the fused output with the ground truth and
+  stores comparison PDFs named `<method>_<frame>_overlay_truth.pdf` in the same
+  folder as the Kalman filter results.
 
 ## Result
 

@@ -88,6 +88,13 @@ Task 3/4/5 results, residuals and attitude plots in the `results/` folder.
 GNSS_IMU_Fusion_single('IMU_X001.dat','GNSS_X001.csv')
 ```
 
+### Overlay comparison with ground truth
+
+Use `plot_overlay_with_truth` (or the wrapper `overlay_truth_task4`) to generate
+4×1 comparison plots between the fused trajectory and a `STATE_*.txt` reference
+track.  The PDF figures `<method>_<frame>_overlay_truth.pdf` are written next to
+the Kalman filter results in the `results/` folder.
+
 ### Compatibility notes
 
 Some older MATLAB releases expect the ellipsoid name for `ecef2lla` as a
