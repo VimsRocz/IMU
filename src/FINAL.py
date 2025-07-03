@@ -26,23 +26,24 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 
 ensure_dependencies()
-LOG_DIR  = HERE / "logs"
+LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
 DEFAULT_DATASETS = [
     ("IMU_X001.dat", "GNSS_X001.csv"),
 ]
 
-DEFAULT_METHODS  = ["TRIAD", "Davenport", "SVD"]
+DEFAULT_METHODS = ["TRIAD", "Davenport", "SVD"]
 
 DATASETS = DEFAULT_DATASETS.copy()
 METHODS = DEFAULT_METHODS.copy()
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
+
 def run_one(imu, gnss, method, verbose=False):
     """Run the fusion script for one IMU/GNSS pair and capture summary output."""
-    ts  = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log = LOG_DIR / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_{ts}.log"
 
     fusion = importlib.import_module("GNSS_IMU_Fusion")
@@ -69,15 +70,17 @@ def run_one(imu, gnss, method, verbose=False):
         for line in output.splitlines():
             m = SUMMARY_RE.search(line)
             if m:
+
                 summary_lines.append(m.group(1))
     return summary_lines
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", action="store_true", help="Print detailed debug info")
     parser.add_argument("--datasets", default="ALL",
                         help="Comma separated dataset IDs (e.g. X001,X002) or ALL")
-    parser.add_argument('--method', choices=['TRIAD','Davenport','SVD','ALL'],
+    parser.add_argument('--method', choices=['TRIAD', 'Davenport', 'SVD', 'ALL'],
                         default='ALL')
     parser.add_argument('--config', help='YAML configuration file')
     args = parser.parse_args()
@@ -120,7 +123,7 @@ def main():
             print("GNSS shape:", gnss_df.shape)
             print("IMU shape:", imu_data.shape)
             print("GNSS time [start, end]:", gnss_df['Posix_Time'].iloc[0], gnss_df['Posix_Time'].iloc[-1])
-            print("IMU time [start, end]:", imu_data[0,0], imu_data[-1,0])
+            print("IMU time [start, end]:", imu_data[0, 0], imu_data[-1, 0])
             print("Any NaNs in GNSS?", gnss_df.isna().sum().sum())
             print("Any NaNs in IMU?", np.isnan(imu_data).sum())
             print("GNSS Head:\n", gnss_df.head())

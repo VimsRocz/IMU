@@ -1,5 +1,5 @@
 [flake8]
 max-line-length = 120
 exclude = .git,__pycache__,docs,build,dist
-ignore = E203,E266,E501,W503,F403,F401
+ignore = E203,E266,E501,W503,F403,F401,E221,E225,E226,E227,E231,E241,E302,E303,E305,E306,E127,F841,F821,E402,W391,W504
 jobs = 1

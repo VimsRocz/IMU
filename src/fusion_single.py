@@ -17,15 +17,14 @@ def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):
     return filtfilt(b, a, data, axis=0)
 
 
-
 def quat_mult(q, r):
     w0, x0, y0, z0 = q
     w1, x1, y1, z1 = r
     return np.array([
-        w0*w1 - x0*x1 - y0*y1 - z0*z1,
-        w0*x1 + x0*w1 + y0*z1 - z0*y1,
-        w0*y1 - x0*z1 + y0*w1 + z0*x1,
-        w0*z1 + x0*y1 - y0*x1 + z0*w1,
+        w0 * w1 - x0 * x1 - y0 * y1 - z0 * z1,
+        w0 * x1 + x0 * w1 + y0 * z1 - z0 * y1,
+        w0 * y1 - x0 * z1 + y0 * w1 + z0 * x1,
+        w0 * z1 + x0 * y1 - y0 * x1 + z0 * w1,
     ])
 
 
@@ -85,7 +84,7 @@ def main():
         a = 6378137.0
         e_sq = 6.69437999014e-3
         p = np.sqrt(x0**2 + y0**2)
-        theta = np.arctan2(z0*a, p*(1-e_sq))
+        theta = np.arctan2(z0 * a, p*(1-e_sq))
         lon0 = np.arctan2(y0,x0)
         lat0 = np.arctan2(z0 + e_sq*a*np.sin(theta)**3/(1-e_sq), p - e_sq*a*np.cos(theta)**3)
     C = compute_C_ECEF_to_NED(lat0, lon0)

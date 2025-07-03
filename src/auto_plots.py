@@ -95,9 +95,12 @@ def save_task5_plots(method_name: str, dataset_name: str, fused: pd.DataFrame,
         plt.close(fig)
 
 
-def save_validation_plots(method_name: str, dataset_name: str,
-                           residuals: pd.DataFrame,
-                           innovations: pd.DataFrame) -> None:
+def save_validation_plots(
+    method_name: str,
+    dataset_name: str,
+    residuals: pd.DataFrame,
+    innovations: pd.DataFrame,
+) -> None:
     """Store residual and innovation time series."""
     for name, df in ("residuals", residuals), ("innovations", innovations):
         fig, ax = plt.subplots()

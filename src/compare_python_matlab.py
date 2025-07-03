@@ -75,12 +75,16 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Compare Python and MATLAB results")
     ap.add_argument("--imu", default="IMU_X001.dat")
     ap.add_argument("--gnss", default="GNSS_X001.csv")
-    ap.add_argument("--method", default="TRIAD", choices=["TRIAD","Davenport","SVD"])
+    ap.add_argument(
+        "--method",
+        default="TRIAD",
+        choices=["TRIAD", "Davenport", "SVD"],
+    )
     ap.add_argument("--csv", action="store_true", help="Write results to results/compare_summary.csv")
     args = ap.parse_args()
 
     py_mat = run_python_pipeline(args.imu, args.gnss, args.method)
-    m_mat  = run_matlab_pipeline(args.imu, args.gnss, args.method)
+    m_mat = run_matlab_pipeline(args.imu, args.gnss, args.method)
 
     py_rmse, py_final = load_python_metrics(py_mat)
     m_rmse, m_final = load_matlab_metrics(m_mat, args.imu, args.gnss)
