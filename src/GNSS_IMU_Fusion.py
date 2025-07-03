@@ -926,7 +926,7 @@ def main():
     # --------------------------------
     logging.info("Subtask 4.9: Loading IMU data and correcting for bias for each method.")
     try:
-        imu_data = pd.read_csv(imu_file, sep='\s+', header=None)
+        imu_data = pd.read_csv(imu_file, sep=r'\s+', header=None)
         dt_ilu = 1.0 / 400.0  # 400 Hz sampling rate, dt = 0.0025 s
         imu_time = np.arange(len(imu_data)) * dt_ilu + gnss_time[0]  # Align with GNSS start time
         
@@ -1246,7 +1246,7 @@ def main():
     logging.info("Subtask 5.3: Loading GNSS and IMU data.")
     try:
         gnss_data = pd.read_csv(gnss_file)
-        imu_data = pd.read_csv(imu_file, sep='\s+', header=None)
+        imu_data = pd.read_csv(imu_file, sep=r'\s+', header=None)
     except FileNotFoundError as e:
         missing = 'GNSS' if 'csv' in str(e) else 'IMU'
         logging.error(f"{missing} file not found: {e.filename}")
