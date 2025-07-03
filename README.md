@@ -29,11 +29,11 @@ For a minimal setup you can also install the packages individually:
 pip install numpy matplotlib scipy filterpy
 ```
 
-The tests, however, require **all** packages from `requirements.txt` *and* the
-development extras listed in `requirements-dev.txt`.  This pulls in heavier
-libraries such as `cartopy`.  Installing them in a virtual environment or
-container keeps your base Python setup clean.  Running `make test` installs
-both requirement files automatically before executing `pytest`.
+The tests, however, require **all** packages from `requirements.txt` together
+with the optional test extras defined in `pyproject.toml`.  These pull in
+heavier libraries such as `cartopy`.  Installing them in a virtual environment
+or container keeps your base Python setup clean.  Running `make test` installs
+the optional extras automatically before executing `pytest`.
 
 If you run into issues with filterpy on Ubuntu:
 
@@ -53,14 +53,13 @@ pip3 install filterpy
 
 #### Installing test requirements
 
-To run the unit tests you need `numpy`, `pandas`, `scipy` and `cartopy` which are all included in `requirements.txt`. Install them together with `pytest` via:
+To run the unit tests install the package in editable mode with the
+`tests` extras:
 
 ```bash
-pip install -r requirements-dev.txt -r requirements.txt
+pip install -e .[tests]
 ```
-Both requirement files **must** be installed before executing `pytest`.
-`pytest` itself is only listed in `requirements-dev.txt`, so skipping that
-file will leave the `pytest` command unavailable.
+This pulls in `pytest` and the additional dependencies such as `cartopy`.
 
 #### Offline installation
 
@@ -318,20 +317,20 @@ writes `results/summary.csv`. Each row contains:
 
 Run the unit tests with `pytest`. **Installing the required Python packages is
 mandatory** before executing any tests. The suite relies on *all* entries in
-`requirements.txt` as well as the development dependencies in
-`requirements-dev.txt` – including heavier libraries such as `cartopy` that can
-take some time to build. Using a dedicated virtual environment or container is
-strongly recommended.  The `test` target in the `Makefile` installs both
-requirement files for you. Alternatively, run the helper script
-`scripts/setup_tests.sh` before invoking `pytest`:
+`requirements.txt` together with the optional test extras defined in
+`pyproject.toml` – including heavier libraries such as `cartopy` that can take
+some time to build. Using a dedicated virtual environment or container is
+strongly recommended.  The `test` target in the `Makefile` installs these
+extras for you. Alternatively, run the helper script `scripts/setup_tests.sh`
+before invoking `pytest`:
 
 ```bash
 ./scripts/setup_tests.sh
 pytest -q
 ```
 
-You can also simply run `make test` to install both requirement files and
-execute the test suite in one command.
+You can also simply run `make test` to install the optional extras and execute
+the test suite in one command.
 
 ### Linting
 
