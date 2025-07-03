@@ -1,12 +1,12 @@
-cartopy
-filterpy
-fpdf
-geomag
+numpy>=1.26
+scipy
 matplotlib
-numpy
 pandas
 pyyaml
-rich
-scipy
-tabulate
 tqdm
+tabulate
+rich
+fpdf
+filterpy
+cartopy
+geomaglib>=1.2.1  # Replace outdated 'geomag'
