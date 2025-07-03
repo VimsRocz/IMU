@@ -12,28 +12,28 @@ from filterpy.kalman import KalmanFilter
 
 from scripts.plot_utils import save_plot, plot_attitude
 from utils import (
-    detect_static_interval,
     is_static,
     compute_C_ECEF_to_NED,
-    ecef_to_geodetic,
 )
 from constants import GRAVITY, EARTH_RATE
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
-from gnss_imu_fusion.init_vectors import (
+from .gnss_imu_fusion.init_vectors import (
     average_rotation_matrices,
     svd_alignment,
     triad_svd,
     butter_lowpass_filter,
     compute_wahba_errors,
 )
-from gnss_imu_fusion.plots import (
+from .gnss_imu_fusion.plots import (
     save_zupt_variance,
     save_euler_angles,
     save_residual_plots,
     save_attitude_over_time,
 )
-from gnss_imu_fusion.kalman_filter import (
+from .gnss_imu_fusion.init import compute_reference_vectors, measure_body_vectors
+from .gnss_imu_fusion.integration import integrate_trajectory
+from .gnss_imu_fusion.kalman_filter import (
     quat_multiply,
     quat_from_rate,
     quat2euler,
@@ -144,135 +144,40 @@ def main():
     # TASK 1: Define Reference Vectors in NED Frame
     # ================================
     logging.info("TASK 1: Define reference vectors in NED frame")
-    
-    # --------------------------------
-    # Subtask 1.1: Set Initial Latitude and Longitude from GNSS ECEF Data
-    # --------------------------------
-    logging.info("Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.")
-    try:
-        gnss_data = pd.read_csv(gnss_file)
-    except FileNotFoundError:
-        logging.error(f"GNSS file not found: {gnss_file}")
-        raise
-    except Exception as e:
-        logging.error(f"Failed to load GNSS data file: {e}")
-        raise
 
-    # Expose common columns for clarity
-    utc_cols = [
-        "UTC_yyyy",
-        "UTC_MM",
-        "UTC_dd",
-        "UTC_HH",
-        "UTC_mm",
-        "UTC_ss",
-    ]
-    _utc = gnss_data[utc_cols].to_numpy()
-    _posix_time = gnss_data["Posix_Time"].to_numpy()
-    _ecef_pos = gnss_data[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].to_numpy()
-    _ecef_vel = gnss_data[["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]].to_numpy()
-    
-    # Debug: Print column names and first few rows of ECEF coordinates
-    logging.debug("GNSS data columns: %s", gnss_data.columns.tolist())
-    logging.debug("First few rows of ECEF coordinates:\n%s", gnss_data[['X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m']].head())
-    
-    # Find first row with non-zero ECEF coordinates
-    valid_rows = gnss_data[(gnss_data['X_ECEF_m'] != 0) | (gnss_data['Y_ECEF_m'] != 0) | (gnss_data['Z_ECEF_m'] != 0)]
-    if not valid_rows.empty:
-        initial_row = valid_rows.iloc[0]
-        x_ecef = float(initial_row['X_ECEF_m'])
-        y_ecef = float(initial_row['Y_ECEF_m'])
-        z_ecef = float(initial_row['Z_ECEF_m'])
-        lat_deg, lon_deg, alt = ecef_to_geodetic(x_ecef, y_ecef, z_ecef)
-        lat = np.deg2rad(lat_deg)
-        lon = np.deg2rad(lon_deg)
-        initial_vel = initial_row[['VX_ECEF_mps', 'VY_ECEF_mps', 'VZ_ECEF_mps']].values
-        C_e2n_init = compute_C_ECEF_to_NED(lat, lon)
-        initial_vel_ned = C_e2n_init @ initial_vel
-        logging.info(f"Computed initial latitude: {lat_deg:.6f}°, longitude: {lon_deg:.6f}° from ECEF coordinates.")
-        logging.debug(f"Initial latitude: {lat_deg:.6f}°, Initial longitude: {lon_deg:.6f}°")
-    else:
-        raise ValueError("No valid ECEF coordinates found in GNSS data.")
-    
-    # --------------------------------
-    # Subtask 1.2: Define Gravity Vector in NED
-    # --------------------------------
-    logging.info("Subtask 1.2: Defining gravity vector in NED frame.")
-    
-    # Gravity vector in NED frame: g_NED = [0, 0, g]
-    g_NED = np.array([0.0, 0.0, GRAVITY])
+    (
+        lat_deg,
+        lon_deg,
+        alt,
+        g_NED,
+        omega_ie_NED,
+        mag_NED,
+        initial_vel_ned,
+        ecef_origin,
+    ) = compute_reference_vectors(gnss_file, args.mag_file)
+    lat = np.deg2rad(lat_deg)
+    _lon = np.deg2rad(lon_deg)
     logging.info(
-        f"Gravity vector in NED: {g_NED} m/s^2 (Down positive, magnitude g = {GRAVITY:.2f} m/s^2)"
+        f"Computed initial latitude: {lat_deg:.6f}°, longitude: {lon_deg:.6f}° from GNSS"
     )
-    
-    # --------------------------------
-    # Subtask 1.3: Define Earth Rotation Rate Vector in NED
-    # --------------------------------
-    logging.info("Subtask 1.3: Defining Earth rotation rate vector in NED frame.")
-    
-    # Earth rotation rate in NED frame: ω_ie,NED = ω_E * [cos(φ), 0, -sin(φ)]
-    omega_ie_NED = EARTH_RATE * np.array([np.cos(lat), 0.0, -np.sin(lat)])
-    logging.info(f"Earth rotation rate in NED: {omega_ie_NED} rad/s (North, East, Down)")
-
-    mag_NED = None
-    if args.mag_file:
-        try:
-            from datetime import date
-            import geomag.geomag as gm
-            gm_model = gm.GeoMag()
-            res = gm_model.GeoMag(lat_deg, lon_deg, alt, date.today())
-            mag_NED = np.array([res.bx, res.by, res.bz])
-            logging.info(f"Magnetic field in NED: {mag_NED} nT")
-        except Exception as e:
-            logging.error(f"Failed to compute magnetic field: {e}")
-    
-    # --------------------------------
-    # Subtask 1.4: Validate and Print Reference Vectors
-    # --------------------------------
-    logging.info("Subtask 1.4: Validating reference vectors.")
-    
-    # Validate vector shapes and components
-    assert g_NED.shape == (3,), "Gravity vector must be a 3D vector."
-    assert omega_ie_NED.shape == (3,), "Earth rotation rate vector must be a 3D vector."
-    assert np.isclose(g_NED[0], 0) and np.isclose(g_NED[1], 0), "Gravity should have no North/East component."
-    assert np.isclose(omega_ie_NED[1], 0), "Earth rate should have no East component in NED."
-    logging.info("Reference vectors validated successfully.")
-    
-    # Print reference vectors
     logging.info("==== Reference Vectors in NED Frame ====")
     logging.info(f"Gravity vector (NED):        {g_NED} m/s^2")
     logging.info(f"Earth rotation rate (NED):   {omega_ie_NED} rad/s")
     logging.info(f"Latitude (deg):              {lat_deg:.6f}")
     logging.info(f"Longitude (deg):             {lon_deg:.6f}")
-    
-    # --------------------------------
-    # Subtask 1.5: Plot Location on Earth Map
-    # --------------------------------
-    logging.info("Subtask 1.5: Plotting location on Earth map.")
+
     if not args.no_plots:
         try:
             import cartopy.crs as ccrs
-        except Exception as e:
+        except Exception as e:  # pragma: no cover - optional
             logging.warning(f"cartopy not available, skipping map generation: {e}")
         else:
-            # Create figure with PlateCarree projection
             fig = plt.figure(figsize=(10, 5))
             ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-            ax.stock_img()  # Add Earth background image
-
-            # Set map extent to focus on the location
+            ax.stock_img()
             ax.set_extent([lon_deg - 5, lon_deg + 5, lat_deg - 5, lat_deg + 5], crs=ccrs.PlateCarree())
-
-            # Plot the initial location with a red marker
-            ax.plot(lon_deg, lat_deg, 'ro', markersize=10, transform=ccrs.PlateCarree())
-            ax.text(
-                lon_deg + 1,
-                lat_deg,
-                f"Lat: {lat_deg:.4f}°, Lon: {lon_deg:.4f}°",
-                transform=ccrs.PlateCarree(),
-            )
-
-            # Set plot title and save
+            ax.plot(lon_deg, lat_deg, "ro", markersize=10, transform=ccrs.PlateCarree())
+            ax.text(lon_deg + 1, lat_deg, f"Lat: {lat_deg:.4f}°, Lon: {lon_deg:.4f}°", transform=ccrs.PlateCarree())
             plt.title("Initial Location on Earth Map")
             plt.savefig(f"results/{tag}_location_map.pdf")
             plt.close()
@@ -285,196 +190,16 @@ def main():
     # TASK 2: Measure the Vectors in the Body Frame
     # ================================
     logging.info("TASK 2: Measure the vectors in the body frame")
-    
-    # --------------------------------
-    # Subtask 2.1: Load and Parse IMU Data
-    # --------------------------------
-    logging.info("Subtask 2.1: Loading and parsing IMU data.")
-    try:
-        data = np.loadtxt(imu_file)
-    except FileNotFoundError:
-        logging.error(f"IMU file not found: {imu_file}")
-        raise
-    except Exception as e:
-        logging.error(f"Failed to load IMU data file: {e}")
-        raise
 
-    if data.shape[1] >= 10:
-        _imu_index = data[:, 0].astype(int)
-        _imu_time = data[:, 1]
-        gyro_inc = data[:, 2:5]
-        acc_inc = data[:, 5:8]
-        _imu_temp = data[:, 8]
-        _imu_status = data[:, 9]
-        acc = acc_inc  # velocity increments
-        gyro = gyro_inc  # angular increments
-    else:
-        logging.error(f"Unexpected data format in {imu_file}.")
-        raise ValueError("Invalid IMU data format.")
-
-    logging.info(f"IMU data loaded: {data.shape[0]} samples")
-    logging.debug(f"IMU data loaded: {data.shape[0]} samples")
-
-    # Estimate IMU sampling period from time column if available
-    if data.shape[0] > 1:
-        dt_imu = np.mean(np.diff(data[:100, 1]))
-    else:
-        dt_imu = 1.0 / 400.0
-    if dt_imu <= 0:
-        dt_imu = 1.0 / 400.0
-    logging.info(f"Estimated IMU sampling period: {dt_imu:.6f} s")
-    
-    # --------------------------------
-    # Subtask 2.2: Estimate Static Body-Frame Vectors
-    # --------------------------------
-    logging.info(
-        "Subtask 2.2: Estimating static body-frame vectors using a low-motion interval."
+    dt_imu, g_body, omega_ie_body, mag_body = measure_body_vectors(
+        imu_file,
+        static_start=args.static_start,
+        static_end=args.static_end,
+        mag_file=args.mag_file,
     )
-
-    # Convert increments to rates
-    acc = acc / dt_imu  # m/s^2
-    gyro = gyro / dt_imu  # rad/s
-
-    # Low-pass filter to suppress high-frequency noise
-    acc = butter_lowpass_filter(acc)
-    gyro = butter_lowpass_filter(gyro)
-
-    # --- Determine the static interval used for bias estimation ---
-    start_idx = args.static_start
-    end_idx = args.static_end
-    if start_idx is None and end_idx is None:
-        dataset_window = {
-            "IMU_X003.dat": (296, 479907),
-        }.get(Path(args.imu_file).name)
-        if dataset_window and len(acc) >= dataset_window[1]:
-            start_idx, end_idx = dataset_window
-            end_idx = min(end_idx, len(acc))
-
-    if start_idx is not None:
-        if end_idx is None:
-            end_idx = len(acc)
-        start_idx = max(0, start_idx)
-        end_idx = min(end_idx, len(acc))
-        if end_idx - start_idx < MIN_STATIC_SAMPLES:
-            logging.warning(
-                "Specified static interval too short; falling back to detection"
-            )
-            start_idx, end_idx = detect_static_interval(
-                acc,
-                gyro,
-                window_size=80,
-                accel_var_thresh=0.01,
-                gyro_var_thresh=1e-6,
-                min_length=80,
-            )
-    else:
-        start_idx, end_idx = detect_static_interval(
-            acc,
-            gyro,
-            window_size=80,
-            accel_var_thresh=0.01,
-            gyro_var_thresh=1e-6,
-            min_length=80,
-        )
-    N_static = end_idx - start_idx
-    static_acc = np.mean(acc[start_idx:end_idx], axis=0)
-    static_gyro = np.mean(gyro[start_idx:end_idx], axis=0)
-    acc_var = np.var(acc[start_idx:end_idx], axis=0)
-    gyro_var = np.var(gyro[start_idx:end_idx], axis=0)
-    start_t = start_idx * dt_imu
-    end_t = end_idx * dt_imu
-    logging.info(
-        f"Static interval: {start_idx} to {end_idx} (length {N_static} samples)"
-    )
-    logging.info(
-        f"Static accelerometer vector (mean over {N_static} samples): {static_acc}"
-    )
-    logging.info(
-        f"Static gyroscope vector (mean over {N_static} samples): {static_gyro}"
-    )
-    logging.info(
-        f"Window time: {start_t:.3f}s to {end_t:.3f}s | "
-        f"Accel var: {acc_var} | Gyro var: {gyro_var}"
-    )
-
-    with open("triad_init_log.txt", "a") as logf:
-        logf.write(
-            f"{imu_file}: window {start_idx}-{end_idx} (t={start_t:.3f}-{end_t:.3f}s)\n"
-        )
-        logf.write(f"acc_mean={static_acc} acc_var={acc_var}\n")
-        logf.write(f"gyro_mean={static_gyro} gyro_var={gyro_var}\n")
-    g_norm = np.linalg.norm(static_acc)
-    omega_norm = np.linalg.norm(static_gyro)
-    logging.info(
-        f"Estimated gravity magnitude from IMU: {g_norm:.4f} m/s² (expected ~{GRAVITY})"
-    )
-    logging.info(
-        f"Estimated Earth rotation magnitude from IMU: {omega_norm:.6e} rad/s (expected ~{EARTH_RATE:.2e})"
-    )
-
-    # Simple accelerometer scale calibration
-    scale_factor = GRAVITY / g_norm if g_norm > 0 else 1.0
-    if abs(scale_factor - 1.0) > 0.05:
-        logging.info(f"Applying accelerometer scale factor: {scale_factor:.4f}")
-    acc *= scale_factor
-    static_acc *= scale_factor
-    g_norm *= scale_factor
-    logging.info(f"Static accelerometer mean: {static_acc}")
-    logging.info(f"Static gyroscope mean: {static_gyro}")
-    logging.info(f"Gravity magnitude: {g_norm:.4f} m/s²")
-    logging.info(f"Earth rotation magnitude: {omega_norm:.6e} rad/s")
-    
-    # --------------------------------
-    # Subtask 2.3: Define Gravity and Earth Rate in Body Frame
-    # --------------------------------
-    logging.info("Subtask 2.3: Defining gravity and Earth rotation rate in the body frame.")
-    g_body = -static_acc
-    omega_ie_body = static_gyro
-    logging.info(f"Gravity vector in body frame (g_body): {g_body} m/s^2")
-    logging.info(f"Earth rotation rate in body frame (omega_ie_body): {omega_ie_body} rad/s")
-    logging.info(f"Gravity vector (g_body): {g_body} m/s^2")
-    logging.info(f"Earth rotation rate (omega_ie_body): {omega_ie_body} rad/s")
-
-    mag_body = None
-    if args.mag_file:
-        try:
-            mag_data = np.loadtxt(args.mag_file, delimiter=",")
-        except Exception as e:
-            logging.error(f"Failed to load magnetometer file: {e}")
-            mag_data = None
-        if mag_data is not None and mag_data.ndim == 2 and mag_data.shape[1] >= 3:
-            mag_data = butter_lowpass_filter(mag_data[:, :3])
-            m_start, m_end = detect_static_interval(mag_data, mag_data, window_size=80)
-            mag_body = np.mean(mag_data[m_start:m_end], axis=0)
-            logging.info(f"Static magnetometer vector: {mag_body}")
-    
-    # --------------------------------
-    # Subtask 2.4: Validate and Print Body-Frame Vectors
-    # --------------------------------
-    logging.info("Subtask 2.4: Validating measured vectors in the body frame.")
-    assert g_body.shape == (3,), "g_body must be a 3D vector."
-    assert omega_ie_body.shape == (3,), "omega_ie_body must be a 3D vector."
-    g_norm = np.linalg.norm(g_body)
-    omega_norm = np.linalg.norm(omega_ie_body)
-    expected_omega = EARTH_RATE
-    if g_norm < 0.1 * GRAVITY:
-        logging.warning("Gravity magnitude is very low; check accelerometer or static assumption.")
-    if omega_norm < 0.5 * expected_omega:
-        logging.warning("Earth rotation rate is low; check gyroscope or static assumption.")
-    logging.info(
-        f"Magnitude of g_body: {g_norm:.6f} m/s^2 (expected ~{GRAVITY} m/s^2)"
-    )
-    logging.info(
-        f"Magnitude of omega_ie_body: {omega_norm:.6e} rad/s (expected ~{EARTH_RATE:.2e} rad/s)"
-    )
-    logging.info("==== Measured Vectors in the Body Frame ====")
-    logging.info(f"Measured gravity vector (g_body): {g_body} m/s^2")
-    logging.info(f"Measured Earth rotation (omega_ie_body): {omega_ie_body} rad/s")
-    logging.info("\nNote: These are the same physical vectors as in NED, but expressed in the body frame (sensor axes).")
-    logging.info("From accelerometer (assuming static IMU):")
-    logging.info("    a_body = -g_body")
-    logging.info("From gyroscope:")
-    logging.info("    ω_ie,body")
+    logging.info(f"Estimated IMU dt: {dt_imu:.6f} s")
+    logging.info(f"Gravity vector (body): {g_body}")
+    logging.info(f"Earth rotation (body): {omega_ie_body}")
     
     # ================================
     # TASK 3: Solve Wahba’s Problem
@@ -885,7 +610,7 @@ def main():
     logging.info("Subtask 4.5: Defining reference point.")
     ref_lat = np.deg2rad(lat_deg)
     ref_lon = np.deg2rad(lon_deg)
-    ref_r0 = np.array([x_ecef, y_ecef, z_ecef])
+    ref_r0 = ecef_origin
     logging.info(f"Reference point: lat={ref_lat:.6f} rad, lon={ref_lon:.6f} rad, r0={ref_r0}")
     
     # --------------------------------
@@ -1026,19 +751,12 @@ def main():
     for m in methods:
         logging.info(f"Integrating IMU data using {m} method.")
         C_B_N = C_B_N_methods[m]
-        pos = np.zeros((len(imu_time), 3))
-        vel = np.zeros((len(imu_time), 3))
-        acc = np.zeros((len(imu_time), 3))
-        for i in range(1, len(imu_time)):
-            dt = imu_time[i] - imu_time[i-1]
-            f_ned = C_B_N @ acc_body_corrected[m][i]
-            a_ned = f_ned + g_NED
-            acc[i] = a_ned
-            vel[i] = vel[i-1] + a_ned * dt
-            pos[i] = pos[i-1] + vel[i] * dt
-        pos_integ[m] = pos.copy()
-        vel_integ[m] = vel.copy()
-        acc_integ[m] = acc.copy()
+        pos, vel, acc = integrate_trajectory(
+            acc_body_corrected[m], imu_time, C_B_N, g_NED
+        )
+        pos_integ[m] = pos
+        vel_integ[m] = vel
+        acc_integ[m] = acc
     logging.info("IMU-derived position, velocity, and acceleration computed for all methods.")
     
     # --------------------------------
@@ -1266,7 +984,7 @@ def main():
     # Reference position for NED
     ref_lat = np.deg2rad(lat_deg)
     ref_lon = np.deg2rad(lon_deg)
-    ref_r0 = np.array([x_ecef, y_ecef, z_ecef])
+    ref_r0 = ecef_origin
     C_ECEF_to_NED = compute_C_ECEF_to_NED(ref_lat, ref_lon)
 
     # Convert GNSS to NED
