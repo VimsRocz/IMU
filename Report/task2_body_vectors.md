@@ -4,27 +4,30 @@ This page summarises **Task\u00a02**, which measures the reference vectors in th
 
 ## Data file format
 
-`IMU_Xnnn.dat` is a whitespace-separated table with ten columns:
+`IMU_Xnnn.dat` is a whitespace-separated table with ten columns.  The column
+names and units are listed below.
 
-```text
-index, time_s,
-dtheta_x, dtheta_y, dtheta_z,
-dv_x, dv_y, dv_z,
-temperature_C, status
-```
+| Column          | Unit | Description                                     |
+|-----------------|-----|-------------------------------------------------|
+| `index`         | –   | Sample counter starting at 0                    |
+| `time_s`        | s   | Time stamp (increments of `0.0025` s)           |
+| `dtheta_x`      | rad | Angular increment about X                       |
+| `dtheta_y`      | rad | Angular increment about Y                       |
+| `dtheta_z`      | rad | Angular increment about Z                       |
+| `dv_x`          | m/s | Velocity increment along X                      |
+| `dv_y`          | m/s | Velocity increment along Y                      |
+| `dv_z`          | m/s | Velocity increment along Z                      |
+| `temperature_C` | °C  | Sensor temperature (`22.5` in example files)    |
+| `status`        | –   | Data validity flag (`1` for valid samples)      |
 
-* **index** \u2013 sample counter starting at 0.
-* **time_s** \u2013 time stamp in seconds, increasing by `0.0025\u202fs` (400 Hz).
-* **dtheta_x,y,z** \u2013 angular increments in radians.
-* **dv_x,y,z** \u2013 velocity increments in metres per second.
-* **temperature_C** \u2013 sensor temperature (constant `22.5 °C` in the example files).
-* **status** \u2013 data validity flag (`1` for valid samples).
-
-The time column increases monotonically and does not wrap. `IMU_X001.dat` contains 500 000 rows, whereas the `_small` variants hold only the first 1 000 samples for quick tests.
+The time column increases monotonically and does not wrap. `IMU_X001.dat`
+contains 500 000 rows, whereas the `_small` variants hold only the first
+1 000 samples for quick tests.
 
 ## Steps
 
-1. Load the IMU file and extract the increment columns.
+1. Load the IMU file into memory so the full dataset is available for later
+   tasks, then extract the increment columns.
 2. Estimate the sampling period from the time values.
 3. Convert increments to rates and apply a low-pass filter.
 4. Detect a static interval with `detect_static_interval` and compute the mean accelerometer and gyroscope vectors.
