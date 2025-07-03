@@ -476,29 +476,46 @@ def main():
                 truth = data.get("truth")
                 if truth is not None:
                     t_t, p_t, v_t, a_t = truth
+                    plot_overlay(
+                        frame_name,
+                        method,
+                        t_i,
+                        p_i,
+                        v_i,
+                        a_i,
+                        t_g,
+                        p_g,
+                        v_g,
+                        a_g,
+                        t_f,
+                        p_f,
+                        v_f,
+                        a_f,
+                        args.output,
+                        t_truth=t_t,
+                        pos_truth=p_t,
+                        vel_truth=v_t,
+                        acc_truth=a_t,
+                        suffix="_overlay_truth.pdf",
+                    )
                 else:
-                    t_t = p_t = v_t = a_t = None
-                plot_overlay(
-                    frame_name,
-                    method,
-                    t_i,
-                    p_i,
-                    v_i,
-                    a_i,
-                    t_g,
-                    p_g,
-                    v_g,
-                    a_g,
-                    t_f,
-                    p_f,
-                    v_f,
-                    a_f,
-                    args.output,
-                    t_truth=t_t,
-                    pos_truth=p_t,
-                    vel_truth=v_t,
-                    acc_truth=a_t,
-                )
+                    plot_overlay(
+                        frame_name,
+                        method,
+                        t_i,
+                        p_i,
+                        v_i,
+                        a_i,
+                        t_g,
+                        p_g,
+                        v_g,
+                        a_g,
+                        t_f,
+                        p_f,
+                        v_f,
+                        a_f,
+                        args.output,
+                    )
         except Exception as e:
             print(f"Overlay plot failed: {e}")
 
