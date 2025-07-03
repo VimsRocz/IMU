@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -25,7 +25,7 @@ def plot_overlay(
     vel_fused: np.ndarray,
     acc_fused: np.ndarray,
     out_dir: str,
-    truth: Optional[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = None,
+    truth: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = None,
     *,
     t_truth: Optional[np.ndarray] = None,
     pos_truth: Optional[np.ndarray] = None,
