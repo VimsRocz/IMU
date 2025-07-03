@@ -30,6 +30,22 @@ def svd_alignment(
     return U @ M @ Vt
 
 
+def triad_svd(
+    body_vec1: np.ndarray,
+    body_vec2: np.ndarray,
+    ref_vec1: np.ndarray,
+    ref_vec2: np.ndarray,
+    w1: float = 0.9999,
+    w2: float = 0.0001,
+) -> np.ndarray:
+    """Return body->NED rotation from two vector pairs using SVD."""
+    return svd_alignment(
+        [body_vec1, body_vec2],
+        [ref_vec1, ref_vec2],
+        [w1, w2],
+    )
+
+
 def butter_lowpass_filter(data: np.ndarray, cutoff: float = 5.0, fs: float = 400.0, order: int = 4) -> np.ndarray:
     """Apply a zero-phase Butterworth low-pass filter to the data."""
     nyq = 0.5 * fs

@@ -3,6 +3,7 @@
 from .init_vectors import (
     average_rotation_matrices,
     svd_alignment,
+    triad_svd,
     butter_lowpass_filter,
     angle_between,
     compute_wahba_errors,
@@ -17,6 +18,7 @@ from .plots import (
 __all__ = [
     "average_rotation_matrices",
     "svd_alignment",
+    "triad_svd",
     "butter_lowpass_filter",
     "angle_between",
     "compute_wahba_errors",
