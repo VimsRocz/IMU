@@ -108,36 +108,15 @@ def load_estimate(path):
     return est
 
 
-def assemble_frames(est, gnss_file, truth_file=None, *args):
+def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     """Return aligned datasets in NED/ECEF/Body frames.
 
     Parameters
     ----------
     est : dict
         Output from :func:`load_estimate`.
-    gnss_file : str
-        GNSS data file used to generate *est*.
-    truth_file : str or None, optional
-        Path to ``STATE_*.txt`` containing the reference trajectory.
-    *args : tuple
-        Extra positional arguments for backward compatibility.  When two
-        additional arguments are provided they are interpreted as
-        ``(gnss_file, truth_file)`` from the legacy calling convention.
-    """
-    if args:
-        # Support old signature assemble_frames(est, imu_file, gnss_file[, truth])
-        if truth_file is not None and len(args) >= 1:
-            gnss_file, truth_file = truth_file, args[0]
-        elif len(args) >= 1:
-            gnss_file = args[0]
-    """Return aligned datasets in NED/ECEF/Body frames.
-
-    Parameters
-    ----------
-    est : dict
-        Output from :func:`load_estimate`.
-    gnss_file : str
-        GNSS data file used to generate *est*.
+    imu_file, gnss_file : str
+        Raw data files used to generate *est*.
     truth_file : str or None, optional
         Path to ``STATE_*.txt`` containing the reference trajectory. When
         provided, the returned frames include an additional ``"truth"``
@@ -486,57 +465,34 @@ def main():
     )
     if m:
         dataset_dir = Path(args.truth_file).resolve().parent
+        imu_file = dataset_dir / f"{m.group(1)}.dat"
         gnss_file = dataset_dir / f"{m.group(2)}.csv"
         method = m.group(3)
         try:
-            frames = assemble_frames(est, gnss_file, args.truth_file)
+            frames = assemble_frames(est, imu_file, gnss_file, truth_file=args.truth_file)
             for frame_name, data in frames.items():
                 t_i, p_i, v_i, a_i = data["imu"]
                 t_g, p_g, v_g, a_g = data["gnss"]
                 t_f, p_f, v_f, a_f = data["fused"]
                 truth = data.get("truth")
-                if truth is not None:
-                    t_t, p_t, v_t, a_t = truth
-                    plot_overlay(
-                        frame_name,
-                        method,
-                        t_i,
-                        p_i,
-                        v_i,
-                        a_i,
-                        t_g,
-                        p_g,
-                        v_g,
-                        a_g,
-                        t_f,
-                        p_f,
-                        v_f,
-                        a_f,
-                        args.output,
-                        t_truth=t_t,
-                        pos_truth=p_t,
-                        vel_truth=v_t,
-                        acc_truth=a_t,
-                        suffix="_overlay_truth.pdf",
-                    )
-                else:
-                    plot_overlay(
-                        frame_name,
-                        method,
-                        t_i,
-                        p_i,
-                        v_i,
-                        a_i,
-                        t_g,
-                        p_g,
-                        v_g,
-                        a_g,
-                        t_f,
-                        p_f,
-                        v_f,
-                        a_f,
-                        args.output,
-                    )
+                plot_overlay(
+                    frame_name,
+                    method,
+                    t_i,
+                    p_i,
+                    v_i,
+                    a_i,
+                    t_g,
+                    p_g,
+                    v_g,
+                    a_g,
+                    t_f,
+                    p_f,
+                    v_f,
+                    a_f,
+                    args.output,
+                    truth,
+                )
         except Exception as e:
             print(f"Overlay plot failed: {e}")
 
