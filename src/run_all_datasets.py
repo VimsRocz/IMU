@@ -162,23 +162,23 @@ def main():
             })
 
         ds_id = pathlib.Path(imu).stem.split("_")[1]
-        truth_file = ROOT / f"STATE_{ds_id}.txt"
+        truth_path = (ROOT / imu).with_name(f"STATE_{ds_id}.txt")
         est_mat = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat"
-        if truth_file.exists():
+        if truth_path.exists():
             vcmd = [
                 sys.executable,
                 str(HERE / "validate_with_truth.py"),
                 "--est-file",
                 str(est_mat),
                 "--truth-file",
-                str(truth_file),
+                str(truth_path),
                 "--output",
                 str(results_dir),
             ]
             subprocess.run(vcmd, check=True)
             try:
                 est = load_estimate(str(est_mat))
-                frames = assemble_frames(est, ROOT / gnss, truth_file)
+                frames = assemble_frames(est, ROOT / gnss, truth_path)
                 for frame_name, data in frames.items():
                     t_i, p_i, v_i, a_i = data["imu"]
                     t_g, p_g, v_g, a_g = data["gnss"]
