@@ -78,6 +78,16 @@ found even if you run the command from another folder.  When more than one
 pair is processed the function returns a cell array of result structs, each
 matching the corresponding `results/Result_<IMU>_<GNSS>_TRIAD.mat` file.
 
+### GNSS_IMU_Fusion_single
+
+Use `GNSS_IMU_Fusion_single` when you only need to process one IMU/GNSS pair.
+The function mirrors `run_triad_only.py` and generates the same location map,
+Task 3/4/5 results, residuals and attitude plots in the `results/` folder.
+
+```matlab
+GNSS_IMU_Fusion_single('IMU_X001.dat','GNSS_X001.csv')
+```
+
 ### Compatibility notes
 
 Some older MATLAB releases expect the ellipsoid name for `ecef2lla` as a
