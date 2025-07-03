@@ -92,9 +92,18 @@ GNSS_IMU_Fusion_single('IMU_X001.dat','GNSS_X001.csv')
 
 Run `python src/validate_with_truth.py` or call the MATLAB helper
 `overlay_truth_task4` to overlay the fused trajectory with a
-`STATE_*.txt` reference.  The comparison figures
-`<method>_<frame>_overlay_truth.pdf` are stored in the `results/` directory
-next to the Kalman filter output.
+`STATE_*.txt` reference. Before launching the script read the first row of
+the state file to determine the reference ECEF coordinate and convert it to
+latitude and longitude. Pass these values via `--ref-lat`, `--ref-lon` and
+`--ref-r0` so that all transformations use the same origin:
+
+```bash
+python src/validate_with_truth.py --est-file <kf.mat> --truth-file STATE_X001.txt \
+    --output results --ref-lat <lat> --ref-lon <lon> --ref-r0 <x> <y> <z>
+```
+
+The comparison figures `<method>_<frame>_overlay_truth.pdf` are stored in the
+`results/` directory next to the Kalman filter output.
 
 ### Compatibility notes
 
