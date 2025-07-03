@@ -25,6 +25,7 @@ def plot_overlay(
     vel_fused: np.ndarray,
     acc_fused: np.ndarray,
     out_dir: str,
+    truth: Optional[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = None,
     *,
     t_truth: Optional[np.ndarray] = None,
     pos_truth: Optional[np.ndarray] = None,
@@ -44,6 +45,9 @@ def plot_overlay(
         figure. Defaults to ``"_overlay_truth.pdf"`` if any truth arrays are
         supplied and ``"_overlay.pdf"`` otherwise.
     """
+    if truth is not None:
+        t_truth, pos_truth, vel_truth, acc_truth = truth
+
     if suffix is None:
         suffix = "_overlay_truth.pdf" if t_truth is not None else "_overlay.pdf"
     fig, axes = plt.subplots(4, 1, figsize=(8, 10), sharex=True)

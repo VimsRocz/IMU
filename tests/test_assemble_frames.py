@@ -16,7 +16,7 @@ def test_assemble_frames_with_truth():
         "quat": np.tile([1.0, 0.0, 0.0, 0.0], (3, 1)),
     }
 
-    frames = assemble_frames(est, str(gnss_file), str(truth_file))
+    frames = assemble_frames(est, str(gnss_file), str(gnss_file), str(truth_file))
 
     for frame in ["NED", "ECEF", "Body"]:
         assert "truth" in frames[frame], f"Missing truth in {frame} frame"
