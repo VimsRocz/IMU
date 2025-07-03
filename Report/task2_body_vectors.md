@@ -23,7 +23,6 @@ names and units are listed below.
 The time column increases monotonically and does not wrap. `IMU_X001.dat`
 contains 500 000 rows, whereas the `_small` variants hold only the first
 1 000 samples for quick tests.
-
 ## Steps
 
 1. Load the IMU file into memory so the full dataset is available for later
