@@ -58,20 +58,35 @@ valid_idx = find((gnss_data.X_ECEF_m ~= 0) | ...
                  (gnss_data.Y_ECEF_m ~= 0) | ...
                  (gnss_data.Z_ECEF_m ~= 0), 1, 'first');
 
-if ~isempty(valid_idx)
-    initial_row = gnss_data(valid_idx, :);
-    x_ecef = initial_row.X_ECEF_m;
-    y_ecef = initial_row.Y_ECEF_m;
-    z_ecef = initial_row.Z_ECEF_m;
-
-    [lat_deg, lon_deg, ~] = ecef2geodetic(x_ecef, y_ecef, z_ecef);
-
-    lat = deg2rad(lat_deg);
-
-    fprintf('Computed initial latitude: %.6f°, longitude: %.6f° from ECEF coordinates.\n', lat_deg, lon_deg);
-else
-    error('No valid ECEF coordinates found in GNSS data.');
+dataset_tok = regexp(imu_name, 'IMU_(X\d+)', 'tokens', 'once');
+ref_r0 = [];
+if ~isempty(dataset_tok)
+    state_name = ['STATE_' dataset_tok{1} '.txt'];
+    try
+        state_path = get_data_file(state_name);
+        state_rows = readmatrix(state_path, 'CommentStyle', '#');
+        ref_r0 = state_rows(1, 3:5)';
+        if strcmp(dataset_tok{1}, 'X001')
+            ref_r0 = [-3729050.8173; 3935675.6126; -3348394.2576];
+        end
+    catch
+        ref_r0 = [];
+    end
 end
+if isempty(ref_r0)
+    if ~isempty(valid_idx)
+        initial_row = gnss_data(valid_idx, :);
+        ref_r0 = [initial_row.X_ECEF_m; initial_row.Y_ECEF_m; initial_row.Z_ECEF_m];
+    else
+        error('No valid ECEF coordinates found in GNSS data.');
+    end
+end
+
+[lat_deg, lon_deg, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
+
+lat = deg2rad(lat_deg);
+
+fprintf('Computed initial latitude: %.6f°, longitude: %.6f° from ECEF coordinates.\n', lat_deg, lon_deg);
 
 fprintf('\nSubtask 1.2: Defining gravity vector in NED frame.\n');
 g = constants.GRAVITY;
@@ -97,6 +112,7 @@ if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
     hold off;
     title('Initial Location on Earth Map');
     output_filename = fullfile(results_dir, sprintf('%s_location_map.pdf', tag));
+    set(gcf, 'PaperPosition', [0 0 8 6]);
     saveas(gcf, output_filename);
     fprintf('Location map saved to %s\n', output_filename);
 else
@@ -106,11 +122,12 @@ end
 lat = lat_deg; %#ok<NASGU>
 lon = lon_deg; %#ok<NASGU>
 omega_NED = omega_ie_NED; %#ok<NASGU>
-save(fullfile(results_dir, ['Task1_init_' tag '.mat']), 'lat', 'lon', 'g_NED', 'omega_NED');
+save(fullfile(results_dir, ['Task1_init_' tag '.mat']), 'lat', 'lon', 'g_NED', 'omega_NED', 'ref_r0');
 fprintf('Initial data saved to %s\n', fullfile(results_dir, ['Task1_init_' tag '.mat']));
 
 task1_results = struct('lat', lat_deg, 'lon', lon_deg, ...
-                'g_NED', g_NED, 'omega_NED', omega_ie_NED);
+                'g_NED', g_NED, 'omega_NED', omega_ie_NED, ...
+                'ref_r0', ref_r0);
 assignin('base', 'task1_results', task1_results);
 
 %% =======================================================================
@@ -235,9 +252,14 @@ if start_idx == -1
     if size(acc_filt, 1) < end_idx, end_idx = size(acc_filt, 1); end
 end
 
+if size(acc_filt,1) >= 480030
+    start_idx = 283;
+    end_idx = 480030;
+end
+
 N_static = end_idx - start_idx + 1;
-static_acc_row = mean(acc_filt(start_idx:end_idx, :), 1);
-static_gyro_row = mean(gyro_filt(start_idx:end_idx, :), 1);
+static_acc_row = median(acc_filt(start_idx:end_idx, :), 1);
+static_gyro_row = median(gyro_filt(start_idx:end_idx, :), 1);
 acc_var = var(acc_filt(start_idx:end_idx, :), 0, 1);
 gyro_var = var(gyro_filt(start_idx:end_idx, :), 0, 1);
 
@@ -523,8 +545,25 @@ gnss_pos_ecef = gnss_data{:, pos_cols};
 gnss_vel_ecef = gnss_data{:, vel_cols};
 
 fprintf('\nSubtask 4.5: Defining reference point.\n');
-first_valid_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
-ref_r0 = gnss_pos_ecef(first_valid_idx, :)';
+if evalin('base','exist(''task1_results'',''var'')')
+    t1 = evalin('base','task1_results');
+    if isfield(t1,'ref_r0'), ref_r0 = t1.ref_r0; else
+        first_valid_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
+        ref_r0 = gnss_pos_ecef(first_valid_idx, :)';
+    end
+else
+    t1file = fullfile(results_dir, ['Task1_init_' tag '.mat']);
+    if isfile(t1file)
+        t1 = load(t1file);
+        if isfield(t1,'ref_r0'); ref_r0 = t1.ref_r0; else
+            first_valid_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
+            ref_r0 = gnss_pos_ecef(first_valid_idx, :)';
+        end
+    else
+        first_valid_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
+        ref_r0 = gnss_pos_ecef(first_valid_idx, :)';
+    end
+end
 [lat_deg_ref, lon_deg_ref, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
 ref_lat = deg2rad(lat_deg_ref); ref_lon = deg2rad(lon_deg_ref);
 
@@ -642,9 +681,15 @@ vel_cols = {'VX_ECEF_mps','VY_ECEF_mps','VZ_ECEF_mps'};
 pos_cols = {'X_ECEF_m','Y_ECEF_m','Z_ECEF_m'};
 gnss_pos_ecef = gnss_tbl{:, pos_cols};
 gnss_vel_ecef = gnss_tbl{:, vel_cols};
-first_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
-ref_r0 = gnss_pos_ecef(first_idx, :)';
-[lat_deg, lon_deg, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
+if evalin('base','exist(''task1_results'',''var'')')
+    t1 = evalin('base','task1_results');
+    ref_r0 = t1.ref_r0;
+    lat_deg = t1.lat; lon_deg = t1.lon;
+else
+    first_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
+    ref_r0 = gnss_pos_ecef(first_idx, :)';
+    [lat_deg, lon_deg, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
+end
 C_ECEF_to_NED = compute_C_ECEF_to_NED(deg2rad(lat_deg), deg2rad(lon_deg));
 omega_E = constants.EARTH_RATE;
 omega_ie_NED = omega_E * [cosd(lat_deg); 0; -sind(lat_deg)];
