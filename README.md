@@ -249,9 +249,11 @@ the `results/` directory you ran the script from.
 
 #### GNSS_IMU_Fusion_single(imu_file, gnss_file)
 
-The MATLAB function [`GNSS_IMU_Fusion_single`](MATLAB/GNSS_IMU_Fusion_single.m)
-performs the same steps as `run_triad_only.py` for a single dataset and writes
-the resulting plots to `results/`:
+[`GNSS_IMU_Fusion_single`](MATLAB/GNSS_IMU_Fusion_single.m) is now a
+self-contained script that implements the full Task&nbsp;1&ndash;Task&nbsp;5
+pipeline internally and writes the resulting plots to `results/`.  The
+stand‑alone `Task_*.m` files remain in the repository for workflows that call
+them individually:
 
 ```matlab
 GNSS_IMU_Fusion_single('IMU_X001.dat', 'GNSS_X001.csv')
