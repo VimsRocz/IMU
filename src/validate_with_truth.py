@@ -1,12 +1,13 @@
 import argparse
 import os
+from pathlib import Path
 
 import numpy as np
 from scipy.io import loadmat
 from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
 
-from utils import compute_C_ECEF_to_NED
+from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
 from plot_overlay import plot_overlay
 import pandas as pd
 import re
@@ -129,9 +130,18 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     acc_ecef = np.zeros_like(vel_ecef)
     acc_ecef[1:] = np.diff(vel_ecef, axis=0) / dt_g[1:, None]
 
-    ref_lat = float(np.asarray(est.get("ref_lat")).squeeze())
-    ref_lon = float(np.asarray(est.get("ref_lon")).squeeze())
-    ref_r0 = np.asarray(est.get("ref_r0")).squeeze()
+    ref_lat = est.get("ref_lat")
+    ref_lon = est.get("ref_lon")
+    ref_r0 = est.get("ref_r0")
+    if ref_lat is None or ref_lon is None or ref_r0 is None:
+        lat_deg, lon_deg, _ = ecef_to_geodetic(*pos_ecef[0])
+        ref_lat = np.deg2rad(lat_deg)
+        ref_lon = np.deg2rad(lon_deg)
+        ref_r0 = pos_ecef[0]
+    else:
+        ref_lat = float(np.asarray(ref_lat).squeeze())
+        ref_lon = float(np.asarray(ref_lon).squeeze())
+        ref_r0 = np.asarray(ref_r0).squeeze()
     C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
     pos_gnss_ned = np.array([C @ (p - ref_r0) for p in pos_ecef])
     vel_gnss_ned = np.array([C @ v for v in vel_ecef])
@@ -140,6 +150,10 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     t_est = np.asarray(est["time"]).squeeze()
     fused_pos = np.asarray(est["pos"])
     fused_vel = np.asarray(est["vel"])
+    n = min(len(t_est), len(fused_pos), len(fused_vel))
+    t_est = t_est[:n]
+    fused_pos = fused_pos[:n]
+    fused_vel = fused_vel[:n]
     fused_acc = np.zeros_like(fused_vel)
     if len(t_est) > 1:
         dt = np.diff(t_est, prepend=t_est[0])
@@ -446,11 +460,13 @@ def main():
         plot_err(t_truth, err_quat, sigma_quat, ["q0", "q1", "q2", "q3"], "att_err")
 
     m = re.match(
-        r"(IMU_\w+)_GNSS_(\w+)_([A-Za-z]+)_kf_output", os.path.basename(args.est_file)
+        r"(IMU_\w+)_GNSS_(\w+)_([A-Za-z]+)_kf_output",
+        os.path.basename(args.est_file),
     )
     if m:
-        imu_file = f"{m.group(1)}.dat"
-        gnss_file = f"{m.group(2)}.csv"
+        dataset_dir = Path(args.truth_file).resolve().parent
+        imu_file = dataset_dir / f"{m.group(1)}.dat"
+        gnss_file = dataset_dir / f"GNSS_{m.group(2)}.csv"
         method = m.group(3)
         try:
             frames = assemble_frames(est, imu_file, gnss_file, args.truth_file)
