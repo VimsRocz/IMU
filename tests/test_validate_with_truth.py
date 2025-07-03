@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from src.GNSS_IMU_Fusion import main
 from src.validate_with_truth import load_estimate
+from src.utils import ecef_to_geodetic
 
 np = pytest.importorskip("numpy")
 pd = pytest.importorskip("pandas")
@@ -38,13 +39,10 @@ def test_validate_with_truth(monkeypatch):
     from utils import compute_C_ECEF_to_NED
 
     truth = np.loadtxt("STATE_X001.txt")
-    C = compute_C_ECEF_to_NED(np.deg2rad(-32.026554), np.deg2rad(133.455801))
-    truth_pos_ned = np.array(
-        [
-            C @ (p - np.array([-3729051, 3935676, -3348394]))
-            for p in truth[:, 2:5]
-        ]
-    )
+    ref_ecef = truth[0, 2:5]
+    lat_deg, lon_deg, _ = ecef_to_geodetic(*ref_ecef)
+    C = compute_C_ECEF_to_NED(np.deg2rad(lat_deg), np.deg2rad(lon_deg))
+    truth_pos_ned = np.array([C @ (p - ref_ecef) for p in truth[:, 2:5]])
     n = min(len(est["pos"]), truth.shape[0])
     err = est["pos"][:n] - truth_pos_ned[:n]
 
