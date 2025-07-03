@@ -138,11 +138,12 @@ launch them from. All output files are written to this directory. When a
 matching ground truth file such as `STATE_X001.txt` is available the script
 automatically calls `validate_with_truth.py` to compare the estimated
 trajectory against it. The validation summary and overlay plots are saved next
-to the exported `.mat` files. `validate_with_truth.py` now produces
-`<method>_<frame>_overlay_truth.pdf` files that overlay the fused trajectory
-with the reference in the NED, ECEF and body frames. The input data files are
-looked up relative to the repository root, so you can run the scripts from any
-directory.
+to the exported `.mat` files. If a `STATE_<id>.txt` file is found,
+`validate_with_truth.py` also writes `<method>_<frame>_overlay_truth.pdf`
+files to `results/` that overlay the fused trajectory with the reference in
+the NED, ECEF and body frames (for example
+`TRIAD_body_overlay_truth.pdf`). The input data files are looked up relative
+to the repository root, so you can run the scripts from any directory.
 ### Sample Processing Report
 
 A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/` directory.
@@ -163,7 +164,8 @@ Typical result PDFs:
 - `task5_all_body.pdf` – Kalman filter results in body frame
 - `<method>_residuals.pdf` – position and velocity residuals
 - `<method>_attitude_angles.pdf` – attitude angles over time
-- `*_overlay_truth.pdf` – overlay of fused output with ground truth when available
+- `<method>_<frame>_overlay_truth.pdf` – fused output vs reference when a matching
+  `STATE_<id>.txt` file is found (e.g. `SVD_ecef_overlay_truth.pdf`)
 
 ### Notes
 
