@@ -46,9 +46,8 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         est = load_estimate(str(mat))
         m2 = re.match(r"(IMU_\w+)_((?:GNSS_)?\w+)_TRIAD_kf_output", mat.stem)
         if m2:
-            imu_file = ROOT / f"{m2.group(1)}.dat"
             gnss_file = ROOT / f"{m2.group(2)}.csv"
-            frames = assemble_frames(est, imu_file, gnss_file, truth)
+            frames = assemble_frames(est, gnss_file, truth)
             for frame_name, data in frames.items():
                 t_i, p_i, v_i, a_i = data["imu"]
                 t_g, p_g, v_g, a_g = data["gnss"]

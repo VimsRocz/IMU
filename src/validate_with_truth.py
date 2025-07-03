@@ -108,15 +108,15 @@ def load_estimate(path):
     return est
 
 
-def assemble_frames(est, imu_file, gnss_file, truth_file=None):
+def assemble_frames(est, gnss_file, truth_file=None):
     """Return aligned datasets in NED/ECEF/Body frames.
 
     Parameters
     ----------
     est : dict
         Output from :func:`load_estimate`.
-    imu_file, gnss_file : str
-        Raw data files used to generate *est*.
+    gnss_file : str
+        GNSS data file used to generate *est*.
     truth_file : str or None, optional
         Path to ``STATE_*.txt`` containing the reference trajectory. When
         provided, the returned frames include an additional ``"truth"``
@@ -465,11 +465,10 @@ def main():
     )
     if m:
         dataset_dir = Path(args.truth_file).resolve().parent
-        imu_file = dataset_dir / f"{m.group(1)}.dat"
         gnss_file = dataset_dir / f"GNSS_{m.group(2)}.csv"
         method = m.group(3)
         try:
-            frames = assemble_frames(est, imu_file, gnss_file, args.truth_file)
+            frames = assemble_frames(est, gnss_file, args.truth_file)
             for frame_name, data in frames.items():
                 t_i, p_i, v_i, a_i = data["imu"]
                 t_g, p_g, v_g, a_g = data["gnss"]
