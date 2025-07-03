@@ -7,7 +7,7 @@ from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
 
 from utils import compute_C_ECEF_to_NED
-from plot_overlay import plot_overlay
+from plot_overlay import plot_overlay, plot_overlay_truth
 import pandas as pd
 import re
 
@@ -271,13 +271,20 @@ def main():
 
     t_truth = truth[:, 1]
     truth_pos_ned = np.array([C @ (p - ref_r0) for p in truth[:, 2:5]])
+    truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
+    truth_acc_ned = np.zeros_like(truth_vel_ned)
+    if len(t_truth) > 1:
+        dt_t = np.diff(t_truth, prepend=t_truth[0])
+        truth_acc_ned[1:] = np.diff(truth_vel_ned, axis=0) / dt_t[1:, None]
 
     # ensure estimate arrays use the same length for time and states
     t_est = np.asarray(est["time"]).squeeze()
     pos_est = np.asarray(est["pos"])
+    fused_vel_ned = fused_acc_ned = None
     n_pos = min(len(t_est), len(pos_est))
     t_pos = t_est[:n_pos]
     pos_est = pos_est[:n_pos]
+    fused_pos_ned = pos_est
 
     est_pos_interp = np.vstack(
         [np.interp(t_truth, t_pos, pos_est[:, i]) for i in range(3)]
@@ -288,11 +295,15 @@ def main():
     err_quat = None
 
     if est.get("vel") is not None:
-        truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
         vel_est = np.asarray(est["vel"])
         n_vel = min(len(t_est), len(vel_est))
         t_vel = t_est[:n_vel]
         vel_est = vel_est[:n_vel]
+        fused_vel_ned = vel_est
+        fused_acc_ned = np.zeros_like(fused_vel_ned)
+        if len(t_vel) > 1:
+            dt_f = np.diff(t_vel, prepend=t_vel[0])
+            fused_acc_ned[1:] = np.diff(fused_vel_ned, axis=0) / dt_f[1:, None]
         est_vel_interp = np.vstack(
             [np.interp(t_truth, t_vel, vel_est[:, i]) for i in range(3)]
         ).T
@@ -392,10 +403,26 @@ def main():
     m = re.match(
         r"(IMU_\w+)_GNSS_(\w+)_([A-Za-z]+)_kf_output", os.path.basename(args.est_file)
     )
+    method = m.group(3) if m else "KF"
+
+    if fused_vel_ned is not None and fused_acc_ned is not None:
+        plot_overlay_truth(
+            "NED",
+            method,
+            t_truth,
+            truth_pos_ned,
+            truth_vel_ned,
+            truth_acc_ned,
+            t_pos,
+            fused_pos_ned,
+            fused_vel_ned,
+            fused_acc_ned,
+            args.output,
+        )
+
     if m:
         imu_file = f"{m.group(1)}.dat"
         gnss_file = f"{m.group(2)}.csv"
-        method = m.group(3)
         try:
             frames = assemble_frames(est, imu_file, gnss_file)
             for frame_name, data in frames.items():
