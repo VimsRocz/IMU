@@ -178,7 +178,7 @@ def main():
             subprocess.run(vcmd, check=True)
             try:
                 est = load_estimate(str(est_mat))
-                frames = assemble_frames(est, ROOT / imu, ROOT / gnss, truth_file)
+                frames = assemble_frames(est, ROOT / gnss, truth_file)
                 for frame_name, data in frames.items():
                     t_i, p_i, v_i, a_i = data["imu"]
                     t_g, p_g, v_g, a_g = data["gnss"]
