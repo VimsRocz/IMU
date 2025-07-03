@@ -47,7 +47,9 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
     ]
     subprocess.run(vcmd, check=True)
     try:
-        est = load_estimate(str(mat))
+        truth_data = np.loadtxt(truth)
+        t_truth = truth_data[:, 1]
+        est = load_estimate(str(mat), times=t_truth)
         m2 = re.match(r"(IMU_\w+)_((?:GNSS_)?\w+)_TRIAD_kf_output", mat.stem)
         if m2:
             imu_file = ROOT / f"{m2.group(1)}.dat"

@@ -13,8 +13,18 @@ import pandas as pd
 import re
 
 
-def load_estimate(path):
-    """Return trajectory, quaternion and covariance from an NPZ or MAT file."""
+def load_estimate(path, times=None):
+    """Return trajectory, quaternion and covariance from an NPZ or MAT file.
+
+    Parameters
+    ----------
+    path : str
+        Path to ``.npz`` or ``.mat`` file containing the filter output.
+    times : array-like, optional
+        When provided, position, velocity and quaternion samples are
+        interpolated to this time vector.  The returned ``"time"`` entry will
+        match ``times``.
+    """
 
     def pick_key(keys, container, n_cols=None, default=None):
         """Return the first matching value or any array with *n_cols* columns."""
@@ -104,6 +114,39 @@ def load_estimate(path):
             ]
         except OSError:
             est["time"] = np.arange(len(est["pos"]))
+
+    if times is not None:
+        times = np.asarray(times).squeeze()
+        t_est = np.asarray(est["time"]).squeeze()
+        if len(t_est) == 0:
+            t_est = np.arange(len(est.get("pos", times)))
+        if est.get("pos") is not None:
+            pos = np.asarray(est["pos"])
+            n = min(len(t_est), len(pos))
+            pos = pos[:n]
+            t_p = t_est[:n]
+            pos_i = np.vstack(
+                [np.interp(times, t_p, pos[:, i]) for i in range(pos.shape[1])]
+            ).T
+            est["pos"] = pos_i
+        if est.get("vel") is not None:
+            vel = np.asarray(est["vel"])
+            n = min(len(t_est), len(vel))
+            vel = vel[:n]
+            t_v = t_est[:n]
+            vel_i = np.vstack(
+                [np.interp(times, t_v, vel[:, i]) for i in range(vel.shape[1])]
+            ).T
+            est["vel"] = vel_i
+        if est.get("quat") is not None:
+            quat = np.asarray(est["quat"])
+            n = min(len(t_est), len(quat))
+            t_q = t_est[:n]
+            r_q = R.from_quat(quat[:n][:, [1, 2, 3, 0]])
+            slerp = Slerp(t_q, r_q)
+            r_i = slerp(np.clip(times, t_q[0], t_q[-1]))
+            est["quat"] = r_i.as_quat()[:, [3, 0, 1, 2]]
+        est["time"] = times
 
     return est
 
@@ -209,9 +252,9 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
             acc_truth_ned = np.array([C @ a for a in acc_truth_ecef])
 
             def interp(arr):
-                return np.vstack([
-                    np.interp(t_est, t_truth, arr[:, i]) for i in range(3)
-                ]).T
+                return np.vstack(
+                    [np.interp(t_est, t_truth, arr[:, i]) for i in range(3)]
+                ).T
 
             pos_truth_ecef_i = interp(pos_truth_ecef)
             vel_truth_ecef_i = interp(vel_truth_ecef)
@@ -281,8 +324,18 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     }
 
     if truth_file is not None:
-        frames["NED"]["truth"] = (t_est, pos_truth_ned_i, vel_truth_ned_i, acc_truth_ned_i)
-        frames["ECEF"]["truth"] = (t_est, pos_truth_ecef_i, vel_truth_ecef_i, acc_truth_ecef_i)
+        frames["NED"]["truth"] = (
+            t_est,
+            pos_truth_ned_i,
+            vel_truth_ned_i,
+            acc_truth_ned_i,
+        )
+        frames["ECEF"]["truth"] = (
+            t_est,
+            pos_truth_ecef_i,
+            vel_truth_ecef_i,
+            acc_truth_ecef_i,
+        )
         if truth_body is not None:
             frames["Body"]["truth"] = (t_est, *truth_body)
 
@@ -469,7 +522,10 @@ def main():
         gnss_file = dataset_dir / f"{m.group(2)}.csv"
         method = m.group(3)
         try:
-            frames = assemble_frames(est, imu_file, gnss_file, truth_file=args.truth_file)
+            est_overlay = load_estimate(args.est_file, times=t_truth)
+            frames = assemble_frames(
+                est_overlay, imu_file, gnss_file, truth_file=args.truth_file
+            )
             for frame_name, data in frames.items():
                 t_i, p_i, v_i, a_i = data["imu"]
                 t_g, p_g, v_g, a_g = data["gnss"]
