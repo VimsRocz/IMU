@@ -197,7 +197,9 @@ def main():
             ]
             subprocess.run(vcmd, check=True)
             try:
-                est = load_estimate(str(est_mat))
+                truth_data = np.loadtxt(truth_path)
+                t_truth = truth_data[:, 1]
+                est = load_estimate(str(est_mat), times=t_truth)
                 frames = assemble_frames(est, ROOT / imu, ROOT / gnss, truth_path)
                 for frame_name, data in frames.items():
                     t_i, p_i, v_i, a_i = data["imu"]

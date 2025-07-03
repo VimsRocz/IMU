@@ -36,7 +36,7 @@ def test_validate_with_truth(monkeypatch):
     assert mat_path.exists(), f"Missing {mat_path}"
 
     est = load_estimate(str(mat_path))
-    from utils import compute_C_ECEF_to_NED
+    from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
 
     truth = np.loadtxt("STATE_X001.txt")
     ref_ecef = truth[0, 2:5]
@@ -54,9 +54,7 @@ def test_validate_with_truth(monkeypatch):
     except Exception:
         final_pos = np.linalg.norm(err[-1])
 
-    assert (
-        final_pos < 0.05
-    ), f"final position error {final_pos:.3f} m >= 0.05 m"
+    assert final_pos < 0.05, f"final position error {final_pos:.3f} m >= 0.05 m"
 
     if est["P"] is not None:
         sigma = 3 * np.sqrt(np.diagonal(est["P"], axis1=1, axis2=2)[:, :3])
@@ -66,6 +64,7 @@ def test_validate_with_truth(monkeypatch):
     assert npz_path.exists(), f"Missing {npz_path}"
     npz = np.load(npz_path, allow_pickle=True)
     from scipy.io import loadmat
+
     mat = loadmat(mat_path)
     for key in ["fused_pos", "fused_vel"]:
         assert key in npz, f"{key} missing from npz"
@@ -93,6 +92,35 @@ def test_load_estimate_alt_names(tmp_path, pos_key, vel_key):
     assert np.allclose(est["vel"], data[vel_key])
     assert np.allclose(est["quat"], data["attitude_q"])
     assert np.allclose(est["P"], data["P_hist"])
+
+
+def test_load_estimate_interpolation(tmp_path):
+    np = pytest.importorskip("numpy")
+    scipy = pytest.importorskip("scipy.io")
+
+    data = {
+        "fused_pos": np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]]),
+        "fused_vel": np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0]]),
+        "quat_log": np.tile([1.0, 0.0, 0.0, 0.0], (3, 1)),
+        "time": np.array([0.0, 1.0, 2.0]),
+    }
+    f = tmp_path / "est.mat"
+    scipy.savemat(f, data)
+
+    times = np.linspace(0.0, 2.0, 5)
+    est = load_estimate(str(f), times=times)
+
+    expected_pos = np.vstack(
+        [np.interp(times, data["time"], data["fused_pos"][:, i]) for i in range(3)]
+    ).T
+    expected_vel = np.vstack(
+        [np.interp(times, data["time"], data["fused_vel"][:, i]) for i in range(3)]
+    ).T
+
+    assert np.allclose(est["time"], times)
+    assert np.allclose(est["pos"], expected_pos)
+    assert np.allclose(est["vel"], expected_vel)
+    assert np.allclose(est["quat"], np.tile([1.0, 0.0, 0.0, 0.0], (5, 1)))
 
 
 def test_overlay_truth_generation(tmp_path, monkeypatch):
@@ -123,6 +151,7 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
     assert est_file.exists()
 
     from src.validate_with_truth import main as validate_main
+
     monkeypatch.setattr(
         sys,
         "argv",
@@ -154,12 +183,8 @@ def test_assemble_frames_small_truth():
 
     est = {
         "time": np.array([0.0, 1.0, 2.0]),
-        "pos": np.array(
-            [[0.0, 0.0, 0.0], [0.1, 0.0, 0.0], [0.2, 0.0, 0.0]]
-        ),
-        "vel": np.array(
-            [[0.0, 0.0, 0.0], [0.1, 0.0, 0.0], [0.1, 0.0, 0.0]]
-        ),
+        "pos": np.array([[0.0, 0.0, 0.0], [0.1, 0.0, 0.0], [0.2, 0.0, 0.0]]),
+        "vel": np.array([[0.0, 0.0, 0.0], [0.1, 0.0, 0.0], [0.1, 0.0, 0.0]]),
         "quat": np.tile([1.0, 0.0, 0.0, 0.0], (3, 1)),
     }
 
