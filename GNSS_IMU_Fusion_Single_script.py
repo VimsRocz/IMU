@@ -4,6 +4,8 @@ import logging
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
+from src.constants import EARTH_RATE
+
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -71,8 +73,7 @@ logging.info(f"Gravity vector in NED: {g_NED} m/s^2 (Down positive, magnitude g 
 logging.info("Subtask 1.3: Defining Earth rotation rate vector in NED frame.")
 
 # Earth rotation rate in NED frame: ω_ie,NED = ω_E * [cos(φ), 0, -sin(φ)]
-omega_E = 7.2921e-5
-omega_ie_NED = omega_E * np.array([np.cos(lat), 0.0, -np.sin(lat)])
+omega_ie_NED = EARTH_RATE * np.array([np.cos(lat), 0.0, -np.sin(lat)])
 logging.info(f"Earth rotation rate in NED: {omega_ie_NED} rad/s (North, East, Down)")
 
 # --------------------------------
@@ -158,7 +159,9 @@ logging.info(f"Static gyroscope vector (mean over {N_static} samples): {static_g
 g_norm = np.linalg.norm(static_acc)
 omega_norm = np.linalg.norm(static_gyro)
 logging.info(f"Estimated gravity magnitude from IMU: {g_norm:.4f} m/s² (expected ~9.81)")
-logging.info(f"Estimated Earth rotation magnitude from IMU: {omega_norm:.6e} rad/s (expected ~7.2921e-5)")
+logging.info(
+    f"Estimated Earth rotation magnitude from IMU: {omega_norm:.6e} rad/s (expected ~{EARTH_RATE})"
+)
 print(f"Static accelerometer mean: {static_acc}")
 print(f"Static gyroscope mean: {static_gyro}")
 print(f"Gravity magnitude: {g_norm:.4f} m/s²")
@@ -179,7 +182,7 @@ print(f"Earth rotation rate (omega_ie_body): {omega_ie_body} rad/s")
 # Subtask 2.4: Validate and Print Body-Frame Vectors
 # --------------------------------
 logging.info("Subtask 2.4: Validating measured vectors in the body frame.")
-expected_omega = 7.2921e-5
+expected_omega = EARTH_RATE
 assert g_body.shape == (3,), "g_body must be a 3D vector."
 assert omega_ie_body.shape == (3,), "omega_ie_body must be a 3D vector."
 g_norm = np.linalg.norm(g_body)
@@ -189,7 +192,9 @@ if g_norm < 0.1 * 9.81:
 if omega_norm < 0.5 * expected_omega:
     logging.warning("Earth rotation rate is low; check gyroscope or static assumption.")
 logging.info(f"Magnitude of g_body: {g_norm:.6f} m/s^2 (expected ~9.81 m/s^2)")
-logging.info(f"Magnitude of omega_ie_body: {omega_norm:.6e} rad/s (expected ~7.29e-5 rad/s)")
+logging.info(
+    f"Magnitude of omega_ie_body: {omega_norm:.6e} rad/s (expected ~{EARTH_RATE:.2e} rad/s)"
+)
 print("==== Measured Vectors in the Body Frame ====")
 print(f"Measured gravity vector (g_body): {g_body} m/s^2")
 print(f"Measured Earth rotation (omega_ie_body): {omega_ie_body} rad/s")
@@ -227,8 +232,7 @@ logging.debug(f"Case 1 - Normalized NED gravity: {v1_N}")
 logging.debug(f"Case 1 - Normalized NED Earth rate: {v2_N}")
 
 # Case 2: Recompute ω_ie,NED using document equation
-omega_E = 7.2921e-5  # Earth's rotation rate (rad/s)
-omega_ie_NED_doc = omega_E * np.array([np.cos(lat), 0.0, -np.sin(lat)])
+omega_ie_NED_doc = EARTH_RATE * np.array([np.cos(lat), 0.0, -np.sin(lat)])
 v2_N_doc = omega_ie_NED_doc / np.linalg.norm(omega_ie_NED_doc)  # Normalize for Case 2
 logging.debug(f"Case 2 - Normalized NED Earth rate (document equation): {v2_N_doc}")
 
@@ -674,7 +678,11 @@ try:
         acc_bias = static_acc + g_body_expected  # Bias = measured - expected
         
         # Gyroscope bias: static_gyro should equal C_N_B @ omega_ie_NED
-        omega_ie_NED = np.array([7.2921e-5 * np.cos(ref_lat), 0.0, -7.2921e-5 * np.sin(ref_lat)])
+        omega_ie_NED = np.array([
+            EARTH_RATE * np.cos(ref_lat),
+            0.0,
+            -EARTH_RATE * np.sin(ref_lat),
+        ])
         omega_ie_body_expected = C_N_B @ omega_ie_NED
         gyro_bias = static_gyro - omega_ie_body_expected  # Bias = measured - expected
         
