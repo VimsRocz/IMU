@@ -4,30 +4,40 @@ This page summarises **Task\u00a01** as executed by `run_triad_only.py`. It deri
 
 ## Data file format
 
-`GNSS_Xnnn.csv` contains twenty comma-separated columns. The header lists the timestamp, geodetic position, ECEF coordinates and GNSS quality metrics:
+`GNSS_Xnnn.csv` contains twenty comma-separated columns. The header lists the
+timestamp, geodetic position, ECEF coordinates and GNSS quality metrics. The
+table below spells out the column names and units for clarity.
 
-```text
-UTC_yyyy, UTC_MM, UTC_dd, UTC_HH, UTC_mm, UTC_ss,
-Posix_Time,
-Latitude_deg, Longitude_deg, Height_deg,
-X_ECEF_m, Y_ECEF_m, Z_ECEF_m,
-VX_ECEF_mps, VY_ECEF_mps, VZ_ECEF_mps,
-HDOP, VDOP, PDOP, TDOP
-```
+| Column          | Unit  | Description                            |
+|-----------------|------|----------------------------------------|
+| `UTC_yyyy`      | year | Calendar year (UTC)                    |
+| `UTC_MM`        | month| Calendar month (UTC)                   |
+| `UTC_dd`        | day  | Day of month (UTC)                     |
+| `UTC_HH`        | hour | Hour of day (UTC)                      |
+| `UTC_mm`        | min  | Minute of hour (UTC)                   |
+| `UTC_ss`        | s    | Second of minute (UTC)                 |
+| `Posix_Time`    | s    | Continuous Unix time                   |
+| `Latitude_deg`  | deg  | Geodetic latitude                      |
+| `Longitude_deg` | deg  | Geodetic longitude                     |
+| `Height_deg`    | m    | Altitude above the ellipsoid           |
+| `X_ECEF_m`      | m    | ECEF X position                        |
+| `Y_ECEF_m`      | m    | ECEF Y position                        |
+| `Z_ECEF_m`      | m    | ECEF Z position                        |
+| `VX_ECEF_mps`   | m/s  | ECEF X velocity                        |
+| `VY_ECEF_mps`   | m/s  | ECEF Y velocity                        |
+| `VZ_ECEF_mps`   | m/s  | ECEF Z velocity                        |
+| `HDOP`          | –    | Horizontal dilution of precision       |
+| `VDOP`          | –    | Vertical dilution of precision         |
+| `PDOP`          | –    | Position dilution of precision         |
+| `TDOP`          | –    | Time dilution of precision             |
 
-* **UTC_yyyy \u2013 UTC_ss** \u2013 calendar time components.
-* **Posix_Time** \u2013 continuous Unix time in seconds.
-* **Latitude/Longitude** \u2013 geodetic coordinates in degrees.
-* **Height** \u2013 altitude above the ellipsoid in metres (despite the `deg` suffix).
-* **X/Y/Z_ECEF_m** \u2013 ECEF position in metres.
-* **VX/VY/VZ_ECEF_mps** \u2013 ECEF velocity in metres per second.
-* **HDOP/VDOP/PDOP/TDOP** \u2013 dimensionless GNSS DOP values.
-
-The `UTC_ss` column resets every minute, whereas `Posix_Time` increases monotonically. Each sample log contains 1\u202f250 rows plus the header.
+The `UTC_ss` column resets every minute, whereas `Posix_Time` increases
+monotonically. Each sample log contains 1\u202f250 rows plus the header.
 
 ## Steps
 
-1. Load the first valid ECEF position and velocity from the GNSS file.
+1. Load the GNSS CSV into memory and keep it available for later tasks. From
+   this dataset read the first valid ECEF position and velocity.
 2. Convert the position to geodetic latitude $\varphi$ and longitude $\lambda$ (see [ECEF_to_Geodetic.md](../docs/ECEF_to_Geodetic.md)).
 3. Rotate the velocity to NED with `compute_C_ECEF_to_NED(\varphi, \lambda)`.
 4. Define
