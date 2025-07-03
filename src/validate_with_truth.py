@@ -108,7 +108,28 @@ def load_estimate(path):
     return est
 
 
-def assemble_frames(est, gnss_file, truth_file=None):
+def assemble_frames(est, gnss_file, truth_file=None, *args):
+    """Return aligned datasets in NED/ECEF/Body frames.
+
+    Parameters
+    ----------
+    est : dict
+        Output from :func:`load_estimate`.
+    gnss_file : str
+        GNSS data file used to generate *est*.
+    truth_file : str or None, optional
+        Path to ``STATE_*.txt`` containing the reference trajectory.
+    *args : tuple
+        Extra positional arguments for backward compatibility.  When two
+        additional arguments are provided they are interpreted as
+        ``(gnss_file, truth_file)`` from the legacy calling convention.
+    """
+    if args:
+        # Support old signature assemble_frames(est, imu_file, gnss_file[, truth])
+        if truth_file is not None and len(args) >= 1:
+            gnss_file, truth_file = truth_file, args[0]
+        elif len(args) >= 1:
+            gnss_file = args[0]
     """Return aligned datasets in NED/ECEF/Body frames.
 
     Parameters
