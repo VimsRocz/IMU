@@ -57,6 +57,7 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
             t_i, p_i, v_i, a_i = data["imu"]
             t_g, p_g, v_g, a_g = data["gnss"]
             t_f, p_f, v_f, a_f = data["fused"]
+            truth_data = data.get("truth")
             plot_overlay(
                 frame_name,
                 "TRIAD",
@@ -73,7 +74,7 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
                 v_f,
                 a_f,
                 results,
-                truth_file=str(truth),
+                truth_data,
             )
     except Exception as e:
         print(f"Overlay plot failed: {e}")

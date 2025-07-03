@@ -191,6 +191,7 @@ def main():
                     t_i, p_i, v_i, a_i = data["imu"]
                     t_g, p_g, v_g, a_g = data["gnss"]
                     t_f, p_f, v_f, a_f = data["fused"]
+                    truth = data.get("truth")
                     plot_overlay(
                         frame_name,
                         method,
@@ -207,7 +208,7 @@ def main():
                         v_f,
                         a_f,
                         results_dir,
-                        truth_file=str(truth_path),
+                        truth,
                     )
             except Exception as e:
                 print(f"Overlay plot failed: {e}")

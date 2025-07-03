@@ -107,8 +107,15 @@ def load_estimate(path):
     return est
 
 
-def assemble_frames(est, imu_file, gnss_file):
-    """Return aligned datasets in NED/ECEF/Body frames."""
+def assemble_frames(
+    est, imu_file, gnss_file, truth_file: str | None = None
+) -> dict[str, dict[str, tuple]]:
+    """Return aligned datasets in NED/ECEF/Body frames.
+
+    When *truth_file* is given the returned frame dictionaries contain an
+    additional ``"truth"`` key with ``(t, pos, vel, acc)`` tuples for the ground
+    truth data converted to the respective frame.
+    """
     gnss = pd.read_csv(gnss_file)
     t_gnss = gnss["Posix_Time"].to_numpy()
     pos_ecef = gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].to_numpy()
@@ -165,6 +172,31 @@ def assemble_frames(est, imu_file, gnss_file):
     gnss_ecef = (pos_ecef, vel_ecef, acc_ecef)
 
     q = est.get("quat")
+    truth_ned = truth_ecef = truth_body = None
+    if truth_file is not None:
+        truth = np.loadtxt(truth_file)
+        t_truth = truth[:, 1]
+        pos_truth_ecef = truth[:, 2:5]
+        vel_truth_ecef = truth[:, 5:8]
+        acc_truth_ecef = np.zeros_like(vel_truth_ecef)
+        if len(t_truth) > 1:
+            dt_t = np.diff(t_truth, prepend=t_truth[0])
+            acc_truth_ecef[1:] = np.diff(vel_truth_ecef, axis=0) / dt_t[1:, None]
+        pos_truth_ned = np.array([C @ (p - ref_r0) for p in pos_truth_ecef])
+        vel_truth_ned = np.array([C @ v for v in vel_truth_ecef])
+        acc_truth_ned = np.array([C @ a for a in acc_truth_ecef])
+        truth_ecef = (t_truth, pos_truth_ecef, vel_truth_ecef, acc_truth_ecef)
+        truth_ned = (t_truth, pos_truth_ned, vel_truth_ned, acc_truth_ned)
+        if q is not None:
+            r_truth = R.from_quat(truth[:, 8:12][:, [1, 2, 3, 0]])
+
+            def to_body_t(pos, vel, acc):
+                return r_truth.apply(pos), r_truth.apply(vel), r_truth.apply(acc)
+
+            truth_body = to_body_t(pos_truth_ned, vel_truth_ned, acc_truth_ned)
+        else:
+            truth_body = truth_ned
+
     if q is not None:
         rot = R.from_quat(np.asarray(q)[: len(t_est)][:, [1, 2, 3, 0]])
 
@@ -216,6 +248,10 @@ def assemble_frames(est, imu_file, gnss_file):
             "fused": (t_est, *fused_body),
         },
     }
+    if truth_ned is not None:
+        frames["NED"]["truth"] = truth_ned
+        frames["ECEF"]["truth"] = truth_ecef
+        frames["Body"]["truth"] = truth_body
     return frames
 
 
