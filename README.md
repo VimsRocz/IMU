@@ -133,17 +133,16 @@ run_triad_only
 ```
 
 All the batch scripts (for example `src/run_triad_only.py` and
-`src/run_all_datasets.py`) create a `results/` folder in the directory you launch them from. All output files are written to this directory. When a matching ground truth file such as `STATE_X001.txt` is available the script
-automatically calls `validate_with_truth.py` to compare the estimated trajectory
-against it. The validation summary and plots are saved alongside the exported
-`.mat` files in `results/`. The validation step also generates `*_overlay_truth.pdf`
-figures that compare the fused trajectory with the reference solution in the
-NED, ECEF and body frames.
-The input data files are looked up relative to the repository root, so you can
-run the scripts from any directory.
-When a `STATE_*.txt` reference track is present additional figures named
-`<method>_<frame>_overlay_truth.pdf` are generated showing the fused trajectory
-against the ground truth.
+`src/run_all_datasets.py`) create a `results/` folder in the directory you
+launch them from. All output files are written to this directory. When a
+matching ground truth file such as `STATE_X001.txt` is available the script
+automatically calls `validate_with_truth.py` to compare the estimated
+trajectory against it. The validation summary and overlay plots are saved next
+to the exported `.mat` files. `validate_with_truth.py` now produces
+`<method>_<frame>_overlay_truth.pdf` files that overlay the fused trajectory
+with the reference in the NED, ECEF and body frames. The input data files are
+looked up relative to the repository root, so you can run the scripts from any
+directory.
 ### Sample Processing Report
 
 A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/` directory.
