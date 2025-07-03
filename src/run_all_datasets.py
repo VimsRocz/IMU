@@ -161,6 +161,60 @@ def main():
                 "runtime"  : runtime,
             })
 
+        ds_id = pathlib.Path(imu).stem.split("_")[1]
+        truth_file = ROOT / f"STATE_{ds_id}.txt"
+        est_mat = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat"
+        if truth_file.exists():
+            vcmd = [
+                sys.executable,
+                str(HERE / "validate_with_truth.py"),
+                "--est-file",
+                str(est_mat),
+                "--truth-file",
+                str(truth_file),
+                "--output",
+                str(results_dir),
+            ]
+            subprocess.run(vcmd, check=True)
+            try:
+                est = load_estimate(str(est_mat))
+                frames = assemble_frames(est, ROOT / imu, ROOT / gnss, truth_file)
+                for frame_name, data in frames.items():
+                    t_i, p_i, v_i, a_i = data["imu"]
+                    t_g, p_g, v_g, a_g = data["gnss"]
+                    t_f, p_f, v_f, a_f = data["fused"]
+                    truth = data.get("truth")
+                    if truth is not None:
+                        t_t, p_t, v_t, a_t = truth
+                        suffix = "_overlay_truth.pdf"
+                    else:
+                        t_t = p_t = v_t = a_t = None
+                        suffix = "_overlay.pdf"
+                    plot_overlay(
+                        frame_name,
+                        method,
+                        t_i,
+                        p_i,
+                        v_i,
+                        a_i,
+                        t_g,
+                        p_g,
+                        v_g,
+                        a_g,
+                        t_f,
+                        p_f,
+                        v_f,
+                        a_f,
+                        results_dir,
+                        t_truth=t_t,
+                        pos_truth=p_t,
+                        vel_truth=v_t,
+                        acc_truth=a_t,
+                        suffix=suffix,
+                    )
+            except Exception as e:
+                print(f"Truth overlay failed: {e}")
+
     # --- nicely formatted summary table --------------------------------------
     key_order = {m: i for i, m in enumerate(["TRIAD", "Davenport", "SVD"])}
     fusion_results.sort(key=lambda r: (r["dataset"], key_order[r["method"]]))
