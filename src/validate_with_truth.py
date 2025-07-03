@@ -177,10 +177,15 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     ref_lon = est.get("ref_lon")
     ref_r0 = est.get("ref_r0")
     if ref_lat is None or ref_lon is None or ref_r0 is None:
-        lat_deg, lon_deg, _ = ecef_to_geodetic(*pos_ecef[0])
+        if truth_file is not None:
+            first_truth = np.loadtxt(truth_file, comments="#", max_rows=1)
+            r0 = first_truth[2:5]
+        else:
+            r0 = pos_ecef[0]
+        lat_deg, lon_deg, _ = ecef_to_geodetic(*r0)
         ref_lat = np.deg2rad(lat_deg)
         ref_lon = np.deg2rad(lon_deg)
-        ref_r0 = pos_ecef[0]
+        ref_r0 = r0
     else:
         ref_lat = float(np.asarray(ref_lat).squeeze())
         ref_lon = float(np.asarray(ref_lon).squeeze())
