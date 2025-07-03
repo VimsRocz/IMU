@@ -123,6 +123,35 @@ def test_load_estimate_interpolation(tmp_path):
     assert np.allclose(est["quat"], np.tile([1.0, 0.0, 0.0, 0.0], (5, 1)))
 
 
+def test_load_estimate_quat_interpolation(tmp_path):
+    np = pytest.importorskip("numpy")
+    scipy = pytest.importorskip("scipy.io")
+    from scipy.spatial.transform import Rotation as R, Slerp
+
+    # quaternion rotates 0 -> 45 -> 90 degrees about X
+    base_rot = R.from_euler("x", [0.0, 45.0, 90.0], degrees=True)
+    quat = base_rot.as_quat()[:, [3, 0, 1, 2]]
+
+    data = {
+        "fused_pos": np.zeros((3, 3)),
+        "fused_vel": np.zeros((3, 3)),
+        "attitude_q": quat,
+        "time": np.array([0.0, 1.0, 2.0]),
+    }
+
+    f = tmp_path / "est.mat"
+    scipy.savemat(f, data)
+
+    times = np.linspace(0.0, 2.0, 5)
+    est = load_estimate(str(f), times=times)
+
+    r = R.from_quat(quat[:, [1, 2, 3, 0]])
+    slerp = Slerp(data["time"], r)
+    expected_q = slerp(times).as_quat()[:, [3, 0, 1, 2]]
+
+    assert np.allclose(est["quat"], expected_q)
+
+
 def test_overlay_truth_generation(tmp_path, monkeypatch):
     pd = pytest.importorskip("pandas")
     monkeypatch.chdir(tmp_path)
