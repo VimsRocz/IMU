@@ -55,6 +55,14 @@ def main():
     parser.add_argument('--accel_bias_noise', type=float, default=1e-5)
     parser.add_argument('--gyro_bias_noise', type=float, default=1e-5)
     parser.add_argument('--accel_noise', type=float, default=0.1)
+    parser.add_argument('--pos_noise', type=float, default=0.0,
+                        help='Process noise for position states')
+    parser.add_argument('--vel_noise', type=float, default=0.0,
+                        help='Additional process noise for velocity states')
+    parser.add_argument('--pos_meas_noise', type=float, default=1.0,
+                        help='Measurement noise for GNSS position')
+    parser.add_argument('--vel_meas_noise', type=float, default=1.0,
+                        help='Measurement noise for GNSS velocity')
     parser.add_argument('--static_window', type=int, default=400)
     parser.add_argument('--smoother', action='store_true')
     args = parser.parse_args()
@@ -131,6 +139,10 @@ def main():
         accel_noise=args.accel_noise,
         accel_bias_noise=args.accel_bias_noise,
         gyro_bias_noise=args.gyro_bias_noise,
+        pos_proc_noise=args.pos_noise,
+        vel_proc_noise=args.vel_noise,
+        pos_meas_noise=args.pos_meas_noise,
+        vel_meas_noise=args.vel_meas_noise,
     )
     kf.init_state(pos_ned[0], vel_ned[0], acc_bias, gyro_bias)
 

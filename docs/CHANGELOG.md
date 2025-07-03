@@ -9,6 +9,9 @@
 - **Kalman filter with GNSS updates** (`kalman.py`, `src/GNSS_IMU_Fusion.py`)
   - Adds a bias-aware Kalman filter for fusing IMU data with GNSS measurements.
   - Provides helper functions to run the filter and to tune process noise.
+- **Tunable noise parameters** (`kalman.py`, `fusion_single.py`)
+  - Position/velocity process and measurement noise can now be set via
+    arguments for easier experimentation.
 
 - **Plotting helpers** (`auto_plots.py`, `summarise_runs.py`, `generate_summary.py`)
   - Automates generation of standard figures and summary tables.
