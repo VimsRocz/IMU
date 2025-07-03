@@ -271,6 +271,11 @@ def main():
 
     t_truth = truth[:, 1]
     truth_pos_ned = np.array([C @ (p - ref_r0) for p in truth[:, 2:5]])
+    truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
+    truth_acc_ned = np.zeros_like(truth_vel_ned)
+    if len(t_truth) > 1:
+        dt_truth = np.diff(t_truth, prepend=t_truth[0])
+        truth_acc_ned[1:] = np.diff(truth_vel_ned, axis=0) / dt_truth[1:, None]
 
     # ensure estimate arrays use the same length for time and states
     t_est = np.asarray(est["time"]).squeeze()
@@ -288,7 +293,6 @@ def main():
     err_quat = None
 
     if est.get("vel") is not None:
-        truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
         vel_est = np.asarray(est["vel"])
         n_vel = min(len(t_est), len(vel_est))
         t_vel = t_est[:n_vel]
@@ -418,6 +422,11 @@ def main():
                     v_f,
                     a_f,
                     args.output,
+                    t_truth,
+                    truth_pos_ned,
+                    truth_vel_ned,
+                    truth_acc_ned,
+                    suffix="_overlay_truth.pdf",
                 )
         except Exception as e:
             print(f"Overlay plot failed: {e}")

@@ -23,6 +23,11 @@ def plot_overlay(
     vel_fused: np.ndarray,
     acc_fused: np.ndarray,
     out_dir: str,
+    t_truth: np.ndarray | None = None,
+    pos_truth: np.ndarray | None = None,
+    vel_truth: np.ndarray | None = None,
+    acc_truth: np.ndarray | None = None,
+    suffix: str = "_overlay.pdf",
 ) -> None:
     """Save a 4x1 overlay plot comparing IMU-only, GNSS and fused tracks."""
     fig, axes = plt.subplots(4, 1, figsize=(8, 10), sharex=True)
@@ -51,8 +56,14 @@ def plot_overlay(
     axes[3].set_title("Trajectory")
     axes[3].axis("equal")
 
+    if t_truth is not None and pos_truth is not None:
+        axes[0].plot(t_truth, _norm(pos_truth), "k-", label="Truth")
+        axes[1].plot(t_truth, _norm(vel_truth), "k-") if vel_truth is not None else None
+        axes[2].plot(t_truth, _norm(acc_truth), "k-") if acc_truth is not None else None
+        axes[3].plot(pos_truth[:, 0], pos_truth[:, 1], "k-", label="Truth")
+
     fig.suptitle(f"{method} - {frame} frame comparison")
     fig.tight_layout(rect=[0, 0, 1, 0.97])
-    out_path = Path(out_dir) / f"{method}_{frame}_overlay.pdf"
+    out_path = Path(out_dir) / f"{method}_{frame}{suffix}"
     fig.savefig(out_path)
     plt.close(fig)
