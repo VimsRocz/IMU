@@ -12,3 +12,4 @@
 - **task5_all_body.pdf**: Kalman filter results in body frame
 - **davenport_residuals.pdf**: Position and velocity residuals
 - **davenport_attitude_angles.pdf**: Attitude angles over time
+- **\*_overlay_truth.pdf**: Fused, GNSS and ground truth overlay in all frames (generated when `STATE_*.txt` is available)

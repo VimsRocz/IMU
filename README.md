@@ -137,12 +137,32 @@ All the batch scripts (for example `src/run_triad_only.py` and
 `src/run_all_datasets.py`) create a `results/` folder in the directory you launch them from. All output files are written to this directory. When a matching ground truth file such as `STATE_X001.txt` is available the script
 automatically calls `validate_with_truth.py` to compare the estimated trajectory
 against it. The validation summary and plots are saved alongside the exported
-`.mat` files in `results/`.
+`.mat` files in `results/`. The validation step also generates `*_overlay_truth.pdf`
+figures that compare the fused trajectory with the reference solution in the
+NED, ECEF and body frames.
 The input data files are looked up relative to the repository root, so you can
 run the scripts from any directory.
 ### Sample Processing Report
 
 A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/` directory.
+
+Typical result PDFs:
+
+- `location_map.pdf` – initial location map
+- `task3_errors_comparison.pdf` – attitude initialisation error comparison
+- `task3_quaternions_comparison.pdf` – quaternion components for initialisation
+- `task4_comparison_ned.pdf` – GNSS vs IMU in NED frame
+- `task4_mixed_frames.pdf` – GNSS/IMU data in mixed frames
+- `task4_all_ned.pdf` – integrated data in NED frame
+- `task4_all_ecef.pdf` – integrated data in ECEF frame
+- `task4_all_body.pdf` – integrated data in body frame
+- `task5_results_<method>.pdf` – Kalman filter results for each method
+- `task5_all_ned.pdf` – Kalman filter results in NED frame
+- `task5_all_ecef.pdf` – Kalman filter results in ECEF frame
+- `task5_all_body.pdf` – Kalman filter results in body frame
+- `<method>_residuals.pdf` – position and velocity residuals
+- `<method>_attitude_angles.pdf` – attitude angles over time
+- `*_overlay_truth.pdf` – overlay of fused output with ground truth when available
 
 ### Notes
 
