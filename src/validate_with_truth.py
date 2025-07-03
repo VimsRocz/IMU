@@ -486,57 +486,34 @@ def main():
     )
     if m:
         dataset_dir = Path(args.truth_file).resolve().parent
+        imu_file = dataset_dir / f"{m.group(1)}.dat"
         gnss_file = dataset_dir / f"GNSS_{m.group(2)}.csv"
         method = m.group(3)
         try:
-            frames = assemble_frames(est, gnss_file, args.truth_file)
+            frames = assemble_frames(est, imu_file, gnss_file, args.truth_file)
             for frame_name, data in frames.items():
                 t_i, p_i, v_i, a_i = data["imu"]
                 t_g, p_g, v_g, a_g = data["gnss"]
                 t_f, p_f, v_f, a_f = data["fused"]
                 truth = data.get("truth")
-                if truth is not None:
-                    t_t, p_t, v_t, a_t = truth
-                    plot_overlay(
-                        frame_name,
-                        method,
-                        t_i,
-                        p_i,
-                        v_i,
-                        a_i,
-                        t_g,
-                        p_g,
-                        v_g,
-                        a_g,
-                        t_f,
-                        p_f,
-                        v_f,
-                        a_f,
-                        args.output,
-                        t_truth=t_t,
-                        pos_truth=p_t,
-                        vel_truth=v_t,
-                        acc_truth=a_t,
-                        suffix="_overlay_truth.pdf",
-                    )
-                else:
-                    plot_overlay(
-                        frame_name,
-                        method,
-                        t_i,
-                        p_i,
-                        v_i,
-                        a_i,
-                        t_g,
-                        p_g,
-                        v_g,
-                        a_g,
-                        t_f,
-                        p_f,
-                        v_f,
-                        a_f,
-                        args.output,
-                    )
+                plot_overlay(
+                    frame_name,
+                    method,
+                    t_i,
+                    p_i,
+                    v_i,
+                    a_i,
+                    t_g,
+                    p_g,
+                    v_g,
+                    a_g,
+                    t_f,
+                    p_f,
+                    v_f,
+                    a_f,
+                    args.output,
+                    truth,
+                )
         except Exception as e:
             print(f"Overlay plot failed: {e}")
 

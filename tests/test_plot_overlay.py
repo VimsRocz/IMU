@@ -7,6 +7,7 @@ def test_plot_overlay_with_truth(tmp_path):
     pos = np.vstack([t, t, t]).T
     vel = pos * 0
     acc = pos * 0
+    truth = (t, pos, vel, acc)
     plot_overlay(
         "ECEF",
         "TEST",
@@ -23,9 +24,6 @@ def test_plot_overlay_with_truth(tmp_path):
         vel,
         acc,
         tmp_path,
-        t_truth=t,
-        pos_truth=pos,
-        vel_truth=vel,
-        acc_truth=acc,
+        truth,
     )
     assert (tmp_path / "TEST_ECEF_overlay_truth.pdf").exists()

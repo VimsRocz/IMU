@@ -25,27 +25,29 @@ def plot_overlay(
     vel_fused: np.ndarray,
     acc_fused: np.ndarray,
     out_dir: str,
-    *,
-    t_truth: Optional[np.ndarray] = None,
-    pos_truth: Optional[np.ndarray] = None,
-    vel_truth: Optional[np.ndarray] = None,
-    acc_truth: Optional[np.ndarray] = None,
+    truth: Optional[tuple] = None,
     suffix: Optional[str] = None,
 ) -> None:
     """Save a 4x1 overlay plot comparing IMU-only, GNSS and fused tracks.
 
     Parameters
     ----------
-    t_truth, pos_truth, vel_truth, acc_truth : np.ndarray or None, optional
-        Ground-truth time, position, velocity and acceleration samples. When
-        provided, a black line labelled ``"Truth"`` is drawn in each subplot.
+    truth : tuple of arrays or None, optional
+        ``(t_truth, pos_truth, vel_truth, acc_truth)`` ground-truth samples.
+        When provided, a black line labelled ``"Truth"`` is drawn in each
+        subplot.
     suffix : str or None, optional
         Filename suffix appended to ``"{method}_{frame}"`` when saving the
-        figure. Defaults to ``"_overlay_truth.pdf"`` if any truth arrays are
-        supplied and ``"_overlay.pdf"`` otherwise.
+        figure. Defaults to ``"_overlay_truth.pdf"`` if ``truth`` is given and
+        ``"_overlay.pdf"`` otherwise.
     """
+    if truth is not None:
+        t_truth, pos_truth, vel_truth, acc_truth = truth
+    else:
+        t_truth = pos_truth = vel_truth = acc_truth = None
+
     if suffix is None:
-        suffix = "_overlay_truth.pdf" if t_truth is not None else "_overlay.pdf"
+        suffix = "_overlay_truth.pdf" if truth is not None else "_overlay.pdf"
     fig, axes = plt.subplots(4, 1, figsize=(8, 10), sharex=True)
 
     axes[0].plot(t_imu, _norm(pos_imu), "b--", label="IMU only")
