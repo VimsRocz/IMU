@@ -142,3 +142,31 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
     validate_main()
 
     assert list(Path("results").glob("*_overlay_truth.pdf"))
+
+
+def test_assemble_frames_small_truth():
+    repo = Path(__file__).resolve().parent / "data"
+    gnss_file = repo / "simple_gnss.csv"
+    truth_file = repo / "simple_truth.txt"
+
+    est = {
+        "time": np.array([0.0, 1.0, 2.0]),
+        "pos": np.array(
+            [[0.0, 0.0, 0.0], [0.1, 0.0, 0.0], [0.2, 0.0, 0.0]]
+        ),
+        "vel": np.array(
+            [[0.0, 0.0, 0.0], [0.1, 0.0, 0.0], [0.1, 0.0, 0.0]]
+        ),
+        "quat": np.tile([1.0, 0.0, 0.0, 0.0], (3, 1)),
+    }
+
+    from src.validate_with_truth import assemble_frames
+
+    frames = assemble_frames(est, str(gnss_file), str(truth_file))
+
+    for frame in ["NED", "ECEF", "Body"]:
+        assert "truth" in frames[frame], f"Missing truth in {frame} frame"
+        fused = frames[frame]["fused"]
+        truth_data = frames[frame]["truth"]
+        for f, t in zip(fused, truth_data):
+            assert np.shape(f) == np.shape(t)
