@@ -56,8 +56,13 @@ for k = 1:numel(mat_files)
         continue
     end
     validate_py = fullfile(root, 'src', 'validate_with_truth.py');
-    vcmd = sprintf('"%s" "%s" --est-file "%s" --truth-file "%s" --output "%s"', ...
-        py.Executable, validate_py, fullfile(results_dir, name), truth_file, results_dir);
+    first = readmatrix(truth_file, 'CommentStyle', '#');
+    r0 = first(1,3:5);
+    [lat_deg, lon_deg, ~] = ecef_to_geodetic(r0(1), r0(2), r0(3));
+    vcmd = sprintf(['"%s" "%s" --est-file "%s" --truth-file "%s" --output "%s" ' ...
+        '--ref-lat %.8f --ref-lon %.8f --ref-r0 %.3f %.3f %.3f'], ...
+        py.Executable, validate_py, fullfile(results_dir, name), truth_file, results_dir, ...
+        lat_deg, lon_deg, r0(1), r0(2), r0(3));
     vstatus = system(vcmd);
     if vstatus ~= 0
         warning('Validation failed for %s', name);

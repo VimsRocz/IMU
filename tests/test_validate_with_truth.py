@@ -152,6 +152,10 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
 
     from src.validate_with_truth import main as validate_main
 
+    first = np.loadtxt(repo / "STATE_X001_small.txt", comments="#", max_rows=1)
+    r0 = first[2:5]
+    lat_deg, lon_deg, _ = ecef_to_geodetic(*r0)
+
     monkeypatch.setattr(
         sys,
         "argv",
@@ -163,6 +167,14 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
             str(repo / "STATE_X001_small.txt"),
             "--output",
             str(Path("results")),
+            "--ref-lat",
+            str(lat_deg),
+            "--ref-lon",
+            str(lon_deg),
+            "--ref-r0",
+            str(r0[0]),
+            str(r0[1]),
+            str(r0[2]),
         ],
     )
     validate_main()
