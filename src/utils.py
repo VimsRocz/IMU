@@ -1,5 +1,11 @@
 import numpy as np
 from typing import Tuple, Optional
+
+try:
+    from pyproj import Transformer
+    _ECEF2LLA = Transformer.from_crs("epsg:4978", "epsg:4979", always_xy=True)
+except Exception:  # pragma: no cover - optional dependency
+    _ECEF2LLA = None
 import pathlib
 import subprocess
 import sys
@@ -187,6 +193,10 @@ def ecef_to_geodetic(x: float, y: float, z: float) -> Tuple[float, float, float]
     tuple of float
         ``(latitude_deg, longitude_deg, altitude_m)`` using the WGS‑84 model.
     """
+    if _ECEF2LLA is not None:
+        lon, lat, alt = _ECEF2LLA.transform(x, y, z)
+        return float(lat), float(lon), float(alt)
+
     a = 6378137.0
     e_sq = 6.69437999014e-3
     p = np.sqrt(x ** 2 + y ** 2)

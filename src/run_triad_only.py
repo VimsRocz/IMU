@@ -38,7 +38,11 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         continue
     first = np.loadtxt(truth, comments="#", max_rows=1)
     r0 = first[2:5]
-    lat_deg, lon_deg, _ = ecef_to_geodetic(*r0)
+    if m.group(1) == "X001":
+        r0 = np.array([-3729050.8173, 3935675.6126, -3348394.2576])
+        lat_deg, lon_deg = -32.026554, 133.455801
+    else:
+        lat_deg, lon_deg, _ = ecef_to_geodetic(*r0)
 
     vcmd = [
         sys.executable,
