@@ -4,7 +4,7 @@ This page documents **Task 3** of the `src/GNSS_IMU_Fusion.py` pipeline. After 
 
 ## Overview
 
-Task 3 pairs the gravity and Earth‑rotation vectors from the previous tasks and feeds them to the TRIAD algorithm. The result is a body‑to‑NED rotation matrix and a quaternion. Diagnostic figures compare the TRIAD solution with Davenport and SVD, but the focus is on the TRIAD output.
+Task 3 pairs the gravity and Earth‑rotation vectors from the previous tasks and feeds them to a refined TRIAD solver based on SVD. The routine assembles Wahba's matrix from the vector pairs and uses a singular value decomposition to compute the optimal rotation. Diagnostic figures compare the TRIAD result with Davenport and SVD, but the focus is on the TRIAD output.
 
 ```
 Body vectors (Task 2) + Reference vectors (Task 1)
@@ -21,14 +21,10 @@ Optional comparison plots
 - Optionally recompute the Earth rate using the closed‑form equation to check sign conventions.
 
 ### 3.2 Compute the TRIAD Rotation Matrix
-- Form orthogonal triads from the normalised vectors:
-  - `t1_body = v1_B`
-  - `t2_body = unit(v1_B × v2_B)`
-  - `t3_body = t1_body × t2_body`
-  - Equivalent axes `t1_NED`, `t2_NED`, `t3_NED` in the reference frame.
-- Compose the rotation matrix
-  `R_tri = [t1_NED t2_NED t3_NED] [t1_body t2_body t3_body]^T`.
-- Print the matrix and append it to `triad_init_log.txt`.
+`triad_svd()` builds the Wahba matrix from the normalised vectors and
+solves for the rotation via SVD. This avoids the numerical issues of
+the cross-product formulation. The resulting matrix is printed and the
+quaternion is appended to `triad_init_log.txt`.
 
 ### 3.3 Convert to Quaternion
 - Convert `R_tri` using `rot_to_quaternion()` and enforce a positive scalar part.

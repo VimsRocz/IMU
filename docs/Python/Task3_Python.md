@@ -1,6 +1,6 @@
 # Python Pipeline – Task 3 Attitude Determination
 
-Task 3 solves Wahba's problem using the TRIAD algorithm once the reference and body-frame vectors are known.
+Task 3 solves Wahba's problem using a small SVD-based routine that refines the traditional TRIAD approach.
 
 ## Overview
 
@@ -21,8 +21,9 @@ Optional comparison plots
 - Optionally recompute the Earth‑rate vector in closed form to verify the sign convention.
 
 ### 3.2 Compute TRIAD Matrix
-- Form orthogonal triads from the normalised vectors.
-- Assemble `R_tri = [t1_NED t2_NED t3_NED] [t1_body t2_body t3_body]^T` and print it.
+The vectors are fed to `triad_svd()`, which forms the Wahba matrix and
+solves for the optimal rotation with a singular value decomposition.
+This is numerically more robust than the classic cross-product formula.
 
 ### 3.3 Quaternion Output
 - Convert `R_tri` to a quaternion with `rot_to_quaternion()` and enforce a positive scalar component.
