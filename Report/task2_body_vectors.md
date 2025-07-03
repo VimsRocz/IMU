@@ -25,7 +25,7 @@ contains 500 000 rows, whereas the `_small` variants hold only the first
 1 000 samples for quick tests.
 ## Steps
 
-1. Load the IMU file into memory so the full dataset is available for later
+1.  Load the IMU file into memory so the full dataset is available for later
    tasks, then extract the increment columns.
 2. Estimate the sampling period from the time values.
 3. Convert increments to rates and apply a low-pass filter.
