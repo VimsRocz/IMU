@@ -6,9 +6,10 @@ import subprocess
 import sys
 from pathlib import Path
 import re
+import numpy as np
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
-from utils import ensure_dependencies
+from utils import ensure_dependencies, ecef_to_geodetic
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -35,6 +36,10 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
     truth = HERE / f"STATE_{m.group(1)}.txt"
     if not truth.exists():
         continue
+    first = np.loadtxt(truth, comments="#", max_rows=1)
+    r0 = first[2:5]
+    lat_deg, lon_deg, _ = ecef_to_geodetic(*r0)
+
     vcmd = [
         sys.executable,
         str(HERE / "validate_with_truth.py"),
@@ -44,6 +49,14 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         str(truth),
         "--output",
         str(results),
+        "--ref-lat",
+        str(lat_deg),
+        "--ref-lon",
+        str(lon_deg),
+        "--ref-r0",
+        str(r0[0]),
+        str(r0[1]),
+        str(r0[2]),
     ]
     subprocess.run(vcmd, check=True)
     try:
