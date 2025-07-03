@@ -1,5 +1,12 @@
-pandas
-numpy
-matplotlib
-filterpy
 cartopy
+filterpy
+fpdf
+geomag
+matplotlib
+numpy
+pandas
+pyyaml
+rich
+scipy
+tabulate
+tqdm
