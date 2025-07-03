@@ -19,7 +19,7 @@ def test_matlab_single(tmp_path):
     )
     subprocess.run([matlab, "-batch", cmd], check=True)
 
-    mat_file = Path('results/IMU_X001_small_GNSS_X001_small_TRIAD_task5_results.mat')
+    mat_file = Path("results") / "IMU_X001_small_GNSS_X001_small_TRIAD_task5_results.mat"
     assert mat_file.exists(), f"Missing {mat_file}"
     data = scipy.io.loadmat(mat_file, struct_as_record=False, squeeze_me=True)
     assert {"gnss_pos_ned", "gnss_vel_ned", "gnss_accel_ned"} <= set(data)
