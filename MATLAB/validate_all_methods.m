@@ -120,6 +120,7 @@ for i = 1:numel(methods)
     if isfield(S,'gnss_pos_ned') && isfield(S,'vel_ned')
         t = 1:size(S.vel_ned,1);
         plot_overlay(t, pos, vel, diff([zeros(1,3);vel]), t, S.gnss_pos_ned, S.gnss_vel_ned, diff([zeros(1,3);S.gnss_vel_ned]), t, pos, vel, diff([zeros(1,3);vel]), 'NED', method, resultsDir);
+        overlay_truth_task4(kfFile, 'STATE_X001.txt', method);
     end
 end
 

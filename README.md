@@ -140,6 +140,9 @@ against it. The validation summary and plots are saved alongside the exported
 `.mat` files in `results/`.
 The input data files are looked up relative to the repository root, so you can
 run the scripts from any directory.
+When a `STATE_*.txt` reference track is present additional figures named
+`<method>_<frame>_overlay_truth.pdf` are generated showing the fused trajectory
+against the ground truth.
 ### Sample Processing Report
 
 A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/` directory.
