@@ -32,9 +32,15 @@ def plot_overlay(
 ) -> None:
     """Save a 4x1 overlay plot comparing IMU-only, GNSS and fused tracks.
 
-    When ``t_truth`` and corresponding arrays are provided, the ground truth is
-    plotted with a solid green line and the figure is saved using
-    ``suffix`` or ``"_overlay_truth.pdf"`` when ``suffix`` is ``None``.
+    Parameters
+    ----------
+    t_truth, pos_truth, vel_truth, acc_truth : np.ndarray or None, optional
+        Ground-truth time, position, velocity and acceleration samples. When
+        provided, a black line labelled ``"Truth"`` is drawn in each subplot.
+    suffix : str or None, optional
+        Filename suffix appended to ``"{method}_{frame}"`` when saving the
+        figure. Defaults to ``"_overlay_truth.pdf"`` if any truth arrays are
+        supplied and ``"_overlay.pdf"`` otherwise.
     """
     if suffix is None:
         suffix = "_overlay_truth.pdf" if t_truth is not None else "_overlay.pdf"
