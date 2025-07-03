@@ -12,6 +12,8 @@ from plot_overlay import plot_overlay
 import pandas as pd
 import re
 
+__all__ = ["load_estimate", "assemble_frames"]
+
 
 def load_estimate(path, times=None):
     """Return trajectory, quaternion and covariance from an NPZ or MAT file.
