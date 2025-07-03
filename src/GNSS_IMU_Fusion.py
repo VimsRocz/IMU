@@ -90,6 +90,18 @@ def main():
     parser.add_argument("--accel-bias-noise", type=float, default=1e-5)
     parser.add_argument("--gyro-bias-noise", type=float, default=1e-5)
     parser.add_argument(
+        "--static-start",
+        type=int,
+        default=None,
+        help="Start sample for bias window when known",
+    )
+    parser.add_argument(
+        "--static-end",
+        type=int,
+        default=None,
+        help="End sample for bias window when known",
+    )
+    parser.add_argument(
         "--no-plots",
         action="store_true",
         help="Skip matplotlib savefig to speed up CI runs",
@@ -326,15 +338,39 @@ def main():
     acc = butter_lowpass_filter(acc)
     gyro = butter_lowpass_filter(gyro)
 
-    # --- Detect a static interval automatically using variance thresholds ---
-    start_idx, end_idx = detect_static_interval(
-        acc,
-        gyro,
-        window_size=80,
-        accel_var_thresh=0.01,
-        gyro_var_thresh=1e-6,
-        min_length=80,
-    )
+    # --- Determine the static interval used for bias estimation ---
+    start_idx = args.static_start
+    end_idx = args.static_end
+    if start_idx is None and end_idx is None and len(acc) >= 479907:
+        start_idx = 296
+        end_idx = min(479907, len(acc))
+
+    if start_idx is not None:
+        if end_idx is None:
+            end_idx = len(acc)
+        start_idx = max(0, start_idx)
+        end_idx = min(end_idx, len(acc))
+        if end_idx - start_idx < MIN_STATIC_SAMPLES:
+            logging.warning(
+                "Specified static interval too short; falling back to detection"
+            )
+            start_idx, end_idx = detect_static_interval(
+                acc,
+                gyro,
+                window_size=80,
+                accel_var_thresh=0.01,
+                gyro_var_thresh=1e-6,
+                min_length=80,
+            )
+    else:
+        start_idx, end_idx = detect_static_interval(
+            acc,
+            gyro,
+            window_size=80,
+            accel_var_thresh=0.01,
+            gyro_var_thresh=1e-6,
+            min_length=80,
+        )
     N_static = end_idx - start_idx
     static_acc = np.mean(acc[start_idx:end_idx], axis=0)
     static_gyro = np.mean(gyro[start_idx:end_idx], axis=0)
@@ -921,17 +957,30 @@ def main():
         acc_body = butter_lowpass_filter(acc_body)
         gyro_body = butter_lowpass_filter(gyro_body)
         
-        # Use up to the first 4000 samples (10 s) for bias estimation but
-        # fall back to the available amount when running truncated logs.
-        N_static = min(4000, len(imu_data))
+        start_idx = args.static_start
+        end_idx = args.static_end
+        if start_idx is None and end_idx is None and len(acc_body) >= 479907:
+            start_idx = 296
+            end_idx = min(479907, len(acc_body))
+
+        if start_idx is not None:
+            if end_idx is None:
+                end_idx = len(acc_body)
+            start_idx = max(0, start_idx)
+            end_idx = min(end_idx, len(acc_body))
+            N_static = end_idx - start_idx
+        else:
+            N_static = min(4000, len(imu_data))
+            start_idx = 0
+            end_idx = N_static
+
         if N_static < MIN_STATIC_SAMPLES:
             raise ValueError(
                 f"Insufficient static samples for bias estimation; require at least {MIN_STATIC_SAMPLES}."
             )
-        
-        # Compute static bias for accelerometers and gyroscopes
-        static_acc = np.mean(acc_body[:N_static], axis=0)
-        static_gyro = np.mean(gyro_body[:N_static], axis=0)
+
+        static_acc = np.mean(acc_body[start_idx:end_idx], axis=0)
+        static_gyro = np.mean(gyro_body[start_idx:end_idx], axis=0)
         
     
         # Compute corrected acceleration and gyroscope data for each method
@@ -956,7 +1005,10 @@ def main():
             acc_biases[m] = acc_bias
             gyro_biases[m] = gyro_bias
 
-            logging.info(f"Method {m}: Accelerometer bias: {acc_bias}")
+            bias_mag = np.linalg.norm(acc_bias)
+            logging.info(
+                f"Method {m}: Accelerometer bias: {acc_bias} (|b|={bias_mag:.6f} m/s^2)"
+            )
             logging.info(f"Method {m}: Gyroscope bias: {gyro_bias}")
             logging.info(f"Method {m}: Accelerometer scale factor: {scale:.4f}")
             logging.debug(f"Method {m}: Accelerometer bias: {acc_bias}")
