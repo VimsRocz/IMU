@@ -8,9 +8,13 @@ from pathlib import Path
 import re
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
+from utils import ensure_dependencies
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
+
+# Install any missing dependencies before running the batch command
+ensure_dependencies()
 
 # --- Run the batch processor -------------------------------------------------
 cmd = [
