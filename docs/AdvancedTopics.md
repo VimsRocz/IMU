@@ -49,7 +49,7 @@ Scripts such as `TRIAD.m` take the full paths to the IMU and GNSS files as argum
 
 ### MATLAB Scripts
 
-All MATLAB code now lives in the single `MATLAB/` directory. It contains the pipeline tasks (`Task_1`–`Task_5`) alongside helper scripts such as `TRIAD.m`, `FINAL.m`, `plot_results.m` and `validate_3sigma.m`.
+All MATLAB code now lives in the single `MATLAB/` directory. It contains the pipeline tasks (`Task_1`–`Task_5`) alongside helper scripts such as `TRIAD.m`, `FINAL.m`, `plot_overlay.m` and `validate_3sigma.m`.
 
 To run `TRIAD.m` with the new data-file detection logic simply resolve the file paths with `get_data_file` and pass them to the script:
 ```matlab
@@ -77,7 +77,7 @@ Task_5(imu, gnss, 'TRIAD');   % uses Task4 results, writes Task5_results_IMU_X00
 ```matlab
 run_all_datasets_matlab
 ```
-The script scans `Data/` (or the repository root if that folder is missing) for matching IMU and GNSS logs, executes `Task_1` through `Task_5` for each pair and saves the results as `IMU_<id>_GNSS_<id>_TRIAD_kf_output.mat` in `results/`. `plot_results` is invoked automatically to export the standard PDF figures.
+The script scans `Data/` (or the repository root if that folder is missing) for matching IMU and GNSS logs, executes `Task_1` through `Task_5` for each pair and saves the results as `IMU_<id>_GNSS_<id>_TRIAD_kf_output.mat` in `results/`. `plot_overlay` is invoked automatically to export the standard PDF figures.
 
 Prerequisites: MATLAB R2023a or newer with the Signal Processing and Navigation Toolboxes.
 

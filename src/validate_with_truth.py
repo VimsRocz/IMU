@@ -1,5 +1,6 @@
 import argparse
 import os
+from pathlib import Path
 
 import numpy as np
 from scipy.io import loadmat
@@ -107,6 +108,21 @@ def load_estimate(path):
     return est
 
 
+def _find_data_file(filename: str) -> str:
+    """Return absolute path to *filename* if it exists in the repo tree."""
+    root = Path(__file__).resolve().parents[1]
+    candidates = [filename]
+    if not filename.startswith("IMU_") and not filename.startswith("GNSS_"):
+        candidates.append(f"IMU_{filename}")
+        candidates.append(f"GNSS_{filename}")
+    for cand in candidates:
+        for base in (root, root / "Data"):
+            path = base / cand
+            if path.exists():
+                return str(path)
+    return filename
+
+
 def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     """Return aligned datasets in NED/ECEF/Body frames.
 
@@ -121,6 +137,11 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
         provided, the returned frames include an additional ``"truth"``
         entry interpolated to the fused time vector.
     """
+    gnss_file = _find_data_file(gnss_file)
+    imu_file = _find_data_file(imu_file)
+    if truth_file is not None:
+        truth_file = _find_data_file(truth_file)
+
     gnss = pd.read_csv(gnss_file)
     t_gnss = gnss["Posix_Time"].to_numpy()
     pos_ecef = gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].to_numpy()
@@ -129,17 +150,23 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     acc_ecef = np.zeros_like(vel_ecef)
     acc_ecef[1:] = np.diff(vel_ecef, axis=0) / dt_g[1:, None]
 
-    ref_lat = float(np.asarray(est.get("ref_lat")).squeeze())
-    ref_lon = float(np.asarray(est.get("ref_lon")).squeeze())
-    ref_r0 = np.asarray(est.get("ref_r0")).squeeze()
+    def _get(key, default=None):
+        v = est.get(key)
+        if v is None:
+            return default
+        return np.asarray(v).squeeze()
+
+    ref_lat = float(_get("ref_lat", np.deg2rad(-32.026554)))
+    ref_lon = float(_get("ref_lon", np.deg2rad(133.455801)))
+    ref_r0 = _get("ref_r0", np.array([-3729051, 3935676, -3348394]))
     C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
     pos_gnss_ned = np.array([C @ (p - ref_r0) for p in pos_ecef])
     vel_gnss_ned = np.array([C @ v for v in vel_ecef])
     acc_gnss_ned = np.array([C @ a for a in acc_ecef])
 
     t_est = np.asarray(est["time"]).squeeze()
-    fused_pos = np.asarray(est["pos"])
-    fused_vel = np.asarray(est["vel"])
+    fused_pos = np.asarray(est["pos"])[: len(t_est)]
+    fused_vel = np.asarray(est["vel"])[: len(t_est)]
     fused_acc = np.zeros_like(fused_vel)
     if len(t_est) > 1:
         dt = np.diff(t_est, prepend=t_est[0])
