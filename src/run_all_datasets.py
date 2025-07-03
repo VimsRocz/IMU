@@ -186,10 +186,8 @@ def main():
                     truth = data.get("truth")
                     if truth is not None:
                         t_t, p_t, v_t, a_t = truth
-                        suffix = "_overlay_truth.pdf"
                     else:
                         t_t = p_t = v_t = a_t = None
-                        suffix = "_overlay.pdf"
                     plot_overlay(
                         frame_name,
                         method,
@@ -210,7 +208,6 @@ def main():
                         pos_truth=p_t,
                         vel_truth=v_t,
                         acc_truth=a_t,
-                        suffix=suffix,
                     )
             except Exception as e:
                 print(f"Truth overlay failed: {e}")

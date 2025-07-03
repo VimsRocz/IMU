@@ -28,19 +28,22 @@ def plot_overlay(
     pos_truth: np.ndarray | None = None,
     vel_truth: np.ndarray | None = None,
     acc_truth: np.ndarray | None = None,
-    suffix: str = "_overlay.pdf",
+    suffix: str | None = None,
 ) -> None:
     """Save a 4x1 overlay plot comparing IMU-only, GNSS and fused tracks.
 
     When ``t_truth`` and corresponding arrays are provided, the ground truth is
-    plotted with a solid black line and the figure is saved using ``suffix``.
+    plotted with a solid green line and the figure is saved using
+    ``suffix`` or ``"_overlay_truth.pdf"`` when ``suffix`` is ``None``.
     """
+    if suffix is None:
+        suffix = "_overlay_truth.pdf" if t_truth is not None else "_overlay.pdf"
     fig, axes = plt.subplots(4, 1, figsize=(8, 10), sharex=True)
 
     axes[0].plot(t_imu, _norm(pos_imu), "b--", label="IMU only")
     axes[0].plot(t_gnss, _norm(pos_gnss), "k.", label="GNSS")
     if t_truth is not None and pos_truth is not None:
-        axes[0].plot(t_truth, _norm(pos_truth), "k-", label="Truth")
+        axes[0].plot(t_truth, _norm(pos_truth), "g-", label="Truth")
     axes[0].plot(t_fused, _norm(pos_fused), "r-", label="Fused")
     axes[0].set_ylabel("Position [m]")
     axes[0].legend()
@@ -48,21 +51,21 @@ def plot_overlay(
     axes[1].plot(t_imu, _norm(vel_imu), "b--")
     axes[1].plot(t_gnss, _norm(vel_gnss), "k.")
     if t_truth is not None and vel_truth is not None:
-        axes[1].plot(t_truth, _norm(vel_truth), "k-")
+        axes[1].plot(t_truth, _norm(vel_truth), "g-")
     axes[1].plot(t_fused, _norm(vel_fused), "r-")
     axes[1].set_ylabel("Velocity [m/s]")
 
     axes[2].plot(t_imu, _norm(acc_imu), "b--")
     axes[2].plot(t_gnss, _norm(acc_gnss), "k.")
     if t_truth is not None and acc_truth is not None:
-        axes[2].plot(t_truth, _norm(acc_truth), "k-")
+        axes[2].plot(t_truth, _norm(acc_truth), "g-")
     axes[2].plot(t_fused, _norm(acc_fused), "r-")
     axes[2].set_ylabel("Acceleration [m/s$^2$]")
 
     axes[3].plot(pos_imu[:, 0], pos_imu[:, 1], "b--", label="IMU only")
     axes[3].plot(pos_gnss[:, 0], pos_gnss[:, 1], "k.", label="GNSS")
     if pos_truth is not None:
-        axes[3].plot(pos_truth[:, 0], pos_truth[:, 1], "k-", label="Truth")
+        axes[3].plot(pos_truth[:, 0], pos_truth[:, 1], "g-", label="Truth")
     axes[3].plot(pos_fused[:, 0], pos_fused[:, 1], "r-", label="Fused")
     axes[3].set_xlabel(f"{frame} X")
     axes[3].set_ylabel(f"{frame} Y")
