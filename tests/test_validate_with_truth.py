@@ -141,7 +141,13 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
     )
     validate_main()
 
-    assert list(Path("results").glob("*_overlay_truth.pdf"))
+    expected = {
+        "TRIAD_NED_overlay_truth.pdf",
+        "TRIAD_ECEF_overlay_truth.pdf",
+        "TRIAD_Body_overlay_truth.pdf",
+    }
+    produced = {p.name for p in Path("results").glob("*_overlay_truth.pdf")}
+    assert expected.issubset(produced), f"Missing overlays: {expected - produced}"
 
 
 def test_assemble_frames_small_truth():
