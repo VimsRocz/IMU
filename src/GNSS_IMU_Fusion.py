@@ -144,6 +144,20 @@ def main():
     except Exception as e:
         logging.error(f"Failed to load GNSS data file: {e}")
         raise
+
+    # Expose common columns for clarity
+    utc_cols = [
+        "UTC_yyyy",
+        "UTC_MM",
+        "UTC_dd",
+        "UTC_HH",
+        "UTC_mm",
+        "UTC_ss",
+    ]
+    _utc = gnss_data[utc_cols].to_numpy()
+    _posix_time = gnss_data["Posix_Time"].to_numpy()
+    _ecef_pos = gnss_data[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].to_numpy()
+    _ecef_vel = gnss_data[["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]].to_numpy()
     
     # Debug: Print column names and first few rows of ECEF coordinates
     logging.debug("GNSS data columns: %s", gnss_data.columns.tolist())
@@ -273,8 +287,14 @@ def main():
         raise
 
     if data.shape[1] >= 10:
-        acc = data[:, 5:8]  # Velocity increments (m/s)
-        gyro = data[:, 2:5]  # Angular increments (rad)
+        _imu_index = data[:, 0].astype(int)
+        _imu_time = data[:, 1]
+        gyro_inc = data[:, 2:5]
+        acc_inc = data[:, 5:8]
+        _imu_temp = data[:, 8]
+        _imu_status = data[:, 9]
+        acc = acc_inc  # velocity increments
+        gyro = gyro_inc  # angular increments
     else:
         logging.error(f"Unexpected data format in {imu_file}.")
         raise ValueError("Invalid IMU data format.")
