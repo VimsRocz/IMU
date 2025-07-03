@@ -8,6 +8,8 @@ from .init_vectors import (
     angle_between,
     compute_wahba_errors,
 )
+from .init import compute_reference_vectors, measure_body_vectors
+from .integration import integrate_trajectory
 from .plots import (
     save_zupt_variance,
     save_euler_angles,
@@ -22,6 +24,9 @@ __all__ = [
     "butter_lowpass_filter",
     "angle_between",
     "compute_wahba_errors",
+    "compute_reference_vectors",
+    "measure_body_vectors",
+    "integrate_trajectory",
     "save_zupt_variance",
     "save_euler_angles",
     "save_residual_plots",
