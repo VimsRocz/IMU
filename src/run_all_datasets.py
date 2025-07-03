@@ -19,6 +19,7 @@ import yaml
 from utils import ensure_dependencies
 from tabulate import tabulate
 from tqdm import tqdm
+# Overlay helper functions
 from validate_with_truth import load_estimate, assemble_frames
 from plot_overlay import plot_overlay
 
