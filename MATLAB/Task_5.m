@@ -1,5 +1,5 @@
 function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
-%TASK_5  Run 9-state KF using IMU & GNSS NED positions
+%TASK_5  Run 15-state EKF using IMU & GNSS NED positions
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
