@@ -6,6 +6,7 @@ IMU data processing and initialization tools (Python)
 - [Running the Pipeline](#running-the-pipeline)
   - [run_all_datasets.py](#run_all_datasetspy)
   - [run_triad_only.py](#run_triad_onlypy)
+  - [GNSS_IMU_Fusion_single](#gnss_imu_fusion_singleimu_file-gnss_file)
 - [Per-Task Overview](#per-task-overview)
 - [Datasets](#datasets)
 - [Running validation](#running-validation)
@@ -222,6 +223,16 @@ python src/plot_compare_all.py
 ```
 This creates one `all_datasets_<method>_comparison.pdf` per method in
 the `results/` directory you ran the script from.
+
+#### GNSS_IMU_Fusion_single(imu_file, gnss_file)
+
+The MATLAB function [`GNSS_IMU_Fusion_single`](MATLAB/GNSS_IMU_Fusion_single.m)
+performs the same steps as `run_triad_only.py` for a single dataset and writes
+the resulting plots to `results/`:
+
+```matlab
+GNSS_IMU_Fusion_single('IMU_X001.dat', 'GNSS_X001.csv')
+```
 
 #### FINAL.py
 
