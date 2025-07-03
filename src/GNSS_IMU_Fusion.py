@@ -23,6 +23,7 @@ from scipy.spatial.transform import Rotation as R
 from gnss_imu_fusion.init_vectors import (
     average_rotation_matrices,
     svd_alignment,
+    triad_svd,
     butter_lowpass_filter,
     compute_wahba_errors,
 )
@@ -468,36 +469,11 @@ def main():
     # Subtask 3.2: TRIAD Method
     # --------------------------------
     logging.info("Subtask 3.2: Computing rotation matrix using TRIAD method.")
-    # Case 1
-    t1_body = v1_B
-    t2_body_temp = np.cross(v1_B, v2_B)
-    if np.linalg.norm(t2_body_temp) < 1e-10:
-        logging.warning("Case 1 - Vectors are collinear, TRIAD may fail.")
-        t2_body = np.array([1.0, 0.0, 0.0]) if abs(v1_B[0]) < abs(v1_B[1]) else np.array([0.0, 1.0, 0.0])
-    else:
-        t2_body = t2_body_temp / np.linalg.norm(t2_body_temp)
-    t3_body = np.cross(t1_body, t2_body)
-    t1_ned = v1_N
-    t2_ned_temp = np.cross(v1_N, v2_N)
-    if np.linalg.norm(t2_ned_temp) < 1e-10:
-        logging.warning("Case 1 - NED vectors are collinear, TRIAD may fail.")
-        t2_ned = np.array([1.0, 0.0, 0.0])
-    else:
-        t2_ned = t2_ned_temp / np.linalg.norm(t2_ned_temp)
-    t3_ned = np.cross(t1_ned, t2_ned)
-    R_tri = np.column_stack((t1_ned, t2_ned, t3_ned)) @ np.column_stack((t1_body, t2_body, t3_body)).T
+    R_tri = triad_svd(v1_B, v2_B, v1_N, v2_N)
     logging.info("Rotation matrix (TRIAD method, Case 1):\n%s", R_tri)
     logging.debug("Rotation matrix (TRIAD method, Case 1):\n%s", R_tri)
-    
-    # Case 2
-    t2_ned_temp_doc = np.cross(v1_N, v2_N_doc)
-    if np.linalg.norm(t2_ned_temp_doc) < 1e-10:
-        logging.warning("Case 2 - NED vectors are collinear, TRIAD may fail.")
-        t2_ned_doc = np.array([1.0, 0.0, 0.0])
-    else:
-        t2_ned_doc = t2_ned_temp_doc / np.linalg.norm(t2_ned_temp_doc)
-    t3_ned_doc = np.cross(t1_ned, t2_ned_doc)
-    R_tri_doc = np.column_stack((t1_ned, t2_ned_doc, t3_ned_doc)) @ np.column_stack((t1_body, t2_body, t3_body)).T
+
+    R_tri_doc = triad_svd(v1_B, v2_B, v1_N, v2_N_doc)
     logging.info("Rotation matrix (TRIAD method, Case 2):\n%s", R_tri_doc)
     logging.debug("Rotation matrix (TRIAD method, Case 2):\n%s", R_tri_doc)
     
@@ -1319,13 +1295,14 @@ def main():
     zupt_events_all = {}
 
     for m in methods:
-        kf = KalmanFilter(dim_x=9, dim_z=6)
-        kf.x = np.hstack((imu_pos[m][0], imu_vel[m][0], imu_acc[m][0]))
-        kf.F = np.eye(9)
-        kf.H = np.hstack((np.eye(6), np.zeros((6,3))))
+        kf = KalmanFilter(dim_x=13, dim_z=6)
+        initial_quats = {'TRIAD': q_tri, 'Davenport': q_dav, 'SVD': q_svd}
+        kf.x = np.hstack((imu_pos[m][0], imu_vel[m][0], imu_acc[m][0], initial_quats[m]))
+        kf.F = np.eye(13)
+        kf.H = np.hstack((np.eye(6), np.zeros((6,7))))
         kf.P *= 1.0
         kf.R = np.eye(6) * 0.1
-        kf.Q = np.eye(9) * 0.01
+        kf.Q = np.eye(13) * 0.01
         fused_pos[m][0] = imu_pos[m][0]
         fused_vel[m][0] = imu_vel[m][0]
         fused_acc[m][0] = imu_acc[m][0]
@@ -1346,7 +1323,6 @@ def main():
 
         # attitude initialisation for logging
         orientations = np.zeros((len(imu_time), 4))
-        initial_quats = {'TRIAD': q_tri, 'Davenport': q_dav, 'SVD': q_svd}
         orientations[0] = initial_quats[m]
         attitude_q.append(orientations[0])
         q_cur = orientations[0]
@@ -1364,6 +1340,7 @@ def main():
             q_cur = quat_multiply(q_cur, dq)
             q_cur /= np.linalg.norm(q_cur)
             orientations[i] = q_cur
+            kf.x[9:13] = q_cur
 
             # Prediction step
             kf.F[0:3,3:6] = np.eye(3) * dt
@@ -1395,14 +1372,14 @@ def main():
                 acc_win.pop(0)
                 gyro_win.pop(0)
             if len(acc_win) == win and is_static(np.array(acc_win), np.array(gyro_win)):
-                H_z = np.zeros((3, 9))
+                H_z = np.zeros((3, 13))
                 H_z[:, 3:6] = np.eye(3)
                 R_z = np.eye(3) * 1e-4
                 pred_v = H_z @ kf.x
                 S = H_z @ kf.P @ H_z.T + R_z
                 K = kf.P @ H_z.T @ np.linalg.inv(S)
                 kf.x += K @ (-pred_v)
-                kf.P = (np.eye(9) - K @ H_z) @ kf.P
+                kf.P = (np.eye(13) - K @ H_z) @ kf.P
                 zupt_count += 1
                 zupt_events.append((i - win + 1, i))
                 # This log was previously INFO but produced excessive output
