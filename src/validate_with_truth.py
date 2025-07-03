@@ -481,12 +481,12 @@ def main():
         plot_err(t_truth, err_quat, sigma_quat, ["q0", "q1", "q2", "q3"], "att_err")
 
     m = re.match(
-        r"(IMU_\w+)_GNSS_(\w+)_([A-Za-z]+)_kf_output",
+        r"(IMU_\w+)_(GNSS_\w+)_([A-Za-z]+)_kf_output",
         os.path.basename(args.est_file),
     )
     if m:
         dataset_dir = Path(args.truth_file).resolve().parent
-        gnss_file = dataset_dir / f"GNSS_{m.group(2)}.csv"
+        gnss_file = dataset_dir / f"{m.group(2)}.csv"
         method = m.group(3)
         try:
             frames = assemble_frames(est, gnss_file, args.truth_file)
