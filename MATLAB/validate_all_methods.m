@@ -6,6 +6,15 @@ function validate_all_methods()
 
 methods = {'TRIAD','Davenport','SVD'};
 truth = load('STATE_X001.txt');
+ref_r0 = truth(1,3:5)';
+[lat_deg, lon_deg, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
+C_ECEF_to_NED = compute_C_ECEF_to_NED(deg2rad(lat_deg), deg2rad(lon_deg));
+truth_ned_pos = (C_ECEF_to_NED*(truth(:,3:5)' - ref_r0))';
+truth_ned_vel = (C_ECEF_to_NED*truth(:,6:8)')';
+truth_ned_acc = [zeros(1,3); diff(truth_ned_vel)];
+truth_ecef_pos = truth(:,3:5);
+truth_ecef_vel = truth(:,6:8);
+truth_ecef_acc = [zeros(1,3); diff(truth_ecef_vel)];
 resultsDir = 'results';
 
 summary = cell(numel(methods),4);
@@ -119,7 +128,28 @@ for i = 1:numel(methods)
 
     if isfield(S,'gnss_pos_ned') && isfield(S,'vel_ned')
         t = 1:size(S.vel_ned,1);
-        plot_overlay(t, pos, vel, diff([zeros(1,3);vel]), t, S.gnss_pos_ned, S.gnss_vel_ned, diff([zeros(1,3);S.gnss_vel_ned]), t, pos, vel, diff([zeros(1,3);vel]), 'NED', method, resultsDir);
+        acc_est = diff([zeros(1,3); vel]);
+        acc_gnss = diff([zeros(1,3); S.gnss_vel_ned]);
+        plot_overlay(t, pos, vel, acc_est, t, S.gnss_pos_ned, S.gnss_vel_ned, acc_gnss, t, pos, vel, acc_est, 'NED', method, resultsDir);
+
+        n = min(length(t), size(truth_ned_pos,1));
+        plot_overlay_with_truth(t(1:n), pos(1:n,:), vel(1:n,:), acc_est(1:n,:), ...
+            t(1:n), S.gnss_pos_ned(1:n,:), S.gnss_vel_ned(1:n,:), acc_gnss(1:n,:), ...
+            t(1:n), truth_ned_pos(1:n,:), truth_ned_vel(1:n,:), truth_ned_acc(1:n,:), ...
+            'NED', method, resultsDir);
+
+        % ECEF frame overlay
+        C_N2E = C_ECEF_to_NED';
+        pos_ecef = (C_N2E*pos' + ref_r0)';
+        vel_ecef = (C_N2E*vel')';
+        acc_ecef = diff([zeros(1,3); vel_ecef]);
+        pos_gnss_ecef = (C_N2E*S.gnss_pos_ned' + ref_r0)';
+        vel_gnss_ecef = (C_N2E*S.gnss_vel_ned')';
+        acc_gnss_ecef = diff([zeros(1,3); vel_gnss_ecef]);
+        plot_overlay_with_truth(t(1:n), pos_ecef(1:n,:), vel_ecef(1:n,:), acc_ecef(1:n,:), ...
+            t(1:n), pos_gnss_ecef(1:n,:), vel_gnss_ecef(1:n,:), acc_gnss_ecef(1:n,:), ...
+            t(1:n), truth_ecef_pos(1:n,:), truth_ecef_vel(1:n,:), truth_ecef_acc(1:n,:), ...
+            'ECEF', method, resultsDir);
     end
 end
 
