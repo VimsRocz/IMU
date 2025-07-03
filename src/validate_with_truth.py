@@ -1,5 +1,6 @@
 import argparse
 import os
+from pathlib import Path
 
 import numpy as np
 from scipy.io import loadmat
@@ -449,8 +450,9 @@ def main():
         r"(IMU_\w+)_GNSS_(\w+)_([A-Za-z]+)_kf_output", os.path.basename(args.est_file)
     )
     if m:
-        imu_file = f"{m.group(1)}.dat"
-        gnss_file = f"{m.group(2)}.csv"
+        repo_root = Path(__file__).resolve().parents[1]
+        imu_file = repo_root / f"{m.group(1)}.dat"
+        gnss_file = repo_root / f"GNSS_{m.group(2)}.csv"
         method = m.group(3)
         try:
             frames = assemble_frames(est, imu_file, gnss_file, args.truth_file)

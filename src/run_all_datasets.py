@@ -20,6 +20,9 @@ from utils import ensure_dependencies
 from tabulate import tabulate
 from tqdm import tqdm
 
+from plot_overlay import plot_overlay
+from validate_with_truth import assemble_frames, load_estimate
+
 ensure_dependencies()
 
 HERE = pathlib.Path(__file__).resolve().parent
