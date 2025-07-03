@@ -16,7 +16,7 @@ import pandas as pd
 import numpy as np
 import yaml
 
-from utils import ensure_dependencies
+from utils import ensure_dependencies, ecef_to_geodetic
 from tabulate import tabulate
 from tqdm import tqdm
 # Overlay helper functions
@@ -27,8 +27,8 @@ ensure_dependencies()
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
-SCRIPT   = HERE / "GNSS_IMU_Fusion.py"
-LOG_DIR  = HERE / "logs"
+SCRIPT = HERE / "GNSS_IMU_Fusion.py"
+LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
 DEFAULT_DATASETS = [
@@ -37,17 +37,18 @@ DEFAULT_DATASETS = [
     ("IMU_X003.dat", "GNSS_X002.csv"),   # <- note the GNSS swap
 ]
 
-DEFAULT_METHODS  = ["TRIAD", "Davenport", "SVD"]
+DEFAULT_METHODS = ["TRIAD", "Davenport", "SVD"]
 
 DATASETS = DEFAULT_DATASETS.copy()
 METHODS = DEFAULT_METHODS.copy()
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
+
 def run_one(imu, gnss, method, verbose=False):
-    ts    = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log   = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
-    cmd   = [
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    log = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
+    cmd = [
         sys.executable,
         SCRIPT,
         "--imu-file",
@@ -77,13 +78,17 @@ def run_one(imu, gnss, method, verbose=False):
         raise RuntimeError(f"{cmd} failed, see {log}")
     return summary_lines
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", action="store_true", help="Print detailed debug info")
     parser.add_argument("--datasets", default="ALL",
                         help="Comma separated dataset IDs (e.g. X001,X002) or ALL")
-    parser.add_argument('--method', choices=['TRIAD','Davenport','SVD','ALL'],
-                        default='ALL')
+    parser.add_argument(
+        '--method',
+        choices=['TRIAD', 'Davenport', 'SVD', 'ALL'],
+        default='ALL',
+    )
     parser.add_argument('--config', help='YAML configuration file')
     args = parser.parse_args()
 
@@ -125,7 +130,7 @@ def main():
             print("GNSS shape:", gnss_df.shape)
             print("IMU shape:", imu_data.shape)
             print("GNSS time [start, end]:", gnss_df['Posix_Time'].iloc[0], gnss_df['Posix_Time'].iloc[-1])
-            print("IMU time [start, end]:", imu_data[0,0], imu_data[-1,0])
+            print("IMU time [start, end]:", imu_data[0, 0], imu_data[-1, 0])
             print("Any NaNs in GNSS?", gnss_df.isna().sum().sum())
             print("Any NaNs in IMU?", np.isnan(imu_data).sum())
             print("GNSS Head:\n", gnss_df.head())
@@ -168,6 +173,10 @@ def main():
         truth_path = (ROOT / imu).with_name(f"STATE_{ds_id}.txt")
         est_mat = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat"
         if truth_path.exists():
+            first = np.loadtxt(truth_path, comments="#", max_rows=1)
+            r0 = first[2:5]
+            lat_deg, lon_deg, _ = ecef_to_geodetic(*r0)
+
             vcmd = [
                 sys.executable,
                 str(HERE / "validate_with_truth.py"),
@@ -177,6 +186,14 @@ def main():
                 str(truth_path),
                 "--output",
                 str(results_dir),
+                "--ref-lat",
+                str(lat_deg),
+                "--ref-lon",
+                str(lon_deg),
+                "--ref-r0",
+                str(r0[0]),
+                str(r0[1]),
+                str(r0[2]),
             ]
             subprocess.run(vcmd, check=True)
             try:
