@@ -90,10 +90,11 @@ GNSS_IMU_Fusion_single('IMU_X001.dat','GNSS_X001.csv')
 
 ### Overlay comparison with ground truth
 
-Use `plot_overlay_with_truth` (or the wrapper `overlay_truth_task4`) to generate
-4×1 comparison plots between the fused trajectory and a `STATE_*.txt` reference
-track.  The PDF figures `<method>_<frame>_overlay_truth.pdf` are written next to
-the Kalman filter results in the `results/` folder.
+Run `python src/validate_with_truth.py` or call the MATLAB helper
+`overlay_truth_task4` to overlay the fused trajectory with a
+`STATE_*.txt` reference.  The comparison figures
+`<method>_<frame>_overlay_truth.pdf` are stored in the `results/` directory
+next to the Kalman filter output.
 
 ### Compatibility notes
 
