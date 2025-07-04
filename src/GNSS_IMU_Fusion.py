@@ -4,6 +4,12 @@ import sys
 import os
 from pathlib import Path
 
+if __package__ is None:
+    # When executed directly, ensure the project root (the parent of this file)
+    # is on ``sys.path``.  This allows importing the ``src`` package just like
+    # the test suite does.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    __package__ = "src"
 
 import matplotlib.pyplot as plt
 import numpy as np
