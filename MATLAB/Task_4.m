@@ -362,23 +362,41 @@ function plot_comparison_in_frame(frame_name, t_gnss, t_imu, methods, C_B_N_meth
     saveas(fig, filename);
     
     % --- Plot 2: All Data in ECEF Frame ---
-    fig_ecef = figure('Name', 'All Data in ECEF Frame', 'Position', [150 150 1200 600], 'Visible', 'off');
+    fig_ecef = figure('Name', 'All Data in ECEF Frame', 'Position', [150 150 1200 900], 'Visible', 'off');
     p_gnss_ecef = (C_n2e * p_gnss' + r0_ecef)';
     v_gnss_ecef = (C_n2e * v_gnss')';
     a_gnss_ecef = (C_n2e * a_gnss')';
     for i = 1:3
-        subplot(3,1,i);
-        hold on;
+        % Position
+        subplot(3,3,i); hold on;
         plot(t_gnss, p_gnss_ecef(:,i), 'k-', 'DisplayName', 'GNSS Pos');
-        plot(t_gnss, v_gnss_ecef(:,i), 'b-', 'DisplayName', 'GNSS Vel');
-        plot(t_gnss, a_gnss_ecef(:,i), 'r-', 'DisplayName', 'GNSS Accel');
+        for m = 1:length(methods)
+            method = methods{m};
+            p_ecef = (C_n2e * p_imu.(method)')';
+            plot(t_imu, p_ecef(:,i), '--', 'Color', colors.(method), 'DisplayName', method);
+        end
+        hold off; grid on; legend; title(['Position ' dims_ecef{i}]); ylabel('m');
+
+        % Velocity
+        subplot(3,3,i+3); hold on;
+        plot(t_gnss, v_gnss_ecef(:,i), 'k-', 'DisplayName', 'GNSS Vel');
+        for m = 1:length(methods)
+            method = methods{m};
+            v_ecef = (C_n2e * v_imu.(method)')';
+            plot(t_imu, v_ecef(:,i), '--', 'Color', colors.(method), 'DisplayName', method);
+        end
+        hold off; grid on; legend; title(['Velocity ' dims_ecef{i}]); ylabel('m/s');
+
+        % Acceleration
+        subplot(3,3,i+6); hold on;
+        plot(t_gnss, a_gnss_ecef(:,i), 'k-', 'DisplayName', 'GNSS Accel');
         for m = 1:length(methods)
             method = methods{m};
             f_ned = (C_B_N_methods.(method) * f_b_corr.(method)')';
             f_ecef = (C_n2e * f_ned')';
-            plot(t_imu, f_ecef(:,i), '--', 'Color', colors.(method), 'DisplayName', ['IMU Force ' method]);
+            plot(t_imu, f_ecef(:,i), '--', 'Color', colors.(method), 'DisplayName', ['IMU ' method]);
         end
-        hold off; grid on; legend; title(['ECEF Frame - Axis ' dims_ecef{i}]); xlabel('Time (s)');
+        hold off; grid on; legend; title(['Acceleration ' dims_ecef{i}]); ylabel('m/s^2');
     end
     saveas(fig_ecef, strrep(filename, '_ned.', '_ecef.'));
     

@@ -777,40 +777,31 @@ end
 fprintf('\nSubtask 5.8: Plotting Kalman filter results.\n');
 vel_log = x_log(4:6, :); dt_vec = diff(imu_time); accel_from_vel = [zeros(3,1), diff(vel_log,1,2) ./ dt_vec'];
 
-figure('Name', 'KF Results: Position', 'Position', [100 100 1200 600]);
+fig = figure('Name', 'KF Results: P/V/A', 'Position', [100 100 1200 900]);
 labels = {'North', 'East', 'Down'};
 for i = 1:3
-    subplot(3, 1, i); hold on;
+    % Position
+    subplot(3,3,i); hold on;
     plot(gnss_time, gnss_pos_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
     plot(imu_time, x_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
-    hold off; grid on; legend; ylabel('[m]'); title(['Position: ' labels{i}]);
-end
-xlabel('Time (s)'); sgtitle('Kalman Filter Fused Position vs. GNSS');
-pos_file = fullfile(results_dir, sprintf('%s_Task5_Position.pdf', tag));
-set(gcf,'PaperPositionMode','auto'); print(gcf, pos_file, '-dpdf', '-bestfit');
+    hold off; grid on; legend; ylabel('[m]'); title(['Position ' labels{i}]);
 
-figure('Name', 'KF Results: Velocity', 'Position', [150 150 1200 600]);
-for i = 1:3
-    subplot(3, 1, i); hold on;
+    % Velocity
+    subplot(3,3,i+3); hold on;
     plot(gnss_time, gnss_vel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
     plot(imu_time, x_log(i+3,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
     zupt_indices = find(zupt_log); if ~isempty(zupt_indices), plot(imu_time(zupt_indices), x_log(i+3,zupt_indices), 'ro', 'MarkerSize', 3, 'DisplayName', 'ZUPT'); end
-    hold off; grid on; legend; ylabel('[m/s]'); title(['Velocity: ' labels{i}]);
-end
-xlabel('Time (s)'); sgtitle('Kalman Filter Fused Velocity vs. GNSS');
-vel_file = fullfile(results_dir, sprintf('%s_Task5_Velocity.pdf', tag));
-set(gcf,'PaperPositionMode','auto'); print(gcf, vel_file, '-dpdf', '-bestfit');
+    hold off; grid on; legend; ylabel('[m/s]'); title(['Velocity ' labels{i}]);
 
-figure('Name', 'KF Results: Acceleration', 'Position', [150 150 1200 600]);
-for i = 1:3
-    subplot(3, 1, i); hold on;
+    % Acceleration
+    subplot(3,3,i+6); hold on;
     plot(gnss_time, gnss_accel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Derived)');
     plot(imu_time, acc_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
-    hold off; grid on; legend; ylabel('[m/s^2]'); title(['Acceleration: ' labels{i}]);
+    hold off; grid on; legend; ylabel('[m/s^2]'); title(['Acceleration ' labels{i}]);
 end
-xlabel('Time (s)'); sgtitle('Kalman Filter Fused Acceleration vs. GNSS');
-acc_file = fullfile(results_dir, sprintf('%s_Task5_Acceleration.pdf', tag));
-set(gcf,'PaperPositionMode','auto'); print(gcf, acc_file, '-dpdf', '-bestfit');
+xlabel('Time (s)'); sgtitle('Kalman Filter Results vs. GNSS');
+pvafile = fullfile(results_dir, sprintf('%s_Task5_PVA.pdf', tag));
+set(fig,'PaperPositionMode','auto'); print(fig, pvafile, '-dpdf', '-bestfit');
 
 figure('Name', 'KF Results: Attitude', 'Position', [200 200 1200 600]);
 euler_labels = {'Roll', 'Pitch', 'Yaw'};
@@ -888,12 +879,12 @@ rename_plot(sprintf('%s_Task4_ECEFFrame.pdf', tag), ...
             sprintf('%s_task4_all_ecef.pdf', tag));
 rename_plot(sprintf('%s_Task4_BodyFrame.pdf', tag), ...
             sprintf('%s_task4_all_body.pdf', tag));
-rename_plot(sprintf('%s_Task5_Position.pdf', tag), ...
+rename_plot(sprintf('%s_Task5_PVA.pdf', tag), ...
             sprintf('%s_task5_results_%s.pdf', tag, method));
-rename_plot(sprintf('%s_Task5_Velocity.pdf', tag), ...
-            sprintf('%s_task5_all_ned.pdf', tag));
-rename_plot(sprintf('%s_Task5_Acceleration.pdf', tag), ...
-            sprintf('%s_task5_all_ecef.pdf', tag));
+rename_plot(sprintf('%s_Task5_Attitude.pdf', tag), ...
+            sprintf('%s_task5_all_body.pdf', tag));
+rename_plot(sprintf('%s_Task5_ErrorAnalysis.pdf', tag), ...
+            sprintf('%s_%s_residuals.pdf', tag, lower(method)));
 rename_plot(sprintf('%s_Task5_Attitude.pdf', tag), ...
             sprintf('%s_task5_all_body.pdf', tag));
 rename_plot(sprintf('%s_Task5_ErrorAnalysis.pdf', tag), ...
