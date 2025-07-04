@@ -91,18 +91,14 @@ end
 accel = imu(:,6:8) / dt_imu; % m/s^2
 gyro  = imu(:,3:5) / dt_imu; % rad/s
 
-% Subtask 2.2: Detect long static interval using sliding variance
-fprintf('Subtask 2.2: Detecting static window\n');
-win = 200;
-acc_var  = sliding_variance(accel, win);
-gyro_var = sliding_variance(gyro,  win);
-stat_mask = max(acc_var,[],2) < 0.01 & max(gyro_var,[],2) < 1e-6;
-[start_idx,end_idx] = longest_true_segment(stat_mask);
-fprintf(' -> static samples from %d to %d\n', start_idx, end_idx);
+% Subtask 2.2: Use first 4000 samples for static bias estimation
+fprintf('Subtask 2.2: Using first 4000 samples for static bias\n');
+N_static = min(4000, size(accel,1));
+fprintf(' -> N_{static} = %d samples\n', N_static);
 
-% Subtask 2.3: Compute mean accel and gyro in static window
-accel_meas = mean(accel(start_idx:end_idx,:),1)';
-gyro_meas  = mean(gyro(start_idx:end_idx,:),1)';
+% Subtask 2.3: Compute mean accel and gyro over static window
+accel_meas = mean(accel(1:N_static,:),1)';
+gyro_meas  = mean(gyro(1:N_static,:),1)';
 
 % Subtask 2.4: Convert to body vectors and report biases
 fprintf('Subtask 2.4: Computing body-frame vectors and biases\n');
@@ -175,6 +171,11 @@ task3_results.Davenport.R = R_dav; task3_results.Davenport.q = quat_dav;
 task3_results.SVD.R = R_svd; task3_results.SVD.q = quat_svd;
 save(fullfile(results_dir,'Task3_results.mat'),'task3_results');
 
+% Store method names and rotation matrices for later tasks
+methods = {'TRIAD','Davenport','SVD'};
+R_methods = {R_tri, R_dav, R_svd};
+method_colors = {'r','g','b'};
+
 %% ========================================================================
 %% Task 4: GNSS + IMU dead-reckoning comparison
 %% ========================================================================
@@ -195,23 +196,61 @@ acc_ned_gnss = [zeros(1,3); diff(vel_ned)./dt_gnss(1:end-1)];
 
 % Subtask 4.3 is GNSS accel computed above
 
-% Subtask 4.4: Reload IMU, subtract biases, rotate accel into NED
+% Subtask 4.4: Subtract biases and rotate accelerations for each method
 f_b = accel - accel_bias';
-a_ned = (R_nb * f_b')' + repmat([0 0 constants.GRAVITY],size(f_b,1),1);
-
-% Subtask 4.5: Integrate a_ned to velocity and position
-vel_ins = zeros(size(a_ned));
-pos_ins = zeros(size(a_ned));
-for k=2:size(a_ned,1)
-    vel_ins(k,:) = vel_ins(k-1,:) + a_ned(k-1,:)*dt_imu;
-    pos_ins(k,:) = pos_ins(k-1,:) + vel_ins(k-1,:)*dt_imu + 0.5*a_ned(k-1,:)*dt_imu^2;
+a_ned = cell(size(methods));
+vel_ins = cell(size(methods));
+pos_ins = cell(size(methods));
+for m=1:numel(methods)
+    a_ned{m} = (R_methods{m} * f_b')' + repmat([0 0 constants.GRAVITY],size(f_b,1),1);
+    vel_ins{m} = zeros(size(a_ned{m}));
+    pos_ins{m} = zeros(size(a_ned{m}));
+    for k=2:size(a_ned{m},1)
+        vel_ins{m}(k,:) = vel_ins{m}(k-1,:) + a_ned{m}(k-1,:)*dt_imu;
+        pos_ins{m}(k,:) = pos_ins{m}(k-1,:) + vel_ins{m}(k-1,:)*dt_imu + 0.5*a_ned{m}(k-1,:)*dt_imu^2;
+    end
 end
 
-% Subtask 4.6: Plot GNSS vs INS
-fprintf('Subtask 4.6: Plotting dead-reckoning comparison\n');
+% Subtask 4.5: Plot GNSS vs INS for all methods (NED)
+fprintf('Subtask 4.5: Plotting dead-reckoning comparison for all methods\n');
+t_imu = (0:size(f_b,1)-1)*dt_imu;
+t_gnss = gnss_tbl.Posix_Time - gnss_tbl.Posix_Time(1);
+fig = figure('Visible','off');
+for j=1:3
+    subplot(3,3,j); hold on; grid on;
+    plot(t_gnss, pos_ned(:,j),'k--','DisplayName','GNSS');
+    for m=1:numel(methods)
+        plot(t_imu, pos_ins{m}(:,j),'Color',method_colors{m},'DisplayName',methods{m});
+    end
+    xlabel('Time [s]');
+    if j==1, ylabel('Position [m]'); end
+    title(sprintf('Position %d', j));
+    if j==3, legend; end
+    subplot(3,3,3+j); hold on; grid on;
+    plot(t_gnss, vel_ned(:,j),'k--');
+    for m=1:numel(methods)
+        plot(t_imu, vel_ins{m}(:,j),'Color',method_colors{m});
+    end
+    xlabel('Time [s]');
+    if j==1, ylabel('Velocity [m/s]'); end
+    title(sprintf('Velocity %d', j));
+    subplot(3,3,6+j); hold on; grid on;
+    plot(t_gnss, acc_ned_gnss(:,j),'k--');
+    for m=1:numel(methods)
+        plot(t_imu, a_ned{m}(:,j),'Color',method_colors{m});
+    end
+    xlabel('Time [s]');
+    if j==1, ylabel('Acceleration [m/s^2]'); end
+    title(sprintf('Acceleration %d', j));
+end
+set(gcf,'PaperPositionMode','auto');
+comp_file = fullfile(results_dir,'Task4_comparison_ned.pdf');
+saveas(fig, comp_file); close(fig);
+
+% Subtask 4.6: 2-D path plot (TRIAD only for legacy)
 fig = figure('Visible','off');
 plot(pos_ned(:,1), pos_ned(:,2),'k','DisplayName','GNSS'); hold on;
-plot(pos_ins(:,1), pos_ins(:,2),'r','DisplayName','INS');
+plot(pos_ins{1}(:,1), pos_ins{1}(:,2),'r','DisplayName','INS TRIAD');
 legend; xlabel('North [m]'); ylabel('East [m]'); axis equal; grid on;
 title('Dead-Reckoning Comparison');
 set(gcf,'PaperPositionMode','auto');
@@ -228,62 +267,67 @@ save(fullfile(results_dir,'Task4_results.mat'), 'pos_ins', 'vel_ins', ...
 fprintf('\nTASK 5: GNSS/INS fusion with 9-state Kalman filter\n');
 
 % Subtask 5.1: Initialize covariance and process noise
-P = eye(9); Q = 1e-3*eye(9);
+P0 = eye(9); Q = 1e-3*eye(9);
 
 % Subtask 5.2: Measurement models
 R_zupt = 1e-2*eye(3); R_gnss = blkdiag(5^2*eye(3), 0.5^2*eye(3));
 
 % Storage for logs
-N = size(imu,1); x_log = zeros(9,N); eul_log = zeros(3,N);
-pos_f = zeros(3,1); vel_f = zeros(3,1); R_f = R_nb; x = zeros(9,1);
+N = size(imu,1); x_log = cell(size(methods)); eul_log = cell(size(methods));
 
-% Subtask 5.3: Loop over IMU samples
-gnss_idx = 1; gnss_time = gnss_tbl.Posix_Time;
-for k=2:N
-    dt = dt_imu;
-    % Predict step using mechanization
-    w_ib = gyro(k,:)' - gyro_bias; 
-    f_ib = accel(k,:)' - accel_bias;
-    R_f = R_f * expm(skew(w_ib*dt));
-    f_n = R_f * f_ib + g_ned;
-    vel_f = vel_f + f_n*dt;
-    pos_f = pos_f + vel_f*dt + 0.5*f_n*dt^2;
-    F = [zeros(3), eye(3), zeros(3); zeros(3), zeros(3), -skew(f_n); zeros(3), zeros(3), zeros(3)];
-    Phi = eye(9) + F*dt; P = Phi*P*Phi' + Q*dt;
-    % ZUPT update if static
-    if stat_mask(k)
-        H = [zeros(3), eye(3), zeros(3)]; z = zeros(3,1);
-        [x,P] = kalman_update(x,P,z,H,R_zupt);
-        vel_f = vel_f + x(4:6); pos_f = pos_f + x(1:3); R_f = (eye(3)-skew(x(7:9)))*R_f; x(:)=0;
+for m=1:numel(methods)
+    x_log{m} = zeros(9,N);
+    eul_log{m} = zeros(3,N);
+    pos_f = zeros(3,1); vel_f = zeros(3,1); R_f = R_methods{m}; x = zeros(9,1); P = P0;
+    gnss_idx = 1; gnss_time = gnss_tbl.Posix_Time;
+    for k=2:N
+        dt = dt_imu;
+        w_ib = gyro(k,:)' - gyro_bias;
+        f_ib = accel(k,:)' - accel_bias;
+        R_f = R_f * expm(skew(w_ib*dt));
+        f_n = R_f * f_ib + g_ned;
+        vel_f = vel_f + f_n*dt;
+        pos_f = pos_f + vel_f*dt + 0.5*f_n*dt^2;
+        F = [zeros(3), eye(3), zeros(3); zeros(3), zeros(3), -skew(f_n); zeros(3), zeros(3), zeros(3)];
+        Phi = eye(9) + F*dt; P = Phi*P*Phi' + Q*dt;
+        if stat_mask(k)
+            H = [zeros(3), eye(3), zeros(3)]; z = zeros(3,1);
+            [x,P] = kalman_update(x,P,z,H,R_zupt);
+            vel_f = vel_f + x(4:6); pos_f = pos_f + x(1:3); R_f = (eye(3)-skew(x(7:9)))*R_f; x(:)=0;
+        end
+        if gnss_idx < length(gnss_time) && abs((k-1)*dt - (gnss_time(gnss_idx+1)-gnss_time(1)))<dt/2
+            z = [pos_ned(gnss_idx+1,:)'; vel_ned(gnss_idx+1,:)'];
+            H = [eye(3) zeros(3,6); zeros(3) eye(3) zeros(3)];
+            [x,P] = kalman_update(x,P,z-[pos_f;vel_f],H,R_gnss);
+            pos_f = pos_f + x(1:3); vel_f = vel_f + x(4:6); R_f = (eye(3)-skew(x(7:9)))*R_f; x(:)=0;
+            gnss_idx = gnss_idx + 1;
+        end
+        x_log{m}(:,k) = [pos_f; vel_f; zeros(3,1)];
+        eul_log{m}(:,k) = quat2euler(dcm2quat_custom(R_f));
     end
-    % GNSS update every 1 s
-    if gnss_idx < length(gnss_time) && abs((k-1)*dt - (gnss_time(gnss_idx+1)-gnss_time(1)))<dt/2
-        z = [pos_ned(gnss_idx+1,:)'; vel_ned(gnss_idx+1,:)'];
-        H = [eye(3) zeros(3,6); zeros(3) eye(3) zeros(3)];
-        [x,P] = kalman_update(x,P,z-[pos_f;vel_f],H,R_gnss);
-        pos_f = pos_f + x(1:3); vel_f = vel_f + x(4:6); R_f = (eye(3)-skew(x(7:9)))*R_f; x(:)=0;
-        gnss_idx = gnss_idx + 1;
-    end
-    x_log(:,k) = [pos_f; vel_f; zeros(3,1)];
-    eul_log(:,k) = quat2euler(dcm2quat_custom(R_f));
+    rmse_pos(m) = sqrt(mean(vecnorm((x_log{m}(1:3,1:gnss_idx) - pos_ned(1:gnss_idx,:)').^2)));
+    final_err(m) = norm(pos_f - pos_ned(end,:)');
 end
 
 % Subtask 5.4: Log estimated state done above
 
-% Subtask 5.5: Compute RMSE and final error
-err = pos_f - pos_ned(end,:)';
-rmse_pos = sqrt(mean(vecnorm((x_log(1:3,1:gnss_idx) - pos_ned(1:gnss_idx,:)').^2)));
-fprintf('RMSE position: %.3f m, final error %.3f m\n', rmse_pos, norm(err));
+% Subtask 5.5: Compute RMSE and final error for each method
+for m=1:numel(methods)
+    fprintf('Method %s: RMSE %.3f m, final error %.3f m\n', methods{m}, rmse_pos(m), final_err(m));
+end
 
 % Subtask 5.6: Plot fused position
-fprintf('Subtask 5.6: Plotting fusion results\n');
+fprintf('Subtask 5.6: Plotting fusion results for all methods\n');
 fig = figure('Visible','off');
 plot(pos_ned(:,1), pos_ned(:,2),'k','DisplayName','GNSS'); hold on;
-plot(x_log(1,:), x_log(2,:),'b','DisplayName','KF'); grid on;
-legend; xlabel('North [m]'); ylabel('East [m]'); axis equal;
-title('KF Position');
+for m=1:numel(methods)
+    plot(x_log{m}(1,:), x_log{m}(2,:), method_colors{m}, 'DisplayName', methods{m});
+end
+grid on; legend;
+xlabel('North [m]'); ylabel('East [m]'); axis equal;
+title('KF Position Comparison');
 set(gcf,'PaperPositionMode','auto');
-file_kf = fullfile(results_dir,'Task5_fused_position.pdf');
+file_kf = fullfile(results_dir,'Task5_results_all_methods.pdf');
 saveas(fig, file_kf); close(fig);
 
 % Subtask 5.7: Save results
