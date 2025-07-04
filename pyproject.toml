@@ -1,10 +1,29 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "imu_gnss_fusion"
-version = "0.0.0"
-requires-python = ">=3.8"
+version = "0.1.0"
+description = "Python GNSS-IMU fusion and orientation estimation"
+authors = [{ name = "Your Name", email = "you@example.com" }]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+  "numpy>=1.26.0",
+  "scipy",
+  "pandas",
+  "matplotlib",
+  "pyyaml",
+  "tqdm",
+  "tabulate",
+  "rich",
+  "fpdf",
+  "filterpy",
+  "cartopy",
+  "geomaglib>=1.2.1",
+]
 
 [project.optional-dependencies]
 # Packages needed when running the test suite.  They mirror the
