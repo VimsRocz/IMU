@@ -11,7 +11,8 @@ import pandas as pd
 from tabulate import tabulate
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
-from utils import ensure_dependencies, ecef_to_geodetic
+from utils import ensure_dependencies
+from pyproj import Transformer
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -40,14 +41,20 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         continue
     truth = HERE / f"STATE_{m.group(1)}.txt"
     if not truth.exists():
+        print(f"Warning: Truth file for {m.group(1)} not found")
         continue
     first = np.loadtxt(truth, comments="#", max_rows=1)
     r0 = first[2:5]
+    expected_lat = expected_lon = None
     if m.group(1) == "X001":
         r0 = np.array([-3729050.8173, 3935675.6126, -3348394.2576])
-        lat_deg, lon_deg = -32.026554, 133.455801
-    else:
-        lat_deg, lon_deg, _ = ecef_to_geodetic(*r0)
+        expected_lat, expected_lon = -32.026554, 133.455801
+    transformer = Transformer.from_crs("EPSG:4978", "EPSG:4326", always_xy=True)
+    lon_deg, lat_deg, _ = transformer.transform(*r0)
+    msg = f"Debug: Computed lat={lat_deg:.6f}°, lon={lon_deg:.6f}° from r0={r0}"
+    if expected_lat is not None:
+        msg += f" (expected lat={expected_lat:.6f}°, lon={expected_lon:.6f}°)"
+    print(msg)
 
     vcmd = [
         sys.executable,
