@@ -372,6 +372,16 @@ def main():
 
     os.makedirs(args.output, exist_ok=True)
 
+    m_est = re.search(r"IMU_(X\d+)", os.path.basename(args.est_file))
+    m_truth = re.search(r"STATE_(X\d+)", os.path.basename(args.truth_file))
+    dataset_warning = None
+    if m_est and m_truth and m_est.group(1) != m_truth.group(1):
+        dataset_warning = (
+            "Warning: estimate file appears to use dataset"
+            f" {m_est.group(1)} but truth data is {m_truth.group(1)}."
+            " Large errors are expected."
+        )
+
     truth = np.loadtxt(args.truth_file)
     t_truth = truth[:, 1]
     est = load_estimate(args.est_file, times=t_truth)
@@ -427,7 +437,10 @@ def main():
     # --- Performance metrics ----------------------------------------------
     final_pos_error = np.linalg.norm(err_pos[-1])
     rmse_pos = np.sqrt(np.mean(np.sum(err_pos**2, axis=1)))
-    summary_lines = [
+    summary_lines = []
+    if dataset_warning:
+        summary_lines.append(dataset_warning)
+    summary_lines += [
         f"Final position error: {final_pos_error:.2f} m",
         f"RMSE position error: {rmse_pos:.2f} m",
     ]
@@ -445,15 +458,7 @@ def main():
             f"RMSE attitude error: {rmse_att:.4f} deg",
         ]
 
-    for line in summary_lines:
-        print(line)
-
     summary_path = os.path.join(args.output, "validation_summary.txt")
-    try:
-        with open(summary_path, "w") as f:
-            f.write("\n".join(summary_lines) + "\n")
-    except OSError as e:
-        print(f"Could not write summary file: {e}")
 
     sigma_pos = sigma_vel = sigma_quat = None
     if est["P"] is not None:
@@ -537,6 +542,15 @@ def main():
                 )
         except Exception as e:
             print(f"Overlay plot failed: {e}")
+
+    for line in summary_lines:
+        print(line)
+
+    try:
+        with open(summary_path, "w") as f:
+            f.write("\n".join(summary_lines) + "\n")
+    except OSError as e:
+        print(f"Could not write summary file: {e}")
 
 
 if __name__ == "__main__":
