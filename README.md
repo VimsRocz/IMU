@@ -61,19 +61,28 @@ pip install -e .[tests]
 ```
 This pulls in `pytest` and the additional dependencies such as `cartopy`.
 
-#### Offline installation
+#### Offline installation (optional)
 
-If your CI environment cannot reach PyPI, populate a local `vendor/`
-directory with all required packages by running:
+If you have internet access, simply install dependencies from PyPI with
+`pip install -r requirements.txt`.
+
+If your CI environment cannot reach PyPI, you can populate a local
+`vendor/` directory with all required packages by running:
 
 ```bash
 scripts/download_vendor.sh
 ```
 
 The script downloads binary wheels whenever possible and falls back to
-source archives for packages that do not provide wheels. The CI
-workflow installs from `vendor/` using `--no-index`.
+source archives for packages without wheels. Install the dependencies
+from this folder with:
 
+```bash
+pip install --no-index --find-links vendor -r requirements.txt
+```
+
+The default GitHub Actions workflow installs directly from PyPI, so
+vendoring is only necessary for completely offline setups.
 
 If the build error complains about Cython install it explicitly first:
 
