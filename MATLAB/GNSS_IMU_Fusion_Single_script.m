@@ -306,10 +306,13 @@ R_zupt = 1e-2*eye(3); R_gnss = blkdiag(5^2*eye(3), 0.5^2*eye(3));
 
 % Storage for logs
 N = size(imu,1); x_log = cell(size(methods)); eul_log = cell(size(methods));
+P_log = cell(size(methods));
 
 for m=1:numel(methods)
     x_log{m} = zeros(9,N);
     eul_log{m} = zeros(3,N);
+    P_log{m} = zeros(9,9,N);
+    P_log{m}(:,:,1) = P0;
     pos_f = zeros(3,1); vel_f = zeros(3,1); R_f = R_methods{m}; x = zeros(9,1); P = P0;
     gnss_idx = 1; gnss_time = gnss_tbl.Posix_Time;
     for k=2:N
@@ -336,6 +339,7 @@ for m=1:numel(methods)
         end
         x_log{m}(:,k) = [pos_f; vel_f; zeros(3,1)];
         eul_log{m}(:,k) = quat2euler(dcm2quat_custom(R_f));
+        P_log{m}(:,:,k) = P;
     end
     rmse_pos(m) = sqrt(mean(vecnorm((x_log{m}(1:3,1:gnss_idx) - pos_ned(1:gnss_idx,:)').^2)));
     final_err(m) = norm(pos_f - pos_ned(end,:)');
@@ -482,6 +486,45 @@ for mi = 1:numel(methods)
     fprintf('%s\n', summary_line);
 end
 
+%% -----------------------------------------------------------------------
+%% 3-sigma consistency check for each method
+%% -----------------------------------------------------------------------
+if ~isempty(truth_pos_i)
+    for mi = 1:numel(methods)
+        err_pos = fused_pos{mi} - truth_pos_i;
+        err_vel = fused_vel{mi} - truth_vel_i;
+        sigma_pos = zeros(N,3); sigma_vel = zeros(N,3);
+        for j = 1:3
+            sigma_pos(:,j) = 3*sqrt(squeeze(P_log{mi}(j,j,:)));
+            sigma_vel(:,j) = 3*sqrt(squeeze(P_log{mi}(3+j,3+j,:)));
+        end
+        h = figure('Visible','off','Units','pixels','Position',[0 0 1200 600]);
+        tl = tiledlayout(2,3,'TileSpacing','compact');
+        for j = 1:3
+            nexttile(j); hold on; grid on;
+            plot(t_imu, err_pos(:,j),'b','DisplayName','error');
+            plot(t_imu, sigma_pos(:,j),'r--','DisplayName','+3\sigma');
+            plot(t_imu,-sigma_pos(:,j),'r--','HandleVisibility','off');
+            ylabel(sprintf('Pos %s [m]', labels{j}));
+            if j==1, title(methods{mi}); legend('show'); end
+            nexttile(3+j); hold on; grid on;
+            plot(t_imu, err_vel(:,j),'b','DisplayName','error');
+            plot(t_imu, sigma_vel(:,j),'r--','DisplayName','+3\sigma');
+            plot(t_imu,-sigma_vel(:,j),'r--','HandleVisibility','off');
+            ylabel(sprintf('Vel %s [m/s]', labels{j}));
+        end
+        xlabel(tl,'Time [s]');
+        file3 = fullfile(results_dir, [methods{mi} '_3sigma_validation.pdf']);
+        print(h, file3, '-dpdf', '-bestfit');
+        close(h);
+        viol_p = sum(any(abs(err_pos) > sigma_pos,2));
+        viol_v = sum(any(abs(err_vel) > sigma_vel,2));
+        fprintf('%s: pos %d/%d samples beyond 3sigma, vel %d/%d\n', ...
+            methods{mi}, viol_p, size(err_pos,1), viol_v, size(err_vel,1));
+    end
+else
+    warning('Truth trajectory not available, skipping 3-sigma check');
+end
 %% ========================================================================
 %% Helper functions
 %% ========================================================================

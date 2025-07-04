@@ -155,6 +155,14 @@ files to `results/` that overlay the fused trajectory with the reference in
 the NED, ECEF and body frames (for example
 `TRIAD_body_overlay_truth.pdf`). The input data files are looked up relative
 to the repository root, so you can run the scripts from any directory.
+
+To inspect the Kalman-filter covariance run `src/method_3sigma_validation.py`
+after the fusion step. It loads the `*_kf_output.npz` files and plots the
+position and velocity errors together with ±3σ bounds from the stored
+covariance history. Each method produces a `<method>_3sigma_validation.pdf`
+file in the `results/` directory. The MATLAB script
+`GNSS_IMU_Fusion_Single_script.m` performs the same check automatically when a
+matching `STATE_<id>.txt` file is present.
 ### Sample Processing Report
 
 A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/` directory.
@@ -177,6 +185,7 @@ Typical result PDFs:
 - `<method>_attitude_angles.pdf` – attitude angles over time
 - `<method>_<frame>_overlay_truth.pdf` – fused output vs reference when a matching
   `STATE_<id>.txt` file is found (e.g. `SVD_ecef_overlay_truth.pdf`)
+- `<method>_3sigma_validation.pdf` – error curves with ±3σ bounds
 
 ### Notes
 
@@ -213,6 +222,15 @@ python src/run_all_methods.py --config your_config.yml
 ```
 
 Running the script without `--config` processes the bundled example data sets.
+After the NPZ results are written you can run `src/method_3sigma_validation.py` to verify the ±3σ error bounds:
+
+```bash
+python src/method_3sigma_validation.py --dataset X001 --results-dir results 
+    --truth STATE_X001.txt
+```
+This command creates `<method>_3sigma_validation.pdf` in `results/` for each method.
+
+Note that this validation step is optional and is not performed automatically by `run_all_methods.py`.
 
 
 #### run_all_datasets.py
