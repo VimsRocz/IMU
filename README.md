@@ -246,6 +246,9 @@ python src/run_triad_only.py
 run_triad_only
 ```
 This is equivalent to running `python src/run_all_datasets.py --method TRIAD`.
+The script also validates the fused trajectory against available
+`STATE_*.txt` files and writes an extended summary to
+`results/summary_truth.csv`.
 
 
 After all runs complete you can compare the datasets side by side:

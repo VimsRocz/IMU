@@ -899,6 +899,38 @@ rename_plot(sprintf('%s_Task5_Attitude.pdf', tag), ...
 rename_plot(sprintf('%s_Task5_ErrorAnalysis.pdf', tag), ...
             sprintf('%s_%s_residuals.pdf', tag, lower(method)));
 
+% -----------------------------------------------------------------------
+% Subtask 5.9: Validate against truth data if available
+% -----------------------------------------------------------------------
+state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
+if exist(state_file, 'file')
+    fprintf('Subtask 5.9: Validating against truth data\n');
+    truth = readmatrix(state_file);
+    truth_time = truth(:,2);
+    truth_pos = truth(:,3:5);
+    truth_vel = truth(:,6:8);
+    truth_eul = truth(:,9:11);
+
+    pos_interp = interp1(imu_time, x_log(1:3,:)', truth_time, 'linear', 'extrap');
+    vel_interp = interp1(imu_time, x_log(4:6,:)', truth_time, 'linear', 'extrap');
+    eul_interp = interp1(imu_time, rad2deg(euler_log)', truth_time, 'linear', 'extrap');
+
+    pos_err = pos_interp - truth_pos;
+    vel_err = vel_interp - truth_vel;
+    eul_err = eul_interp - truth_eul;
+
+    rmse_pos = sqrt(mean(vecnorm(pos_err,2,2).^2));
+    final_pos = norm(pos_err(end,:));
+    rmse_vel = sqrt(mean(vecnorm(vel_err,2,2).^2));
+    final_vel = norm(vel_err(end,:));
+    rmse_eul = sqrt(mean(vecnorm(eul_err,2,2).^2));
+    final_eul = norm(eul_err(end,:));
+
+    fprintf('Dataset %s, Method %s: RMSE pos=%.3f m, Final pos=%.3f m, ', imu_name, method, rmse_pos, final_pos);
+    fprintf('RMSE vel=%.3f m/s, Final vel=%.3f m/s, ', rmse_vel, final_vel);
+    fprintf('RMSE eul=%.3f deg, Final eul=%.3f deg\n', rmse_eul, final_eul);
+end
+
 end
 
 function rename_plot(src, dst)
