@@ -785,9 +785,9 @@ for j in range(3):
     
     # Acceleration comparison
     ax = axes_comp[2, j]
-    ax.plot(t_rel_gnss, gnss_acc_ned[:, j], 'k--', label='GNSS Acceleration (derived)')
+ax.plot(t_rel_gnss, gnss_acc_ned[:, j], 'k--', label='GNSS Derived')
     for m in methods:
-        ax.plot(t_rel_ilu, acc_integ[m][:, j], color=colors[m], alpha=0.7, label=f'IMU {m} Acceleration (direct)')
+        ax.plot(t_rel_ilu, acc_integ[m][:, j], color=colors[m], alpha=0.7, label=f'IMU {m} Acceleration')
     ax.set_title(f'Acceleration {directions[j]}')
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Acceleration (m/s²)')
@@ -842,8 +842,8 @@ for i in range(3):
         else:  # Acceleration
             for m in methods:
                 f_ned = C_B_N_methods[m] @ acc_body_corrected[m].T
-                ax.plot(t_rel_ilu, f_ned[j], color=colors[m], alpha=0.7, label=f'IMU {m} Specific Force (NED)')
-            ax.set_title(f'Specific Force f{directions_ned[j]}')
+                ax.plot(t_rel_ilu, f_ned[j], color=colors[m], alpha=0.7, label=f'IMU {m} Acceleration (NED)')
+            ax.set_title(f'Acceleration A{directions_ned[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Value')
         ax.legend()
@@ -870,8 +870,8 @@ for i in range(3):
             for m in methods:
                 f_ned = C_B_N_methods[m] @ acc_body_corrected[m].T
                 f_ecef = C_NED_to_ECEF @ f_ned
-                ax.plot(t_rel_ilu, f_ecef[j], color=colors[m], alpha=0.7, label=f'IMU {m} Specific Force (ECEF)')
-            ax.set_title(f'Specific Force f{directions_ecef[j]}_ECEF')
+                ax.plot(t_rel_ilu, f_ecef[j], color=colors[m], alpha=0.7, label=f'IMU {m} Acceleration (ECEF)')
+            ax.set_title(f'Acceleration A{directions_ecef[j]}_ECEF')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Value')
         ax.legend()
