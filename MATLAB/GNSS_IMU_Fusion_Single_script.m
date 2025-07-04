@@ -532,15 +532,6 @@ function S = skew(w)
     S=[  0   -w(3)  w(2); w(3)   0   -w(1); -w(2) w(1)  0];
 end
 
-function [x,P] = kalman_update(x,P,y,H,R)
-    S = H*P*H' + R;
-    if isnan(rcond(S)) || rcond(S) < 1e-12
-        S = S + 1e-6 * eye(size(S));
-    end
-    K = P*H'/S;
-    x = x + K*y;
-    P = (eye(size(P))-K*H)*P;
-end
 
 function save_pva_grid(t, pos_ned, vel_ned, acc_ned, outfile)
     fig = figure('Visible','off','Units','pixels','Position',[0 0 1200 900]);
