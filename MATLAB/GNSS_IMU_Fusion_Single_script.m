@@ -358,6 +358,87 @@ set(gcf,'PaperPositionMode','auto');
 file_kf = fullfile(results_dir,'Task5_results_all_methods.pdf');
 saveas(fig, file_kf); close(fig);
 
+% Subtask 5.6b: Plot fused position, velocity and acceleration for all methods
+% together with the GNSS measurements and the true trajectory if available.
+fprintf('Subtask 5.6b: Plotting all methods with truth trajectory\n');
+
+% Interpolate GNSS data to the IMU timeline
+gnss_pos_i = interp1(t_gnss, pos_ned, t_imu, 'linear', 'extrap');
+gnss_vel_i = interp1(t_gnss, vel_ned, t_imu, 'linear', 'extrap');
+gnss_acc_i = interp1(t_gnss, acc_ned_gnss, t_imu, 'linear', 'extrap');
+
+% Pre-compute fused velocity and acceleration for each method
+fused_pos = cell(size(methods));
+fused_vel = cell(size(methods));
+fused_acc = cell(size(methods));
+for mi = 1:numel(methods)
+    fused_pos{mi} = x_log{mi}(1:3,:)';
+    fused_vel{mi} = x_log{mi}(4:6,:)';
+    fused_acc{mi} = [zeros(1,3); diff(fused_vel{mi})./diff(t_imu)];
+end
+
+% Load truth trajectory when available
+truth_file = fullfile(root_dir, 'STATE_X001.txt');
+truth_pos_i = [];
+truth_vel_i = [];
+truth_acc_i = [];
+if exist(truth_file,'file')
+    Ttruth = readmatrix(truth_file);
+    t_truth = Ttruth(:,2) - Ttruth(1,2);
+    pos_truth = (C_e2n*(Ttruth(:,3:5)' - r0))';
+    vel_truth = (C_e2n*Ttruth(:,6:8)')';
+    acc_truth = [zeros(1,3); diff(vel_truth)./diff(t_truth)];
+    truth_pos_i = interp1(t_truth, pos_truth, t_imu, 'linear', 'extrap');
+    truth_vel_i = interp1(t_truth, vel_truth, t_imu, 'linear', 'extrap');
+    truth_acc_i = interp1(t_truth, acc_truth, t_imu, 'linear', 'extrap');
+end
+
+labels = {'North','East','Down'};
+fig = figure('Visible','off');
+for j = 1:3
+    % Position
+    subplot(3,3,j); hold on; grid on;
+    plot(t_imu, gnss_pos_i(:,j), 'k', 'DisplayName', 'GNSS');
+    if ~isempty(truth_pos_i)
+        plot(t_imu, truth_pos_i(:,j), 'm--', 'DisplayName', 'Truth');
+    end
+    for mi = 1:numel(methods)
+        plot(t_imu, fused_pos{mi}(:,j), method_colors{mi}, 'DisplayName', methods{mi});
+    end
+    xlabel('Time [s]'); ylabel('Position [m]');
+    title(['Position ' labels{j}]);
+    if j == 1
+        legend('show');
+    end
+    % Velocity
+    subplot(3,3,3+j); hold on; grid on;
+    plot(t_imu, gnss_vel_i(:,j), 'k', 'HandleVisibility','off');
+    if ~isempty(truth_vel_i)
+        plot(t_imu, truth_vel_i(:,j), 'm--', 'HandleVisibility','off');
+    end
+    for mi = 1:numel(methods)
+        plot(t_imu, fused_vel{mi}(:,j), method_colors{mi}, 'HandleVisibility','off');
+    end
+    xlabel('Time [s]'); ylabel('Velocity [m/s]');
+    title(['Velocity ' labels{j}]);
+    % Acceleration
+    subplot(3,3,6+j); hold on; grid on;
+    plot(t_imu, gnss_acc_i(:,j), 'k', 'HandleVisibility','off');
+    if ~isempty(truth_acc_i)
+        plot(t_imu, truth_acc_i(:,j), 'm--', 'HandleVisibility','off');
+    end
+    for mi = 1:numel(methods)
+        plot(t_imu, fused_acc{mi}(:,j), method_colors{mi}, 'HandleVisibility','off');
+    end
+    xlabel('Time [s]'); ylabel('Acceleration [m/s^2]');
+    title(['Acceleration ' labels{j}]);
+end
+sgtitle('Task 5 Comparison - All Methods with Truth');
+set(gcf,'PaperPositionMode','auto');
+file_alltruth = fullfile(results_dir,'task5_results_all_methods_truth.pdf');
+saveas(fig, file_alltruth); close(fig);
+fprintf('Saved plot: %s\n', file_alltruth);
+
 % Subtask 5.7: Save results
 save(fullfile(results_dir,'Task5_results.mat'), 'x_log','eul_log');
 

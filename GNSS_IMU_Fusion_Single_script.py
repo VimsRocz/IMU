@@ -761,7 +761,7 @@ print(f"t_rel_ilu range: {t_rel_ilu.min():.2f} to {t_rel_ilu.max():.2f}")
 # Comparison plot in NED frame
 fig_comp, axes_comp = plt.subplots(3, 3, figsize=(15, 10))
 directions = ['North', 'East', 'Down']
-colors = {'TRIAD': 'r', 'Davenport': 'g', 'SVD': 'b'}
+colors = {'TRIAD': 'r', 'Davenport': 'g', 'SVD': 'b', 'Truth': 'm'}
 for j in range(3):
     # Position comparison
     ax = axes_comp[0, j]
@@ -1092,7 +1092,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(mes
 
 # Define methods and colors
 methods = ['TRIAD', 'Davenport', 'SVD']
-colors = {'TRIAD': 'r', 'Davenport': 'g', 'SVD': 'b'}  # Red, Green, Blue
+colors = {'TRIAD': 'r', 'Davenport': 'g', 'SVD': 'b', 'Truth': 'm'}  # Red, Green, Blue, Magenta for truth
 directions = ['North', 'East', 'Down']
 
 # Interpolate GNSS acceleration to IMU time (done once for all plots)
@@ -1105,6 +1105,31 @@ for j in range(3):
     print(f"# Interpolated GNSS acceleration {directions[j]}: "
           f"First = {gnss_acc_ned_interp[0, j]:.4f}, Last = {gnss_acc_ned_interp[-1, j]:.4f}")
 
+# Attempt to load ground truth trajectory in STATE_X001.txt
+try:
+    truth = np.loadtxt('STATE_X001.txt')
+    truth_time = truth[:, 1]
+    truth_pos_ecef = truth[:, 2:5]
+    truth_vel_ecef = truth[:, 5:8]
+    truth_pos_ned = np.array([C_ECEF_to_NED @ (p - ref_r0) for p in truth_pos_ecef])
+    truth_vel_ned = np.array([C_ECEF_to_NED @ v for v in truth_vel_ecef])
+    truth_acc_ned = np.zeros_like(truth_vel_ned)
+    dt_truth = np.diff(truth_time, prepend=truth_time[0])
+    truth_acc_ned[1:] = (truth_vel_ned[1:] - truth_vel_ned[:-1]) / dt_truth[1:, np.newaxis]
+    truth_pos_ned_interp = np.vstack([
+        np.interp(imu_time, truth_time, truth_pos_ned[:, i]) for i in range(3)
+    ]).T
+    truth_vel_ned_interp = np.vstack([
+        np.interp(imu_time, truth_time, truth_vel_ned[:, i]) for i in range(3)
+    ]).T
+    truth_acc_ned_interp = np.vstack([
+        np.interp(imu_time, truth_time, truth_acc_ned[:, i]) for i in range(3)
+    ]).T
+    logging.info('Loaded ground truth trajectory.')
+except Exception as e:
+    truth_pos_ned_interp = truth_vel_ned_interp = truth_acc_ned_interp = None
+    logging.warning(f'Could not load truth data: {e}')
+
 # Subtask 5.8.1: Plotting Results for TRIAD
 logging.info("Subtask 5.8.1: Plotting results for TRIAD.")
 print("# Subtask 5.8.1: Starting to plot results for TRIAD.")
@@ -1114,6 +1139,8 @@ fig, axes = plt.subplots(3, 3, figsize=(15, 10))
 for j in range(3):
     ax = axes[0, j]
     ax.plot(imu_time, gnss_pos_ned_interp[:, j], 'k-', label='GNSS')
+    if truth_pos_ned_interp is not None:
+        ax.plot(imu_time, truth_pos_ned_interp[:, j], colors['Truth'], linestyle='--', label='Truth')
     ax.plot(imu_time, fused_pos['TRIAD'][:, j], colors['TRIAD'], alpha=0.7, label='Fused TRIAD')
     ax.set_title(f'Position {directions[j]}')
     ax.set_xlabel('Time (s)')
@@ -1128,6 +1155,8 @@ for j in range(3):
 for j in range(3):
     ax = axes[1, j]
     ax.plot(imu_time, gnss_vel_ned_interp[:, j], 'k-', label='GNSS')
+    if truth_vel_ned_interp is not None:
+        ax.plot(imu_time, truth_vel_ned_interp[:, j], colors['Truth'], linestyle='--', label='Truth')
     ax.plot(imu_time, fused_vel['TRIAD'][:, j], colors['TRIAD'], alpha=0.7, label='Fused TRIAD')
     ax.set_title(f'Velocity {directions[j]}')
     ax.set_xlabel('Time (s)')
@@ -1142,6 +1171,8 @@ for j in range(3):
 for j in range(3):
     ax = axes[2, j]
     ax.plot(imu_time, gnss_acc_ned_interp[:, j], 'k-', label='GNSS')
+    if truth_acc_ned_interp is not None:
+        ax.plot(imu_time, truth_acc_ned_interp[:, j], colors['Truth'], linestyle='--', label='Truth')
     ax.plot(imu_time, fused_acc['TRIAD'][:, j], colors['TRIAD'], alpha=0.7, label='Fused TRIAD')
     ax.set_title(f'Acceleration {directions[j]}')
     ax.set_xlabel('Time (s)')
@@ -1335,4 +1366,4 @@ plt.show()
 plt.close()
 logging.info("Subtask 5.8.4: Comparison plot for all methods saved as 'task5_results_all_methods.png'")
 print("# Subtask 5.8.4: Plotting completed. Saved as 'task5_results_all_methods.png'. "
-      "Colors: TRIAD (red), Davenport (green), SVD (blue), GNSS (black).")
+      "Colors: TRIAD (red), Davenport (green), SVD (blue), GNSS (black), Truth (magenta).")
