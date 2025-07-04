@@ -193,5 +193,7 @@ cython_debug/
 .cursorignore
 triad_init_log.txt
 results/
+!results/
+!results/plot_summary.txt
 MATLAB/results/
 vendor/

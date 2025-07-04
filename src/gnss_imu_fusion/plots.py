@@ -40,7 +40,7 @@ def save_zupt_variance(
     plt.close()
 
 
-def save_euler_angles(t: np.ndarray, euler_angles: np.ndarray, dataset_id: str) -> None:
+def save_euler_angles(t: np.ndarray, euler_angles: np.ndarray) -> None:
     """Plot roll, pitch and yaw over time."""
     plt.figure()
     plt.plot(t, euler_angles[:, 0], label="Roll")
@@ -51,8 +51,7 @@ def save_euler_angles(t: np.ndarray, euler_angles: np.ndarray, dataset_id: str) 
     plt.legend()
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) vs. Time")
-    filename = f"results/IMU_{dataset_id}_EulerAngles_time.pdf"
-    plt.savefig(filename)
+    plt.savefig("results/attitude_angles_over_time.pdf")
     plt.close()
 
 
@@ -62,34 +61,36 @@ def save_residual_plots(
     pos_gnss: np.ndarray,
     vel_filter: np.ndarray,
     vel_gnss: np.ndarray,
-    dataset_id: str,
 ) -> None:
-    """Plot position and velocity residuals for N/E/D."""
+    """Plot aggregated position and velocity residuals."""
     residual_pos = pos_filter - pos_gnss
     residual_vel = vel_filter - vel_gnss
     labels = ["North", "East", "Down"]
+
+    plt.figure(figsize=(10, 5))
     for i, label in enumerate(labels):
-        plt.figure()
-        plt.plot(t, residual_pos[:, i])
-        plt.xlabel("Time [s]")
-        plt.ylabel("Position Residual [m]")
-        plt.tight_layout()
-        plt.title(f"Position Residuals ({label}) vs. Time")
-        fname = f"results/IMU_{dataset_id}_GNSS_{dataset_id}_pos_residuals_{label}.pdf"
-        plt.savefig(fname)
-        plt.close()
-        plt.figure()
-        plt.plot(t, residual_vel[:, i])
-        plt.xlabel("Time [s]")
-        plt.ylabel("Velocity Residual [m/s]")
-        plt.tight_layout()
-        plt.title(f"Velocity Residuals ({label}) vs. Time")
-        fname = f"results/IMU_{dataset_id}_GNSS_{dataset_id}_vel_residuals_{label}.pdf"
-        plt.savefig(fname)
-        plt.close()
+        plt.plot(t, residual_pos[:, i], label=label)
+    plt.xlabel("Time [s]")
+    plt.ylabel("Position Residual [m]")
+    plt.title("Position Residuals vs. Time")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("results/position_residuals_vs_time.pdf")
+    plt.close()
+
+    plt.figure(figsize=(10, 5))
+    for i, label in enumerate(labels):
+        plt.plot(t, residual_vel[:, i], label=label)
+    plt.xlabel("Time [s]")
+    plt.ylabel("Velocity Residual [m/s]")
+    plt.title("Velocity Residuals vs. Time")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("results/velocity_residuals_vs_time.pdf")
+    plt.close()
 
 
-def save_attitude_over_time(t: np.ndarray, euler_angles: np.ndarray, dataset_id: str) -> None:
+def save_attitude_over_time(t: np.ndarray, euler_angles: np.ndarray) -> None:
     """Plot roll, pitch and yaw over the entire dataset."""
     plt.figure()
     plt.plot(t, euler_angles[:, 0], label="Roll")
@@ -100,7 +101,22 @@ def save_attitude_over_time(t: np.ndarray, euler_angles: np.ndarray, dataset_id:
     plt.legend()
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) Over Time")
-    fname = f"results/IMU_{dataset_id}_GNSS_{dataset_id}_attitude_time.pdf"
-    plt.savefig(fname)
+    plt.savefig("results/attitude_angles_over_time.pdf")
+    plt.close()
+
+
+def save_velocity_profile(t: np.ndarray, vel_filter: np.ndarray, vel_gnss: np.ndarray) -> None:
+    """Plot filter and GNSS velocity over time."""
+    labels = ["North", "East", "Down"]
+    plt.figure(figsize=(10, 5))
+    for i, label in enumerate(labels):
+        plt.plot(t, vel_gnss[:, i], linestyle="--", label=f"GNSS {label}")
+        plt.plot(t, vel_filter[:, i], label=f"Filter {label}")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Velocity [m/s]")
+    plt.title("Velocity Profile")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("results/velocity_profile.pdf")
     plt.close()
 

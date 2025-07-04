@@ -31,6 +31,12 @@ For a minimal setup you can also install the packages individually:
 pip install numpy matplotlib scipy filterpy
 ```
 
+If the `filterpy` wheel fails to build, force a source install:
+
+```bash
+pip install filterpy --no-binary :all:
+```
+
 The tests, however, require **all** packages from `requirements.txt` together
 with the optional test extras defined in `pyproject.toml`.  These pull in
 heavier libraries such as `cartopy`.  Installing them in a virtual environment
@@ -42,6 +48,7 @@ If you run into issues with filterpy on Ubuntu:
 ```bash
 pip install --upgrade pip setuptools
 pip install filterpy
+pip install filterpy --no-binary :all:
 ```
 
 #### Installing FilterPy on Ubuntu
@@ -49,8 +56,8 @@ pip install filterpy
 If installation of `filterpy` fails (for example due to missing build tools) run:
 
 ```bash
-sudo apt update && sudo apt install python3-pip
-pip3 install filterpy
+sudo apt update && sudo apt install python3-pip build-essential python3-dev
+pip3 install filterpy --no-binary :all:
 ```
 
 #### Installing test requirements

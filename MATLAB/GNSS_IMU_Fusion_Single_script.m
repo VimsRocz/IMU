@@ -3,6 +3,11 @@
 % This script performs IMU/GNSS alignment, dead-reckoning and fusion
 % using the TRIAD method and two alternative Wahba solutions. Results and
 % plots are stored under the 'results/' directory.
+% If you run the Python helper scripts, install filterpy with:
+%   pip install filterpy --no-binary :all:
+% and install build tools if required:
+%   sudo apt install build-essential python3-dev
+%   pip install filterpy --no-binary :all:
 %
 % The dataset filenames can be changed below. Each logical block is
 % annotated with "Subtask X.Y" comments for clarity.

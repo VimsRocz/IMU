@@ -1,0 +1,11 @@
+velocity_profile.pdf - Shows GNSS and filter predicted velocity over time.
+Key Point: Indicates filter convergence quality.
+
+attitude_angles_over_time.pdf - Filter-derived roll, pitch and yaw for the entire dataset.
+Key Point: Helps visualise orientation drift.
+
+position_residuals_vs_time.pdf - Difference between filter and GNSS positions for N/E/D.
+Key Point: Residual spikes highlight GNSS dropouts or filter misalignment.
+
+velocity_residuals_vs_time.pdf - Velocity residuals (filter minus GNSS) in N/E/D.
+Key Point: Validates velocity update performance.
