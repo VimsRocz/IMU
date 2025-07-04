@@ -55,6 +55,10 @@ def validate_with_truth(estimate_file, truth_file, dataset):
     # Align time vectors
     truth_time = truth[:, 0]
     est_time = np.arange(0, len(est_pos) * 0.0025, 0.0025)
+    print(
+        f"Debug: truth time range {truth_time[0]:.3f}-{truth_time[-1]:.3f} s, "
+        f"estimate time range {est_time[0]:.3f}-{est_time[-1]:.3f} s"
+    )
 
     # Interpolate estimated samples to the truth timestamps
     pos_interp = np.array(
