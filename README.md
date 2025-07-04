@@ -355,6 +355,34 @@ ruff check src tests
 Rule `E402` is ignored in `pyproject.toml` as some modules rely on runtime
 imports.
 
+### Static Analysis with CodeQL
+
+We use GitHub CodeQL to statically analyze Python code for common bugs,
+security issues and code smells.
+
+Here is an example CodeQL query that finds any function call using `eval()` –
+which should be avoided for safety:
+
+```ql
+// Detect usage of Python eval()
+from CallExpr call
+where call.getCallee().(NameExpr).getId() = "eval"
+select call, "Avoid using eval() — it's a security risk."
+```
+
+This query searches all function calls and flags ones using `eval()`. CodeQL
+integrates directly with GitHub via `.github/workflows/codeql.yml`.
+
+```ql
+// Detect deprecated numpy functions (e.g., matrix)
+from CallExpr call
+where call.getCallee().(NameExpr).getId() = "matrix"
+select call, "Consider using numpy.array() instead of numpy.matrix, which is deprecated."
+```
+
+Ensure the repository structure lets CodeQL reach all `.py` files without
+unusual folders or symlinks.
+
 ### Additional scripts
 
 The repository contains a few helper scripts that are not part of the regular
