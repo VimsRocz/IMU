@@ -13,8 +13,28 @@ script_dir = fileparts(mfilename('fullpath'));
 root_dir   = fileparts(script_dir);
 
 % Dataset filenames relative to repository root
-imu_file  = fullfile(root_dir, 'IMU_X001.dat');
-gnss_file = fullfile(root_dir, 'GNSS_X001.csv');
+% Multiple logs can be listed here and are loaded into workspace
+imu_files  = { 'IMU_X001.dat', 'IMU_X002.dat', 'IMU_X003.dat' };
+gnss_files = { 'GNSS_X001.csv', 'GNSS_X002.csv', 'GNSS_X002.csv' };
+
+% Pre-load all logs for convenience.  Task 1--4 below use the first pair
+% by default, but the other tables are kept in memory for analysis.
+imu_data_all  = cell(size(imu_files));
+gnss_data_all = cell(size(gnss_files));
+for i = 1:numel(imu_files)
+    fname = fullfile(root_dir, imu_files{i});
+    fprintf('Loaded IMU file %s\n', fname);
+    imu_data_all{i}  = readmatrix(fname);
+end
+for i = 1:numel(gnss_files)
+    fname = fullfile(root_dir, gnss_files{i});
+    fprintf('Loaded GNSS file %s\n', fname);
+    gnss_data_all{i} = readtable(fname);
+end
+
+% Use the first dataset for the processing below
+imu_file  = fullfile(root_dir, imu_files{1});
+gnss_file = fullfile(root_dir, gnss_files{1});
 
 % Create results directory at repository root
 results_dir = fullfile(root_dir, 'results');
@@ -215,6 +235,8 @@ end
 fprintf('Subtask 4.5: Plotting dead-reckoning comparison for all methods\n');
 t_imu = (0:size(f_b,1)-1)*dt_imu;
 t_gnss = gnss_tbl.Posix_Time - gnss_tbl.Posix_Time(1);
+fprintf(' -> gnss_time range: %.2f to %.2f s\n', min(t_gnss), max(t_gnss));
+fprintf(' -> imu_time  range: %.2f to %.2f s\n', t_imu(1), t_imu(end));
 fig = figure('Visible','off');
 for j=1:3
     subplot(3,3,j); hold on; grid on;
