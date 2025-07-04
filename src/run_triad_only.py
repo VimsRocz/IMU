@@ -2,13 +2,17 @@
 """Run all datasets using only the TRIAD initialisation method and
 validate results when ground truth data is available."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
 import re
+import logging
+
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
+from scipy.spatial.transform import Rotation as R
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
 from utils import ensure_dependencies
@@ -16,6 +20,113 @@ from pyproj import Transformer
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+TRUTH_PATH = HERE / "STATE_X001.txt"
+DATASETS = ["X001", "X002", "X003"]
+EXPECTED_LAT = -32.026554
+
+
+def load_truth_data(truth_file: Path):
+    """Load the common truth trajectory."""
+    logger.debug(f"Loading truth file: {truth_file}")
+    if not truth_file.exists():
+        logger.error(f"Truth file {truth_file} not found")
+        return None, None
+    try:
+        truth = np.loadtxt(truth_file, delimiter=",", comments="#")
+        logger.debug(f"Truth data shape: {truth.shape}")
+        return truth[:, 1], truth
+    except Exception as e:  # pragma: no cover - sanity check
+        logger.error(f"Failed to load truth file: {e}")
+        return None, None
+
+
+def trim_truth_to_estimate(truth_time, truth_data, est_time):
+    logger.debug(
+        "Truth time range: %.3f-%.3f s", truth_time[0], truth_time[-1]
+    )
+    logger.debug(
+        "Estimate time range: %.3f-%.3f s", est_time[0], est_time[-1]
+    )
+    valid = truth_time <= est_time[-1]
+    if not np.any(valid):
+        logger.error("No overlapping time range between truth and estimate data")
+        return None, None
+    t_trim = truth_time[valid]
+    d_trim = truth_data[valid]
+    logger.debug(
+        "Trimmed truth time range: %.3f-%.3f s", t_trim[0], t_trim[-1]
+    )
+    return t_trim, d_trim
+
+
+def ecef_to_ned(r0):
+    transformer = Transformer.from_crs("EPSG:4978", "EPSG:4326", always_xy=True)
+    try:
+        lon, lat, h = transformer.transform(*r0)
+        logger.debug(
+            "Computed lat=%.6f\u00b0, lon=%.6f\u00b0, h=%.2f m", lat, lon, h
+        )
+        if abs(lat - EXPECTED_LAT) > 0.1:
+            logger.warning(
+                "Computed latitude %.6f\u00b0 differs from expected %.6f\u00b0",
+                lat,
+                EXPECTED_LAT,
+            )
+        return lat, lon, h
+    except Exception as e:  # pragma: no cover - optional error
+        logger.error(f"ECEF-to-NED conversion failed: {e}")
+        return None, None, None
+
+
+def compute_errors(truth_data, est_pos, est_vel, est_eul, truth_time, est_time):
+    logger.debug("Computing errors against truth data")
+    try:
+        pos_i = np.vstack(
+            [np.interp(truth_time, est_time, est_pos[:, i]) for i in range(3)]
+        ).T
+        vel_i = np.vstack(
+            [np.interp(truth_time, est_time, est_vel[:, i]) for i in range(3)]
+        ).T
+        eul_i = np.vstack(
+            [np.interp(truth_time, est_time, est_eul[:, i]) for i in range(3)]
+        ).T
+
+        pos_err = np.linalg.norm(truth_data[:, 2:5] - pos_i, axis=1)
+        vel_err = np.linalg.norm(truth_data[:, 5:8] - vel_i, axis=1)
+        truth_eul = R.from_quat(truth_data[:, 8:12][:, [1, 2, 3, 0]]).as_euler(
+            "xyz", degrees=True
+        )
+        eul_err = np.linalg.norm(truth_eul - eul_i, axis=1)
+
+        rmse_pos = float(np.sqrt(np.mean(pos_err**2)))
+        final_pos = float(pos_err[-1])
+        rmse_vel = float(np.sqrt(np.mean(vel_err**2)))
+        final_vel = float(vel_err[-1])
+        rmse_eul = float(np.sqrt(np.mean(eul_err**2)))
+        final_eul = float(eul_err[-1])
+
+        logger.debug(
+            "RMSE pos=%.3f m, Final pos=%.3f m, RMSE vel=%.3f m/s, "
+            "Final vel=%.3f m/s, RMSE eul=%.3f deg, Final eul=%.3f deg",
+            rmse_pos,
+            final_pos,
+            rmse_vel,
+            final_vel,
+            rmse_eul,
+            final_eul,
+        )
+
+        return rmse_pos, final_pos, rmse_vel, final_vel, rmse_eul, final_eul
+    except Exception as e:  # pragma: no cover - safety
+        logger.error(f"Error computation failed: {e}")
+        return None, None, None, None, None, None
 
 # Install any missing dependencies before running the batch command
 ensure_dependencies()
@@ -33,28 +144,30 @@ subprocess.run(cmd, check=True)
 # Collect validation results for a final summary table
 summary = []
 
-# --- Validate results when STATE_<id>.txt exists -----------------------------
+# --- Load and trim common truth file ----------------------------------------
+truth_time, truth_data = load_truth_data(TRUTH_PATH)
+if truth_data is None:
+    sys.exit(1)
+
+est_ref_time = np.arange(0, 1250, 0.0025)
+trimmed_time, trimmed_data = trim_truth_to_estimate(truth_time, truth_data, est_ref_time)
+trimmed_truth_file = Path.cwd() / "results" / "STATE_X001_trimmed.txt"
+np.savetxt(trimmed_truth_file, trimmed_data, fmt="%0.8f")
+logger.debug(f"Trimmed truth saved to {trimmed_truth_file}")
+
+# --- Validate results when *_TRIAD_kf_output.mat exists ----------------------
 results = Path.cwd() / "results"
 for mat in results.glob("*_TRIAD_kf_output.mat"):
     m = re.match(r"IMU_(X\d+)_.*_TRIAD_kf_output\.mat", mat.name)
     if not m:
         continue
-    truth = HERE / f"STATE_{m.group(1)}.txt"
-    if not truth.exists():
-        print(f"Warning: Truth file for {m.group(1)} not found")
-        continue
+    dataset = m.group(1)
+    truth = trimmed_truth_file
     first = np.loadtxt(truth, comments="#", max_rows=1)
     r0 = first[2:5]
-    expected_lat = expected_lon = None
-    if m.group(1) == "X001":
+    if dataset == "X001":
         r0 = np.array([-3729050.8173, 3935675.6126, -3348394.2576])
-        expected_lat, expected_lon = -32.026554, 133.455801
-    transformer = Transformer.from_crs("EPSG:4978", "EPSG:4326", always_xy=True)
-    lon_deg, lat_deg, _ = transformer.transform(*r0)
-    msg = f"Debug: Computed lat={lat_deg:.6f}°, lon={lon_deg:.6f}° from r0={r0}"
-    if expected_lat is not None:
-        msg += f" (expected lat={expected_lat:.6f}°, lon={expected_lon:.6f}°)"
-    print(msg)
+    lat_deg, lon_deg, _ = ecef_to_ned(r0)
 
     vcmd = [
         sys.executable,
@@ -97,15 +210,35 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         m_val = re.search(r"RMSE attitude error:\s*([0-9.eE+-]+)", line)
         if m_val:
             metrics["rmse_att"] = float(m_val.group(1))
+
+    # additional internal error computation for debugging
+    est_interp = load_estimate(str(mat), times=trimmed_time)
+    if est_interp.get("quat") is not None:
+        est_eul = R.from_quat(
+            np.asarray(est_interp["quat"])[:, [1, 2, 3, 0]]
+        ).as_euler("xyz", degrees=True)
+    else:
+        est_eul = np.zeros_like(est_interp["pos"])
+
+    rmse_pos, final_pos, rmse_vel, final_vel, rmse_eul, final_eul = compute_errors(
+        trimmed_data,
+        np.asarray(est_interp["pos"]),
+        np.asarray(est_interp["vel"]),
+        est_eul,
+        trimmed_time,
+        trimmed_time,
+    )
+    logger.debug(
+        "%s - interp RMSEpos=%.3f m, final=%.3f m", dataset, rmse_pos, final_pos
+    )
     try:
-        truth_data = np.loadtxt(truth)
-        t_truth = truth_data[:, 1]
+        t_truth = trimmed_time
         est = load_estimate(str(mat), times=t_truth)
         m2 = re.match(r"(IMU_\w+)_((?:GNSS_)?\w+)_TRIAD_kf_output", mat.stem)
         if m2:
             imu_file = ROOT / f"{m2.group(1)}.dat"
             gnss_file = ROOT / f"{m2.group(2)}.csv"
-            frames = assemble_frames(est, imu_file, gnss_file, truth)
+            frames = assemble_frames(est, imu_file, gnss_file, str(truth))
             for frame_name, data in frames.items():
                 t_i, p_i, v_i, a_i = data["imu"]
                 t_g, p_g, v_g, a_g = data["gnss"]
