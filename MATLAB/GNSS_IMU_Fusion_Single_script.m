@@ -443,5 +443,11 @@ function S = skew(w)
 end
 
 function [x,P] = kalman_update(x,P,y,H,R)
-    S = H*P*H' + R; K = P*H'/S; x = x + K*y; P = (eye(size(P))-K*H)*P;
+    S = H*P*H' + R;
+    if isnan(rcond(S)) || rcond(S) < 1e-12
+        S = S + 1e-6 * eye(size(S));
+    end
+    K = P*H'/S;
+    x = x + K*y;
+    P = (eye(size(P))-K*H)*P;
 end
