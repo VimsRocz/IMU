@@ -35,6 +35,7 @@ end
 % Use the first dataset for the processing below
 imu_file  = fullfile(root_dir, imu_files{1});
 gnss_file = fullfile(root_dir, gnss_files{1});
+[~, imu_name, ~] = fileparts(imu_file);
 
 % Create results directory at repository root
 results_dir = fullfile(root_dir, 'results');
@@ -243,37 +244,40 @@ t_imu = (0:size(f_b,1)-1)*dt_imu;
 t_gnss = gnss_tbl.Posix_Time - gnss_tbl.Posix_Time(1);
 fprintf(' -> gnss_time range: %.2f to %.2f s\n', min(t_gnss), max(t_gnss));
 fprintf(' -> imu_time  range: %.2f to %.2f s\n', t_imu(1), t_imu(end));
-fig = figure('Visible','off');
+fig = figure('Visible','off','Units','pixels','Position',[0 0 1200 900]);
+tl = tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
+labels = {'North [m]','East [m]','Down [m]'};
+rowTitle = {'Position','Velocity','Acceleration'};
 for j=1:3
-    subplot(3,3,j); hold on; grid on;
+    nexttile(j); hold on; grid on;
     plot(t_gnss, pos_ned(:,j),'k--','DisplayName','GNSS');
     for m=1:numel(methods)
         plot(t_imu, pos_ins{m}(:,j),'Color',method_colors{m},'DisplayName',methods{m});
     end
-    xlabel('Time [s]');
-    if j==1, ylabel('Position [m]'); end
-    title(sprintf('Position %d', j));
-    if j==3, legend; end
-    subplot(3,3,3+j); hold on; grid on;
+    if j==1, ylabel(rowTitle{1}); end
+    title(labels{j}); if j==3, legend; end
+    nexttile(3+j); hold on; grid on;
     plot(t_gnss, vel_ned(:,j),'k--');
     for m=1:numel(methods)
         plot(t_imu, vel_ins{m}(:,j),'Color',method_colors{m});
     end
-    xlabel('Time [s]');
-    if j==1, ylabel('Velocity [m/s]'); end
-    title(sprintf('Velocity %d', j));
-    subplot(3,3,6+j); hold on; grid on;
+    if j==1, ylabel(rowTitle{2}); end
+    nexttile(6+j); hold on; grid on;
     plot(t_gnss, acc_ned_gnss(:,j),'k--');
     for m=1:numel(methods)
         plot(t_imu, a_ned{m}(:,j),'Color',method_colors{m});
     end
-    xlabel('Time [s]');
-    if j==1, ylabel('Acceleration [m/s^2]'); end
-    title(sprintf('Acceleration %d', j));
+    if j==1, ylabel(rowTitle{3}); end
 end
-set(gcf,'PaperPositionMode','auto');
+xlabel(tl,'Time [s]');
 comp_file = fullfile(results_dir,'Task4_comparison_ned.pdf');
-saveas(fig, comp_file); close(fig);
+print(fig, comp_file, '-dpdf', '-bestfit');
+close(fig);
+
+for mi=1:numel(methods)
+    outfile = fullfile(results_dir, sprintf('%s_%s_Task4_3x3.pdf', imu_name, methods{mi}));
+    save_pva_grid(t_imu, pos_ins{mi}, vel_ins{mi}, a_ned{mi}, outfile);
+end
 
 % Subtask 4.6: 2-D path plot (TRIAD only for legacy)
 fig = figure('Visible','off');
@@ -439,6 +443,11 @@ file_alltruth = fullfile(results_dir,'task5_results_all_methods_truth.pdf');
 saveas(fig, file_alltruth); close(fig);
 fprintf('Saved plot: %s\n', file_alltruth);
 
+for mi=1:numel(methods)
+    outfile = fullfile(results_dir, sprintf('%s_%s_Task5_3x3.pdf', imu_name, methods{mi}));
+    save_pva_grid(t_imu, fused_pos{mi}, fused_vel{mi}, fused_acc{mi}, outfile);
+end
+
 % Subtask 5.7: Save results
 save(fullfile(results_dir,'Task5_results.mat'), 'x_log','eul_log');
 
@@ -531,4 +540,24 @@ function [x,P] = kalman_update(x,P,y,H,R)
     K = P*H'/S;
     x = x + K*y;
     P = (eye(size(P))-K*H)*P;
+end
+
+function save_pva_grid(t, pos_ned, vel_ned, acc_ned, outfile)
+    fig = figure('Visible','off','Units','pixels','Position',[0 0 1200 900]);
+    tl  = tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
+    labels = {'North [m]','East [m]','Down [m]'};
+    yData  = {pos_ned, vel_ned, acc_ned};
+    rowTitle = {'Position','Velocity','Acceleration'};
+    for row = 1:3
+        for col = 1:3
+            nexttile((row-1)*3+col);
+            plot(t, yData{row}(:,col), 'LineWidth',1.1);
+            if row == 1, title(labels{col}); end
+            if col == 1, ylabel(sprintf('%s', rowTitle{row})); end
+            grid on
+        end
+    end
+    xlabel(tl, 'Time [s]');
+    print(fig, outfile, '-dpdf', '-bestfit');
+    close(fig);
 end
