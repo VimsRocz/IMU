@@ -12,7 +12,80 @@ from plot_overlay import plot_overlay
 import pandas as pd
 import re
 
-__all__ = ["load_estimate", "assemble_frames"]
+__all__ = ["load_estimate", "assemble_frames", "validate_with_truth"]
+
+
+def validate_with_truth(estimate_file, truth_file, dataset):
+    """Compute error metrics between an estimate and ground truth.
+
+    Parameters
+    ----------
+    estimate_file : str
+        Path to the estimated state file (NPZ/MAT).
+    truth_file : str
+        CSV file with the ground truth trajectory.
+    dataset : str
+        Name of the dataset, used only for logging.
+    """
+
+    print(f"Debug: Loading truth data for {dataset} from {truth_file}")
+    try:
+        # truth files are whitespace separated
+        truth = np.loadtxt(truth_file)
+        print(f"Debug: Truth shape = {truth.shape}")
+    except FileNotFoundError:
+        print(
+            f"Warning: Truth file {truth_file} not found, skipping validation for {dataset}"
+        )
+        return None, None, None, None, None, None
+
+    # load_estimate returns a dictionary with time, pos, vel and quaternion
+    est = load_estimate(estimate_file)
+    est_pos = np.asarray(est.get("pos"))
+    est_vel = np.asarray(est.get("vel"))
+    quat = est.get("quat")
+    if quat is not None:
+        est_eul = R.from_quat(np.asarray(quat)[:, [1, 2, 3, 0]]).as_euler("xyz", degrees=True)
+    else:
+        est_eul = np.zeros_like(est_pos)
+    print(
+        f"Debug: Estimate shapes - pos: {est_pos.shape}, vel: {est_vel.shape}, eul: {est_eul.shape}"
+    )
+
+    # Align time vectors
+    truth_time = truth[:, 0]
+    est_time = np.arange(0, len(est_pos) * 0.0025, 0.0025)
+
+    # Interpolate estimated samples to the truth timestamps
+    pos_interp = np.array(
+        [np.interp(truth_time, est_time, est_pos[:, i]) for i in range(3)]
+    ).T
+    vel_interp = np.array(
+        [np.interp(truth_time, est_time, est_vel[:, i]) for i in range(3)]
+    ).T
+    eul_interp = np.array(
+        [np.interp(truth_time, est_time, est_eul[:, i]) for i in range(3)]
+    ).T
+
+    # Compute errors
+    pos_err = pos_interp - truth[:, 1:4]
+    vel_err = vel_interp - truth[:, 4:7]
+    eul_err = eul_interp - truth[:, 7:10]
+
+    rmse_pos = np.sqrt(np.mean(np.linalg.norm(pos_err, axis=1) ** 2))
+    final_pos = np.linalg.norm(pos_err[-1, :])
+    rmse_vel = np.sqrt(np.mean(np.linalg.norm(vel_err, axis=1) ** 2))
+    final_vel = np.linalg.norm(vel_err[-1, :])
+    rmse_eul = np.sqrt(np.mean(np.linalg.norm(eul_err, axis=1) ** 2))
+    final_eul = np.linalg.norm(eul_err[-1, :])
+
+    print(
+        f"Debug: {dataset} - RMSE pos={rmse_pos:.3f} m, Final pos={final_pos:.3f} m, "
+        f"RMSE vel={rmse_vel:.3f} m/s, Final vel={final_vel:.3f} m/s, "
+        f"RMSE eul={rmse_eul:.3f}\u00b0, Final eul={final_eul:.3f}\u00b0"
+    )
+
+    return rmse_pos, final_pos, rmse_vel, final_vel, rmse_eul, final_eul
 
 
 def load_estimate(path, times=None):
@@ -385,6 +458,10 @@ def main():
     truth = np.loadtxt(args.truth_file)
     t_truth = truth[:, 1]
     est = load_estimate(args.est_file, times=t_truth)
+
+    # Extra debug information and quick validation metrics
+    ds_name = m_truth.group(1) if m_truth else "unknown"
+    validate_with_truth(args.est_file, args.truth_file, ds_name)
 
     ref_lat = np.deg2rad(args.ref_lat) if args.ref_lat is not None else None
     ref_lon = np.deg2rad(args.ref_lon) if args.ref_lon is not None else None
