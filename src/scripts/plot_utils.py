@@ -138,3 +138,53 @@ def plot_triad_euler(triad_rotmats: List[np.ndarray], dataset_names: List[str]):
     ax.legend()
     fig.tight_layout()
     return fig
+
+
+def plot_pva_grid(
+    time: np.ndarray,
+    pos: np.ndarray,
+    vel: np.ndarray,
+    acc: np.ndarray,
+    frame: str = "NED",
+) -> plt.Figure:
+    """Return a 3×3 figure of position, velocity and acceleration.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Time stamps for the samples.
+    pos, vel, acc : np.ndarray
+        Arrays of shape ``(N, 3)`` containing position, velocity and
+        acceleration components.
+    frame : str, optional
+        Coordinate frame name used to label the axes. Defaults to ``"NED"``.
+    """
+
+    axis_labels = {
+        "NED": ["N", "E", "D"],
+        "ECEF": ["X", "Y", "Z"],
+        "Body": ["X", "Y", "Z"],
+    }
+    cols = axis_labels.get(frame, ["X", "Y", "Z"])
+
+    fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
+    datasets = [
+        (pos, "Position [m]"),
+        (vel, "Velocity [m/s]"),
+        (acc, "Acceleration [m/s$^2$]"),
+    ]
+
+    for row, (arr, ylab) in enumerate(datasets):
+        for col, axis in enumerate(cols):
+            ax = axes[row, col]
+            ax.plot(time, arr[:, col])
+            if row == 0:
+                ax.set_title(axis)
+            if col == 0:
+                ax.set_ylabel(ylab)
+            if row == 2:
+                ax.set_xlabel("Time [s]")
+            ax.grid(True)
+
+    fig.tight_layout()
+    return fig

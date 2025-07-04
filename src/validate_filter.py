@@ -97,39 +97,37 @@ def compute_residuals(est: pd.DataFrame, gnss: pd.DataFrame) -> Tuple[pd.DataFra
 
 
 def plot_residuals(res_df: pd.DataFrame, out_dir: str) -> None:
+    """Plot position, velocity and acceleration residuals in a 3×3 grid."""
     os.makedirs(out_dir, exist_ok=True)
 
-    fig, ax = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
-    for i, comp in enumerate(['X', 'Y', 'Z']):
-        ax[i].plot(res_df.index, res_df['pos'][comp])
-        ax[i].set_ylabel(f'{comp} [m]')
-        ax[i].grid(True)
-    ax[-1].set_xlabel('Time (s)')
-    fig.suptitle('Position Residuals')
-    fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, 'p_residuals.pdf'))
-    plt.close(fig)
+    t = res_df.index.to_numpy()
+    vel = res_df['vel'][['X', 'Y', 'Z']].to_numpy()
+    dt = np.gradient(t)
+    acc = np.gradient(vel, t, axis=0)
 
-    fig, ax = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
-    for i, comp in enumerate(['X', 'Y', 'Z']):
-        ax[i].plot(res_df.index, res_df['vel'][comp])
-        ax[i].set_ylabel(f'{comp} [m/s]')
-        ax[i].grid(True)
-    ax[-1].set_xlabel('Time (s)')
-    fig.suptitle('Velocity Residuals')
-    fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, 'v_residuals.pdf'))
-    plt.close(fig)
+    fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
+    comps = ['X', 'Y', 'Z']
+    datasets = [
+        (res_df['pos'][comps].to_numpy(), 'Position Residual [m]'),
+        (vel, 'Velocity Residual [m/s]'),
+        (acc, 'Acceleration Residual [m/s$^2$]'),
+    ]
 
-    fig, ax = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
-    for i, comp in enumerate(['roll', 'pitch', 'yaw']):
-        ax[i].plot(res_df.index, res_df['att'][comp])
-        ax[i].set_ylabel(f'{comp} [deg]')
-        ax[i].grid(True)
-    ax[-1].set_xlabel('Time (s)')
-    fig.suptitle('Attitude Angles')
-    fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, 'attitude_angles.pdf'))
+    for row, (arr, ylab) in enumerate(datasets):
+        for col, comp in enumerate(comps):
+            ax = axes[row, col]
+            ax.plot(t, arr[:, col])
+            if row == 0:
+                ax.set_title(comp)
+            if col == 0:
+                ax.set_ylabel(ylab)
+            if row == 2:
+                ax.set_xlabel('Time (s)')
+            ax.grid(True)
+
+    fig.suptitle('Filter Residuals')
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.savefig(os.path.join(out_dir, 'residuals.pdf'))
     plt.close(fig)
 
 
@@ -140,19 +138,34 @@ def plot_residuals_new(gnss_times: np.ndarray,
                        velocities_meas: np.ndarray,
                        dataset: str,
                        method: str) -> None:
-    """Plot position and velocity residuals and save as PDF."""
+    """Plot residuals in a 3×3 grid and save as PDF."""
     res_pos = positions_meas - positions_pred
     res_vel = velocities_meas - velocities_pred
+    acc = np.gradient(res_vel, gnss_times, axis=0)
 
-    fig, axs = plt.subplots(2, 1, figsize=(8, 6))
-    axs[0].plot(gnss_times, res_pos)
-    axs[0].set_title('Position Residuals (N, E, D)')
-    axs[1].plot(gnss_times, res_vel)
-    axs[1].set_title('Velocity Residuals (N, E, D)')
-    axs[1].set_xlabel('Time (s)')
+    fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
+    comps = ['X', 'Y', 'Z']
+    datasets = [
+        (res_pos, 'Position Residual [m]'),
+        (res_vel, 'Velocity Residual [m/s]'),
+        (acc, 'Acceleration Residual [m/s$^2$]'),
+    ]
+
+    for row, (arr, ylab) in enumerate(datasets):
+        for col, comp in enumerate(comps):
+            ax = axes[row, col]
+            ax.plot(gnss_times, arr[:, col])
+            if row == 0:
+                ax.set_title(comp)
+            if col == 0:
+                ax.set_ylabel(ylab)
+            if row == 2:
+                ax.set_xlabel('Time (s)')
+            ax.grid(True)
+
     fig.suptitle(f'Residuals: {dataset} - {method}')
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
     out = f'results/{dataset}_{method}_residuals.pdf'
-    fig.tight_layout()
     fig.savefig(out)
     plt.close(fig)
 
