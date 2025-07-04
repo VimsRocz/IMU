@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 import re
 import numpy as np
+import pandas as pd
+from tabulate import tabulate
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
 from utils import ensure_dependencies, ecef_to_geodetic
@@ -26,6 +28,9 @@ cmd = [
     *sys.argv[1:],
 ]
 subprocess.run(cmd, check=True)
+
+# Collect validation results for a final summary table
+summary = []
 
 # --- Validate results when STATE_<id>.txt exists -----------------------------
 results = Path.cwd() / "results"
@@ -62,7 +67,29 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         str(r0[1]),
         str(r0[2]),
     ]
-    subprocess.run(vcmd, check=True)
+    proc = subprocess.run(vcmd, check=True, capture_output=True, text=True)
+    print(proc.stdout)
+    # parse validation summary metrics
+    metrics = {}
+    for line in proc.stdout.splitlines():
+        m_val = re.search(r"Final position error:\s*([0-9.eE+-]+)", line)
+        if m_val:
+            metrics["final_pos"] = float(m_val.group(1))
+        m_val = re.search(r"RMSE position error:\s*([0-9.eE+-]+)", line)
+        if m_val:
+            metrics["rmse_pos"] = float(m_val.group(1))
+        m_val = re.search(r"Final velocity error:\s*([0-9.eE+-]+)", line)
+        if m_val:
+            metrics["final_vel"] = float(m_val.group(1))
+        m_val = re.search(r"RMSE velocity error:\s*([0-9.eE+-]+)", line)
+        if m_val:
+            metrics["rmse_vel"] = float(m_val.group(1))
+        m_val = re.search(r"Final attitude error:\s*([0-9.eE+-]+)", line)
+        if m_val:
+            metrics["final_att"] = float(m_val.group(1))
+        m_val = re.search(r"RMSE attitude error:\s*([0-9.eE+-]+)", line)
+        if m_val:
+            metrics["rmse_att"] = float(m_val.group(1))
     try:
         truth_data = np.loadtxt(truth)
         t_truth = truth_data[:, 1]
@@ -102,5 +129,47 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
                     vel_truth=v_t,
                     acc_truth=a_t,
                 )
+
+            npz_path = mat.with_suffix('.npz')
+            q0 = [float('nan')]*4
+            P0 = [float('nan')]*3
+            try:
+                npz = np.load(npz_path, allow_pickle=True)
+                if 'attitude_q' in npz:
+                    q0 = npz['attitude_q'][0]
+                if 'P_hist' in npz:
+                    P0 = np.diagonal(npz['P_hist'][0])[:3]
+            except Exception:
+                pass
+
+            summary.append({
+                'dataset': m.group(1),
+                **metrics,
+                'q0_w': q0[0],
+                'q0_x': q0[1],
+                'q0_y': q0[2],
+                'q0_z': q0[3],
+                'Pxx': P0[0],
+                'Pyy': P0[1],
+                'Pzz': P0[2],
+            })
     except Exception as e:
         print(f"Overlay plot failed: {e}")
+
+if summary:
+    rows = [
+        [s.get('dataset'), s.get('rmse_pos'), s.get('final_pos'), s.get('rmse_vel'),
+         s.get('final_vel'), s.get('rmse_att'), s.get('final_att'),
+         s.get('q0_w'), s.get('q0_x'), s.get('q0_y'), s.get('q0_z'),
+         s.get('Pxx'), s.get('Pyy'), s.get('Pzz')]
+        for s in summary
+    ]
+    headers = [
+        'Dataset', 'RMSEpos[m]', 'FinalPos[m]', 'RMSEvel[m/s]', 'FinalVel[m/s]',
+        'RMSEatt[deg]', 'FinalAtt[deg]', 'q0_w', 'q0_x', 'q0_y', 'q0_z',
+        'Pxx', 'Pyy', 'Pzz'
+    ]
+    print(tabulate(rows, headers=headers, floatfmt='.3f'))
+    df = pd.DataFrame(rows, columns=headers)
+    df.to_csv(results / 'summary_truth.csv', index=False)
+
