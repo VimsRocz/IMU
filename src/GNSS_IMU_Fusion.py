@@ -36,6 +36,7 @@ from .gnss_imu_fusion.plots import (
     save_euler_angles,
     save_residual_plots,
     save_attitude_over_time,
+    save_velocity_profile,
 )
 from .gnss_imu_fusion.init import compute_reference_vectors, measure_body_vectors
 from .gnss_imu_fusion.integration import integrate_trajectory
@@ -82,10 +83,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--imu-file", required=True)
     parser.add_argument("--gnss-file", required=True)
+    # Using TRIAD initialization for all tests based on its consistent runtime and accuracy.
     parser.add_argument(
         "--method",
-        default="Davenport",
-        choices=["TRIAD", "SVD", "Davenport"],
+        default="TRIAD",
+        choices=["TRIAD"],
     )
     parser.add_argument("--mag-file", help="CSV file with magnetometer data")
     parser.add_argument(
@@ -1580,7 +1582,7 @@ def main():
         )
 
         euler_deg = np.rad2deg(euler_all[method])
-        save_euler_angles(imu_time, euler_deg, dataset_id)
+        save_euler_angles(imu_time, euler_deg)
 
         pos_f = np.vstack([
             np.interp(gnss_time, imu_time, fused_pos[method][:, i])
@@ -1590,16 +1592,16 @@ def main():
             np.interp(gnss_time, imu_time, fused_vel[method][:, i])
             for i in range(3)
         ]).T
+        save_velocity_profile(gnss_time, vel_f, gnss_vel_ned)
         save_residual_plots(
             gnss_time,
             pos_f,
             gnss_pos_ned,
             vel_f,
             gnss_vel_ned,
-            dataset_id,
         )
 
-        save_attitude_over_time(imu_time, euler_deg, dataset_id)
+        save_attitude_over_time(imu_time, euler_deg)
 
     logging.info(
         f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file)} gnss={os.path.basename(gnss_file)} "

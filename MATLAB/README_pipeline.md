@@ -13,7 +13,23 @@ MATLAB/
     Task_4.m
     Task_5.m
     data/
-    results/
+results/
+```
+
+### Installing FilterPy (Ubuntu)
+
+Some helper scripts call the Python Kalman filter via `filterpy`. If the wheel fails
+to build, install from source:
+
+```bash
+pip install filterpy --no-binary :all:
+```
+
+If build tools are missing run:
+
+```bash
+sudo apt install build-essential python3-dev
+pip install filterpy --no-binary :all:
 ```
 
 Place your `.dat` and `.csv` data files inside the `data/` folder. If the folder is
