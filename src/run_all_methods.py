@@ -26,6 +26,9 @@ import subprocess
 import sys
 from typing import Iterable, Tuple
 
+HERE = pathlib.Path(__file__).resolve().parent
+ROOT = HERE.parent
+
 try:
     import yaml
 except ModuleNotFoundError:  # allow running without PyYAML installed
@@ -96,11 +99,11 @@ def main(argv=None):
         print(f"\u25B6 {tag}")
         cmd = [
             sys.executable,
-            str(pathlib.Path(__file__).resolve().parent / "GNSS_IMU_Fusion.py"),
+            str(HERE / "GNSS_IMU_Fusion.py"),
             "--imu-file",
-            imu,
+            str(ROOT / imu),
             "--gnss-file",
-            gnss,
+            str(ROOT / gnss),
             "--method",
             m,
         ]
