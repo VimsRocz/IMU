@@ -96,6 +96,12 @@ fprintf('Subtask 2.2: Using first 4000 samples for static bias\n');
 N_static = min(4000, size(accel,1));
 fprintf(' -> N_{static} = %d samples\n', N_static);
 
+% Additionally compute a static mask over the entire dataset for ZUPT
+win = 200; % window for variance computation
+acc_var  = sliding_variance(accel, win);
+gyro_var = sliding_variance(gyro,  win);
+stat_mask = max(acc_var,[],2) < 0.01 & max(gyro_var,[],2) < 1e-6;
+
 % Subtask 2.3: Compute mean accel and gyro over static window
 accel_meas = mean(accel(1:N_static,:),1)';
 gyro_meas  = mean(gyro(1:N_static,:),1)';
