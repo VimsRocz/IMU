@@ -2,7 +2,6 @@
 """Run all datasets using only the TRIAD initialisation method and
 validate results when ground truth data is available."""
 
-import os
 import subprocess
 import sys
 from pathlib import Path

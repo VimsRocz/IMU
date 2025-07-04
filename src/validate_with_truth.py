@@ -461,6 +461,10 @@ def main():
 
     truth = np.loadtxt(args.truth_file)
     t_truth = truth[:, 1]
+    pos_truth_ecef = truth[:, 2:5]
+    dist_truth = np.zeros_like(t_truth)
+    if len(dist_truth) > 1:
+        dist_truth[1:] = np.cumsum(np.linalg.norm(np.diff(pos_truth_ecef, axis=0), axis=1))
     est = load_estimate(args.est_file, times=t_truth)
 
     # Extra debug information and quick validation metrics
@@ -493,7 +497,7 @@ def main():
 
     C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
 
-    truth_pos_ned = np.array([C @ (p - ref_r0) for p in truth[:, 2:5]])
+    truth_pos_ned = np.array([C @ (p - ref_r0) for p in pos_truth_ecef])
 
     err_pos = np.asarray(est["pos"]) - truth_pos_ned
     err_vel = None
@@ -565,25 +569,25 @@ def main():
                 [np.interp(t_truth, t_sigma, tmp[:, i]) for i in range(4)]
             ).T
 
-    def plot_err(t, err, sigma, labels, prefix):
+    def plot_err(x, err, sigma, labels, prefix, xlabel):
         for i, lbl in enumerate(labels):
             plt.figure()
-            plt.plot(t, err[:, i], label="error")
+            plt.plot(x, err[:, i], label="error")
             if sigma is not None:
-                plt.plot(t, sigma[: len(t), i], "r--", label="+3σ")
-                plt.plot(t, -sigma[: len(t), i], "r--")
-            plt.xlabel("Time [s]")
+                plt.plot(x, sigma[: len(x), i], "r--", label="+3σ")
+                plt.plot(x, -sigma[: len(x), i], "r--")
+            plt.xlabel(xlabel)
             plt.ylabel(f"{lbl} error")
             plt.legend()
             plt.tight_layout()
             plt.savefig(os.path.join(args.output, f"{prefix}_{lbl}.pdf"))
             plt.close()
 
-    plot_err(t_truth, err_pos, sigma_pos, ["X", "Y", "Z"], "pos_err")
+    plot_err(dist_truth, err_pos, sigma_pos, ["X", "Y", "Z"], "pos_err", "Distance [m]")
     if err_vel is not None:
-        plot_err(t_truth, err_vel, sigma_vel, ["Vx", "Vy", "Vz"], "vel_err")
+        plot_err(dist_truth, err_vel, sigma_vel, ["Vx", "Vy", "Vz"], "vel_err", "Distance [m]")
     if err_quat is not None:
-        plot_err(t_truth, err_quat, sigma_quat, ["q0", "q1", "q2", "q3"], "att_err")
+        plot_err(dist_truth, err_quat, sigma_quat, ["q0", "q1", "q2", "q3"], "att_err", "Distance [m]")
 
     m = re.match(
         r"(IMU_\w+)_(GNSS_\w+)_([A-Za-z]+)_kf_output",
