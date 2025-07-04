@@ -795,10 +795,10 @@ def main():
     for j in range(3):
         # Position comparison
         ax = axes_comp[0, j]
-        ax.plot(t_rel_gnss, gnss_pos_ned[:, j], 'k--', label='GNSS Position (direct)')
+        ax.plot(t_rel_gnss, gnss_pos_ned[:, j], 'k--', label='GNSS Position')
         for m in methods:
             c = colors.get(m, None)
-            ax.plot(t_rel_ilu, pos_integ[m][:, j], color=c, alpha=0.7, label=f'IMU {m} Position (derived)')
+            ax.plot(t_rel_ilu, pos_integ[m][:, j], color=c, alpha=0.7, label=f'IMU {m} Position (Derived)')
         ax.set_title(f'Position {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Position (m)')
@@ -806,10 +806,10 @@ def main():
         
         # Velocity comparison
         ax = axes_comp[1, j]
-        ax.plot(t_rel_gnss, gnss_vel_ned[:, j], 'k--', label='GNSS Velocity (direct)')
+        ax.plot(t_rel_gnss, gnss_vel_ned[:, j], 'k--', label='GNSS Velocity')
         for m in methods:
             c = colors.get(m, None)
-            ax.plot(t_rel_ilu, vel_integ[m][:, j], color=c, alpha=0.7, label=f'IMU {m} Velocity (derived)')
+            ax.plot(t_rel_ilu, vel_integ[m][:, j], color=c, alpha=0.7, label=f'IMU {m} Velocity (Derived)')
         ax.set_title(f'Velocity {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Velocity (m/s)')
@@ -817,10 +817,10 @@ def main():
         
         # Acceleration comparison
         ax = axes_comp[2, j]
-        ax.plot(t_rel_gnss, gnss_acc_ned[:, j], 'k--', label='GNSS Acceleration (derived)')
+        ax.plot(t_rel_gnss, gnss_acc_ned[:, j], 'k--', label='GNSS Derived')
         for m in methods:
             c = colors.get(m, None)
-            ax.plot(t_rel_ilu, acc_integ[m][:, j], color=c, alpha=0.7, label=f'IMU {m} Acceleration (direct)')
+            ax.plot(t_rel_ilu, acc_integ[m][:, j], color=c, alpha=0.7, label=f'IMU {m} Acceleration')
         ax.set_title(f'Acceleration {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Acceleration (m/s²)')
@@ -877,8 +877,8 @@ def main():
                 for m in methods:
                     c = colors.get(m, None)
                     f_ned = C_B_N_methods[m] @ acc_body_corrected[m].T
-                    ax.plot(t_rel_ilu, f_ned[j], color=c, alpha=0.7, label=f'IMU {m} Specific Force (NED)')
-                ax.set_title(f'Specific Force f{directions_ned[j]}')
+                    ax.plot(t_rel_ilu, f_ned[j], color=c, alpha=0.7, label=f'IMU {m} Acceleration (NED)')
+                ax.set_title(f'Acceleration A{directions_ned[j]}')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend()
@@ -906,8 +906,8 @@ def main():
                     c = colors.get(m, None)
                     f_ned = C_B_N_methods[m] @ acc_body_corrected[m].T
                     f_ecef = C_NED_to_ECEF @ f_ned
-                    ax.plot(t_rel_ilu, f_ecef[j], color=c, alpha=0.7, label=f'IMU {m} Specific Force (ECEF)')
-                ax.set_title(f'Specific Force f{directions_ecef[j]}_ECEF')
+                    ax.plot(t_rel_ilu, f_ecef[j], color=c, alpha=0.7, label=f'IMU {m} Acceleration (ECEF)')
+                ax.set_title(f'Acceleration A{directions_ecef[j]}_ECEF')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend()
