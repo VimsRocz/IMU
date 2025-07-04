@@ -453,6 +453,35 @@ save(fullfile(results_dir,'Task5_results.mat'), 'x_log','eul_log');
 
 fprintf('All tasks completed. Results stored in %s\n', results_dir);
 
+%% -----------------------------------------------------------------------
+%% Print summary metrics for each method (similar to Python script)
+%% -----------------------------------------------------------------------
+for mi = 1:numel(methods)
+    pos_est = fused_pos{mi};
+    vel_est = fused_vel{mi};
+    acc_est = fused_acc{mi};
+    res_pos = pos_est - gnss_pos_i;
+    res_vel = vel_est - gnss_vel_i;
+    rmse_pos_m  = sqrt(mean(sum(res_pos.^2,2)));
+    rmse_vel_m  = sqrt(mean(sum(res_vel.^2,2)));
+    final_pos_m = norm(pos_est(end,:) - gnss_pos_i(end,:));
+    final_vel_m = norm(vel_est(end,:) - gnss_vel_i(end,:));
+    final_acc_m = norm(acc_est(end,:) - gnss_acc_i(end,:));
+    rms_resid_pos = sqrt(mean(res_pos.^2,'all'));
+    rms_resid_vel = sqrt(mean(res_vel.^2,'all'));
+    max_resid_pos = max(vecnorm(res_pos,2,2));
+    max_resid_vel = max(vecnorm(res_vel,2,2));
+    min_resid_pos = min(vecnorm(res_pos,2,2)); %#ok<NASGU>
+    min_resid_vel = min(vecnorm(res_vel,2,2)); %#ok<NASGU>
+    summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%6.2fm ' ...
+        'final_pos=%6.2fm rms_resid_pos=%6.2fm max_resid_pos=%6.2fm ' ...
+        'rms_resid_vel=%6.2fm max_resid_vel=%6.2fm accel_bias=%.4f gyro_bias=%.4f ' ...
+        'ZUPT_count=%d'], methods{mi}, imu_files{1}, gnss_files{1}, ...
+        rmse_pos_m, final_pos_m, rms_resid_pos, max_resid_pos, ...
+        rms_resid_vel, max_resid_vel, norm(accel_bias), norm(gyro_bias), sum(stat_mask));
+    fprintf('%s\n', summary_line);
+end
+
 %% ========================================================================
 %% Helper functions
 %% ========================================================================
