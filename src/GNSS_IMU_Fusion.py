@@ -87,7 +87,7 @@ def main():
     parser.add_argument(
         "--method",
         default="TRIAD",
-        choices=["TRIAD"],
+        choices=["TRIAD", "Davenport", "SVD"],
     )
     parser.add_argument("--mag-file", help="CSV file with magnetometer data")
     parser.add_argument(
