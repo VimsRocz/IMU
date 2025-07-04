@@ -52,6 +52,22 @@ def load_config(path: str):
     return datasets, methods
 
 
+def run_case(cmd, log_path):
+    """Run a single fusion command and log output live to console and file."""
+    with open(log_path, "w") as log:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        for line in proc.stdout:
+            print(line, end="")
+            log.write(line)
+        proc.wait()
+        return proc.returncode
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Run GNSS_IMU_Fusion with multiple datasets and methods",
@@ -90,13 +106,9 @@ def main(argv=None):
         ]
         if args.no_plots:
             cmd.append("--no-plots")
-        with open(log_path, "w") as log:
-            subprocess.run(
-                cmd,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                check=True,
-            )
+        ret = run_case(cmd, log_path)
+        if ret != 0:
+            raise subprocess.CalledProcessError(ret, cmd)
 
 
 if __name__ == "__main__":
