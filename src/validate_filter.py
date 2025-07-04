@@ -102,7 +102,6 @@ def plot_residuals(res_df: pd.DataFrame, out_dir: str) -> None:
 
     t = res_df.index.to_numpy()
     vel = res_df['vel'][['X', 'Y', 'Z']].to_numpy()
-    dt = np.gradient(t)
     acc = np.gradient(vel, t, axis=0)
 
     fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
