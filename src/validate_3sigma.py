@@ -40,11 +40,21 @@ def load_estimate(path: str):
     else:
         data = loadmat(path)
 
-    t = np.asarray(pick(data, ["t", "time"])).squeeze()
-    pos = np.asarray(pick(data, ["pos", "pos_ned", "position"]))
-    vel = np.asarray(pick(data, ["vel", "vel_ned", "velocity"]))
-    quat = np.asarray(pick(data, ["quat", "att_quat", "quaternion"]))
-    P = np.asarray(pick(data, ["P", "covariance", "P_est"]))
+    t = pick(data, ["t", "time"])
+    pos = pick(data, ["pos", "pos_ned", "position"])
+    vel = pick(data, ["vel", "vel_ned", "velocity"])
+    quat = pick(data, ["quat", "att_quat", "quaternion"])
+    P = pick(data, ["P", "covariance", "P_est"])
+
+    missing = [name for name, val in [("t", t), ("pos", pos), ("vel", vel), ("quat", quat)] if val is None]
+    if missing:
+        raise KeyError(f"Missing required fields {missing} in estimator file '{path}'")
+
+    t = np.asarray(t).squeeze()
+    pos = np.asarray(pos)
+    vel = np.asarray(vel)
+    quat = np.asarray(quat)
+    P = np.asarray(P) if P is not None else None
 
     return t, pos, vel, quat, P
 
@@ -112,10 +122,13 @@ def main() -> None:
     final_vel = float(np.linalg.norm(err_vel[-1]))
     final_att = float(np.linalg.norm(euler_err[-1]))
 
-    diag = np.diagonal(P, axis1=1, axis2=2)
-    sigma_pos = 3 * np.sqrt(diag[:, 0:3])
-    sigma_vel = 3 * np.sqrt(diag[:, 3:6])
-    sigma_quat = 3 * np.sqrt(diag[:, -4:]) if diag.shape[1] >= 7 else None
+    if P is not None:
+        diag = np.diagonal(P, axis1=1, axis2=2)
+        sigma_pos = 3 * np.sqrt(diag[:, 0:3])
+        sigma_vel = 3 * np.sqrt(diag[:, 3:6])
+        sigma_quat = 3 * np.sqrt(diag[:, -4:]) if diag.shape[1] >= 7 else None
+    else:
+        sigma_pos = sigma_vel = sigma_quat = None
 
     plt.rcParams["axes.grid"] = True
 
@@ -126,8 +139,9 @@ def main() -> None:
     for i, lab in enumerate(labels_pos):
         fig, ax = plt.subplots()
         ax.plot(t, err_pos[:, i], label="error")
-        ax.plot(t, sigma_pos[:, i], "r--", label="+3σ")
-        ax.plot(t, -sigma_pos[:, i], "r--")
+        if sigma_pos is not None:
+            ax.plot(t, sigma_pos[:, i], "r--", label="+3σ")
+            ax.plot(t, -sigma_pos[:, i], "r--")
         ax.set_xlabel("Time [s]")
         ax.set_ylabel(f"Position {lab} error [m]")
         ax.legend()
@@ -138,8 +152,9 @@ def main() -> None:
     for i, lab in enumerate(labels_vel):
         fig, ax = plt.subplots()
         ax.plot(t, err_vel[:, i], label="error")
-        ax.plot(t, sigma_vel[:, i], "r--", label="+3σ")
-        ax.plot(t, -sigma_vel[:, i], "r--")
+        if sigma_vel is not None:
+            ax.plot(t, sigma_vel[:, i], "r--", label="+3σ")
+            ax.plot(t, -sigma_vel[:, i], "r--")
         ax.set_xlabel("Time [s]")
         ax.set_ylabel(f"Velocity {lab} error [m/s]")
         ax.legend()
