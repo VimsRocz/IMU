@@ -26,6 +26,9 @@ import subprocess
 import sys
 from typing import Iterable, Tuple
 
+os.makedirs('results', exist_ok=True)
+print("Ensured 'results/' directory exists.")
+
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 
@@ -89,8 +92,6 @@ def main(argv=None):
         cases, methods = load_config(args.config)
     else:
         cases, methods = list(DEFAULT_DATASETS), list(DEFAULT_METHODS)
-
-    os.makedirs("results", exist_ok=True)
 
     for (imu, gnss), m in itertools.product(cases, methods):
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"

@@ -2,6 +2,9 @@ import os
 import pandas as pd
 from fpdf import FPDF
 
+os.makedirs('results', exist_ok=True)
+print("Ensured 'results/' directory exists.")
+
 # Load run results produced by ``summarise_runs.py``
 DF_PATH = "results/summary.csv"
 

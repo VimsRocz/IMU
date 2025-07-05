@@ -12,6 +12,9 @@ from plot_overlay import plot_overlay
 import pandas as pd
 import re
 
+os.makedirs('results', exist_ok=True)
+print("Ensured 'results/' directory exists.")
+
 __all__ = ["load_estimate", "assemble_frames", "validate_with_truth"]
 
 

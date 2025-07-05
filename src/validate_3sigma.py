@@ -12,11 +12,15 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import os
 
 import numpy as np
 from scipy.io import loadmat
 from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
+
+os.makedirs('results', exist_ok=True)
+print("Ensured 'results/' directory exists.")
 
 
 def pick(container, names):

@@ -18,6 +18,9 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation as R
 
+os.makedirs('results', exist_ok=True)
+print("Ensured 'results/' directory exists.")
+
 
 def _find_cols(df: pd.DataFrame, options: Sequence[Sequence[str]]) -> Sequence[str]:
     """Return the first column set that is fully present in *df*."""

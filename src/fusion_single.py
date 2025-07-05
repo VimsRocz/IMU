@@ -9,6 +9,9 @@ from kalman import GNSSIMUKalman, rts_smoother
 from utils import compute_C_ECEF_to_NED
 from constants import GRAVITY, EARTH_RATE
 
+os.makedirs('results', exist_ok=True)
+print("Ensured 'results/' directory exists.")
+
 
 def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):
     nyq = 0.5 * fs
@@ -66,8 +69,6 @@ def main():
     parser.add_argument('--static_window', type=int, default=400)
     parser.add_argument('--smoother', action='store_true')
     args = parser.parse_args()
-
-    os.makedirs('results', exist_ok=True)
 
     gnss = pd.read_csv(args.gnss_file)
     imu = np.loadtxt(args.imu_file)

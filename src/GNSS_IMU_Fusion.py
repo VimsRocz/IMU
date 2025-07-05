@@ -24,6 +24,9 @@ from utils import (
 from constants import GRAVITY, EARTH_RATE
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
+
+os.makedirs('results', exist_ok=True)
+print("Ensured 'results/' directory exists.")
 from .gnss_imu_fusion.init_vectors import (
     average_rotation_matrices,
     svd_alignment,

@@ -8,9 +8,11 @@ Parse logs/* for lines that start with [SUMMARY] and emit:
 import csv
 import pathlib
 import re
+import os
 
+os.makedirs('results', exist_ok=True)
+print("Ensured 'results/' directory exists.")
 RESULTS_DIR = pathlib.Path("results")
-RESULTS_DIR.mkdir(exist_ok=True)
 
 LOG_DIR = pathlib.Path("logs")
 SUMMARY = re.compile(r"\[SUMMARY\]\s+(.*)")
