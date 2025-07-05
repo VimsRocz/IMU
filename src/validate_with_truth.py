@@ -382,7 +382,7 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     imu_file, gnss_file : str
         Raw data files used to generate *est*.
     truth_file : str or None, optional
-        Path to ``STATE_*.txt`` containing the reference trajectory. When
+        Path to ``STATE_X001.txt`` containing the reference trajectory. When
         provided, the returned frames include an additional ``"truth"``
         entry interpolated to the fused time vector.
     """
