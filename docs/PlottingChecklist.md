@@ -12,6 +12,19 @@ The following codex-style guidelines summarize how to present and document plots
   - Consistent colors across figures (North: blue, East: green, Down: red).
 - Annotate key results directly on the plot (e.g. RMSE or max error).
 
+## Standardized Legend Terms
+Use the same wording across all plots so readers immediately understand what
+each line represents.
+
+- **Measured GNSS** – raw position or velocity from the GNSS log.
+- **GNSS Derived** – values calculated from the GNSS data such as differentiated
+  acceleration.
+- **Derived IMU** – trajectory obtained by integrating the corrected IMU
+  measurements.  When comparing different initialisation methods append the
+  method name in parentheses, for example `Derived IMU (TRIAD)`.
+- **Fused** – Kalman filter output that combines GNSS and IMU, labelled as
+  `Fused <METHOD>`.
+
 ## 2. Create a Per-Plot Summary Table
 Include a table describing each plot with columns:
 

@@ -42,6 +42,7 @@ axes before continuing with the TRIAD attitude initialisation.
 - Save a diagnostic plot of the detected static window using
   `plot_zupt_and_variance()`. The file is stored as
   `results/<tag>_ZUPT_variance.pdf` and summarised in `plot_summary.md`.
+- Use the [standardized legend terms](PlottingChecklist.md#standardized-legend-terms) when naming plot entries.
 
 ### 2.3 Define Gravity and Earth Rate in Body Frame
 - The measured accelerometer mean is negated to give `g_body`.

@@ -31,6 +31,7 @@ Optional comparison plots
 ### 3.4 Check Alignment
 - Rotate body vectors with `R_tri` to compute gravity and Earth‑rate errors.
 - Save the error plot as `results/<tag>_task3_errors_comparison.pdf`.
+- Apply the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) so the labels match the Python plots.
 
 ### 3.5 Plot Quaternion Components
 - Plot the quaternion components together with Davenport and SVD for comparison.

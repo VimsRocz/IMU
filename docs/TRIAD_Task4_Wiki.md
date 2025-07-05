@@ -36,6 +36,7 @@ GNSS ECEF → NED → comparison plots
 ### 4.13 Validate and Plot
 - Create comparison plots in NED, body and ECEF frames showing GNSS, raw IMU and integrated IMU data.
 - Save the PDFs to `results/<tag>_task4_*.pdf` and list them in `plot_summary.md`.
+- Consult the [standardized legend terms](PlottingChecklist.md#standardized-legend-terms) when naming GNSS, IMU and fused traces.
 
 ## Result
 

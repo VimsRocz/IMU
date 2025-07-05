@@ -312,7 +312,7 @@ Interactive exploration lives in the `notebooks/` folder. Open
 `notebooks/demo.ipynb` to try the plotting utilities in Jupyter.
 Additional plotting examples and a results template are available in [docs/PlottingExamples.md](docs/PlottingExamples.md).
 
-A codex-style plotting checklist is available in [docs/PlottingChecklist.md](docs/PlottingChecklist.md).
+A codex-style plotting checklist is available in [docs/PlottingChecklist.md](docs/PlottingChecklist.md). See its [standardized legend terms](docs/PlottingChecklist.md#standardized-legend-terms) for the naming convention used in plot legends.
 
 ### Summary CSV format
 
