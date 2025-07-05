@@ -4,3 +4,16 @@
 # ignore any DS_Store files
 .DS_Store
 **/.DS_Store
+
+
+# Python cache and temp files
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Log and throwaway files
+testing.py
+triad_init_log.txt
+src/testing.py
+src/triad_init_log.txt
