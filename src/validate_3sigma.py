@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Compare filter errors with 3-sigma bounds.
 
-This script loads Kalman-filter estimates from a ``.mat`` file and a
-``STATE_X***.txt`` ground-truth file.  Position, velocity and quaternion
-errors are plotted together with ±3σ envelopes derived from the stored
-covariance matrices.
+This utility supports both ``.mat`` and ``.npz`` estimator files.  The
+variable names are normalised so that different pipelines can be used
+interchangeably.  Ground truth is provided in the ``STATE_*.txt`` format
+with columns ``[time,x,y,z,vx,vy,vz,qw,qx,qy,qz]``.  Only the overlapping
+time window is used when computing the error and the ±3σ envelopes.
 """
 
 from __future__ import annotations
@@ -14,22 +15,44 @@ from pathlib import Path
 
 import numpy as np
 from scipy.io import loadmat
+from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
+
+
+def pick(container, names):
+    """Return the first matching key in *names* from *container*."""
+
+    for n in names:
+        if n in container:
+            return container[n]
+    return None
+
+
+def load_estimate(path: str):
+    """Load estimator output from ``.mat`` or ``.npz`` file."""
+
+    if path.lower().endswith(".npz"):
+        data = np.load(path, allow_pickle=True)
+    else:
+        data = loadmat(path)
+
+    t = np.asarray(pick(data, ["t", "time"])).squeeze()
+    pos = np.asarray(pick(data, ["pos", "pos_ned", "position"]))
+    vel = np.asarray(pick(data, ["vel", "vel_ned", "velocity"]))
+    quat = np.asarray(pick(data, ["quat", "att_quat", "quaternion"]))
+    P = np.asarray(pick(data, ["P", "covariance", "P_est"]))
+
+    return t, pos, vel, quat, P
 
 
 def load_truth(path: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Return time, position, velocity and quaternion arrays."""
+
     data = np.loadtxt(path)
-    if data.shape[1] == 13:
-        time = data[:, 1]
-        pos = data[:, 2:5]
-        vel = data[:, 5:8]
-        quat = data[:, 8:12]
-    else:
-        time = data[:, 0]
-        pos = data[:, 1:4]
-        vel = data[:, 4:7]
-        quat = data[:, 7:11]
+    time = data[:, 0]
+    pos = data[:, 1:4]
+    vel = data[:, 4:7]
+    quat = data[:, 7:11]
     return time, pos, vel, quat
 
 
@@ -37,7 +60,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(
         description="Validate estimate against truth using 3-sigma bounds"
     )
-    ap.add_argument("--est-file", required=True, help="Path to .mat estimate file")
+    ap.add_argument("--est-file", required=True, help="Path to .mat or .npz estimate file")
     ap.add_argument(
         "--truth-file", required=True, help="Path to STATE_X001.txt ground truth"
     )
@@ -49,14 +72,16 @@ def main() -> None:
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    est = loadmat(args.est_file)
-    t = np.asarray(est["t"]).squeeze()
-    pos = np.asarray(est["pos"])
-    vel = np.asarray(est["vel"])
-    P = np.asarray(est["P"])
-    quat = np.asarray(est["quat"])
+    t, pos, vel, quat, P = load_estimate(args.est_file)
 
     truth_t, truth_pos, truth_vel, truth_quat = load_truth(args.truth_file)
+
+    # clip truth to the estimator time window
+    mask = (truth_t >= t.min()) & (truth_t <= t.max())
+    truth_t = truth_t[mask]
+    truth_pos = truth_pos[mask]
+    truth_vel = truth_vel[mask]
+    truth_quat = truth_quat[mask]
 
     pos_truth_i = np.vstack(
         [np.interp(t, truth_t, truth_pos[:, i]) for i in range(3)]
@@ -64,18 +89,29 @@ def main() -> None:
     vel_truth_i = np.vstack(
         [np.interp(t, truth_t, truth_vel[:, i]) for i in range(3)]
     ).T
-    quat_truth_i = np.vstack(
-        [np.interp(t, truth_t, truth_quat[:, i]) for i in range(4)]
-    ).T
+    # quaternion interpolation via spherical linear interpolation
+    r_truth = R.from_quat(truth_quat[:, [1, 2, 3, 0]])
+    slerp = Slerp(truth_t, r_truth)
+    quat_truth_i = slerp(t).as_quat()[:, [3, 0, 1, 2]]
 
     err_pos = pos - pos_truth_i
     err_vel = vel - vel_truth_i
     err_quat = quat - quat_truth_i
+    r_est = R.from_quat(quat[:, [1, 2, 3, 0]])
+    r_truth_i = R.from_quat(quat_truth_i[:, [1, 2, 3, 0]])
+    euler_err = (r_truth_i.inv() * r_est).as_euler("xyz", degrees=True)
+
+    rmse_pos = float(np.sqrt(np.mean(np.sum(err_pos**2, axis=1))))
+    rmse_vel = float(np.sqrt(np.mean(np.sum(err_vel**2, axis=1))))
+    rmse_att = float(np.sqrt(np.mean(np.sum(euler_err**2, axis=1))))
+    final_pos = float(np.linalg.norm(err_pos[-1]))
+    final_vel = float(np.linalg.norm(err_vel[-1]))
+    final_att = float(np.linalg.norm(euler_err[-1]))
 
     diag = np.diagonal(P, axis1=1, axis2=2)
     sigma_pos = 3 * np.sqrt(diag[:, 0:3])
     sigma_vel = 3 * np.sqrt(diag[:, 3:6])
-    sigma_quat = 3 * np.sqrt(diag[:, 6:10])
+    sigma_quat = 3 * np.sqrt(diag[:, -4:]) if diag.shape[1] >= 7 else None
 
     plt.rcParams["axes.grid"] = True
 
@@ -110,14 +146,25 @@ def main() -> None:
     for i, lab in enumerate(labels_quat):
         fig, ax = plt.subplots()
         ax.plot(t, err_quat[:, i], label="error")
-        ax.plot(t, sigma_quat[:, i], "r--", label="+3σ")
-        ax.plot(t, -sigma_quat[:, i], "r--")
+        if sigma_quat is not None:
+            ax.plot(t, sigma_quat[:, i], "r--", label="+3σ")
+            ax.plot(t, -sigma_quat[:, i], "r--")
         ax.set_xlabel("Time [s]")
         ax.set_ylabel(f"Quaternion {lab} error")
         ax.legend()
         fig.tight_layout()
         fig.savefig(out_dir / f"quat_err_{lab}.pdf")
         plt.close(fig)
+
+    print(
+        f"Final position error: {final_pos:.3f} m, RMSE: {rmse_pos:.3f} m"
+    )
+    print(
+        f"Final velocity error: {final_vel:.3f} m/s, RMSE: {rmse_vel:.3f} m/s"
+    )
+    print(
+        f"Final attitude error: {final_att:.3f} deg, RMSE: {rmse_att:.3f} deg"
+    )
 
 
 if __name__ == "__main__":
