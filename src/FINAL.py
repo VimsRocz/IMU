@@ -17,10 +17,14 @@ import time
 import pandas as pd
 import numpy as np
 import yaml
+import os
 
 from utils import ensure_dependencies
 from tabulate import tabulate
 from tqdm import tqdm
+
+os.makedirs('results', exist_ok=True)
+print("Ensured 'results/' directory exists.")
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent

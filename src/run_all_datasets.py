@@ -15,6 +15,7 @@ import time
 import pandas as pd
 import numpy as np
 import yaml
+import os
 
 from utils import ensure_dependencies, ecef_to_geodetic
 from tabulate import tabulate
@@ -22,6 +23,9 @@ from tqdm import tqdm
 # Overlay helper functions
 from validate_with_truth import load_estimate, assemble_frames
 from plot_overlay import plot_overlay
+
+os.makedirs('results', exist_ok=True)
+print("Ensured 'results/' directory exists.")
 
 ensure_dependencies()
 
@@ -117,7 +121,6 @@ def main():
     fusion_results = []
 
     results_dir = pathlib.Path.cwd() / "results"
-    results_dir.mkdir(exist_ok=True)
 
     for imu, gnss, method in tqdm(cases, desc="All cases"):
         if args.verbose:

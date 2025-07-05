@@ -6,6 +6,10 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 import scipy.io
+import os
+
+os.makedirs('results', exist_ok=True)
+print("Ensured 'results/' directory exists.")
 
 
 def run_python_pipeline(imu_file: str, gnss_file: str, method: str) -> Path:

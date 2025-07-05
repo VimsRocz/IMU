@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 import re
 import logging
+import os
 
 import numpy as np
 import pandas as pd
@@ -16,6 +17,9 @@ from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
 from utils import ensure_dependencies
 from pyproj import Transformer
+
+os.makedirs('results', exist_ok=True)
+print("Ensured 'results/' directory exists.")
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
