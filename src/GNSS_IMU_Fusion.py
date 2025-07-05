@@ -556,7 +556,7 @@ def main():
     ax.set_xticklabels(labels, rotation=45, ha='right')
     ax.set_ylabel('Quaternion Component Value')
     ax.set_title('Quaternion Components for Each Method and Case')
-    ax.legend()
+    ax.legend(loc="best")
     
     plt.tight_layout()
     if not args.no_plots:
@@ -793,6 +793,7 @@ def main():
     
     # Comparison plot in NED frame
     fig_comp, axes_comp = plt.subplots(3, 3, figsize=(15, 10))
+    fig_comp.suptitle("NED Frame (IMU-derived vs Measured GNSS)")
     directions = ['North', 'East', 'Down']
     colors = COLORS
     for j in range(3):
@@ -805,7 +806,7 @@ def main():
         ax.set_title(f'Position {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Position (m)')
-        ax.legend()
+        ax.legend(loc="best")
         
         # Velocity comparison
         ax = axes_comp[1, j]
@@ -816,7 +817,7 @@ def main():
         ax.set_title(f'Velocity {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Velocity (m/s)')
-        ax.legend()
+        ax.legend(loc="best")
         
         # Acceleration comparison
         ax = axes_comp[2, j]
@@ -827,7 +828,7 @@ def main():
         ax.set_title(f'Acceleration {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Acceleration (m/s²)')
-        ax.legend()
+        ax.legend(loc="best")
     plt.tight_layout()
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_comparison_ned.pdf")
@@ -837,6 +838,7 @@ def main():
     # Plot 1: Data in mixed frames (GNSS position/velocity in ECEF, IMU acceleration in body)
     logging.info("Plotting data in mixed frames.")
     fig_mixed, axes_mixed = plt.subplots(3, 3, figsize=(15, 10))
+    fig_mixed.suptitle("Mixed Frames (IMU-derived vs Measured GNSS)")
     directions_pos = ['X_ECEF', 'Y_ECEF', 'Z_ECEF']
     directions_vel = ['VX_ECEF', 'VY_ECEF', 'VZ_ECEF']
     directions_acc = ['AX_body', 'AY_body', 'AZ_body']
@@ -856,7 +858,7 @@ def main():
                 ax.set_title(f'Acceleration {directions_acc[j]}')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
-            ax.legend()
+            ax.legend(loc="best")
     plt.tight_layout()
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_mixed_frames.pdf")
@@ -866,6 +868,7 @@ def main():
     # Plot 2: All data in NED frame
     logging.info("Plotting all data in NED frame.")
     fig_ned, axes_ned = plt.subplots(3, 3, figsize=(15, 10))
+    fig_ned.suptitle("NED Frame (IMU-derived vs Measured GNSS)")
     directions_ned = ['N', 'E', 'D']
     for i in range(3):
         for j in range(3):
@@ -884,7 +887,7 @@ def main():
                 ax.set_title(f'Acceleration A{directions_ned[j]}')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
-            ax.legend()
+            ax.legend(loc="best")
     plt.tight_layout()
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_all_ned.pdf")
@@ -894,6 +897,7 @@ def main():
     # Plot 3: All data in ECEF frame
     logging.info("Plotting all data in ECEF frame.")
     fig_ecef, axes_ecef = plt.subplots(3, 3, figsize=(15, 10))
+    fig_ecef.suptitle("ECEF Frame (IMU-derived vs Measured GNSS)")
     directions_ecef = ['X', 'Y', 'Z']
     for i in range(3):
         for j in range(3):
@@ -913,7 +917,7 @@ def main():
                 ax.set_title(f'Acceleration A{directions_ecef[j]}_ECEF')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
-            ax.legend()
+            ax.legend(loc="best")
     plt.tight_layout()
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_all_ecef.pdf")
@@ -923,6 +927,7 @@ def main():
     # Plot 4: All data in body frame
     logging.info("Plotting all data in body frame.")
     fig_body, axes_body = plt.subplots(3, 3, figsize=(15, 10))
+    fig_body.suptitle("Body Frame (IMU-derived vs Measured GNSS)")
     directions_body = ['X', 'Y', 'Z']
     for i in range(3):
         for j in range(3):
@@ -942,7 +947,7 @@ def main():
                 ax.set_title(f'Acceleration A{directions_body[j]}_body')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
-            ax.legend()
+            ax.legend(loc="best")
     plt.tight_layout()
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_all_body.pdf")
@@ -1252,6 +1257,7 @@ def main():
     logging.info(f"Subtask 5.8.2: Plotting results for {method}.")
     logging.debug(f"# Subtask 5.8.2: Starting to plot results for {method}.")
     fig, axes = plt.subplots(3, 3, figsize=(15, 10))
+    fig.suptitle(f"{method} – NED Frame (Fused vs. Measured GNSS)")
     
     # Davenport - Position
     for j in range(3):
@@ -1262,7 +1268,7 @@ def main():
         ax.set_title(f'Position {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Position (m)')
-        ax.legend()
+        ax.legend(loc="best")
         logging.info(
             f"Subtask 5.8.2: Plotted {method} position {directions[j]}: "
             f"First = {fused_pos[method][0, j]:.4f}, Last = {fused_pos[method][-1, j]:.4f}"
@@ -1281,7 +1287,7 @@ def main():
         ax.set_title(f'Velocity {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Velocity (m/s)')
-        ax.legend()
+        ax.legend(loc="best")
         logging.info(
             f"Subtask 5.8.2: Plotted {method} velocity {directions[j]}: "
             f"First = {fused_vel[method][0, j]:.4f}, Last = {fused_vel[method][-1, j]:.4f}"
@@ -1300,7 +1306,7 @@ def main():
         ax.set_title(f'Acceleration {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Acceleration (m/s²)')
-        ax.legend()
+        ax.legend(loc="best")
         logging.info(
             f"Subtask 5.8.2: Plotted {method} acceleration {directions[j]}: "
             f"First = {fused_acc[method][0, j]:.4f}, Last = {fused_acc[method][-1, j]:.4f}"
@@ -1320,6 +1326,7 @@ def main():
     # ----- Additional reference frame plots -----
     logging.info("Plotting all data in NED frame.")
     fig_ned_all, ax_ned_all = plt.subplots(3, 3, figsize=(15, 10))
+    fig_ned_all.suptitle("NED Frame (Fused vs. Measured GNSS)")
     dirs_ned = ['N', 'E', 'D']
     c = colors.get(method, None)
     for i in range(3):
@@ -1342,7 +1349,7 @@ def main():
                 ax.set_title(f'Acceleration {dirs_ned[j]}')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
-            ax.legend()
+            ax.legend(loc="best")
     plt.tight_layout()
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_all_ned.pdf")
@@ -1351,6 +1358,7 @@ def main():
 
     logging.info("Plotting all data in ECEF frame.")
     fig_ecef_all, ax_ecef_all = plt.subplots(3, 3, figsize=(15, 10))
+    fig_ecef_all.suptitle("ECEF Frame (Fused vs. Measured GNSS)")
     dirs_ecef = ['X', 'Y', 'Z']
     pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
     vel_ecef = (C_NED_to_ECEF @ fused_vel[method].T).T
@@ -1375,7 +1383,7 @@ def main():
                 ax.set_title(f'Acceleration {dirs_ecef[j]}_ECEF')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
-            ax.legend()
+            ax.legend(loc="best")
     plt.tight_layout()
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_all_ecef.pdf")
@@ -1384,6 +1392,7 @@ def main():
 
     logging.info("Plotting all data in body frame.")
     fig_body_all, ax_body_all = plt.subplots(3, 3, figsize=(15, 10))
+    fig_body_all.suptitle("Body Frame (Fused vs. Measured GNSS)")
     dirs_body = ['X', 'Y', 'Z']
     C_N_B = C_B_N_methods[method].T
     pos_body = (C_N_B @ fused_pos[method].T).T
@@ -1412,7 +1421,7 @@ def main():
                 ax.set_title(f'Acceleration A{dirs_body[j]}_body')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
-            ax.legend()
+            ax.legend(loc="best")
     plt.tight_layout()
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_all_body.pdf")
@@ -1429,7 +1438,8 @@ def main():
         ax_innov[i].plot(innov_vel[:, i], label='Velocity', linestyle='--')
         ax_innov[i].set_ylabel(f'{labels[i]} residual')
         ax_innov[i].grid(True)
-    ax_innov[0].legend(loc='upper right')
+    for ax in ax_innov:
+        ax.legend(loc="best")
     ax_innov[-1].set_xlabel('GNSS update index')
     fig_innov.suptitle('Pre-fit Innovations (GNSS – prediction)')
     fig_innov.tight_layout()
@@ -1500,7 +1510,7 @@ def main():
         plt.plot(imu_time, euler[:, 2], label='Yaw')
         plt.xlabel('Time (s)')
         plt.ylabel('Angle (deg)')
-        plt.legend()
+        plt.legend(loc="best")
         plt.title(f'{tag} Attitude Angles')
         plt.savefig(f'results/{tag}_{method}_attitude_angles.png')
         plt.close()

@@ -80,10 +80,9 @@ def plot_overlay(
                 ax.set_ylabel(ylab)
             if row == 2:
                 ax.set_xlabel("Time [s]")
-            if row == 0 and col == 0:
-                ax.legend(loc="upper right")
+            ax.legend(loc="best")
 
-    fig.suptitle(f"{method} - {frame} frame comparison")
+    fig.suptitle(f"{method} – {frame} Frame (Fused vs. Measured GNSS)")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     out_path = Path(out_dir) / f"{method}_{frame}{suffix}"
     fig.savefig(out_path)
