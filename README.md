@@ -156,7 +156,10 @@ launch them from. All output files are written to this directory. When a
 matching ground truth file such as `STATE_X001.txt` is available the script
 automatically calls `validate_with_truth.py` to compare the estimated
 trajectory against it. The validation summary and overlay plots are saved next
-to the exported `.mat` files. If a `STATE_<id>.txt` file is found,
+to the exported `.mat` files. Each run also saves
+`IMU_<imu>_GNSS_<gnss>_<method>_kf_output.mat` with the time vector, fused
+position, velocity, covariance history and quaternion estimates for MATLAB.
+If a `STATE_<id>.txt` file is found,
 `validate_with_truth.py` also writes `<method>_<frame>_overlay_truth.pdf`
 files to `results/` that overlay the fused trajectory with the reference in
 the NED, ECEF and body frames (for example
