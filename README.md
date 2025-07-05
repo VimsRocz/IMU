@@ -139,32 +139,22 @@ the MATLAB scripts.
 
 ### Running validation
 
-To process the bundled datasets using only the TRIAD initialisation and
-validate the results, run either the Python or MATLAB helper script:
+Process all datasets with every initialisation method:
 
 ```bash
-python src/run_triad_only.py
+python src/run_all_methods.py
 ```
 
-```matlab
-run_triad_only
+Once the `*_kf_output.mat` files are created, validate them with:
+
+```bash
+python src/validate_all_outputs.py
 ```
 
-All the batch scripts (for example `src/run_triad_only.py` and
-`src/run_all_datasets.py`) create a `results/` folder in the directory you
-launch them from. All output files are written to this directory. When a
-matching ground truth file such as `STATE_X001.txt` is available the script
-automatically calls `validate_with_truth.py` to compare the estimated
-trajectory against it. The validation summary and overlay plots are saved next
-to the exported `.mat` files. Each run also saves
-`IMU_<imu>_GNSS_<gnss>_<method>_kf_output.mat` with the time vector, fused
-position, velocity, covariance history and quaternion estimates for MATLAB.
-If a `STATE_<id>.txt` file is found,
-`validate_with_truth.py` also writes `<method>_<frame>_overlay_truth.pdf`
-files to `results/` that overlay the fused trajectory with the reference in
-the NED, ECEF and body frames (for example
-`TRIAD_body_overlay_truth.pdf`). The input data files are looked up relative
-to the repository root, so you can run the scripts from any directory.
+The validator searches the `results/` folder for saved outputs, compares them
+to any matching `STATE_*.txt` ground truth and writes overlay figures and a CSV
+summary alongside the logs. All figures and summaries are therefore found in
+`results/`.
 ### Sample Processing Report
 
 A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/` directory.
