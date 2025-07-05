@@ -16,6 +16,7 @@ import pandas as pd
 import numpy as np
 import yaml
 import os
+from scipy.io import savemat
 
 from utils import ensure_dependencies, ecef_to_geodetic
 from tabulate import tabulate
@@ -171,6 +172,25 @@ def main():
                 "ZUPT_count": int(kv.get("ZUPT_count", "0")),
                 "runtime"  : runtime,
             })
+
+        # --- Save standard MATLAB output ---------------------------------
+        npz_path = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.npz"
+        if npz_path.exists():
+            data = np.load(npz_path, allow_pickle=True)
+            mat_out = {
+                "t": data.get("time_residuals"),
+                "pos": data.get("fused_pos"),
+                "vel": data.get("fused_vel"),
+                "P": data.get("P_hist"),
+                "quat": data.get("attitude_q"),
+            }
+            for key in data.files:
+                if key not in ["time_residuals", "fused_pos", "fused_vel", "P_hist", "attitude_q"]:
+                    mat_out[key] = data[key]
+            savemat(
+                results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat",
+                mat_out,
+            )
 
         ds_id = pathlib.Path(imu).stem.split("_")[1]
         truth_path = (ROOT / imu).with_name(f"STATE_{ds_id}.txt")
