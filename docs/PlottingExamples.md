@@ -1,6 +1,6 @@
 # Plotting Examples and Reporting Template
 
-This page provides ready-to-use snippets for visualising your IMU data and a template for documenting the results.
+This page provides ready-to-use snippets for visualising your IMU data and a template for documenting the results. See the [standardized legend terms](PlottingChecklist.md#standardized-legend-terms) for the naming convention used in the plots.
 
 ## Plot ZUPT-Detected Intervals and Accelerometer Variance
 

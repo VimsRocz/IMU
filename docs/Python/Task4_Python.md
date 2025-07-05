@@ -36,6 +36,7 @@ GNSS ECEF → NED → comparison plots
 ### 4.13 Validate and Plot
 - Create comparison plots in NED, body and ECEF frames.
 - Save the PDFs to `results/<tag>_task4_*.pdf` and record them in `plot_summary.md`.
+- Consult the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) when labelling GNSS, IMU and fused traces.
 
 ## Result
 

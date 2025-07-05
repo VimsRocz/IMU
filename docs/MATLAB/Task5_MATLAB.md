@@ -34,6 +34,7 @@ Fused trajectory + innovations
 - Save plots of fused position, velocity and acceleration.
 - Record innovations, residuals and attitude angles in the results folder.
 - Write a short markdown summary of the generated PDFs.
+- Follow the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) to keep MATLAB and Python figures consistent.
 
 ## Result
 

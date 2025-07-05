@@ -38,6 +38,7 @@ quaternion is appended to `triad_init_log.txt`.
 ### 3.5 Plot Quaternion Components
 - Plot `qw`, `qx`, `qy`, `qz` alongside the other methods for context.
 - The figure `results/<tag>_task3_quaternions_comparison.pdf` is created.
+- Apply the [standardized legend terms](PlottingChecklist.md#standardized-legend-terms) so the labels match other tasks.
 
 ## Result
 

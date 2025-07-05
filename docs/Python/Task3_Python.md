@@ -32,6 +32,7 @@ This is numerically more robust than the classic cross-product formula.
 ### 3.4 Check Alignment
 - Rotate the body vectors with `R_tri` and compute gravity and Earth‑rate errors in degrees.
 - Save the comparison plot as `results/<tag>_task3_errors_comparison.pdf`.
+- Use the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) so the curves match the rest of the documentation.
 
 ### 3.5 Plot Quaternion Components
 - Plot `qw`, `qx`, `qy`, `qz` alongside Davenport and SVD for context.
