@@ -69,11 +69,12 @@ def plot_overlay(
     for row, (imu, gnss, fused, truth, ylab) in enumerate(datasets):
         for col, axis in enumerate(cols):
             ax = axes[row, col]
-            ax.plot(t_imu, imu[:, col], "b--", label="IMU only")
-            ax.plot(t_gnss, gnss[:, col], "k.", label="GNSS")
+            gnss_label = "Measured GNSS" if row < 2 else "Derived GNSS"
+            ax.plot(t_imu, imu[:, col], "b--", label=f"Derived IMU ({method})")
+            ax.plot(t_gnss, gnss[:, col], "k.", label=gnss_label)
             if t_truth is not None and truth is not None:
                 ax.plot(t_truth, truth[:, col], "g-", label="Truth")
-            ax.plot(t_fused, fused[:, col], "r-", label="Fused")
+            ax.plot(t_fused, fused[:, col], "r-", label=f"Fused (GNSS+IMU, {method})")
             if row == 0:
                 ax.set_title(axis)
             if col == 0:
@@ -81,7 +82,7 @@ def plot_overlay(
             if row == 2:
                 ax.set_xlabel("Time [s]")
             if row == 0 and col == 0:
-                ax.legend(loc="upper right")
+                ax.legend(loc="best")
 
     fig.suptitle(f"{method} - {frame} frame comparison")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
