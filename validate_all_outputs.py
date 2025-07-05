@@ -2,8 +2,8 @@
 """Validate all estimator outputs in a directory.
 
 This helper looks for files ending in ``_kf_output.mat`` or ``_kf_output.npz``
-inside the results folder and runs :mod:`validate_and_plot` for each one when a
-matching ``STATE_*.txt`` truth file is available.
+inside the results folder and runs :mod:`validate_and_plot` for each one using
+the common ``STATE_X001.txt`` truth file.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ def main(argv: list[str] | None = None) -> None:
         "--truth-dir",
         type=Path,
         default=Path("."),
-        help="directory with STATE_*.txt files",
+        help="directory containing STATE_X001.txt",
     )
     parser.add_argument(
         "--output",
@@ -50,7 +50,7 @@ def main(argv: list[str] | None = None) -> None:
         m = re.search(r"IMU_(X\d+)", est_file.name)
         if not m:
             continue
-        truth_file = args.truth_dir / f"STATE_{m.group(1)}.txt"
+        truth_file = args.truth_dir / "STATE_X001.txt"
         if not truth_file.exists():
             print(f"Truth file '{truth_file}' not found, skipping {est_file.name}.")
             continue

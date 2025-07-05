@@ -3,7 +3,7 @@
 
 This utility supports both ``.mat`` and ``.npz`` estimator files.  The
 variable names are normalised so that different pipelines can be used
-interchangeably.  Ground truth is provided in the ``STATE_*.txt`` format
+interchangeably.  Ground truth is provided in ``STATE_X001.txt``
 with columns ``[time,x,y,z,vx,vy,vz,qw,qx,qy,qz]``.  Only the overlapping
 time window is used when computing the error and the ±3σ envelopes.
 """
@@ -15,48 +15,14 @@ from pathlib import Path
 import os
 
 import numpy as np
-from scipy.io import loadmat
 from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
 
+# Reuse the robust loader from validate_with_truth
+from validate_with_truth import load_estimate
+
 os.makedirs('results', exist_ok=True)
 print("Ensured 'results/' directory exists.")
-
-
-def pick(container, names):
-    """Return the first matching key in *names* from *container*."""
-
-    for n in names:
-        if n in container:
-            return container[n]
-    return None
-
-
-def load_estimate(path: str):
-    """Load estimator output from ``.mat`` or ``.npz`` file."""
-
-    if path.lower().endswith(".npz"):
-        data = np.load(path, allow_pickle=True)
-    else:
-        data = loadmat(path)
-
-    t = pick(data, ["t", "time"])
-    pos = pick(data, ["pos", "pos_ned", "position"])
-    vel = pick(data, ["vel", "vel_ned", "velocity"])
-    quat = pick(data, ["quat", "att_quat", "quaternion"])
-    P = pick(data, ["P", "covariance", "P_est"])
-
-    missing = [name for name, val in [("t", t), ("pos", pos), ("vel", vel), ("quat", quat)] if val is None]
-    if missing:
-        raise KeyError(f"Missing required fields {missing} in estimator file '{path}'")
-
-    t = np.asarray(t).squeeze()
-    pos = np.asarray(pos)
-    vel = np.asarray(vel)
-    quat = np.asarray(quat)
-    P = np.asarray(P) if P is not None else None
-
-    return t, pos, vel, quat, P
 
 
 def load_truth(path: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -76,7 +42,9 @@ def main() -> None:
     )
     ap.add_argument("--est-file", required=True, help="Path to .mat or .npz estimate file")
     ap.add_argument(
-        "--truth-file", required=True, help="Path to STATE_X001.txt ground truth"
+        "--truth-file",
+        default="STATE_X001.txt",
+        help="Path to STATE_X001.txt ground truth",
     )
     ap.add_argument(
         "--output-dir", default="results/", help="Directory where plots are saved"
@@ -86,7 +54,13 @@ def main() -> None:
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    t, pos, vel, quat, P = load_estimate(args.est_file)
+    est = load_estimate(args.est_file)
+
+    t = np.asarray(est.get("time")).squeeze()
+    pos = np.asarray(est.get("pos"))
+    vel = np.asarray(est.get("vel"))
+    quat = np.asarray(est.get("quat"))
+    P = np.asarray(est.get("P")) if est.get("P") is not None else None
 
     truth_t, truth_pos, truth_vel, truth_quat = load_truth(args.truth_file)
 

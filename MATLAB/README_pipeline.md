@@ -107,8 +107,8 @@ GNSS_IMU_Fusion_single('IMU_X001.dat','GNSS_X001.csv')
 ### Overlay comparison with ground truth
 
 Run `python src/validate_with_truth.py` or call the MATLAB helper
-`overlay_truth_task4` to overlay the fused trajectory with a
-`STATE_*.txt` reference. Before launching the script read the first row of
+`overlay_truth_task4` to overlay the fused trajectory with the
+`STATE_X001.txt` reference. Before launching the script read the first row of
 the state file to determine the reference ECEF coordinate and convert it to
 latitude and longitude. Pass these values via `--ref-lat`, `--ref-lon` and
 `--ref-r0` so that all transformations use the same origin:

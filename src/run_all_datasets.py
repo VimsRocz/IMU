@@ -192,8 +192,7 @@ def main():
                 mat_out,
             )
 
-        ds_id = pathlib.Path(imu).stem.split("_")[1]
-        truth_path = (ROOT / imu).with_name(f"STATE_{ds_id}.txt")
+        truth_path = ROOT / "STATE_X001.txt"
         est_mat = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat"
         if truth_path.exists():
             first = np.loadtxt(truth_path, comments="#", max_rows=1)

@@ -152,7 +152,7 @@ python src/validate_all_outputs.py
 ```
 
 The validator searches the `results/` folder for saved outputs, compares them
-to any matching `STATE_*.txt` ground truth and writes overlay figures and a CSV
+to the common `STATE_X001.txt` ground truth and writes overlay figures and a CSV
 summary alongside the logs. All figures and summaries are therefore found in
 `results/`.
 ### Sample Processing Report
@@ -175,8 +175,7 @@ Typical result PDFs:
 - `task5_all_body.pdf` – Kalman filter results in body frame
 - `<method>_residuals.pdf` – position and velocity residuals
 - `<method>_attitude_angles.pdf` – attitude angles over time
-- `<method>_<frame>_overlay_truth.pdf` – fused output vs reference when a matching
-  `STATE_<id>.txt` file is found (e.g. `SVD_ecef_overlay_truth.pdf`)
+- `<method>_<frame>_overlay_truth.pdf` – fused output vs reference using `STATE_X001.txt` (e.g. `SVD_ecef_overlay_truth.pdf`)
 
 ### Notes
 
@@ -248,8 +247,8 @@ python src/run_triad_only.py
 run_triad_only
 ```
 This is equivalent to running `python src/run_all_datasets.py --method TRIAD`.
-The script also validates the fused trajectory against available
-`STATE_*.txt` files and writes an extended summary to
+The script also validates the fused trajectory against the common
+`STATE_X001.txt` file and writes an extended summary to
 `results/summary_truth.csv`.
 
 
