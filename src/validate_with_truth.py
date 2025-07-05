@@ -15,7 +15,12 @@ import re
 os.makedirs('results', exist_ok=True)
 print("Ensured 'results/' directory exists.")
 
-__all__ = ["load_estimate", "assemble_frames", "validate_with_truth"]
+__all__ = [
+    "load_estimate",
+    "assemble_frames",
+    "validate_with_truth",
+    "run_debug_checks",
+]
 
 
 def validate_with_truth(estimate_file, truth_file, dataset):
@@ -93,6 +98,140 @@ def validate_with_truth(estimate_file, truth_file, dataset):
     )
 
     return rmse_pos, final_pos, rmse_vel, final_vel, rmse_eul, final_eul
+
+
+def run_debug_checks(estimate_file, truth_file, dataset):
+    """Run sanity checks on estimate and truth data.
+
+    Parameters
+    ----------
+    estimate_file : str
+        Path to the estimated state file.
+    truth_file : str
+        Path to the ground truth trajectory.
+    dataset : str
+        Name of the dataset used only for printing.
+    """
+
+    print("===== Debug Mode =====")
+    print(f"Estimate file: {estimate_file}")
+    print(f"Truth file: {truth_file}")
+    print(f"Dataset: {dataset}")
+
+    try:
+        truth = np.loadtxt(truth_file, comments="#")
+    except Exception as e:  # pragma: no cover - debug helper
+        print(f"Failed to load truth data: {e}")
+        return
+
+    est = load_estimate(estimate_file)
+
+    est_pos = np.asarray(est.get("pos"))
+    est_vel = np.asarray(est.get("vel"))
+    truth_time = truth[:, 1]
+
+    est_time = est.get("time")
+    if est_time is None or len(est_time) == 0:
+        est_time = np.arange(len(est_pos)) * 0.0025
+    else:
+        est_time = np.asarray(est_time).squeeze()
+
+    print("--- Data Consistency Check ---")
+    print(
+        f"Estimate samples: {len(est_time)}, Truth samples: {len(truth_time)}"
+    )
+    print(
+        f"Estimate pos shape: {est_pos.shape}, vel shape: {est_vel.shape},"
+        f" Truth shape: {truth.shape}"
+    )
+    print(
+        f"Time ranges - est: {est_time[0]:.3f} to {est_time[-1]:.3f} s,"
+        f" truth: {truth_time[0]:.3f} to {truth_time[-1]:.3f} s"
+    )
+
+    if est_pos.shape[0] == 0 or truth.shape[0] == 0:
+        print("No data available to debug.")
+        return
+
+    print("--- Reference Frame Check ---")
+    print("Estimate position sample:\n", est_pos[:3])
+    print("Truth position sample (ECEF):\n", truth[:3, 2:5])
+    if est.get("ref_r0") is not None:
+        print("Estimate reference origin:", np.asarray(est.get("ref_r0")).squeeze())
+
+    if np.linalg.norm(truth[0, 2:5]) > 1e6 and np.linalg.norm(est_pos[0]) < 1e5:
+        print(
+            "Warning: Estimate appears to be in NED while truth is in ECEF."
+            " Check reference frame conversion."
+        )
+        return
+
+    print("--- Units Check ---")
+    for arr, name in [
+        (est_pos, "Est Pos"),
+        (truth[:, 2:5], "Truth Pos"),
+        (est_vel, "Est Vel"),
+        (truth[:, 5:8], "Truth Vel"),
+    ]:
+        mins = arr.min(axis=0)
+        maxs = arr.max(axis=0)
+        rng = maxs - mins
+        print(f"{name} min {mins} max {maxs} range {rng}")
+
+    print("--- Time Alignment ---")
+    offset = truth_time[0] - est_time[0]
+    print(f"Start time offset (truth-est): {offset:.3f} s")
+    step_est = np.median(np.diff(est_time))
+    step_truth = np.median(np.diff(truth_time))
+    print(f"Mean dt estimate: {step_est:.4f} s, truth: {step_truth:.4f} s")
+    if abs(offset) > 1.0:
+        print("Warning: Large time offset between estimate and truth")
+    if abs(step_est - step_truth) > 0.01:
+        print("Warning: Sampling rates differ significantly")
+
+    print("--- Plot Sanity ---")
+    try:
+        for i, lbl in enumerate(["X", "Y", "Z"]):
+            plt.figure()
+            plt.plot(est_time, est_pos[:, i], label="estimate")
+            plt.plot(truth_time, truth[:, 2 + i], label="truth")
+            plt.xlabel("time [s]")
+            plt.ylabel(lbl)
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig(Path("results") / f"debug_{lbl}.pdf")
+            plt.close()
+    except Exception as e:  # pragma: no cover - plotting helper
+        print(f"Plot generation failed: {e}")
+
+    print("--- Residuals/Errors ---")
+    pos_interp = np.vstack(
+        [np.interp(truth_time, est_time, est_pos[:, i]) for i in range(3)]
+    ).T
+    vel_interp = np.vstack(
+        [np.interp(truth_time, est_time, est_vel[:, i]) for i in range(3)]
+    ).T
+    pos_err = pos_interp - truth[:, 2:5]
+    vel_err = vel_interp - truth[:, 5:8]
+    mean_pos = np.mean(np.linalg.norm(pos_err, axis=1))
+    rmse_pos = np.sqrt(np.mean(np.sum(pos_err**2, axis=1)))
+    mean_vel = np.mean(np.linalg.norm(vel_err, axis=1))
+    rmse_vel = np.sqrt(np.mean(np.sum(vel_err**2, axis=1)))
+    print(
+        f"Mean position error {mean_pos:.3f} m, RMSE {rmse_pos:.3f} m;"
+        f" Mean velocity error {mean_vel:.3f} m/s, RMSE {rmse_vel:.3f} m/s"
+    )
+    if rmse_pos > 10.0:
+        print(
+            "Warning: Position errors are very large (>10 m)."
+            " Verify reference frame and units."
+        )
+    if rmse_vel > 5.0:
+        print(
+            "Warning: Velocity errors are very large (>5 m/s)."
+            " Check time alignment and units."
+        )
+
 
 
 def load_estimate(path, times=None):
@@ -445,6 +584,11 @@ def main():
     ap.add_argument(
         "--output", default="results", help="directory for the generated PDFs"
     )
+    ap.add_argument(
+        "--debug",
+        action="store_true",
+        help="run additional sanity checks on the input files",
+    )
     ap.add_argument("--ref-lat", type=float, help="reference latitude in degrees")
     ap.add_argument("--ref-lon", type=float, help="reference longitude in degrees")
     ap.add_argument("--ref-r0", type=float, nargs=3, help="ECEF origin [m]")
@@ -473,6 +617,8 @@ def main():
     # Extra debug information and quick validation metrics
     ds_name = m_truth.group(1) if m_truth else "unknown"
     validate_with_truth(args.est_file, args.truth_file, ds_name)
+    if args.debug:
+        run_debug_checks(args.est_file, args.truth_file, ds_name)
 
     ref_lat = np.deg2rad(args.ref_lat) if args.ref_lat is not None else None
     ref_lon = np.deg2rad(args.ref_lon) if args.ref_lon is not None else None
