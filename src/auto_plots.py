@@ -75,7 +75,9 @@ def save_task4_plots(method_name: str, dataset_name: str, gnss_ned: pd.DataFrame
             "--",
             label=f"Derived IMU ({method_name})",
         )
-        ax.set_title(f"{method_name} {comp}-pos ({dataset_name})")
+        ax.set_title(
+            f"{method_name} {comp}-pos (IMU-derived vs. Measured GNSS, {dataset_name})"
+        )
         ax.legend(loc="best")
         fig.savefig(
             f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task4_{comp}_pos.png",
@@ -96,7 +98,9 @@ def save_task5_plots(method_name: str, dataset_name: str, fused: pd.DataFrame,
             "--",
             label=f"Fused (GNSS+IMU, {method_name})",
         )
-        ax.set_title(f"{method_name} {comp}-pos KF ({dataset_name})")
+        ax.set_title(
+            f"{method_name} {comp}-pos KF (Fused vs. Measured GNSS, {dataset_name})"
+        )
         ax.legend(loc="best")
         fig.savefig(
             f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task5_{comp}_pos.png",
@@ -112,9 +116,14 @@ def save_validation_plots(method_name: str, dataset_name: str,
     for name, df in ("residuals", residuals), ("innovations", innovations):
         fig, ax = plt.subplots()
         df.plot(ax=ax)
-        ax.set_title(f"{method_name} {name} ({dataset_name})")
-        fig.savefig(f"{OUTPUT_DIR}/{dataset_name}_{method_name}_{name}.png",
-                    dpi=200)
+        ax.set_title(
+            f"{method_name} {name} (Fused vs. Measured GNSS, {dataset_name})"
+        )
+        ax.legend(loc="best")
+        fig.savefig(
+            f"{OUTPUT_DIR}/{dataset_name}_{method_name}_{name}.png",
+            dpi=200,
+        )
         plt.close(fig)
 
 
