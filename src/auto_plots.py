@@ -70,9 +70,7 @@ def save_task4_plots(method_name: str, dataset_name: str, gnss_ned: pd.DataFrame
         fig, ax = plt.subplots()
         ax.plot(gnss_ned.index, gnss_ned[comp], "-", label="GNSS")
         ax.plot(imu_ned.index, imu_ned[comp], "--", label="IMU only")
-        ax.set_title(
-            f"{method_name} {comp}-pos (IMU Derived vs Measured GNSS – {dataset_name})"
-        )
+        ax.set_title(f"{method_name} {comp}-pos (IMU Derived vs. Measured GNSS – {dataset_name})")
         ax.legend(loc="best")
         fig.savefig(
             f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task4_{comp}_pos.png",
@@ -88,9 +86,7 @@ def save_task5_plots(method_name: str, dataset_name: str, fused: pd.DataFrame,
         fig, ax = plt.subplots()
         ax.plot(gnss.index, gnss[comp], "-", label="GNSS")
         ax.plot(fused.index, fused[comp], "--", label="Fused")
-        ax.set_title(
-            f"{method_name} {comp}-pos KF (Fused vs Measured GNSS – {dataset_name})"
-        )
+        ax.set_title(f"{method_name} {comp}-pos KF (Fused vs. Measured GNSS – {dataset_name})")
         ax.legend(loc="best")
         fig.savefig(
             f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task5_{comp}_pos.png",

@@ -793,7 +793,7 @@ def main():
     
     # Comparison plot in NED frame
     fig_comp, axes_comp = plt.subplots(3, 3, figsize=(15, 10))
-    fig_comp.suptitle("NED Frame (IMU-derived vs Measured GNSS)")
+    fig_comp.suptitle("NED Frame (IMU-derived vs. Measured GNSS)")
     directions = ['North', 'East', 'Down']
     colors = COLORS
     for j in range(3):
@@ -838,7 +838,7 @@ def main():
     # Plot 1: Data in mixed frames (GNSS position/velocity in ECEF, IMU acceleration in body)
     logging.info("Plotting data in mixed frames.")
     fig_mixed, axes_mixed = plt.subplots(3, 3, figsize=(15, 10))
-    fig_mixed.suptitle("Mixed Frames (IMU-derived vs Measured GNSS)")
+    fig_mixed.suptitle("Mixed Frames (IMU-derived vs. Measured GNSS)")
     directions_pos = ['X_ECEF', 'Y_ECEF', 'Z_ECEF']
     directions_vel = ['VX_ECEF', 'VY_ECEF', 'VZ_ECEF']
     directions_acc = ['AX_body', 'AY_body', 'AZ_body']
@@ -868,7 +868,7 @@ def main():
     # Plot 2: All data in NED frame
     logging.info("Plotting all data in NED frame.")
     fig_ned, axes_ned = plt.subplots(3, 3, figsize=(15, 10))
-    fig_ned.suptitle("NED Frame (IMU-derived vs Measured GNSS)")
+    fig_ned.suptitle("NED Frame (IMU-derived vs. Measured GNSS)")
     directions_ned = ['N', 'E', 'D']
     for i in range(3):
         for j in range(3):
@@ -897,7 +897,7 @@ def main():
     # Plot 3: All data in ECEF frame
     logging.info("Plotting all data in ECEF frame.")
     fig_ecef, axes_ecef = plt.subplots(3, 3, figsize=(15, 10))
-    fig_ecef.suptitle("ECEF Frame (IMU-derived vs Measured GNSS)")
+    fig_ecef.suptitle("ECEF Frame (IMU-derived vs. Measured GNSS)")
     directions_ecef = ['X', 'Y', 'Z']
     for i in range(3):
         for j in range(3):
@@ -927,7 +927,7 @@ def main():
     # Plot 4: All data in body frame
     logging.info("Plotting all data in body frame.")
     fig_body, axes_body = plt.subplots(3, 3, figsize=(15, 10))
-    fig_body.suptitle("Body Frame (IMU-derived vs Measured GNSS)")
+    fig_body.suptitle("Body Frame (IMU-derived vs. Measured GNSS)")
     directions_body = ['X', 'Y', 'Z']
     for i in range(3):
         for j in range(3):
