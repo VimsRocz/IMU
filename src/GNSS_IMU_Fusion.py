@@ -846,7 +846,8 @@ def main():
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Acceleration (m/s²)')
         ax.legend(loc="best")
-    plt.tight_layout()
+    fig_comp.suptitle(f"{method} – NED Frame (IMU-derived vs. Measured GNSS)")
+    fig_comp.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_comparison_ned.pdf")
     plt.close()
@@ -881,7 +882,8 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    plt.tight_layout()
+    fig_mixed.suptitle(f"{method} – Mixed Frames (IMU-derived vs. Measured GNSS)")
+    fig_mixed.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_mixed_frames.pdf")
     plt.close()
@@ -915,7 +917,8 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    plt.tight_layout()
+    fig_ned.suptitle(f"{method} – NED Frame (IMU-derived vs. Measured GNSS)")
+    fig_ned.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_all_ned.pdf")
     plt.close()
@@ -944,7 +947,8 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    plt.tight_layout()
+    fig_ecef.suptitle(f"{method} – ECEF Frame (IMU-derived vs. Measured GNSS)")
+    fig_ecef.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_all_ecef.pdf")
     plt.close()
@@ -973,7 +977,8 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    plt.tight_layout()
+    fig_body.suptitle(f"{method} – Body Frame (IMU-derived vs. Measured GNSS)")
+    fig_body.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_all_body.pdf")
     plt.close()
@@ -1373,7 +1378,8 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    plt.tight_layout()
+    fig_ned_all.suptitle(f"{method} – NED Frame (Fused vs. Measured GNSS)")
+    fig_ned_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_all_ned.pdf")
     plt.close()
@@ -1406,7 +1412,8 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    plt.tight_layout()
+    fig_ecef_all.suptitle(f"{method} – ECEF Frame (Fused vs. Measured GNSS)")
+    fig_ecef_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_all_ecef.pdf")
     plt.close()
@@ -1443,7 +1450,8 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    plt.tight_layout()
+    fig_body_all.suptitle(f"{method} – Body Frame (Fused vs. Measured GNSS)")
+    fig_body_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_all_body.pdf")
     plt.close()
@@ -1459,9 +1467,9 @@ def main():
         ax_innov[i].plot(innov_vel[:, i], label='Velocity', linestyle='--')
         ax_innov[i].set_ylabel(f'{labels[i]} residual')
         ax_innov[i].grid(True)
-    ax_innov[0].legend(loc='upper right')
+    ax_innov[0].legend(loc='best')
     ax_innov[-1].set_xlabel('GNSS update index')
-    fig_innov.suptitle('Pre-fit Innovations (GNSS – prediction)')
+    fig_innov.suptitle('Pre-fit Innovations (Fused vs. Measured GNSS)')
     fig_innov.tight_layout()
     innov_pdf = f"results/{tag}_{method.lower()}_innovations.pdf"
     if not args.no_plots:
