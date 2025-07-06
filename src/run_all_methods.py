@@ -32,9 +32,10 @@ from scipy.io import savemat
 
 from utils import compute_C_ECEF_to_NED
 
+logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 os.makedirs('results', exist_ok=True)
-logging.info("Ensured 'results/' directory exists.")
+logger.info("Ensured 'results/' directory exists.")
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -98,17 +99,37 @@ def main(argv=None):
         action="store_true",
         help="Skip plot generation for faster execution",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose debug output",
+    )
     args = parser.parse_args(argv)
+
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
 
     if args.config:
         cases, methods = load_config(args.config)
     else:
         cases, methods = list(DEFAULT_DATASETS), list(DEFAULT_METHODS)
 
+    logger.debug(f"Datasets: {cases}")
+    logger.debug(f"Methods: {methods}")
+
     for (imu, gnss), m in itertools.product(cases, methods):
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
         log_path = pathlib.Path("results") / f"{tag}.log"
         print(f"\u25B6 {tag}")
+        if logger.isEnabledFor(logging.DEBUG):
+            try:
+                gnss_preview = np.loadtxt(ROOT / gnss, delimiter=",", skiprows=1, max_rows=1)
+                imu_preview = np.loadtxt(ROOT / imu, max_rows=1)
+                logger.debug(f"GNSS preview: shape {gnss_preview.shape}, first row: {gnss_preview}")
+                logger.debug(f"IMU preview: shape {imu_preview.shape}, first row: {imu_preview}")
+            except Exception as e:
+                logger.warning(f"Failed data preview for {imu} or {gnss}: {e}")
         cmd = [
             sys.executable,
             str(HERE / "GNSS_IMU_Fusion.py"),
@@ -130,6 +151,7 @@ def main(argv=None):
         npz_path = pathlib.Path("results") / f"{tag}_kf_output.npz"
         if npz_path.exists():
             data = np.load(npz_path, allow_pickle=True)
+            logger.debug(f"Loaded output {npz_path} with keys: {list(data.keys())}")
             time_s = data.get("time")
             pos_ned = data.get("pos_ned")
             vel_ned = data.get("vel_ned")
@@ -137,6 +159,14 @@ def main(argv=None):
                 pos_ned = data.get("fused_pos")
             if vel_ned is None:
                 vel_ned = data.get("fused_vel")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    f"Output time range: {time_s[0] if time_s is not None else 'N/A'}"
+                    f" to {time_s[-1] if time_s is not None else 'N/A'} s"
+                )
+                logger.debug(
+                    f"Position shape: {pos_ned.shape if pos_ned is not None else 'None'}"
+                )
             ref_lat = float(np.squeeze(data.get("ref_lat")))
             ref_lon = float(np.squeeze(data.get("ref_lon")))
             ref_r0 = np.asarray(data.get("ref_r0"))
