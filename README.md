@@ -151,14 +151,15 @@ Once the `*_kf_output.mat` files are created, validate them with:
 python src/validate_all_outputs.py
 ```
 
-For a quick ECEF comparison that uses the gravity derived from the
-`STATE_X001.txt` trajectory, run:
+For a quick ECEF comparison using local gravity values run:
 
 ```bash
-python validate_ecef_modes.py --mode fusion
+python validate_ecef_modes.py --mode fusion --cases gnss state --gnss-file GNSS_X002.csv
 ```
 
-Use `--mode truth` to plot only the ground truth trajectory.
+Use `--mode truth` to plot only the ground truth trajectory. The `--cases` flag
+controls whether gravity is computed from the GNSS CSV, the STATE trajectory or
+both.
 
 The validator searches the `results/` folder for saved outputs, compares them
 to the common `STATE_X001.txt` ground truth and writes overlay figures and a CSV
