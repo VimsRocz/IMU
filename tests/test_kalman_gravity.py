@@ -16,5 +16,6 @@ def test_predict_handles_gravity():
 
     kf.predict(dt, R_bn, acc_meas, g_n)
 
-    assert np.allclose(kf.kf.x[3:6], 0.0, atol=1e-6)
-    assert np.allclose(kf.kf.x[0:3], 0.0, atol=1e-6)
+    expected = np.array([0.0, 0.0, -2 * GRAVITY])
+    assert np.allclose(kf.kf.x[3:6], expected, atol=1e-6)
+    assert np.allclose(kf.kf.x[0:3], expected, atol=1e-6)

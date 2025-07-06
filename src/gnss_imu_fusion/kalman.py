@@ -79,7 +79,9 @@ class GNSSIMUKalman:
         # manual integration of position/velocity
         acc_body = acc_meas - self.kf.x[6:9]
         acc_n = R_bn @ acc_body
-        acc_n += g_n
+
+        # Compensate gravity once in navigation frame
+        acc_n -= g_n
         self.kf.x[3:6] += acc_n * dt
         self.kf.x[0:3] += self.kf.x[3:6] * dt
 
