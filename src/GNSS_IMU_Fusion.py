@@ -1283,6 +1283,26 @@ def main():
         res_vel_all[m] = res_vel
         time_res_all[m] = time_res_arr
         P_hist_all[m] = np.stack(P_hist)
+
+        if m == "Davenport":
+            pos_finite = np.all(np.isfinite(fused_pos[m]), axis=0)
+            vel_finite = np.all(np.isfinite(fused_vel[m]), axis=0)
+            if not pos_finite.all() or not vel_finite.all():
+                logging.warning(
+                    "Non-finite values in Davenport fused results: "
+                    f"pos_finite={pos_finite}, vel_finite={vel_finite}"
+                )
+            else:
+                logging.debug(
+                    "Davenport fused position stats: "
+                    f"min={np.min(fused_pos[m], axis=0)}, "
+                    f"max={np.max(fused_pos[m], axis=0)}"
+                )
+                logging.debug(
+                    "Davenport fused velocity stats: "
+                    f"min={np.min(fused_vel[m], axis=0)}, "
+                    f"max={np.max(fused_vel[m], axis=0)}"
+                )
     
     # Compute residuals for the selected method
     _ = res_pos_all[method]
@@ -1436,6 +1456,17 @@ def main():
     pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
     vel_ecef = (C_NED_to_ECEF @ fused_vel[method].T).T
     acc_ecef = (C_NED_to_ECEF @ fused_acc[method].T).T
+
+    for name, arr in (
+        ("pos_ecef", pos_ecef),
+        ("vel_ecef", vel_ecef),
+        ("acc_ecef", acc_ecef),
+    ):
+        if not np.all(np.isfinite(arr)):
+            logging.warning(f"NaNs detected in {name} after NED->ECEF conversion")
+        logging.debug(
+            f"{name} min={np.min(arr, axis=0)}, max={np.max(arr, axis=0)}"
+        )
     for i in range(3):
         for j in range(3):
             ax = ax_ecef_all[i, j]
