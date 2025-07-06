@@ -151,7 +151,11 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
 
 
 def validate_ecef_only(est_file, truth_file, debug=False):
-    """Validate only ECEF position and velocity between estimate and truth."""
+    """Validate only ECEF position and velocity between estimate and truth.
+
+    The estimate is expected to contain ``pos_ecef_m`` and ``vel_ecef_ms``.
+    Legacy fields ``pos_ecef`` and ``vel_ecef`` are also accepted.
+    """
 
     truth = np.loadtxt(truth_file)
     t_truth = truth[:, 1]
@@ -165,6 +169,10 @@ def validate_ecef_only(est_file, truth_file, debug=False):
 
     pos_est = data.get("pos_ecef_m")
     vel_est = data.get("vel_ecef_ms")
+    if pos_est is None or vel_est is None:
+        # fall back to legacy keys if needed
+        pos_est = pos_est if pos_est is not None else data.get("pos_ecef")
+        vel_est = vel_est if vel_est is not None else data.get("vel_ecef")
     if pos_est is None or vel_est is None:
         raise KeyError("pos_ecef_m/vel_ecef_ms not found in estimate file")
 
