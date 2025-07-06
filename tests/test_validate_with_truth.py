@@ -70,6 +70,11 @@ def test_validate_with_truth(monkeypatch):
         assert key in npz, f"{key} missing from npz"
         assert key in mat, f"{key} missing from mat"
 
+    # verify ECEF Z component matches truth
+    z_fused = npz["pos_ecef"][:n, 2]
+    z_truth = truth[:n, 4]
+    assert np.allclose(z_fused, z_truth, atol=0.05)
+
 
 @pytest.mark.parametrize(
     "pos_key,vel_key",
