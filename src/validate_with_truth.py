@@ -9,14 +9,11 @@ from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
 
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
-from scipy.interpolate import interp1d
 from plot_overlay import plot_overlay
 import pandas as pd
 import re
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-os.makedirs('results', exist_ok=True)
-logging.info("Ensured 'results/' directory exists.")
 
 __all__ = [
     "load_estimate",
@@ -652,6 +649,7 @@ def main():
     args = ap.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
+    logging.info("Ensured '%s' directory exists.", args.output)
 
     m_est = re.search(r"IMU_(X\d+)", os.path.basename(args.est_file))
     m_truth = re.search(r"STATE_(X\d+)", os.path.basename(args.truth_file))
