@@ -1,3 +1,4 @@
+# Debug-enhanced validation script (2025-07-06)
 import argparse
 import os
 import logging
