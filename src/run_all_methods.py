@@ -26,6 +26,10 @@ import subprocess
 import sys
 from typing import Iterable, Tuple
 import logging
+import re
+import time
+import pandas as pd
+from tabulate import tabulate
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from scipy.io import savemat
@@ -50,6 +54,8 @@ DEFAULT_DATASETS: Iterable[Tuple[str, str]] = [
 ]
 
 DEFAULT_METHODS = ["TRIAD", "SVD", "Davenport"]
+
+SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
 
 def load_config(path: str):
@@ -79,11 +85,15 @@ def run_case(cmd, log_path):
             stderr=subprocess.STDOUT,
             text=True,
         )
+        summary_lines = []
         for line in proc.stdout:
             print(line, end="")
             log.write(line)
+            m = SUMMARY_RE.search(line)
+            if m:
+                summary_lines.append(m.group(1))
         proc.wait()
-        return proc.returncode
+        return proc.returncode, summary_lines
 
 
 def main(argv=None):
@@ -118,6 +128,7 @@ def main(argv=None):
     logger.debug(f"Datasets: {cases}")
     logger.debug(f"Methods: {methods}")
 
+    results = []
     for (imu, gnss), m in itertools.product(cases, methods):
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
         log_path = pathlib.Path("results") / f"{tag}.log"
@@ -142,9 +153,24 @@ def main(argv=None):
         ]
         if args.no_plots:
             cmd.append("--no-plots")
-        ret = run_case(cmd, log_path)
+        start_t = time.time()
+        ret, summaries = run_case(cmd, log_path)
+        runtime = time.time() - start_t
         if ret != 0:
             raise subprocess.CalledProcessError(ret, cmd)
+        for summary in summaries:
+            kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
+            results.append({
+                "dataset": pathlib.Path(imu).stem,
+                "method": kv.get("method", m),
+                "rmse_pos": float(kv.get("rmse_pos", "nan").replace("m", "")),
+                "final_pos": float(kv.get("final_pos", "nan").replace("m", "")),
+                "rms_resid_pos": float(kv.get("rms_resid_pos", "nan").replace("m", "")),
+                "max_resid_pos": float(kv.get("max_resid_pos", "nan").replace("m", "")),
+                "rms_resid_vel": float(kv.get("rms_resid_vel", "nan").replace("m", "")),
+                "max_resid_vel": float(kv.get("max_resid_vel", "nan").replace("m", "")),
+                "runtime": runtime,
+            })
         # ------------------------------------------------------------------
         # Convert NPZ output to a MATLAB file with explicit frame variables
         # ------------------------------------------------------------------
@@ -200,6 +226,57 @@ def main(argv=None):
                 "method_name": m,
             }
             savemat(npz_path.with_suffix(".mat"), mat_out)
+
+    # --- nicely formatted summary table --------------------------------------
+    if results:
+        key_order = {m: i for i, m in enumerate(methods)}
+        results.sort(key=lambda r: (r["dataset"], key_order.get(r["method"], 0)))
+        rows = [
+            [
+                e["dataset"],
+                e["method"],
+                e["rmse_pos"],
+                e["final_pos"],
+                e["rms_resid_pos"],
+                e["max_resid_pos"],
+                e["rms_resid_vel"],
+                e["max_resid_vel"],
+                e["runtime"],
+            ]
+            for e in results
+        ]
+        print(
+            tabulate(
+                rows,
+                headers=[
+                    "Dataset",
+                    "Method",
+                    "RMSEpos [m]",
+                    "End-Error [m]",
+                    "RMSresidPos [m]",
+                    "MaxresidPos [m]",
+                    "RMSresidVel [m/s]",
+                    "MaxresidVel [m/s]",
+                    "Runtime [s]",
+                ],
+                floatfmt=".2f",
+            )
+        )
+        df = pd.DataFrame(
+            rows,
+            columns=[
+                "Dataset",
+                "Method",
+                "RMSEpos_m",
+                "EndErr_m",
+                "RMSresidPos_m",
+                "MaxresidPos_m",
+                "RMSresidVel_mps",
+                "MaxresidVel_mps",
+                "Runtime_s",
+            ],
+        )
+        df.to_csv(pathlib.Path("results") / "summary.csv", index=False)
 
 
 if __name__ == "__main__":
