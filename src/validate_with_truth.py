@@ -19,6 +19,7 @@ __all__ = [
     "load_estimate",
     "assemble_frames",
     "validate_with_truth",
+    "validate_ecef_only",
     "run_debug_checks",
 ]
 
@@ -147,6 +148,66 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
         )
 
     return rmse_pos, final_pos, rmse_vel, final_vel, rmse_eul, final_eul
+
+
+def validate_ecef_only(est_file, truth_file, debug=False):
+    """Validate only ECEF position and velocity between estimate and truth."""
+
+    truth = np.loadtxt(truth_file)
+    t_truth = truth[:, 1]
+    pos_truth = truth[:, 2:5]
+    vel_truth = truth[:, 5:8]
+
+    if est_file.endswith(".mat"):
+        data = loadmat(est_file)
+    else:
+        data = np.load(est_file, allow_pickle=True)
+
+    pos_est = data.get("pos_ecef_m")
+    vel_est = data.get("vel_ecef_ms")
+    if pos_est is None or vel_est is None:
+        raise KeyError("pos_ecef_m/vel_ecef_ms not found in estimate file")
+
+    pos_est = np.asarray(pos_est)
+    vel_est = np.asarray(vel_est)
+    t_est = data.get("time")
+    if t_est is None:
+        t_est = data.get("time_s")
+    if t_est is None:
+        t_est = data.get("time_residuals")
+    if t_est is not None:
+        t_est = np.asarray(t_est).squeeze()
+    else:
+        t_est = np.arange(len(pos_est)) * 0.0025
+
+    n = min(len(t_est), len(pos_est))
+    pos_est = pos_est[:n]
+    vel_est = vel_est[:n]
+    t_est = t_est[:n]
+
+    pos_i = np.vstack([np.interp(t_truth, t_est, pos_est[:, i]) for i in range(3)]).T
+    vel_i = np.vstack([np.interp(t_truth, t_est, vel_est[:, i]) for i in range(3)]).T
+
+    pos_err = pos_i - pos_truth
+    vel_err = vel_i - vel_truth
+
+    final_pos_error = np.linalg.norm(pos_err[-1])
+    rmse_pos = np.sqrt(np.mean(np.sum(pos_err ** 2, axis=1)))
+    final_vel_error = np.linalg.norm(vel_err[-1])
+    rmse_vel = np.sqrt(np.mean(np.sum(vel_err ** 2, axis=1)))
+
+    print(f"Final ECEF position error = {final_pos_error:.2f} m")
+    print(f"RMSE ECEF position error = {rmse_pos:.2f} m")
+    print(f"Final ECEF velocity error = {final_vel_error:.2f} m/s")
+    print(f"RMSE ECEF velocity error = {rmse_vel:.2f} m/s")
+
+    if debug:
+        print(
+            f"Debug: RMSE pos={rmse_pos:.3f} m, final pos={final_pos_error:.3f} m, "
+            f"RMSE vel={rmse_vel:.3f} m/s, final vel={final_vel_error:.3f} m/s"
+        )
+
+    return rmse_pos, final_pos_error, rmse_vel, final_vel_error
 
 
 def run_debug_checks(estimate_file, truth_file, dataset):
@@ -643,6 +704,11 @@ def main():
         action="store_true",
         help="convert the estimate from NED to ECEF for comparison",
     )
+    ap.add_argument(
+        "--ecef-only",
+        action="store_true",
+        help="Validate only ECEF position/velocity fields",
+    )
     ap.add_argument("--ref-lat", type=float, help="reference latitude in degrees")
     ap.add_argument("--ref-lon", type=float, help="reference longitude in degrees")
     ap.add_argument("--ref-r0", type=float, nargs=3, help="ECEF origin [m]")
@@ -650,6 +716,10 @@ def main():
 
     os.makedirs(args.output, exist_ok=True)
     logging.info("Ensured '%s' directory exists.", args.output)
+
+    if args.ecef_only:
+        validate_ecef_only(args.est_file, args.truth_file, debug=args.debug)
+        return
 
     m_est = re.search(r"IMU_(X\d+)", os.path.basename(args.est_file))
     m_truth = re.search(r"STATE_(X\d+)", os.path.basename(args.truth_file))
