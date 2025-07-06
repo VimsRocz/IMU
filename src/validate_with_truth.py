@@ -24,14 +24,18 @@ __all__ = [
 ]
 
 
-def _ned_to_ecef(pos_ned, ref_lat, ref_lon, ref_ecef, vel_ned=None):
+def _ned_to_ecef(pos_ned, ref_lat, ref_lon, ref_ecef, vel_ned=None, debug=False):
     """Convert NED positions (and optionally velocities) to ECEF."""
     C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
     C_n2e = C.T
+    if debug:
+        logging.debug("Conversion matrix (ECEF->NED):\n%s", C)
     pos_ecef = np.asarray(pos_ned) @ C_n2e + ref_ecef
     vel_ecef = None
     if vel_ned is not None:
         vel_ecef = np.asarray(vel_ned) @ C_n2e
+    if debug and len(pos_ecef) > 0:
+        logging.debug("First converted position: %s", pos_ecef[0])
     return pos_ecef, vel_ecef
 
 
@@ -55,6 +59,7 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
     """
 
     if debug:
+        logging.getLogger().setLevel(logging.DEBUG)
         print(f"Debug: Loading truth data for {dataset} from {truth_file}")
     try:
         # truth files are whitespace separated
@@ -139,7 +144,16 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
                 ref_lon,
                 ref_r0,
             )
-        est_pos_ecef, est_vel_ecef = _ned_to_ecef(pos_interp, ref_lat, ref_lon, ref_r0, vel_interp)
+            logging.debug("First truth ECEF position: %s", truth[0, 2:5])
+            logging.debug("First estimate NED position: %s", pos_interp[0])
+        est_pos_ecef, est_vel_ecef = _ned_to_ecef(
+            pos_interp,
+            ref_lat,
+            ref_lon,
+            ref_r0,
+            vel_interp,
+            debug=debug,
+        )
         logging.info(
             "Converted estimate from NED to ECEF using reference parameters."
         )
@@ -785,6 +799,9 @@ def main():
     ap.add_argument("--ref-lon", type=float, help="reference longitude in degrees")
     ap.add_argument("--ref-r0", type=float, nargs=3, help="ECEF origin [m]")
     args = ap.parse_args()
+
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     os.makedirs(args.output, exist_ok=True)
     logging.info("Ensured '%s' directory exists.", args.output)
