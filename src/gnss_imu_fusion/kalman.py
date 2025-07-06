@@ -56,7 +56,7 @@ class GNSSIMUKalman:
         R[3:6, 3:6] = np.eye(3) * (self.vel_meas_noise ** 2) / self.gnss_weight
         self.kf.R = R
 
-    def predict(self, dt, R_bn, acc_meas):
+    def predict(self, dt, R_bn, acc_meas, g_n):
         F = np.eye(12)
         F[0:3, 3:6] = np.eye(3) * dt
         F[3:6, 6:9] = -R_bn * dt
@@ -79,6 +79,7 @@ class GNSSIMUKalman:
         # manual integration of position/velocity
         acc_body = acc_meas - self.kf.x[6:9]
         acc_n = R_bn @ acc_body
+        acc_n += g_n
         self.kf.x[3:6] += acc_n * dt
         self.kf.x[0:3] += self.kf.x[3:6] * dt
 
