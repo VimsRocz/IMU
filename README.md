@@ -116,6 +116,8 @@ next one:
   data and compares the result with GNSS. [Details](docs/TRIAD_Task4_Wiki.md)
 * **Task&nbsp;5 &ndash; Kalman Fusion:** fuses IMU and GNSS with a simple
   Kalman filter to produce the final trajectory. [Details](docs/TRIAD_Task5_Wiki.md)
+* **Task&nbsp;6 &ndash; Truth Overlay:** reproduces the Task 5 figures with the
+  recorded reference trajectory added for comparison. [Details](docs/TRIAD_Task6_Wiki.md)
 
 ### Datasets
 
@@ -428,6 +430,7 @@ See [docs/AdvancedTopics.md](docs/AdvancedTopics.md) for GitHub Codespaces instr
 - [docs/TRIAD_Task3_Wiki.md](docs/TRIAD_Task3_Wiki.md) – initial attitude determination
 - [docs/TRIAD_Task4_Wiki.md](docs/TRIAD_Task4_Wiki.md) – GNSS/IMU integration
 - [docs/TRIAD_Task5_Wiki.md](docs/TRIAD_Task5_Wiki.md) – Kalman filter fusion
+- [docs/TRIAD_Task6_Wiki.md](docs/TRIAD_Task6_Wiki.md) – truth overlay plots
 
 - [Report/](Report/index.md) – summary of a typical run
 See [docs/CHANGELOG.md](docs/CHANGELOG.md) for a list of recent features.
