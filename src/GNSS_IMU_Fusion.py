@@ -771,6 +771,8 @@ def main():
     pos_integ = {}
     vel_integ = {}
     acc_integ = {}
+    pos_integ_ecef = {}
+    vel_integ_ecef = {}
     
     # --------------------------------
     # Subtask 4.12: Integrate IMU Accelerations for Each Method
@@ -779,17 +781,22 @@ def main():
     for m in methods:
         logging.info(f"Integrating IMU data using {m} method.")
         C_B_N = C_B_N_methods[m]
-        pos, vel, acc = integrate_trajectory(
+        pos, vel, acc, pos_e, vel_e = integrate_trajectory(
             acc_body_corrected[m],
             imu_time,
             C_B_N,
             g_NED,
             lat=lat_interp,
             lon=lon_interp,
+            ref_lat=ref_lat,
+            ref_lon=ref_lon,
+            ref_ecef=ref_r0,
         )
         pos_integ[m] = pos
         vel_integ[m] = vel
         acc_integ[m] = acc
+        pos_integ_ecef[m] = pos_e
+        vel_integ_ecef[m] = vel_e
     logging.info("IMU-derived position, velocity, and acceleration computed for all methods.")
     
     # --------------------------------
@@ -974,9 +981,27 @@ def main():
             ax = axes_ecef[i, j]
             if i == 0:  # Position
                 ax.plot(t_rel_gnss, gnss_pos_ecef[:, j], 'k-', label='Measured GNSS')
+                for m in methods:
+                    c = colors.get(m, None)
+                    ax.plot(
+                        t_rel_ilu,
+                        pos_integ_ecef[m][:, j],
+                        color=c,
+                        alpha=0.7,
+                        label=f'Derived IMU ({m})',
+                    )
                 ax.set_title(f'Position {directions_ecef[j]}_ECEF')
             elif i == 1:  # Velocity
                 ax.plot(t_rel_gnss, gnss_vel_ecef[:, j], 'k-', label='Measured GNSS')
+                for m in methods:
+                    c = colors.get(m, None)
+                    ax.plot(
+                        t_rel_ilu,
+                        vel_integ_ecef[m][:, j],
+                        color=c,
+                        alpha=0.7,
+                        label=f'Derived IMU ({m})',
+                    )
                 ax.set_title(f'Velocity V{directions_ecef[j]}_ECEF')
             else:  # Acceleration
                 for m in methods:

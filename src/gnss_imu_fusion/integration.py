@@ -15,8 +15,17 @@ def integrate_trajectory(
     lon: np.ndarray | None = None,
     g_ecef: np.ndarray | None = None,
     h: np.ndarray | None = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Integrate body-frame accelerations to position and velocity in NED.
+    ref_lat: float | None = None,
+    ref_lon: float | None = None,
+    ref_ecef: np.ndarray | None = None,
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray | None,
+    np.ndarray | None,
+]:
+    """Integrate body-frame accelerations to position and velocity.
 
     If ``lat`` and ``lon`` are provided (or ``g_ecef`` is given), a
     position-dependent gravity vector is removed in the ECEF frame before
@@ -39,7 +48,7 @@ def integrate_trajectory(
             acc[i] = a_ned
             vel[i] = vel[i - 1] + a_ned * dt
             pos[i] = pos[i - 1] + vel[i] * dt
-        return pos, vel, acc
+        return pos, vel, acc, None, None
 
     lat = np.asarray(lat)
     lon = np.asarray(lon)
@@ -51,15 +60,29 @@ def integrate_trajectory(
     if g_ecef is None:
         g_ecef = np.array([gravity_ecef(lat[i], lon[i], h[i]) for i in range(n)])
 
+    pos_ecef = np.zeros((n, 3))
+    vel_ecef = np.zeros((n, 3))
+    acc_ecef = np.zeros((n, 3))
+
     for i in range(1, n):
         dt = imu_time[i] - imu_time[i - 1]
         C_e_n = compute_C_ECEF_to_NED(lat[i], lon[i])
         C_b_e = C_e_n.T @ C_B_N
         f_ecef = C_b_e @ acc_body[i]
         a_ecef = f_ecef - g_ecef[i]
-        a_ned = C_e_n @ a_ecef
-        acc[i] = a_ned
-        vel[i] = vel[i - 1] + a_ned * dt
-        pos[i] = pos[i - 1] + vel[i] * dt
+        acc_ecef[i] = a_ecef
+        vel_ecef[i] = vel_ecef[i - 1] + a_ecef * dt
+        pos_ecef[i] = pos_ecef[i - 1] + vel_ecef[i] * dt
 
-    return pos, vel, acc
+    if ref_lat is None:
+        ref_lat = float(lat[0])
+    if ref_lon is None:
+        ref_lon = float(lon[0])
+    if ref_ecef is None:
+        ref_ecef = np.zeros(3)
+    C_ref = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+    pos = np.array([C_ref @ (p - ref_ecef) for p in pos_ecef])
+    vel = np.array([C_ref @ v for v in vel_ecef])
+    acc = np.array([C_ref @ a for a in acc_ecef])
+
+    return pos, vel, acc, pos_ecef, vel_ecef
