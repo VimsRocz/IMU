@@ -151,6 +151,15 @@ Once the `*_kf_output.mat` files are created, validate them with:
 python src/validate_all_outputs.py
 ```
 
+For a quick ECEF comparison that uses the gravity derived from the
+`STATE_X001.txt` trajectory, run:
+
+```bash
+python validate_ecef_modes.py --mode fusion
+```
+
+Use `--mode truth` to plot only the ground truth trajectory.
+
 The validator searches the `results/` folder for saved outputs, compares them
 to the common `STATE_X001.txt` ground truth and writes overlay figures and a CSV
 summary alongside the logs. All figures and summaries are therefore found in
