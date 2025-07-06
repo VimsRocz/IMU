@@ -9,6 +9,7 @@ from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
 
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
+from scipy.interpolate import interp1d
 from plot_overlay import plot_overlay
 import pandas as pd
 import re
@@ -25,7 +26,18 @@ __all__ = [
 ]
 
 
-def validate_with_truth(estimate_file, truth_file, dataset):
+def _ned_to_ecef(pos_ned, ref_lat, ref_lon, ref_ecef, vel_ned=None):
+    """Convert NED positions (and optionally velocities) to ECEF."""
+    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+    C_n2e = C.T
+    pos_ecef = np.asarray(pos_ned) @ C_n2e + ref_ecef
+    vel_ecef = None
+    if vel_ned is not None:
+        vel_ecef = np.asarray(vel_ned) @ C_n2e
+    return pos_ecef, vel_ecef
+
+
+def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=False, debug=False):
     """Compute error metrics between an estimate and ground truth.
 
     Parameters
@@ -36,13 +48,21 @@ def validate_with_truth(estimate_file, truth_file, dataset):
         CSV file with the ground truth trajectory.
     dataset : str
         Name of the dataset, used only for logging.
+    convert_est_to_ecef : bool, optional
+        When ``True``, convert the estimated trajectory from NED to ECEF and
+        compare directly in the ECEF frame. By default, the truth data is
+        converted to NED to match the estimate.
+    debug : bool, optional
+        Enable verbose debug logging.
     """
 
-    print(f"Debug: Loading truth data for {dataset} from {truth_file}")
+    if debug:
+        print(f"Debug: Loading truth data for {dataset} from {truth_file}")
     try:
         # truth files are whitespace separated
         truth = np.loadtxt(truth_file)
-        print(f"Debug: Truth shape = {truth.shape}")
+        if debug:
+            print(f"Debug: Truth shape = {truth.shape}")
     except FileNotFoundError:
         print(
             f"Warning: Truth file {truth_file} not found, skipping validation for {dataset}"
@@ -58,17 +78,19 @@ def validate_with_truth(estimate_file, truth_file, dataset):
         est_eul = R.from_quat(np.asarray(quat)[:, [1, 2, 3, 0]]).as_euler("xyz", degrees=True)
     else:
         est_eul = np.zeros_like(est_pos)
-    print(
-        f"Debug: Estimate shapes - pos: {est_pos.shape}, vel: {est_vel.shape}, eul: {est_eul.shape}"
-    )
+    if debug:
+        print(
+            f"Debug: Estimate shapes - pos: {est_pos.shape}, vel: {est_vel.shape}, eul: {est_eul.shape}"
+        )
 
     # Align time vectors
     truth_time = truth[:, 0]
     est_time = np.arange(0, len(est_pos) * 0.0025, 0.0025)
-    print(
-        f"Debug: truth time range {truth_time[0]:.3f}-{truth_time[-1]:.3f} s, "
-        f"estimate time range {est_time[0]:.3f}-{est_time[-1]:.3f} s"
-    )
+    if debug:
+        print(
+            f"Debug: truth time range {truth_time[0]:.3f}-{truth_time[-1]:.3f} s, "
+            f"estimate time range {est_time[0]:.3f}-{est_time[-1]:.3f} s"
+        )
 
     # Interpolate estimated samples to the truth timestamps
     pos_interp = np.array(
@@ -81,10 +103,37 @@ def validate_with_truth(estimate_file, truth_file, dataset):
         [np.interp(truth_time, est_time, est_eul[:, i]) for i in range(3)]
     ).T
 
-    # Compute errors
-    pos_err = pos_interp - truth[:, 1:4]
-    vel_err = vel_interp - truth[:, 4:7]
-    eul_err = eul_interp - truth[:, 7:10]
+    if convert_est_to_ecef:
+        # convert estimate to ECEF for comparison
+        ref_lat = est.get("ref_lat")
+        ref_lon = est.get("ref_lon")
+        ref_r0 = est.get("ref_r0")
+        if ref_lat is None or ref_lon is None or ref_r0 is None:
+            first_ecef = truth[0, 2:5]
+            lat_deg, lon_deg, _ = ecef_to_geodetic(*first_ecef)
+            ref_lat = np.deg2rad(lat_deg)
+            ref_lon = np.deg2rad(lon_deg)
+            ref_r0 = first_ecef
+        else:
+            ref_lat = float(np.asarray(ref_lat).squeeze())
+            ref_lon = float(np.asarray(ref_lon).squeeze())
+            ref_r0 = np.asarray(ref_r0).squeeze()
+        est_pos_ecef, est_vel_ecef = _ned_to_ecef(pos_interp, ref_lat, ref_lon, ref_r0, vel_interp)
+        pos_err = est_pos_ecef - truth[:, 2:5]
+        vel_err = est_vel_ecef - truth[:, 5:8]
+    else:
+        # default: convert truth to NED and compare in NED frame
+        ref_ecef = truth[0, 2:5]
+        lat_deg, lon_deg, _ = ecef_to_geodetic(*ref_ecef)
+        C = compute_C_ECEF_to_NED(np.deg2rad(lat_deg), np.deg2rad(lon_deg))
+        truth_pos_ned = np.array([C @ (p - ref_ecef) for p in truth[:, 2:5]])
+        truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
+        pos_err = pos_interp - truth_pos_ned
+        vel_err = vel_interp - truth_vel_ned
+
+    truth_quat = truth[:, 8:12]
+    truth_eul = R.from_quat(truth_quat[:, [1, 2, 3, 0]]).as_euler("xyz", degrees=True)
+    eul_err = eul_interp - truth_eul
 
     rmse_pos = np.sqrt(np.mean(np.linalg.norm(pos_err, axis=1) ** 2))
     final_pos = np.linalg.norm(pos_err[-1, :])
@@ -93,11 +142,12 @@ def validate_with_truth(estimate_file, truth_file, dataset):
     rmse_eul = np.sqrt(np.mean(np.linalg.norm(eul_err, axis=1) ** 2))
     final_eul = np.linalg.norm(eul_err[-1, :])
 
-    print(
-        f"Debug: {dataset} - RMSE pos={rmse_pos:.3f} m, Final pos={final_pos:.3f} m, "
-        f"RMSE vel={rmse_vel:.3f} m/s, Final vel={final_vel:.3f} m/s, "
-        f"RMSE eul={rmse_eul:.3f}\u00b0, Final eul={final_eul:.3f}\u00b0"
-    )
+    if debug:
+        print(
+            f"Debug: {dataset} - RMSE pos={rmse_pos:.3f} m, Final pos={final_pos:.3f} m, "
+            f"RMSE vel={rmse_vel:.3f} m/s, Final vel={final_vel:.3f} m/s, "
+            f"RMSE eul={rmse_eul:.3f}\u00b0, Final eul={final_eul:.3f}\u00b0"
+        )
 
     return rmse_pos, final_pos, rmse_vel, final_vel, rmse_eul, final_eul
 
@@ -591,6 +641,11 @@ def main():
         action="store_true",
         help="run additional sanity checks on the input files",
     )
+    ap.add_argument(
+        "--convert-est-to-ecef",
+        action="store_true",
+        help="convert the estimate from NED to ECEF for comparison",
+    )
     ap.add_argument("--ref-lat", type=float, help="reference latitude in degrees")
     ap.add_argument("--ref-lon", type=float, help="reference longitude in degrees")
     ap.add_argument("--ref-r0", type=float, nargs=3, help="ECEF origin [m]")
@@ -618,7 +673,13 @@ def main():
 
     # Extra debug information and quick validation metrics
     ds_name = m_truth.group(1) if m_truth else "unknown"
-    validate_with_truth(args.est_file, args.truth_file, ds_name)
+    validate_with_truth(
+        args.est_file,
+        args.truth_file,
+        ds_name,
+        convert_est_to_ecef=args.convert_est_to_ecef,
+        debug=args.debug,
+    )
     if args.debug:
         run_debug_checks(args.est_file, args.truth_file, ds_name)
 
