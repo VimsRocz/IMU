@@ -103,17 +103,23 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
 
     if convert_est_to_ecef:
         # convert estimate to ECEF for comparison
-        ref_lat = (
-            est.get("ref_lat")
-            or est.get("ref_lat_rad")
-            or est.get("lat0")
-        )
-        ref_lon = (
-            est.get("ref_lon")
-            or est.get("ref_lon_rad")
-            or est.get("lon0")
-        )
-        ref_r0 = est.get("ref_r0") or est.get("ref_r0_m") or est.get("r0")
+        ref_lat = est.get("ref_lat")
+        if ref_lat is None:
+            ref_lat = est.get("ref_lat_rad")
+        if ref_lat is None:
+            ref_lat = est.get("lat0")
+
+        ref_lon = est.get("ref_lon")
+        if ref_lon is None:
+            ref_lon = est.get("ref_lon_rad")
+        if ref_lon is None:
+            ref_lon = est.get("lon0")
+
+        ref_r0 = est.get("ref_r0")
+        if ref_r0 is None:
+            ref_r0 = est.get("ref_r0_m")
+        if ref_r0 is None:
+            ref_r0 = est.get("r0")
 
         if ref_lat is None or ref_lon is None or ref_r0 is None:
             first_ecef = truth[0, 2:5]
@@ -545,17 +551,23 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     acc_ecef = np.zeros_like(vel_ecef)
     acc_ecef[1:] = np.diff(vel_ecef, axis=0) / dt_g[1:, None]
 
-    ref_lat = (
-        est.get("ref_lat")
-        or est.get("ref_lat_rad")
-        or est.get("lat0")
-    )
-    ref_lon = (
-        est.get("ref_lon")
-        or est.get("ref_lon_rad")
-        or est.get("lon0")
-    )
-    ref_r0 = est.get("ref_r0") or est.get("ref_r0_m") or est.get("r0")
+    ref_lat = est.get("ref_lat")
+    if ref_lat is None:
+        ref_lat = est.get("ref_lat_rad")
+    if ref_lat is None:
+        ref_lat = est.get("lat0")
+
+    ref_lon = est.get("ref_lon")
+    if ref_lon is None:
+        ref_lon = est.get("ref_lon_rad")
+    if ref_lon is None:
+        ref_lon = est.get("lon0")
+
+    ref_r0 = est.get("ref_r0")
+    if ref_r0 is None:
+        ref_r0 = est.get("ref_r0_m")
+    if ref_r0 is None:
+        ref_r0 = est.get("r0")
     if ref_lat is None or ref_lon is None or ref_r0 is None:
         if truth_file is not None:
             first_truth = np.loadtxt(truth_file, comments="#", max_rows=1)
@@ -805,23 +817,27 @@ def main():
     ref_r0 = np.array(args.ref_r0) if args.ref_r0 is not None else None
 
     if ref_lat is None:
-        v = (
-            est.get("ref_lat")
-            or est.get("ref_lat_rad")
-            or est.get("lat0")
-        )
+        v = est.get("ref_lat")
+        if v is None:
+            v = est.get("ref_lat_rad")
+        if v is None:
+            v = est.get("lat0")
         if v is not None:
             ref_lat = float(np.asarray(v).squeeze())
     if ref_lon is None:
-        v = (
-            est.get("ref_lon")
-            or est.get("ref_lon_rad")
-            or est.get("lon0")
-        )
+        v = est.get("ref_lon")
+        if v is None:
+            v = est.get("ref_lon_rad")
+        if v is None:
+            v = est.get("lon0")
         if v is not None:
             ref_lon = float(np.asarray(v).squeeze())
     if ref_r0 is None:
-        v = est.get("ref_r0") or est.get("ref_r0_m") or est.get("r0")
+        v = est.get("ref_r0")
+        if v is None:
+            v = est.get("ref_r0_m")
+        if v is None:
+            v = est.get("r0")
         if v is not None:
             ref_r0 = np.asarray(v).squeeze()
 
