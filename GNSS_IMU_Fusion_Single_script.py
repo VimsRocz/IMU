@@ -5,6 +5,7 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
 from src.constants import EARTH_RATE
+from src.utils import compute_C_ECEF_to_NED
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -566,22 +567,6 @@ C_B_N_methods = {m: task3_results[m]['R'] for m in methods}
 logging.info("Rotation matrices accessed: %s", list(C_B_N_methods.keys()))
 
 # --------------------------------
-# Subtask 4.2: Define Utility Function
-# --------------------------------
-def compute_C_ECEF_to_NED(lat, lon):
-    """Compute rotation matrix from ECEF to NED frame. lat and lon in radians."""
-    sin_phi = np.sin(lat)
-    cos_phi = np.cos(lat)
-    sin_lambda = np.sin(lon)
-    cos_lambda = np.cos(lon)
-    C = np.array([
-        [-sin_phi * cos_lambda, -sin_phi * sin_lambda, cos_phi],
-        [-sin_lambda, cos_lambda, 0],
-        [-cos_phi * cos_lambda, -cos_phi * sin_lambda, -sin_phi]
-    ])
-    return C
-
-# --------------------------------
 # Subtask 4.3: Load GNSS Data
 # --------------------------------
 logging.info("Subtask 4.3: Loading GNSS data.")
@@ -931,20 +916,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(mes
 
 # --------------------------------
 # Subtask 5.2: Rotation Matrix - ECEF to NED
-# --------------------------------
-def compute_C_ECEF_to_NED(lat, lon):
-    """Compute rotation matrix from ECEF to NED frame. lat and lon in radians."""
-    sin_phi = np.sin(lat)
-    cos_phi = np.cos(lat)
-    sin_lambda = np.sin(lon)
-    cos_lambda = np.cos(lon)
-    C = np.array([
-        [-sin_phi * cos_lambda, -sin_phi * sin_lambda, cos_phi],
-        [-sin_lambda, cos_lambda, 0],
-        [-cos_phi * cos_lambda, -cos_phi * sin_lambda, -sin_phi]
-    ])
-    return C
-
 # --------------------------------
 # Subtask 5.3: Load GNSS and IMU Data
 # --------------------------------
