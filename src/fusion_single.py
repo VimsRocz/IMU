@@ -176,7 +176,7 @@ def main():
         q_cur/=np.linalg.norm(q_cur)
         quats.append(q_cur.copy())
         R_bn=quat_to_rot(q_cur)
-        kf.predict(dt,R_bn,acc[i])
+        kf.predict(dt,R_bn,acc[i],g_ned)
         if gnss_idx<len(gnss_time)-1 and abs(imu[i,1]- (gnss_time[gnss_idx]-gnss_time[0]))<dt_imu/2:
             x_upd, resid, S = kf.update_gnss(pos_ned[gnss_idx],vel_ned[gnss_idx])
             upd_times.append(imu[i,1])
