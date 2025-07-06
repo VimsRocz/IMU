@@ -1543,6 +1543,13 @@ def main():
         plt.savefig(f'results/{tag}_{method}_attitude_angles.png')
         plt.close()
 
+    C_NED_to_ECEF = C_ECEF_to_NED.T
+    pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
+    vel_ecef = (C_NED_to_ECEF @ fused_vel[method].T).T
+    C_N_B = C_B_N_methods[method].T
+    pos_body = (C_N_B @ fused_pos[method].T).T
+    vel_body = (C_N_B @ fused_vel[method].T).T
+
     np.savez(
         f"results/{tag}_kf_output.npz",
         summary=dict(
@@ -1553,16 +1560,26 @@ def main():
             earth_rate_err_mean=omega_err_mean,
             earth_rate_err_max=omega_err_max,
         ),
-        innov_pos=innov_pos_all[method],
-        innov_vel=innov_vel_all[method],
+        time=imu_time,
+        pos_ned=fused_pos[method],
+        vel_ned=fused_vel[method],
         fused_pos=fused_pos[method],
         fused_vel=fused_vel[method],
+        pos_ecef=pos_ecef,
+        vel_ecef=vel_ecef,
+        pos_body=pos_body,
+        vel_body=vel_body,
+        innov_pos=innov_pos_all[method],
+        innov_vel=innov_vel_all[method],
         euler=euler_all[method],
         residual_pos=res_pos_all[method],
         residual_vel=res_vel_all[method],
         time_residuals=time_res_all[method],
         attitude_q=attitude_q_all[method],
         P_hist=P_hist_all[method],
+        ref_lat=np.array([ref_lat]),
+        ref_lon=np.array([ref_lon]),
+        ref_r0=ref_r0,
     )
 
     # Also export results as MATLAB-compatible .mat for post-processing
@@ -1576,16 +1593,26 @@ def main():
             "grav_err_max": np.array([grav_err_max]),
             "earth_rate_err_mean": np.array([omega_err_mean]),
             "earth_rate_err_max": np.array([omega_err_max]),
-            "innov_pos": innov_pos_all[method],
-            "innov_vel": innov_vel_all[method],
+            "time": imu_time,
+            "pos_ned": fused_pos[method],
+            "vel_ned": fused_vel[method],
             "fused_pos": fused_pos[method],
             "fused_vel": fused_vel[method],
+            "pos_ecef": pos_ecef,
+            "vel_ecef": vel_ecef,
+            "pos_body": pos_body,
+            "vel_body": vel_body,
+            "innov_pos": innov_pos_all[method],
+            "innov_vel": innov_vel_all[method],
             "euler": euler_all[method],
             "residual_pos": res_pos_all[method],
             "residual_vel": res_vel_all[method],
             "time_residuals": time_res_all[method],
             "attitude_q": attitude_q_all[method],
             "P_hist": P_hist_all[method],
+            "ref_lat": np.array([ref_lat]),
+            "ref_lon": np.array([ref_lon]),
+            "ref_r0": ref_r0,
         },
     )
 
