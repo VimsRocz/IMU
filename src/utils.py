@@ -211,3 +211,33 @@ def ecef_to_geodetic(x: float, y: float, z: float) -> Tuple[float, float, float]
     N = a / np.sqrt(1 - e_sq * np.sin(lat) ** 2)
     alt = p / np.cos(lat) - N
     return float(np.degrees(lat)), float(np.degrees(lon)), float(alt)
+
+
+def normal_gravity(lat: float, h: float = 0.0) -> float:
+    """Return gravity magnitude at latitude ``lat`` and height ``h``.
+
+    Parameters
+    ----------
+    lat : float
+        Geodetic latitude in radians.
+    h : float, optional
+        Height above the ellipsoid in metres.
+
+    Returns
+    -------
+    float
+        Gravity magnitude in m/s² using the WGS‑84 model.
+    """
+    sin_lat = np.sin(lat)
+    g = (
+        9.7803253359
+        * (1 + 0.00193185265241 * sin_lat**2)
+        / np.sqrt(1 - 0.00669437999013 * sin_lat**2)
+    )
+    return g - 3.086e-6 * h
+
+
+def gravity_ecef(lat: float, lon: float, h: float = 0.0) -> np.ndarray:
+    """Return gravity vector in ECEF coordinates."""
+    g_ned = np.array([0.0, 0.0, normal_gravity(lat, h)])
+    return compute_C_ECEF_to_NED(lat, lon).T @ g_ned

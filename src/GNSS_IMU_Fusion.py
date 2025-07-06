@@ -20,6 +20,7 @@ from scripts.plot_utils import save_plot, plot_attitude
 from utils import (
     is_static,
     compute_C_ECEF_to_NED,
+    ecef_to_geodetic,
 )
 from constants import GRAVITY, EARTH_RATE
 from scripts.validate_filter import compute_residuals, plot_residuals
@@ -614,6 +615,15 @@ def main():
     gnss_pos_ecef = gnss_data[pos_cols].values
     gnss_vel_ecef = gnss_data[vel_cols].values
     logging.info(f"GNSS data shape: {gnss_pos_ecef.shape}")
+
+    lat_series = []
+    lon_series = []
+    for x, y, z in gnss_pos_ecef:
+        lat_d, lon_d, _ = ecef_to_geodetic(x, y, z)
+        lat_series.append(np.deg2rad(lat_d))
+        lon_series.append(np.deg2rad(lon_d))
+    lat_series = np.array(lat_series)
+    lon_series = np.array(lon_series)
     
     # --------------------------------
     # Subtask 4.5: Define Reference Point
@@ -665,6 +675,8 @@ def main():
         imu_data = pd.read_csv(imu_file, sep=r'\s+', header=None)
         dt_ilu = 1.0 / 400.0  # 400 Hz sampling rate, dt = 0.0025 s
         imu_time = np.arange(len(imu_data)) * dt_ilu + gnss_time[0]  # Align with GNSS start time
+        lat_interp = np.interp(imu_time, gnss_time, lat_series)
+        lon_interp = np.interp(imu_time, gnss_time, lon_series)
         
         # Convert velocity increments to acceleration (m/s²)
         # Columns 5,6,7 are velocity increments (m/s) over dt_ilu
@@ -763,7 +775,12 @@ def main():
         logging.info(f"Integrating IMU data using {m} method.")
         C_B_N = C_B_N_methods[m]
         pos, vel, acc = integrate_trajectory(
-            acc_body_corrected[m], imu_time, C_B_N, g_NED
+            acc_body_corrected[m],
+            imu_time,
+            C_B_N,
+            g_NED,
+            lat=lat_interp,
+            lon=lon_interp,
         )
         pos_integ[m] = pos
         vel_integ[m] = vel
