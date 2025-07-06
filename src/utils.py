@@ -241,3 +241,27 @@ def gravity_ecef(lat: float, lon: float, h: float = 0.0) -> np.ndarray:
     """Return gravity vector in ECEF coordinates."""
     g_ned = np.array([0.0, 0.0, normal_gravity(lat, h)])
     return compute_C_ECEF_to_NED(lat, lon).T @ g_ned
+
+
+def validate_gravity_vector(lat_deg: float, h: float = 0.0) -> np.ndarray:
+    """Print and return the gravity vector in NED coordinates.
+
+    Parameters
+    ----------
+    lat_deg : float
+        Geodetic latitude in degrees.
+    h : float, optional
+        Height above the ellipsoid in metres.
+
+    Returns
+    -------
+    ndarray of shape (3,)
+        Gravity vector ``[0, 0, g]`` in the NED frame.
+    """
+    lat_rad = np.deg2rad(lat_deg)
+    g = normal_gravity(lat_rad, h)
+    print(
+        f"[Gravity Validation] Latitude: {lat_deg:.3f} deg, altitude: {h:.1f} m"
+        f" --> Gravity: {g:.6f} m/s^2 (NED +Z is down)"
+    )
+    return np.array([0.0, 0.0, g])
