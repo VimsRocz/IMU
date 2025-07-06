@@ -20,8 +20,6 @@ from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation as R
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-os.makedirs('results', exist_ok=True)
-logging.info("Ensured 'results/' directory exists.")
 
 
 def _find_cols(df: pd.DataFrame, options: Sequence[Sequence[str]]) -> Sequence[str]:
@@ -104,6 +102,7 @@ def compute_residuals(est: pd.DataFrame, gnss: pd.DataFrame) -> Tuple[pd.DataFra
 def plot_residuals(res_df: pd.DataFrame, out_dir: str) -> None:
     """Plot position, velocity and acceleration residuals in a 3×3 grid."""
     os.makedirs(out_dir, exist_ok=True)
+    logging.info("Ensured '%s' directory exists.", out_dir)
 
     t = res_df.index.to_numpy()
     vel = res_df['vel'][['X', 'Y', 'Z']].to_numpy()
@@ -135,13 +134,16 @@ def plot_residuals(res_df: pd.DataFrame, out_dir: str) -> None:
     plt.close(fig)
 
 
-def plot_residuals_new(gnss_times: np.ndarray,
-                       positions_pred: np.ndarray,
-                       positions_meas: np.ndarray,
-                       velocities_pred: np.ndarray,
-                       velocities_meas: np.ndarray,
-                       dataset: str,
-                       method: str) -> None:
+def plot_residuals_new(
+    gnss_times: np.ndarray,
+    positions_pred: np.ndarray,
+    positions_meas: np.ndarray,
+    velocities_pred: np.ndarray,
+    velocities_meas: np.ndarray,
+    dataset: str,
+    method: str,
+    out_dir: str = "results",
+) -> None:
     """Plot residuals in a 3×3 grid and save as PDF."""
     res_pos = positions_meas - positions_pred
     res_vel = velocities_meas - velocities_pred
@@ -169,13 +171,20 @@ def plot_residuals_new(gnss_times: np.ndarray,
 
     fig.suptitle(f'Residuals: {dataset} - {method}')
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out = f'results/{dataset}_{method}_residuals.pdf'
+    os.makedirs(out_dir, exist_ok=True)
+    logging.info("Ensured '%s' directory exists.", out_dir)
+    out = os.path.join(out_dir, f"{dataset}_{method}_residuals.pdf")
     fig.savefig(out)
     plt.close(fig)
 
 
-def plot_attitude(time: np.ndarray, quaternions: np.ndarray, dataset: str,
-                  method: str) -> None:
+def plot_attitude(
+    time: np.ndarray,
+    quaternions: np.ndarray,
+    dataset: str,
+    method: str,
+    out_dir: str = "results",
+) -> None:
     """Plot roll/pitch/yaw attitude angles over time."""
     from filterpy.common import q_to_euler
     rpy = np.array([q_to_euler(q) for q in quaternions])
@@ -184,9 +193,11 @@ def plot_attitude(time: np.ndarray, quaternions: np.ndarray, dataset: str,
     for i, label in enumerate(['Roll', 'Pitch', 'Yaw']):
         axs[i].plot(time, rpy[:, i])
         axs[i].set_title(f'{label} over Time')
+    os.makedirs(out_dir, exist_ok=True)
+    logging.info("Ensured '%s' directory exists.", out_dir)
     fig.suptitle(f'Attitude Angles: {dataset} - {method}')
     fig.tight_layout()
-    fig.savefig(f'results/{dataset}_{method}_attitude.pdf')
+    fig.savefig(os.path.join(out_dir, f"{dataset}_{method}_attitude.pdf"))
     plt.close(fig)
 
 
@@ -206,6 +217,9 @@ def main() -> None:
     ap.add_argument('--gnss', required=True, help='GNSS update CSV')
     ap.add_argument('--output', required=True, help='output directory for plots')
     args = ap.parse_args()
+
+    os.makedirs(args.output, exist_ok=True)
+    logging.info("Ensured '%s' directory exists.", args.output)
 
     est, gnss = load_data(args.estimates, args.gnss)
     res_df, times = compute_residuals(est, gnss)
@@ -259,8 +273,9 @@ def main() -> None:
         velocities_meas,
         dataset,
         method,
+        args.output,
     )
-    plot_attitude(merged['time'].to_numpy(), quats, dataset, method)
+    plot_attitude(merged['time'].to_numpy(), quats, dataset, method, args.output)
 
 
 if __name__ == '__main__':

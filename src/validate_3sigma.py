@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import os
 import logging
 
 import numpy as np
@@ -23,8 +22,6 @@ import matplotlib.pyplot as plt
 from validate_with_truth import load_estimate
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-os.makedirs('results', exist_ok=True)
-logging.info("Ensured 'results/' directory exists.")
 
 
 def load_truth(path: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -55,6 +52,7 @@ def main() -> None:
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    logging.info("Ensured '%s' directory exists.", out_dir)
 
     est = load_estimate(args.est_file)
 
