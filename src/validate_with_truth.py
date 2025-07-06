@@ -82,7 +82,7 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
         )
 
     # Align time vectors
-    truth_time = truth[:, 0]
+    truth_time = truth[:, 1]
     est_time = np.arange(0, len(est_pos) * 0.0025, 0.0025)
     if debug:
         print(
@@ -102,6 +102,7 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
     ).T
 
     if convert_est_to_ecef:
+        logging.info("Entering NED-to-ECEF conversion block.")
         # convert estimate to ECEF for comparison
         ref_lat = est.get("ref_lat")
         if ref_lat is None:
@@ -131,7 +132,17 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
             ref_lat = float(np.asarray(ref_lat).squeeze())
             ref_lon = float(np.asarray(ref_lon).squeeze())
             ref_r0 = np.asarray(ref_r0).squeeze()
+        if debug:
+            logging.debug(
+                "Reference parameters - lat_rad: %s, lon_rad: %s, r0_m: %s",
+                ref_lat,
+                ref_lon,
+                ref_r0,
+            )
         est_pos_ecef, est_vel_ecef = _ned_to_ecef(pos_interp, ref_lat, ref_lon, ref_r0, vel_interp)
+        logging.info(
+            "Converted estimate from NED to ECEF using reference parameters."
+        )
         pos_err = est_pos_ecef - truth[:, 2:5]
         vel_err = est_vel_ecef - truth[:, 5:8]
     else:
