@@ -1,5 +1,6 @@
 import argparse
 import os
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -12,8 +13,9 @@ from plot_overlay import plot_overlay
 import pandas as pd
 import re
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 os.makedirs('results', exist_ok=True)
-print("Ensured 'results/' directory exists.")
+logging.info("Ensured 'results/' directory exists.")
 
 __all__ = [
     "load_estimate",

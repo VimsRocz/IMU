@@ -1,5 +1,6 @@
 import argparse
 import os
+import logging
 import numpy as np
 import pandas as pd
 from scipy.signal import butter, filtfilt
@@ -9,8 +10,9 @@ from kalman import GNSSIMUKalman, rts_smoother
 from utils import compute_C_ECEF_to_NED
 from constants import GRAVITY, EARTH_RATE
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 os.makedirs('results', exist_ok=True)
-print("Ensured 'results/' directory exists.")
+logging.info("Ensured 'results/' directory exists.")
 
 
 def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):

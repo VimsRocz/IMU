@@ -25,9 +25,11 @@ import pathlib
 import subprocess
 import sys
 from typing import Iterable, Tuple
+import logging
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 os.makedirs('results', exist_ok=True)
-print("Ensured 'results/' directory exists.")
+logging.info("Ensured 'results/' directory exists.")
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent

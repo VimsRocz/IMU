@@ -10,9 +10,11 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import logging
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 os.makedirs('results', exist_ok=True)
-print("Ensured 'results/' directory exists.")
+logging.info("Ensured 'results/' directory exists.")
 RESULTS_DIR = pathlib.Path("results")
 COLOURS     = {"X001": "tab:blue", "X002": "tab:orange", "X003": "tab:green"}
 LABEL_MAP   = {"N": "North", "E": "East", "D": "Down"}

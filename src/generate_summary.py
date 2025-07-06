@@ -1,9 +1,11 @@
 import os
+import logging
 import pandas as pd
 from fpdf import FPDF
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 os.makedirs('results', exist_ok=True)
-print("Ensured 'results/' directory exists.")
+logging.info("Ensured 'results/' directory exists.")
 
 # Load run results produced by ``summarise_runs.py``
 DF_PATH = "results/summary.csv"
