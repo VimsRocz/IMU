@@ -18,13 +18,15 @@ import pandas as pd
 import numpy as np
 import yaml
 import os
+import logging
 
 from utils import ensure_dependencies
 from tabulate import tabulate
 from tqdm import tqdm
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 os.makedirs('results', exist_ok=True)
-print("Ensured 'results/' directory exists.")
+logging.info("Ensured 'results/' directory exists.")
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import logging
 from typing import Sequence, Tuple
 
 import numpy as np
@@ -18,8 +19,9 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation as R
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 os.makedirs('results', exist_ok=True)
-print("Ensured 'results/' directory exists.")
+logging.info("Ensured 'results/' directory exists.")
 
 
 def _find_cols(df: pd.DataFrame, options: Sequence[Sequence[str]]) -> Sequence[str]:

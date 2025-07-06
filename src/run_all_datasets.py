@@ -16,6 +16,7 @@ import pandas as pd
 import numpy as np
 import yaml
 import os
+import logging
 from scipy.io import savemat
 
 from utils import ensure_dependencies, ecef_to_geodetic
@@ -25,8 +26,9 @@ from tqdm import tqdm
 from validate_with_truth import load_estimate, assemble_frames
 from plot_overlay import plot_overlay
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 os.makedirs('results', exist_ok=True)
-print("Ensured 'results/' directory exists.")
+logging.info("Ensured 'results/' directory exists.")
 
 ensure_dependencies()
 

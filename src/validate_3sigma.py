@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import os
+import logging
 
 import numpy as np
 from scipy.spatial.transform import Rotation as R, Slerp
@@ -21,8 +22,9 @@ import matplotlib.pyplot as plt
 # Reuse the robust loader from validate_with_truth
 from validate_with_truth import load_estimate
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 os.makedirs('results', exist_ok=True)
-print("Ensured 'results/' directory exists.")
+logging.info("Ensured 'results/' directory exists.")
 
 
 def load_truth(path: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:

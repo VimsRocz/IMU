@@ -26,7 +26,6 @@ from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
 
 os.makedirs('results', exist_ok=True)
-print("Ensured 'results/' directory exists.")
 from .gnss_imu_fusion.init_vectors import (
     average_rotation_matrices,
     svd_alignment,
@@ -76,6 +75,7 @@ logging.basicConfig(
     format="%(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
+logging.info("Ensured 'results/' directory exists.")
 
 # Minimum number of samples required from a static interval for bias estimation
 MIN_STATIC_SAMPLES = 500

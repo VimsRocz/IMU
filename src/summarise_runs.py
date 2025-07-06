@@ -9,9 +9,11 @@ import csv
 import pathlib
 import re
 import os
+import logging
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 os.makedirs('results', exist_ok=True)
-print("Ensured 'results/' directory exists.")
+logging.info("Ensured 'results/' directory exists.")
 RESULTS_DIR = pathlib.Path("results")
 
 LOG_DIR = pathlib.Path("logs")

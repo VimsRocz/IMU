@@ -7,9 +7,11 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import os
+import logging
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 os.makedirs('results', exist_ok=True)
-print("Ensured 'results/' directory exists.")
+logging.info("Ensured 'results/' directory exists.")
 
 
 def run_python_pipeline(imu_file: str, gnss_file: str, method: str) -> Path:
