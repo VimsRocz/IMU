@@ -7,7 +7,12 @@ import numpy as np
 import pandas as pd
 
 from ..constants import GRAVITY, EARTH_RATE
-from ..utils import detect_static_interval, ecef_to_geodetic, compute_C_ECEF_to_NED
+from ..utils import (
+    detect_static_interval,
+    ecef_to_geodetic,
+    compute_C_ECEF_to_NED,
+    validate_gravity_vector,
+)
 from .init_vectors import butter_lowpass_filter
 
 
@@ -35,7 +40,7 @@ def compute_reference_vectors(
     lat_deg, lon_deg, alt = ecef_to_geodetic(x_ecef, y_ecef, z_ecef)
     lat = np.deg2rad(lat_deg)
     lon = np.deg2rad(lon_deg)
-    g_ned = np.array([0.0, 0.0, GRAVITY])
+    g_ned = validate_gravity_vector(lat_deg, alt)
     omega_ie_ned = EARTH_RATE * np.array([np.cos(lat), 0.0, -np.sin(lat)])
     initial_vel = row[["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]].values
     C_e2n = compute_C_ECEF_to_NED(lat, lon)
