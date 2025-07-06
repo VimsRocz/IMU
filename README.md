@@ -185,6 +185,10 @@ static accelerometer vector is used to compute a simple scale factor so that the
 measured gravity is close to 9.81 m/s². This improves the attitude
 initialisation when the first samples are not perfectly static or the sensor
 scale is slightly off.
+`GNSS_IMU_Fusion.py` also accepts an optional `--truth-file` argument. When
+provided, it loads a `STATE_X001.txt`‑style file (time, ECEF position and
+velocity), interpolates the reference trajectory to the IMU timestamps and adds
+magenta truth curves to the NED, ECEF and body frame plots.
 ### Verifying Earth Rotation Rate
 
 Run any dataset with the `--verbose` flag to print the **Earth rotation magnitude** measured from the static gyroscope data.
