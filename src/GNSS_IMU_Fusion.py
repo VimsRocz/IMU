@@ -95,6 +95,10 @@ def main():
     )
     parser.add_argument("--mag-file", help="CSV file with magnetometer data")
     parser.add_argument(
+        "--truth-file",
+        help="Optional ground truth trajectory in STATE_X001.txt format",
+    )
+    parser.add_argument(
         "--use-gnss-heading",
         action="store_true",
         help="Use initial GNSS velocity for yaw if no magnetometer",
@@ -134,6 +138,7 @@ def main():
     method = args.method
     gnss_file = args.gnss_file
     imu_file = args.imu_file
+    truth_file = args.truth_file
 
     os.makedirs("results", exist_ok=True)
 
@@ -794,6 +799,25 @@ def main():
     t0 = gnss_time[0]
     t_rel_ilu = imu_time - t0
     t_rel_gnss = gnss_time - t0
+    truth_pos_ecef_i = truth_vel_ecef_i = None
+    truth_pos_ned_i = truth_vel_ned_i = None
+    if truth_file:
+        try:
+            truth = np.loadtxt(truth_file, comments="#")
+            t_truth = truth[:, 1]
+            pos_truth_ecef = truth[:, 2:5]
+            vel_truth_ecef = truth[:, 5:8]
+            truth_pos_ecef_i = np.vstack([
+                np.interp(t_rel_ilu, t_truth, pos_truth_ecef[:, k]) for k in range(3)
+            ]).T
+            truth_vel_ecef_i = np.vstack([
+                np.interp(t_rel_ilu, t_truth, vel_truth_ecef[:, k]) for k in range(3)
+            ]).T
+            truth_pos_ned_i = ecef_to_ned(truth_pos_ecef_i, ref_lat, ref_lon, ref_r0)
+            truth_vel_ned_i = (C_ECEF_to_NED @ truth_vel_ecef_i.T).T
+        except Exception as e:
+            logging.error(f"Failed to load truth file {truth_file}: {e}")
+            truth_file = None
     # Validate time ranges
     if t_rel_ilu.max() < 1000:
         logging.warning(f"IMU time range too short: {t_rel_ilu.max():.2f} seconds")
@@ -1381,11 +1405,15 @@ def main():
                 ax.plot(t_rel_gnss, gnss_pos_ned[:, j], 'k-', label='Measured GNSS')
                 ax.plot(t_rel_ilu, fused_pos[method][:, j], c, alpha=0.7,
                         label=f'Fused (GNSS+IMU, {method})')
+                if truth_pos_ned_i is not None:
+                    ax.plot(t_rel_ilu, truth_pos_ned_i[:, j], 'm-', label='Truth')
                 ax.set_title(f'Position {dirs_ned[j]}')
             elif i == 1:
                 ax.plot(t_rel_gnss, gnss_vel_ned[:, j], 'k-', label='Measured GNSS')
                 ax.plot(t_rel_ilu, fused_vel[method][:, j], c, alpha=0.7,
                         label=f'Fused (GNSS+IMU, {method})')
+                if truth_vel_ned_i is not None:
+                    ax.plot(t_rel_ilu, truth_vel_ned_i[:, j], 'm-', label='Truth')
                 ax.set_title(f'Velocity V{dirs_ned[j]}')
             else:
                 ax.plot(t_rel_gnss, gnss_acc_ned[:, j], 'k-', label='Measured GNSS')
@@ -1415,11 +1443,15 @@ def main():
                 ax.plot(t_rel_gnss, gnss_pos_ecef[:, j], 'k-', label='Measured GNSS')
                 ax.plot(t_rel_ilu, pos_ecef[:, j], c, alpha=0.7,
                         label=f'Fused (GNSS+IMU, {method})')
+                if truth_pos_ecef_i is not None:
+                    ax.plot(t_rel_ilu, truth_pos_ecef_i[:, j], 'm-', label='Truth')
                 ax.set_title(f'Position {dirs_ecef[j]}_ECEF')
             elif i == 1:
                 ax.plot(t_rel_gnss, gnss_vel_ecef[:, j], 'k-', label='Measured GNSS')
                 ax.plot(t_rel_ilu, vel_ecef[:, j], c, alpha=0.7,
                         label=f'Fused (GNSS+IMU, {method})')
+                if truth_vel_ecef_i is not None:
+                    ax.plot(t_rel_ilu, truth_vel_ecef_i[:, j], 'm-', label='Truth')
                 ax.set_title(f'Velocity V{dirs_ecef[j]}_ECEF')
             else:
                 ax.plot(t_rel_gnss, gnss_acc_ecef[:, j], 'k-', label='Derived GNSS')
@@ -1443,6 +1475,9 @@ def main():
     pos_body = (C_N_B @ fused_pos[method].T).T
     vel_body = (C_N_B @ fused_vel[method].T).T
     acc_body = (C_N_B @ fused_acc[method].T).T
+    if truth_pos_ned_i is not None:
+        truth_pos_body = (C_N_B @ truth_pos_ned_i.T).T
+        truth_vel_body = (C_N_B @ truth_vel_ned_i.T).T
     gnss_pos_body = (C_N_B @ gnss_pos_ned.T).T
     gnss_vel_body = (C_N_B @ gnss_vel_ned.T).T
     gnss_acc_body = (C_N_B @ gnss_acc_ned.T).T
@@ -1453,11 +1488,15 @@ def main():
                 ax.plot(t_rel_gnss, gnss_pos_body[:, j], 'k-', label='Measured GNSS')
                 ax.plot(t_rel_ilu, pos_body[:, j], c, alpha=0.7,
                         label=f'Fused (GNSS+IMU, {method})')
+                if truth_pos_ned_i is not None:
+                    ax.plot(t_rel_ilu, truth_pos_body[:, j], 'm-', label='Truth')
                 ax.set_title(f'Position r{dirs_body[j]}_body')
             elif i == 1:
                 ax.plot(t_rel_gnss, gnss_vel_body[:, j], 'k-', label='Measured GNSS')
                 ax.plot(t_rel_ilu, vel_body[:, j], c, alpha=0.7,
                         label=f'Fused (GNSS+IMU, {method})')
+                if truth_vel_ned_i is not None:
+                    ax.plot(t_rel_ilu, truth_vel_body[:, j], 'm-', label='Truth')
                 ax.set_title(f'Velocity v{dirs_body[j]}_body')
             else:
                 ax.plot(t_rel_gnss, gnss_acc_body[:, j], 'k-', label='Derived GNSS')
