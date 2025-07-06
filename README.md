@@ -28,8 +28,11 @@ pip install -r requirements.txt
 For a minimal setup you can also install the packages individually:
 
 ```bash
-pip install numpy matplotlib scipy filterpy
+pip install numpy pandas matplotlib scipy filterpy pyproj
 ```
+
+Other helper scripts may rely on additional packages such as `rich` or
+`tqdm`.  Refer to `requirements.txt` for the full dependency list.
 
 If the `filterpy` wheel fails to build, force a source install:
 
