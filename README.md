@@ -144,7 +144,9 @@ the MATLAB scripts.
 
 ### Running validation
 
-Process all datasets with every initialisation method:
+Run the following commands from the repository root so the helper
+scripts can locate the bundled data and truth file automatically.
+First process all datasets with every initialisation method:
 
 ```bash
 python src/run_all_methods.py
@@ -153,13 +155,20 @@ python src/run_all_methods.py
 Once the `*_kf_output.mat` files are created, validate them with:
 
 ```bash
-python src/validate_all_outputs.py
+python validate_all_outputs.py
 ```
 
 The validator searches the `results/` folder for saved outputs, compares them
 to the common `STATE_X001.txt` ground truth and writes overlay figures and a CSV
 summary alongside the logs. All figures and summaries are therefore found in
 `results/`.
+
+If your logs or truth file live elsewhere, provide the paths explicitly:
+
+```bash
+python validate_all_outputs.py --results-dir path/to/logs \
+    --truth-dir path/to/truth
+```
 
 To validate an individual estimator output manually call
 `src/validate_with_truth.py` with the filter result file and the reference
