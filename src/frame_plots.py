@@ -37,7 +37,7 @@ def _plot_components(ax_arr, t_data, data_arr, label: str, color: str = None):
 def plot_ecef(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
               imu_acc_body, fused_pos_ned, fused_vel_ned, fused_acc_ned,
               imu_pos_ned, imu_vel_ned,
-              C_NED_to_ECEF, C_B_N, out_file: Path, *,
+              C_NED_to_ECEF, C_B_N, method: str, out_file: Path, *,
               t_truth: Optional[np.ndarray] = None,
               pos_truth: Optional[np.ndarray] = None,
               vel_truth: Optional[np.ndarray] = None,
@@ -58,20 +58,20 @@ def plot_ecef(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
         if t_truth is not None and pos_truth is not None:
             axes[0, j].plot(t_truth, pos_truth[:, j], 'm-', label="Truth")
         axes[0, j].plot(t_imu, imu_pos_ecef[:, j], 'g--', label="IMU (Derived)")
-        axes[0, j].plot(t_imu, pos_fused[:, j], 'b-', label="Fused GNSS + IMU")
+        axes[0, j].plot(t_imu, pos_fused[:, j], 'b-', label=f"Fused {method}")
         axes[0, j].set_title(f"Position {labels[j]} (ECEF)")
 
         axes[1, j].plot(t_gnss, gnss_vel_ecef[:, j], 'k-', label="GNSS (Measured)")
         if t_truth is not None and vel_truth is not None:
             axes[1, j].plot(t_truth, vel_truth[:, j], 'm-', label="Truth")
         axes[1, j].plot(t_imu, imu_vel_ecef[:, j], 'g--', label="IMU (Derived)")
-        axes[1, j].plot(t_imu, vel_fused[:, j], 'b-', label="Fused GNSS + IMU")
+        axes[1, j].plot(t_imu, vel_fused[:, j], 'b-', label=f"Fused {method}")
         axes[1, j].set_title(f"Velocity {labels[j]} (ECEF)")
 
         axes[2, j].plot(t_imu, imu_acc_ecef[:, j], 'g-', label="IMU (Derived)")
         if t_truth is not None and acc_truth is not None:
             axes[2, j].plot(t_truth, acc_truth[:, j], 'm-', label="Truth")
-        axes[2, j].plot(t_imu, acc_fused[:, j], 'b-', label="Fused GNSS + IMU")
+        axes[2, j].plot(t_imu, acc_fused[:, j], 'b-', label=f"Fused {method}")
         axes[2, j].set_title(f"Acceleration {labels[j]} (ECEF)")
 
     for ax_row in axes:
@@ -90,7 +90,7 @@ def plot_ecef(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
 def plot_ned(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
              imu_acc_body, fused_pos_ned, fused_vel_ned, fused_acc_ned,
              imu_pos_ned, imu_vel_ned,
-             C_NED_to_ECEF, C_B_N, out_file: Path, *,
+             C_NED_to_ECEF, C_B_N, method: str, out_file: Path, *,
              t_truth: Optional[np.ndarray] = None,
              pos_truth: Optional[np.ndarray] = None,
              vel_truth: Optional[np.ndarray] = None,
@@ -110,20 +110,20 @@ def plot_ned(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
         if t_truth is not None and pos_truth is not None:
             axes[0, j].plot(t_truth, pos_truth[:, j], 'm-', label="Truth")
         axes[0, j].plot(t_imu, imu_pos_ned[:, j], 'g--', label="IMU (Derived)")
-        axes[0, j].plot(t_imu, fused_pos_ned[:, j], 'b-', label="Fused GNSS + IMU")
+        axes[0, j].plot(t_imu, fused_pos_ned[:, j], 'b-', label=f"Fused {method}")
         axes[0, j].set_title(f"Position {labels[j]} (NED)")
 
         axes[1, j].plot(t_gnss, gnss_vel_ned[:, j], 'k-', label="GNSS (Derived)")
         if t_truth is not None and vel_truth is not None:
             axes[1, j].plot(t_truth, vel_truth[:, j], 'm-', label="Truth")
         axes[1, j].plot(t_imu, imu_vel_ned[:, j], 'g--', label="IMU (Derived)")
-        axes[1, j].plot(t_imu, fused_vel_ned[:, j], 'b-', label="Fused GNSS + IMU")
+        axes[1, j].plot(t_imu, fused_vel_ned[:, j], 'b-', label=f"Fused {method}")
         axes[1, j].set_title(f"Velocity {labels[j]} (NED)")
 
         axes[2, j].plot(t_imu, imu_acc_ned[:, j], 'g-', label="IMU (Derived)")
         if t_truth is not None and acc_truth is not None:
             axes[2, j].plot(t_truth, acc_truth[:, j], 'm-', label="Truth")
-        axes[2, j].plot(t_imu, fused_acc_ned[:, j], 'b-', label="Fused GNSS + IMU")
+        axes[2, j].plot(t_imu, fused_acc_ned[:, j], 'b-', label=f"Fused {method}")
         axes[2, j].set_title(f"Acceleration {labels[j]} (NED)")
 
     for ax_row in axes:
@@ -142,7 +142,7 @@ def plot_ned(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
 def plot_body(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
               imu_acc_body, fused_pos_ned, fused_vel_ned, fused_acc_ned,
               imu_pos_ned, imu_vel_ned,
-              C_NED_to_ECEF, C_B_N, out_file: Path, *,
+              C_NED_to_ECEF, C_B_N, method: str, out_file: Path, *,
               t_truth: Optional[np.ndarray] = None,
               pos_truth: Optional[np.ndarray] = None,
               vel_truth: Optional[np.ndarray] = None,
@@ -166,20 +166,20 @@ def plot_body(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
         if t_truth is not None and pos_truth is not None:
             axes[0, j].plot(t_truth, pos_truth[:, j], 'm-', label="Truth")
         axes[0, j].plot(t_imu, imu_pos_body[:, j], 'g--', label="IMU (Derived)")
-        axes[0, j].plot(t_imu, fused_pos_body[:, j], 'b-', label="Fused GNSS + IMU")
+        axes[0, j].plot(t_imu, fused_pos_body[:, j], 'b-', label=f"Fused {method}")
         axes[0, j].set_title(f"Position {labels[j]} (Body)")
 
         axes[1, j].plot(t_gnss, gnss_vel_body[:, j], 'k-', label="GNSS (Derived)")
         if t_truth is not None and vel_truth is not None:
             axes[1, j].plot(t_truth, vel_truth[:, j], 'm-', label="Truth")
         axes[1, j].plot(t_imu, imu_vel_body[:, j], 'g--', label="IMU (Derived)")
-        axes[1, j].plot(t_imu, fused_vel_body[:, j], 'b-', label="Fused GNSS + IMU")
+        axes[1, j].plot(t_imu, fused_vel_body[:, j], 'b-', label=f"Fused {method}")
         axes[1, j].set_title(f"Velocity {labels[j]} (Body)")
 
         axes[2, j].plot(t_imu, imu_acc_body[:, j], 'g-', label="IMU (Measured)")
         if t_truth is not None and acc_truth is not None:
             axes[2, j].plot(t_truth, acc_truth[:, j], 'm-', label="Truth")
-        axes[2, j].plot(t_imu, fused_acc_body[:, j], 'b-', label="Fused GNSS + IMU")
+        axes[2, j].plot(t_imu, fused_acc_body[:, j], 'b-', label=f"Fused {method}")
         axes[2, j].set_title(f"Acceleration {labels[j]} (Body)")
 
     for ax_row in axes:

@@ -96,7 +96,7 @@ def save_task5_plots(method_name: str, dataset_name: str, fused: pd.DataFrame,
             fused.index,
             fused[comp],
             "--",
-            label=f"Fused (GNSS+IMU, {method_name})",
+            label=f"Fused {method_name}",
         )
         ax.set_title(
             f"{method_name} {comp}-pos KF (Fused vs. Measured GNSS, {dataset_name})"

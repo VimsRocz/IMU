@@ -1424,7 +1424,8 @@ def main():
         ax.plot(imu_time, gnss_pos_ned_interp[:, j], 'k-', label='GNSS (Measured)')
         ax.plot(imu_time, imu_pos[method][:, j], 'g--', label='IMU (Derived)')
         c = colors.get(method, None)
-        ax.plot(imu_time, fused_pos[method][:, j], c, alpha=0.7, label='Fused GNSS + IMU')
+        ax.plot(imu_time, fused_pos[method][:, j], c, alpha=0.7,
+                label=f"Fused {method}")
         ax.set_title(f'Position {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Position (m)')
@@ -1444,7 +1445,8 @@ def main():
         ax.plot(imu_time, gnss_vel_ned_interp[:, j], 'k-', label='GNSS (Measured)')
         ax.plot(imu_time, imu_vel[method][:, j], 'g--', label='IMU (Derived)')
         c = colors.get(method, None)
-        ax.plot(imu_time, fused_vel[method][:, j], c, alpha=0.7, label='Fused GNSS + IMU')
+        ax.plot(imu_time, fused_vel[method][:, j], c, alpha=0.7,
+                label=f"Fused {method}")
         ax.set_title(f'Velocity {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Velocity (m/s)')
@@ -1464,7 +1466,8 @@ def main():
         ax.plot(imu_time, imu_acc[method][:, j], 'g--', label='IMU (Derived)')
         ax.plot(imu_time, gnss_acc_ned_interp[:, j], 'k-', label='GNSS (Derived)')
         c = colors.get(method, None)
-        ax.plot(imu_time, fused_acc[method][:, j], c, alpha=0.7, label='Fused GNSS + IMU')
+        ax.plot(imu_time, fused_acc[method][:, j], c, alpha=0.7,
+                label=f"Fused {method}")
         ax.set_title(f'Acceleration {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Acceleration (m/s²)')
@@ -1502,20 +1505,20 @@ def main():
             if i == 0:
                 ax.plot(t_rel_gnss, gnss_pos_ecef[:, j], 'k-', label='Measured GNSS')
                 ax.plot(t_rel_ilu, pos_ecef[:, j], c, alpha=0.7,
-                        label=f'Fused (GNSS+IMU, {method})')
+                        label=f"Fused {method}")
                 if truth_pos_ecef_i is not None:
                     ax.plot(t_rel_ilu, truth_pos_ecef_i[:, j], 'm-', label='Truth')
                 ax.set_title(f'Position {dirs_pos[j]}')
             elif i == 1:
                 ax.plot(t_rel_gnss, gnss_vel_ecef[:, j], 'k-', label='Measured GNSS')
                 ax.plot(t_rel_ilu, vel_ecef[:, j], c, alpha=0.7,
-                        label=f'Fused (GNSS+IMU, {method})')
+                        label=f"Fused {method}")
                 if truth_vel_ecef_i is not None:
                     ax.plot(t_rel_ilu, truth_vel_ecef_i[:, j], 'm-', label='Truth')
                 ax.set_title(f'Velocity {dirs_vel[j]}')
             else:
                 ax.plot(t_rel_ilu, acc_body[:, j], c, alpha=0.7,
-                        label=f'Fused (GNSS+IMU, {method})')
+                        label=f"Fused {method}")
                 ax.set_title(f'Acceleration {dirs_acc[j]}')
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
@@ -1543,6 +1546,7 @@ def main():
             imu_vel[method],
             C_NED_to_ECEF,
             C_B_N_methods[method],
+            method,
             Path(f"results/{tag}_task5_all_ned.pdf"),
             t_truth=t_rel_ilu if truth_pos_ned_i is not None else None,
             pos_truth=truth_pos_ned_i,
@@ -1565,6 +1569,7 @@ def main():
             imu_vel[method],
             C_NED_to_ECEF,
             C_B_N_methods[method],
+            method,
             Path(f"results/{tag}_task5_all_ecef.pdf"),
             t_truth=t_rel_ilu if truth_pos_ecef_i is not None else None,
             pos_truth=truth_pos_ecef_i,
@@ -1593,6 +1598,7 @@ def main():
             imu_vel[method],
             C_NED_to_ECEF,
             C_B_N_methods[method],
+            method,
             Path(f"results/{tag}_task5_all_body.pdf"),
             t_truth=t_rel_ilu if truth_pos_ned_i is not None else None,
             pos_truth=truth_pos_body,

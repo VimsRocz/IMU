@@ -74,7 +74,7 @@ def plot_overlay(
             ax.plot(t_imu, imu[:, col], "c--", label="Measured IMU")
             if t_truth is not None and truth is not None:
                 ax.plot(t_truth, truth[:, col], "m-", label="Truth")
-            ax.plot(t_fused, fused[:, col], "g:", label=f"Fused GNSS+IMU ({method})")
+            ax.plot(t_fused, fused[:, col], "g:", label=f"Fused {method}")
             if row == 0:
                 ax.set_title(axis)
             if col == 0:
