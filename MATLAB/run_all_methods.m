@@ -68,10 +68,11 @@ for m = 1:numel(methods)
     pair_tag = [imu_name '_' gnss_name];
     method_file = fullfile(resultsDir, sprintf('%s_%s_task5_results.mat', pair_tag, method));
     if isfile(method_file)
-        data = load(method_file, 'x_log', 'vel_log', 'accel_from_vel');
+        data = load(method_file);
         fused_pos{m} = data.x_log(1:3,:)';
         fused_vel{m} = data.vel_log';
         fused_acc{m} = data.accel_from_vel';
+        plot_task456_gnss_imu_fused(imu_file, gnss_file, data);
     else
         warning('Result file not found: %s', method_file);
         fused_pos{m} = [];
