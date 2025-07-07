@@ -157,6 +157,26 @@ The validator searches the `results/` folder for saved outputs, compares them
 to the common `STATE_X001.txt` ground truth and writes overlay figures and a CSV
 summary alongside the logs. All figures and summaries are therefore found in
 `results/`.
+
+To validate an individual estimator output manually call
+`src/validate_with_truth.py` with the filter result file and the reference
+trajectory:
+
+```bash
+python src/validate_with_truth.py --est-file <kf.mat> \
+    --truth-file STATE_X001.txt --output results
+```
+
+Optional arguments `--ref-lat`, `--ref-lon` and `--ref-r0` override the reference
+coordinate if it is not embedded in the estimate file.
+
+For a quick look at ±3σ bounds stored in the covariance matrix run:
+
+```bash
+python src/validate_3sigma.py --est-file <kf.npz> --truth-file STATE_X001.txt \
+    --output-dir results
+```
+
 ### Sample Processing Report
 
 A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/` directory.
@@ -403,6 +423,11 @@ pipeline but can be handy for quick experiments:
   `--pos_meas_noise` and `--vel_meas_noise`).
 - `validate_filter.py` &ndash; command&ndash;line tool to compare a saved filter
   state history against GNSS measurements and plot the residuals.
+- `validate_with_truth.py` &ndash; compare a filter output directly with
+  `STATE_X001.txt` and generate overlay figures. Supports manual reference
+  coordinates via `--ref-lat`, `--ref-lon` and `--ref-r0`.
+- `validate_3sigma.py` &ndash; plot position, velocity and quaternion errors
+  together with the ±3σ bounds extracted from the covariance matrix.
 
 These utilities are optional and not exercised by the unit tests.
 
