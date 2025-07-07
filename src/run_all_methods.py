@@ -34,7 +34,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 from scipy.io import savemat
 
-from utils import compute_C_ECEF_to_NED
+from utils import compute_C_ECEF_to_NED, check_free_space
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -225,7 +225,14 @@ def main(argv=None):
                 "att_quat": quat,
                 "method_name": m,
             }
-            savemat(npz_path.with_suffix(".mat"), mat_out)
+            mat_file = npz_path.with_suffix(".mat")
+            if check_free_space(mat_file.parent):
+                savemat(mat_file, mat_out)
+            else:
+                logger.error(
+                    f"Insufficient disk space to save {mat_file}. "
+                    "Free space or skip exporting .mat files."
+                )
 
     # --- nicely formatted summary table --------------------------------------
     if results:

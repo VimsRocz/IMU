@@ -67,3 +67,4 @@ pip3 install numpy scipy matplotlib
 - `plot_summary.md` or per-plot summaries are updated.
 - Installation notes for `filterpy` are included in the README.
 - All analysis focuses on the TRIAD initialization method.
+- Scripts check available disk space before writing `.mat` files.

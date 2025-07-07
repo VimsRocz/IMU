@@ -19,7 +19,7 @@ import os
 import logging
 from scipy.io import savemat
 
-from utils import ensure_dependencies, ecef_to_geodetic
+from utils import ensure_dependencies, ecef_to_geodetic, check_free_space
 from tabulate import tabulate
 from tqdm import tqdm
 # Overlay helper functions
@@ -189,10 +189,13 @@ def main():
             for key in data.files:
                 if key not in ["time_residuals", "fused_pos", "fused_vel", "P_hist", "attitude_q"]:
                     mat_out[key] = data[key]
-            savemat(
-                results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat",
-                mat_out,
-            )
+            mat_file = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat"
+            if check_free_space(mat_file.parent):
+                savemat(mat_file, mat_out)
+            else:
+                logging.error(
+                    f"Insufficient disk space to save {mat_file}. Free space or skip export."
+                )
 
         truth_path = ROOT / "STATE_X001.txt"
         est_mat = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat"

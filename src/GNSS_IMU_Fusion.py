@@ -21,6 +21,7 @@ from utils import (
     is_static,
     compute_C_ECEF_to_NED,
     ecef_to_geodetic,
+    check_free_space,
 )
 from constants import GRAVITY, EARTH_RATE
 from scripts.validate_filter import compute_residuals, plot_residuals
@@ -1785,37 +1786,41 @@ def main():
 
     # Also export results as MATLAB-compatible .mat for post-processing
     from scipy.io import savemat
-    savemat(
-        f"results/{tag}_kf_output.mat",
-        {
-            "rmse_pos": np.array([rmse_pos]),
-            "final_pos": np.array([final_pos]),
-            "grav_err_mean": np.array([grav_err_mean]),
-            "grav_err_max": np.array([grav_err_max]),
-            "earth_rate_err_mean": np.array([omega_err_mean]),
-            "earth_rate_err_max": np.array([omega_err_max]),
-            "time": imu_time,
-            "pos_ned": fused_pos[method],
-            "vel_ned": fused_vel[method],
-            "fused_pos": fused_pos[method],
-            "fused_vel": fused_vel[method],
-            "pos_ecef": pos_ecef,
-            "vel_ecef": vel_ecef,
-            "pos_body": pos_body,
-            "vel_body": vel_body,
-            "innov_pos": innov_pos_all[method],
-            "innov_vel": innov_vel_all[method],
-            "euler": euler_all[method],
-            "residual_pos": res_pos_all[method],
-            "residual_vel": res_vel_all[method],
-            "time_residuals": time_res_all[method],
-            "attitude_q": attitude_q_all[method],
-            "P_hist": P_hist_all[method],
-            "ref_lat": np.array([ref_lat]),
-            "ref_lon": np.array([ref_lon]),
-            "ref_r0": ref_r0,
-        },
-    )
+    mat_file = Path("results") / f"{tag}_kf_output.mat"
+    mat_data = {
+        "rmse_pos": np.array([rmse_pos]),
+        "final_pos": np.array([final_pos]),
+        "grav_err_mean": np.array([grav_err_mean]),
+        "grav_err_max": np.array([grav_err_max]),
+        "earth_rate_err_mean": np.array([omega_err_mean]),
+        "earth_rate_err_max": np.array([omega_err_max]),
+        "time": imu_time,
+        "pos_ned": fused_pos[method],
+        "vel_ned": fused_vel[method],
+        "fused_pos": fused_pos[method],
+        "fused_vel": fused_vel[method],
+        "pos_ecef": pos_ecef,
+        "vel_ecef": vel_ecef,
+        "pos_body": pos_body,
+        "vel_body": vel_body,
+        "innov_pos": innov_pos_all[method],
+        "innov_vel": innov_vel_all[method],
+        "euler": euler_all[method],
+        "residual_pos": res_pos_all[method],
+        "residual_vel": res_vel_all[method],
+        "time_residuals": time_res_all[method],
+        "attitude_q": attitude_q_all[method],
+        "P_hist": P_hist_all[method],
+        "ref_lat": np.array([ref_lat]),
+        "ref_lon": np.array([ref_lon]),
+        "ref_r0": ref_r0,
+    }
+    if check_free_space(mat_file.parent):
+        savemat(mat_file, mat_data)
+    else:
+        logging.error(
+            f"Insufficient disk space to save {mat_file}. Free space or skip export."
+        )
 
     # --- Persist for cross-dataset comparison ------------------------------
     import pickle

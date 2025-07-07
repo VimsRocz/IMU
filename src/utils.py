@@ -10,6 +10,7 @@ import pathlib
 import subprocess
 import sys
 import logging
+import shutil
 
 
 def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
@@ -142,6 +143,13 @@ def save_mat(filename: str, data: dict) -> None:
     """Save *data* dictionary to a MATLAB ``.mat`` file."""
     from scipy.io import savemat
     savemat(filename, data)
+
+
+def check_free_space(path: pathlib.Path, min_free_mb: int = 100) -> bool:
+    """Return ``True`` if *path* has at least ``min_free_mb`` MiB free."""
+    usage = shutil.disk_usage(path)
+    free_mb = usage.free / (1024 ** 2)
+    return free_mb >= min_free_mb
 
 
 def compute_C_ECEF_to_NED(lat: float, lon: float) -> np.ndarray:
