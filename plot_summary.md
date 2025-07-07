@@ -10,6 +10,7 @@
 - **task5_all_ned.pdf**: Kalman filter results in NED frame
 - **task5_all_ecef.pdf**: Kalman filter results in ECEF frame
 - **task5_all_body.pdf**: Kalman filter results in body frame
+- **task5_mixed_frames.pdf**: Kalman filter results in mixed frames
 - **davenport_residuals.pdf**: Position and velocity residuals
 - **davenport_attitude_angles.pdf**: Attitude angles over time
 
