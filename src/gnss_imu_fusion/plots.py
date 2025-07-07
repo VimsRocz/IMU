@@ -218,7 +218,13 @@ def plot_all_methods(
                 if m not in data_dict:
                     continue
                 c = colors.get(m, None)
-                ax.plot(imu_time, data_dict[m][:, col], c, alpha=0.8, label=m)
+                ax.plot(
+                    imu_time,
+                    data_dict[m][:, col],
+                    c,
+                    alpha=0.8,
+                    label=f"Fused {m}",
+                )
             ax.set_title(f"{names[row]} {directions[col]}")
             ax.set_xlabel("Time (s)")
             ax.set_ylabel(ylabels[row])
