@@ -17,7 +17,7 @@ import numpy as np
 import yaml
 import os
 import logging
-from scipy.io import savemat
+from utils import save_mat
 
 from utils import ensure_dependencies, ecef_to_geodetic
 from tabulate import tabulate
@@ -189,7 +189,7 @@ def main():
             for key in data.files:
                 if key not in ["time_residuals", "fused_pos", "fused_vel", "P_hist", "attitude_q"]:
                     mat_out[key] = data[key]
-            savemat(
+            save_mat(
                 results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat",
                 mat_out,
             )
