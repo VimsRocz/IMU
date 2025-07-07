@@ -121,6 +121,8 @@ next one:
   Kalman filter to produce the final trajectory. [Details](docs/TRIAD_Task5_Wiki.md)
 * **Task&nbsp;6 &ndash; Truth Overlay:** reproduces the Task 5 figures with the
   recorded reference trajectory added for comparison. [Details](docs/TRIAD_Task6_Wiki.md)
+* **Task&nbsp;7 &ndash; Evaluation:** analyses filter residuals and attitude
+  stability.
 
 ### Datasets
 
@@ -201,6 +203,23 @@ Typical result PDFs:
 - `<method>_residuals.pdf` – position and velocity residuals
 - `<method>_attitude_angles.pdf` – attitude angles over time
 - `<method>_<frame>_overlay_truth.pdf` – fused output vs reference using `STATE_X001.txt` (e.g. `SVD_ecef_overlay_truth.pdf`)
+
+## Task 7: Evaluation of Filter Results
+
+This task analyzes the filter's prediction accuracy.
+
+### Includes:
+- Position and velocity residuals (GNSS - filter prediction)
+- Roll, pitch, yaw plots derived from quaternion
+
+### How to run:
+```bash
+python src/run_all_methods.py --task 7
+```
+
+### Output:
+
+* Plots saved in `plots/task7/`
 
 ### Notes
 
