@@ -1762,7 +1762,7 @@ def main():
         )
 
         euler_deg = np.rad2deg(euler_all[method])
-        save_euler_angles(imu_time, euler_deg)
+        save_euler_angles(imu_time, euler_deg, dataset_id, method)
 
         pos_f = np.vstack([
             np.interp(gnss_time, imu_time, fused_pos[method][:, i])
@@ -1779,9 +1779,11 @@ def main():
             gnss_pos_ned,
             vel_f,
             gnss_vel_ned,
+            dataset_id,
+            method,
         )
 
-        save_attitude_over_time(imu_time, euler_deg)
+        save_attitude_over_time(imu_time, euler_deg, dataset_id, method)
 
     logging.info(
         f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file)} gnss={os.path.basename(gnss_file)} "
