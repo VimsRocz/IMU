@@ -33,7 +33,8 @@ def plot_overlay(
     acc_truth: Optional[np.ndarray] = None,
     suffix: Optional[str] = None,
 ) -> None:
-    """Save a 3x3 overlay plot comparing IMU-only, GNSS and fused tracks.
+    """Save a 3x3 overlay plot comparing measured IMU, measured GNSS and
+    fused GNSS+IMU tracks.
 
     Parameters
     ----------
@@ -69,12 +70,11 @@ def plot_overlay(
     for row, (imu, gnss, fused, truth, ylab) in enumerate(datasets):
         for col, axis in enumerate(cols):
             ax = axes[row, col]
-            gnss_label = "Measured GNSS" if row < 2 else "Derived GNSS"
-            ax.plot(t_imu, imu[:, col], "b--", label=f"Derived IMU ({method})")
-            ax.plot(t_gnss, gnss[:, col], "k.", label=gnss_label)
+            ax.plot(t_gnss, gnss[:, col], "k", label="Measured GNSS")
+            ax.plot(t_imu, imu[:, col], "c--", label="Measured IMU")
             if t_truth is not None and truth is not None:
-                ax.plot(t_truth, truth[:, col], "g-", label="Truth")
-            ax.plot(t_fused, fused[:, col], "r-", label=f"Fused (GNSS+IMU, {method})")
+                ax.plot(t_truth, truth[:, col], "m-", label="Truth")
+            ax.plot(t_fused, fused[:, col], "g:", label=f"Fused GNSS+IMU ({method})")
             if row == 0:
                 ax.set_title(axis)
             if col == 0:
