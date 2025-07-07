@@ -1042,18 +1042,46 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     dims = {'North','East','Down'};
     fig = figure('Visible','off','Position',[100 100 1200 900]);
     for i = 1:3
-        subplot(3,3,i); hold on; plot(t_gnss, p_gnss_ned(:,i),'k--','DisplayName','GNSS'); plot(t_imu, p_imu(:,i),'b-','DisplayName',method); hold off; grid on; legend; title(['Position ' dims{i}]); ylabel('m');
-        subplot(3,3,i+3); hold on; plot(t_gnss, v_gnss_ned(:,i),'k--','DisplayName','GNSS'); plot(t_imu, v_imu(:,i),'b-','DisplayName',method); hold off; grid on; legend; title(['Velocity ' dims{i}]); ylabel('m/s');
-        subplot(3,3,i+6); hold on; plot(t_gnss, a_gnss_ned(:,i),'k--','DisplayName','GNSS'); plot(t_imu, a_imu(:,i),'b-','DisplayName',method); hold off; grid on; legend; title(['Acceleration ' dims{i}]); ylabel('m/s^2');
+        subplot(3,3,i); hold on;
+        plot(t_gnss, p_gnss_ned(:,i),'k--','DisplayName','Measured GNSS');
+        plot(t_imu, p_imu(:,i),'b-','DisplayName',sprintf('Derived IMU (%s)', method));
+        legend('Measured GNSS', sprintf('Derived IMU (%s)', method));
+        hold off; grid on; title(['Position ' dims{i}]); ylabel('m');
+
+        subplot(3,3,i+3); hold on;
+        plot(t_gnss, v_gnss_ned(:,i),'k--','DisplayName','Measured GNSS');
+        plot(t_imu, v_imu(:,i),'b-','DisplayName',sprintf('Derived IMU (%s)', method));
+        legend('Measured GNSS', sprintf('Derived IMU (%s)', method));
+        hold off; grid on; title(['Velocity ' dims{i}]); ylabel('m/s');
+
+        subplot(3,3,i+6); hold on;
+        plot(t_gnss, a_gnss_ned(:,i),'k--','DisplayName','Measured GNSS');
+        plot(t_imu, a_imu(:,i),'b-','DisplayName',sprintf('Derived IMU (%s)', method));
+        legend('Measured GNSS', sprintf('Derived IMU (%s)', method));
+        hold off; grid on; title(['Acceleration ' dims{i}]); ylabel('m/s^2');
     end
     sgtitle([method ' Comparison in NED frame']); fname = [base '_Task4_NEDFrame.pdf']; set(fig,'PaperPositionMode','auto'); print(fig,fname,'-dpdf','-bestfit'); close(fig);
 
     C_n2e = C_e2n'; fig = figure('Visible','off','Position',[100 100 1200 900]);
     p_gnss_ecef = (C_n2e*p_gnss_ned' + r0_ecef)'; v_gnss_ecef = (C_n2e*v_gnss_ned')'; a_gnss_ecef = (C_n2e*a_gnss_ned')'; a_imu_ecef = (C_n2e*a_imu')'; p_imu_ecef = (C_n2e*p_imu')'; v_imu_ecef = (C_n2e*v_imu')'; dims_e = {'X','Y','Z'};
     for i = 1:3
-        subplot(3,3,i); hold on; plot(t_gnss, p_gnss_ecef(:,i),'k--','DisplayName','GNSS'); plot(t_imu, p_imu_ecef(:,i),'b-','DisplayName',method); hold off; grid on; legend; title(['Position ' dims_e{i}]); ylabel('m');
-        subplot(3,3,i+3); hold on; plot(t_gnss, v_gnss_ecef(:,i),'k--','DisplayName','GNSS'); plot(t_imu, v_imu_ecef(:,i),'b-','DisplayName',method); hold off; grid on; legend; title(['Velocity ' dims_e{i}]); ylabel('m/s');
-        subplot(3,3,i+6); hold on; plot(t_gnss, a_gnss_ecef(:,i),'k--','DisplayName','GNSS'); plot(t_imu, a_imu_ecef(:,i),'b-','DisplayName',method); hold off; grid on; legend; title(['Acceleration ' dims_e{i}]); ylabel('m/s^2');
+        subplot(3,3,i); hold on;
+        plot(t_gnss, p_gnss_ecef(:,i),'k--','DisplayName','Measured GNSS');
+        plot(t_imu, p_imu_ecef(:,i),'b-','DisplayName',sprintf('Derived IMU (%s)', method));
+        legend('Measured GNSS', sprintf('Derived IMU (%s)', method));
+        hold off; grid on; title(['Position ' dims_e{i}]); ylabel('m');
+
+        subplot(3,3,i+3); hold on;
+        plot(t_gnss, v_gnss_ecef(:,i),'k--','DisplayName','Measured GNSS');
+        plot(t_imu, v_imu_ecef(:,i),'b-','DisplayName',sprintf('Derived IMU (%s)', method));
+        legend('Measured GNSS', sprintf('Derived IMU (%s)', method));
+        hold off; grid on; title(['Velocity ' dims_e{i}]); ylabel('m/s');
+
+        subplot(3,3,i+6); hold on;
+        plot(t_gnss, a_gnss_ecef(:,i),'k--','DisplayName','Measured GNSS');
+        plot(t_imu, a_imu_ecef(:,i),'b-','DisplayName',sprintf('Derived IMU (%s)', method));
+        legend('Measured GNSS', sprintf('Derived IMU (%s)', method));
+        hold off; grid on; title(['Acceleration ' dims_e{i}]); ylabel('m/s^2');
     end
     sgtitle([method ' Comparison in ECEF frame']); fname = [base '_Task4_ECEFFrame.pdf']; set(fig,'PaperPositionMode','auto'); print(fig,fname,'-dpdf','-bestfit'); close(fig);
 
