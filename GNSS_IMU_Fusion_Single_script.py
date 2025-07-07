@@ -3,6 +3,13 @@ import numpy as np
 import logging
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
+import os
+
+# --- plotting output configuration ----------------------------------------
+os.makedirs("results", exist_ok=True)
+DATASET_ID = "X001"
+METHOD = "TRIAD"
+TAG = f"{DATASET_ID}_{METHOD}"
 
 from src.constants import EARTH_RATE
 from src.utils import compute_C_ECEF_to_NED
@@ -115,11 +122,11 @@ ax.text(lon_deg + 1, lat_deg, f"Lat: {lat_deg:.4f}°, Lon: {lon_deg:.4f}°", tra
 
 # Set plot title and save
 plt.title("Initial Location on Earth Map")
-plt.savefig('location_map.png')
+plt.savefig(f"results/{TAG}_location_map.pdf")
 plt.show()
 plt.close()
 
-logging.info("Location map saved as 'location_map.png'")
+logging.info(f"Location map saved as 'results/{TAG}_location_map.pdf'")
 
 
 # ================================
@@ -421,8 +428,8 @@ def angle_error(v_est, v_ref):
 
 results_x001 = {}
 results_x001_doc = {}
-methods = {'TRIAD': R_tri, 'Davenport': R_dav, 'SVD': R_svd}
-methods_doc = {'TRIAD': R_tri_doc, 'Davenport': R_dav_doc, 'SVD': R_svd_doc}
+methods = {'TRIAD': R_tri}
+methods_doc = {'TRIAD': R_tri_doc}
 
 # Case 1: Current implementation
 for name, R in methods.items():
@@ -461,8 +468,8 @@ import logging
 
 logging.info("Subtask 3.7: Plotting validation errors and quaternion components.")
 
-# Define methods and cases for plotting
-methods = ['TRIAD', 'Davenport', 'SVD']
+# Define methods and cases for plotting (TRIAD only)
+methods = ['TRIAD']
 cases = ['Case 1', 'Case 2']
 
 # Collect error data for both cases
@@ -496,10 +503,10 @@ axes[1].set_ylabel('Error (degrees)')
 axes[1].legend()
 
 plt.tight_layout()
-plt.savefig('task3_errors_comparison.png')
+plt.savefig(f"results/{TAG}_task3_errors_comparison.pdf")
 plt.show()
 plt.close()
-logging.info("Error comparison plot saved as 'task3_errors_comparison.png'")
+logging.info(f"Error comparison plot saved as 'results/{TAG}_task3_errors_comparison.pdf'")
 
 # Collect quaternion data for both cases
 # Note: Assumes q_tri, q_dav, q_svd (Case 1) and q_tri_doc, q_dav_doc, q_svd_doc (Case 2) are quaternion arrays
@@ -528,10 +535,10 @@ ax.set_title('Quaternion Components for Each Method and Case')
 ax.legend()
 
 plt.tight_layout()
-plt.savefig('task3_quaternions_comparison.png')
+plt.savefig(f"results/{TAG}_task3_quaternions_comparison.pdf")
 plt.show()
 plt.close()
-logging.info("Quaternion comparison plot saved as 'task3_quaternions_comparison.png'")
+logging.info(f"Quaternion comparison plot saved as 'results/{TAG}_task3_quaternions_comparison.pdf'")
 
 # --------------------------------
 # Subtask 3.8: Store Rotation Matrices for Later Tasks
@@ -562,7 +569,7 @@ logging.info("TASK 4: GNSS and IMU Data Integration and Comparison")
 # Subtask 4.1: Access Rotation Matrices from Task 3
 # --------------------------------
 logging.info("Subtask 4.1: Accessing rotation matrices from Task 3.")
-methods = ['TRIAD', 'Davenport', 'SVD']
+methods = ['TRIAD']
 C_B_N_methods = {m: task3_results[m]['R'] for m in methods}
 logging.info("Rotation matrices accessed: %s", list(C_B_N_methods.keys()))
 
@@ -778,10 +785,10 @@ ax.plot(t_rel_gnss, gnss_acc_ned[:, j], 'k--', label='GNSS Derived')
     ax.set_ylabel('Acceleration (m/s²)')
     ax.legend()
 plt.tight_layout()
-plt.savefig('task4_comparison_ned.png')
+plt.savefig(f"results/{TAG}_task4_comparison_ned.pdf")
 plt.show()
 plt.close()
-logging.info("Comparison plot in NED frame saved as 'task4_comparison_ned.png'")
+logging.info(f"Comparison plot in NED frame saved as 'results/{TAG}_task4_comparison_ned.pdf'")
 
 # Plot 1: Data in mixed frames (GNSS position/velocity in ECEF, IMU acceleration in body)
 logging.info("Plotting data in mixed frames.")
@@ -806,10 +813,10 @@ for i in range(3):
         ax.set_ylabel('Value')
         ax.legend()
 plt.tight_layout()
-plt.savefig('task4_mixed_frames.png')
+plt.savefig(f"results/{TAG}_task4_mixed_frames.pdf")
 plt.show()
 plt.close()
-logging.info("Mixed frames plot saved as 'task4_mixed_frames.png'")
+logging.info(f"Mixed frames plot saved as 'results/{TAG}_task4_mixed_frames.pdf'")
 
 # Plot 2: All data in NED frame
 logging.info("Plotting all data in NED frame.")
@@ -833,10 +840,10 @@ for i in range(3):
         ax.set_ylabel('Value')
         ax.legend()
 plt.tight_layout()
-plt.savefig('task4_all_ned.png')
+plt.savefig(f"results/{TAG}_task4_all_ned.pdf")
 plt.show()
 plt.close()
-logging.info("All data in NED frame plot saved as 'task4_all_ned.png'")
+logging.info(f"All data in NED frame plot saved as 'results/{TAG}_task4_all_ned.pdf'")
 
 # Plot 3: All data in ECEF frame
 logging.info("Plotting all data in ECEF frame.")
@@ -861,10 +868,10 @@ for i in range(3):
         ax.set_ylabel('Value')
         ax.legend()
 plt.tight_layout()
-plt.savefig('task4_all_ecef.png')
+plt.savefig(f"results/{TAG}_task4_all_ecef.pdf")
 plt.show()
 plt.close()
-logging.info("All data in ECEF frame plot saved as 'task4_all_ecef.png'")
+logging.info(f"All data in ECEF frame plot saved as 'results/{TAG}_task4_all_ecef.pdf'")
 
 # Plot 4: All data in body frame
 logging.info("Plotting all data in body frame.")
@@ -889,10 +896,10 @@ for i in range(3):
         ax.set_ylabel('Value')
         ax.legend()
 plt.tight_layout()
-plt.savefig('task4_all_body.png')
+plt.savefig(f"results/{TAG}_task4_all_body.pdf")
 plt.show()
 plt.close()
-logging.info("All data in body frame plot saved as 'task4_all_body.png'")
+logging.info(f"All data in body frame plot saved as 'results/{TAG}_task4_all_body.pdf'")
 
 
 
@@ -1061,9 +1068,9 @@ import logging
 # Configure logging if not already done
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 
-# Define methods and colors
-methods = ['TRIAD', 'Davenport', 'SVD']
-colors = {'TRIAD': 'r', 'Davenport': 'g', 'SVD': 'b', 'Truth': 'm'}  # Red, Green, Blue, Magenta for truth
+# Define methods and colors (TRIAD only)
+methods = ['TRIAD']
+colors = {'TRIAD': 'r', 'Truth': 'm'}  # Red for TRIAD, magenta for truth
 directions = ['North', 'East', 'Down']
 
 # Interpolate GNSS acceleration to IMU time (done once for all plots)
@@ -1155,194 +1162,12 @@ for j in range(3):
           f"First = {fused_acc['TRIAD'][0, j]:.4f}, Last = {fused_acc['TRIAD'][-1, j]:.4f}")
 
 plt.tight_layout()
-plt.savefig('task5_results_TRIAD.png')
+plt.savefig(f"results/{TAG}_task5_results_TRIAD.pdf")
 plt.show()
 plt.close()
-logging.info("Subtask 5.8.1: TRIAD plot saved as 'task5_results_TRIAD.png'")
-print("# Subtask 5.8.1: TRIAD plotting completed. Saved as 'task5_results_TRIAD.png'.")
+logging.info(f"Subtask 5.8.1: TRIAD plot saved as 'results/{TAG}_task5_results_TRIAD.pdf'")
+print("# Subtask 5.8.1: TRIAD plotting completed.")
 
-# Subtask 5.8.2: Plotting Results for Davenport
-logging.info("Subtask 5.8.2: Plotting results for Davenport.")
-print("# Subtask 5.8.2: Starting to plot results for Davenport.")
-fig, axes = plt.subplots(3, 3, figsize=(15, 10))
-
-# Davenport - Position
-for j in range(3):
-    ax = axes[0, j]
-    ax.plot(imu_time, gnss_pos_ned_interp[:, j], 'k-', label='GNSS')
-    ax.plot(imu_time, fused_pos['Davenport'][:, j], colors['Davenport'], alpha=0.7, label='Fused Davenport')
-    ax.set_title(f'Position {directions[j]}')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Position (m)')
-    ax.legend()
-    logging.info(f"Subtask 5.8.2: Plotted Davenport position {directions[j]}: "
-                 f"First = {fused_pos['Davenport'][0, j]:.4f}, Last = {fused_pos['Davenport'][-1, j]:.4f}")
-    print(f"# Plotted Davenport position {directions[j]}: "
-          f"First = {fused_pos['Davenport'][0, j]:.4f}, Last = {fused_pos['Davenport'][-1, j]:.4f}")
-
-# Davenport - Velocity
-for j in range(3):
-    ax = axes[1, j]
-    ax.plot(imu_time, gnss_vel_ned_interp[:, j], 'k-', label='GNSS')
-    ax.plot(imu_time, fused_vel['Davenport'][:, j], colors['Davenport'], alpha=0.7, label='Fused Davenport')
-    ax.set_title(f'Velocity {directions[j]}')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Velocity (m/s)')
-    ax.legend()
-    logging.info(f"Subtask 5.8.2: Plotted Davenport velocity {directions[j]}: "
-                 f"First = {fused_vel['Davenport'][0, j]:.4f}, Last = {fused_vel['Davenport'][-1, j]:.4f}")
-    print(f"# Plotted Davenport velocity {directions[j]}: "
-          f"First = {fused_vel['Davenport'][0, j]:.4f}, Last = {fused_vel['Davenport'][-1, j]:.4f}")
-
-# Davenport - Acceleration
-for j in range(3):
-    ax = axes[2, j]
-    ax.plot(imu_time, gnss_acc_ned_interp[:, j], 'k-', label='GNSS')
-    ax.plot(imu_time, fused_acc['Davenport'][:, j], colors['Davenport'], alpha=0.7, label='Fused Davenport')
-    ax.set_title(f'Acceleration {directions[j]}')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Acceleration (m/s²)')
-    ax.legend()
-    logging.info(f"Subtask 5.8.2: Plotted Davenport acceleration {directions[j]}: "
-                 f"First = {fused_acc['Davenport'][0, j]:.4f}, Last = {fused_acc['Davenport'][-1, j]:.4f}")
-    print(f"# Plotted Davenport acceleration {directions[j]}: "
-          f"First = {fused_acc['Davenport'][0, j]:.4f}, Last = {fused_acc['Davenport'][-1, j]:.4f}")
-
-plt.tight_layout()
-plt.savefig('task5_results_Davenport.png')
-plt.show()
-plt.close()
-logging.info("Subtask 5.8.2: Davenport plot saved as 'task5_results_Davenport.png'")
-print("# Subtask 5.8.2: Davenport plotting completed. Saved as 'task5_results_Davenport.png'.")
-
-# Subtask 5.8.3: Plotting Results for SVD
-logging.info("Subtask 5.8.3: Plotting results for SVD.")
-print("# Subtask 5.8.3: Starting to plot results for SVD.")
-fig, axes = plt.subplots(3, 3, figsize=(15, 10))
-
-# SVD - Position
-for j in range(3):
-    ax = axes[0, j]
-    ax.plot(imu_time, gnss_pos_ned_interp[:, j], 'k-', label='GNSS')
-    ax.plot(imu_time, fused_pos['SVD'][:, j], colors['SVD'], alpha=0.7, label='Fused SVD')
-    ax.set_title(f'Position {directions[j]}')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Position (m)')
-    ax.legend()
-    logging.info(f"Subtask 5.8.3: Plotted SVD position {directions[j]}: "
-                 f"First = {fused_pos['SVD'][0, j]:.4f}, Last = {fused_pos['SVD'][-1, j]:.4f}")
-    print(f"# Plotted SVD position {directions[j]}: "
-          f"First = {fused_pos['SVD'][0, j]:.4f}, Last = {fused_pos['SVD'][-1, j]:.4f}")
-
-# SVD - Velocity
-for j in range(3):
-    ax = axes[1, j]
-    ax.plot(imu_time, gnss_vel_ned_interp[:, j], 'k-', label='GNSS')
-    ax.plot(imu_time, fused_vel['SVD'][:, j], colors['SVD'], alpha=0.7, label='Fused SVD')
-    ax.set_title(f'Velocity {directions[j]}')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Velocity (m/s)')
-    ax.legend()
-    logging.info(f"Subtask 5.8.3: Plotted SVD velocity {directions[j]}: "
-                 f"First = {fused_vel['SVD'][0, j]:.4f}, Last = {fused_vel['SVD'][-1, j]:.4f}")
-    print(f"# Plotted SVD velocity {directions[j]}: "
-          f"First = {fused_vel['SVD'][0, j]:.4f}, Last = {fused_vel['SVD'][-1, j]:.4f}")
-
-# SVD - Acceleration
-for j in range(3):
-    ax = axes[2, j]
-    ax.plot(imu_time, gnss_acc_ned_interp[:, j], 'k-', label='GNSS')
-    ax.plot(imu_time, fused_acc['SVD'][:, j], colors['SVD'], alpha=0.7, label='Fused SVD')
-    ax.set_title(f'Acceleration {directions[j]}')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Acceleration (m/s²)')
-    ax.legend()
-    logging.info(f"Subtask 5.8.3: Plotted SVD acceleration {directions[j]}: "
-                 f"First = {fused_acc['SVD'][0, j]:.4f}, Last = {fused_acc['SVD'][-1, j]:.4f}")
-    print(f"# Plotted SVD acceleration {directions[j]}: "
-          f"First = {fused_acc['SVD'][0, j]:.4f}, Last = {fused_acc['SVD'][-1, j]:.4f}")
-
-plt.tight_layout()
-plt.savefig('task5_results_SVD.png')
-plt.show()
-plt.close()
-logging.info("Subtask 5.8.3: SVD plot saved as 'task5_results_SVD.png'")
-print("# Subtask 5.8.3: SVD plotting completed. Saved as 'task5_results_SVD.png'.")
-
-# Subtask 5.8.4: Plotting Results for All Methods
-logging.info("Subtask 5.8.4: Plotting results for all methods.")
-print("# Subtask 5.8.4: Starting to plot results for all methods: TRIAD, Davenport, SVD, and GNSS.")
-fig, axes = plt.subplots(3, 3, figsize=(15, 10))
-
-# All Methods - Position
-for j in range(3):
-    ax = axes[0, j]
-    ax.plot(imu_time, gnss_pos_ned_interp[:, j], 'k-', label='GNSS')
-    if truth_pos_ned_interp is not None:
-        ax.plot(imu_time, truth_pos_ned_interp[:, j], colors['Truth'], linestyle='--', label='Truth')
-    logging.info(f"Subtask 5.8.4: Plotted GNSS position {directions[j]}: "
-                 f"First = {gnss_pos_ned_interp[0, j]:.4f}, Last = {gnss_pos_ned_interp[-1, j]:.4f}")
-    print(f"# Plotted GNSS position {directions[j]}: "
-          f"First = {gnss_pos_ned_interp[0, j]:.4f}, Last = {gnss_pos_ned_interp[-1, j]:.4f}")
-    for m in methods:
-        ax.plot(imu_time, fused_pos[m][:, j], colors[m], alpha=0.7, label=f'Fused {m}')
-        logging.info(f"Subtask 5.8.4: Plotted {m} position {directions[j]}: "
-                     f"First = {fused_pos[m][0, j]:.4f}, Last = {fused_pos[m][-1, j]:.4f}")
-        print(f"# Plotted {m} position {directions[j]}: "
-              f"First = {fused_pos[m][0, j]:.4f}, Last = {fused_pos[m][-1, j]:.4f}")
-    ax.set_title(f'Position {directions[j]}')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Position (m)')
-    ax.legend()
-
-# All Methods - Velocity
-for j in range(3):
-    ax = axes[1, j]
-    ax.plot(imu_time, gnss_vel_ned_interp[:, j], 'k-', label='GNSS')
-    if truth_vel_ned_interp is not None:
-        ax.plot(imu_time, truth_vel_ned_interp[:, j], colors['Truth'], linestyle='--', label='Truth')
-    logging.info(f"Subtask 5.8.4: Plotted GNSS velocity {directions[j]}: "
-                 f"First = {gnss_vel_ned_interp[0, j]:.4f}, Last = {gnss_vel_ned_interp[-1, j]:.4f}")
-    print(f"# Plotted GNSS velocity {directions[j]}: "
-          f"First = {gnss_vel_ned_interp[0, j]:.4f}, Last = {gnss_vel_ned_interp[-1, j]:.4f}")
-    for m in methods:
-        ax.plot(imu_time, fused_vel[m][:, j], colors[m], alpha=0.7, label=f'Fused {m}')
-        logging.info(f"Subtask 5.8.4: Plotted {m} velocity {directions[j]}: "
-                     f"First = {fused_vel[m][0, j]:.4f}, Last = {fused_vel[m][-1, j]:.4f}")
-        print(f"# Plotted {m} velocity {directions[j]}: "
-              f"First = {fused_vel[m][0, j]:.4f}, Last = {fused_vel[m][-1, j]:.4f}")
-    ax.set_title(f'Velocity {directions[j]}')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Velocity (m/s)')
-    ax.legend()
-
-# All Methods - Acceleration
-for j in range(3):
-    ax = axes[2, j]
-    ax.plot(imu_time, gnss_acc_ned_interp[:, j], 'k-', label='GNSS')
-    if truth_acc_ned_interp is not None:
-        ax.plot(imu_time, truth_acc_ned_interp[:, j], colors['Truth'], linestyle='--', label='Truth')
-    logging.info(f"Subtask 5.8.4: Plotted GNSS acceleration {directions[j]}: "
-                 f"First = {gnss_acc_ned_interp[0, j]:.4f}, Last = {gnss_acc_ned_interp[-1, j]:.4f}")
-    print(f"# Plotted GNSS acceleration {directions[j]}: "
-          f"First = {gnss_acc_ned_interp[0, j]:.4f}, Last = {gnss_acc_ned_interp[-1, j]:.4f}")
-    for m in methods:
-        ax.plot(imu_time, fused_acc[m][:, j], colors[m], alpha=0.7, label=f'Fused {m}')
-        logging.info(f"Subtask 5.8.4: Plotted {m} acceleration {directions[j]}: "
-                     f"First = {fused_acc[m][0, j]:.4f}, Last = {fused_acc[m][-1, j]:.4f}")
-        print(f"# Plotted {m} acceleration {directions[j]}: "
-              f"First = {fused_acc[m][0, j]:.4f}, Last = {fused_acc[m][-1, j]:.4f}")
-    ax.set_title(f'Acceleration {directions[j]}')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Acceleration (m/s²)')
-    ax.legend()
-
-plt.tight_layout()
-plt.savefig('task5_results_all_methods.png')
-plt.show()
-plt.close()
-logging.info("Subtask 5.8.4: Comparison plot for all methods saved as 'task5_results_all_methods.png'")
-print("# Subtask 5.8.4: Plotting completed. Saved as 'task5_results_all_methods.png'. "
       "Colors: TRIAD (red), Davenport (green), SVD (blue), GNSS (black), Truth (magenta).")
 
 # ================================
@@ -1386,7 +1211,7 @@ axes[1].set_title("Velocity Residuals vs. Time")
 axes[1].legend(loc="best")
 
 plt.tight_layout()
-plt.savefig(f"Task6_Residuals_{method}.pdf")
+plt.savefig(f"results/{TAG}_residuals.pdf")
 plt.close()
 
 # Compute attitude angles (roll, pitch, yaw) for the selected method
@@ -1403,5 +1228,5 @@ plt.ylabel("Angle (deg)")
 plt.title("Attitude Angles vs. Time")
 plt.legend(loc="best")
 plt.tight_layout()
-plt.savefig(f"Task6_AttitudeAngles_{method}.pdf")
+plt.savefig(f"results/{TAG}_attitude_angles.pdf")
 plt.close()
