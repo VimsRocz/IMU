@@ -139,9 +139,20 @@ def adaptive_zupt_threshold(accel_data: np.ndarray, gyro_data: np.ndarray,
 
 
 def save_mat(filename: str, data: dict) -> None:
-    """Save *data* dictionary to a MATLAB ``.mat`` file."""
+    """Save *data* dictionary to a MATLAB ``.mat`` file.
+
+    Parameters
+    ----------
+    filename : str
+        Destination path for the ``.mat`` file.
+    data : dict
+        Mapping of variable names to arrays to be written.
+    """
+
     from scipy.io import savemat
-    savemat(filename, data)
+
+    # Store with compression to reduce disk usage
+    savemat(filename, data, do_compression=True)
 
 
 def compute_C_ECEF_to_NED(lat: float, lon: float) -> np.ndarray:

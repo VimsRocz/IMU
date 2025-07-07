@@ -1784,8 +1784,8 @@ def main():
     )
 
     # Also export results as MATLAB-compatible .mat for post-processing
-    from scipy.io import savemat
-    savemat(
+    from utils import save_mat
+    save_mat(
         f"results/{tag}_kf_output.mat",
         {
             "rmse_pos": np.array([rmse_pos]),

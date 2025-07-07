@@ -3,8 +3,9 @@
 import os
 import sys
 import numpy as np
-from scipy.io import savemat
 import pathlib
+
+from utils import save_mat
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
@@ -31,5 +32,5 @@ for tag in DATASETS:
         out['fused_pos'] = data['fused_pos']
     if 'fused_vel' in data:
         out['fused_vel'] = data['fused_vel']
-    savemat(mat_file, out)
+    save_mat(mat_file, out)
     print(f'Exported {mat_file}')

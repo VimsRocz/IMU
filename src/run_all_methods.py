@@ -32,7 +32,7 @@ import pandas as pd
 from tabulate import tabulate
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-from scipy.io import savemat
+from utils import save_mat
 
 from utils import compute_C_ECEF_to_NED
 
@@ -225,7 +225,7 @@ def main(argv=None):
                 "att_quat": quat,
                 "method_name": m,
             }
-            savemat(npz_path.with_suffix(".mat"), mat_out)
+            save_mat(npz_path.with_suffix(".mat"), mat_out)
 
     # --- nicely formatted summary table --------------------------------------
     if results:
