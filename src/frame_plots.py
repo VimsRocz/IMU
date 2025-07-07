@@ -36,6 +36,7 @@ def _plot_components(ax_arr, t_data, data_arr, label: str, color: str = None):
 
 def plot_ecef(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
               imu_acc_body, fused_pos_ned, fused_vel_ned, fused_acc_ned,
+              imu_pos_ned, imu_vel_ned,
               C_NED_to_ECEF, C_B_N, out_file: Path, *,
               t_truth: Optional[np.ndarray] = None,
               pos_truth: Optional[np.ndarray] = None,
@@ -46,6 +47,8 @@ def plot_ecef(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
     vel_fused = transform_data(fused_vel_ned, "NED", "ECEF", C_NED_to_ECEF=C_NED_to_ECEF)
     acc_fused = transform_data(fused_acc_ned, "NED", "ECEF", C_NED_to_ECEF=C_NED_to_ECEF)
     imu_acc_ecef = transform_data(imu_acc_body, "body", "ECEF", C_B_N=C_B_N, C_NED_to_ECEF=C_NED_to_ECEF)
+    imu_pos_ecef = transform_data(imu_pos_ned, "NED", "ECEF", C_NED_to_ECEF=C_NED_to_ECEF)
+    imu_vel_ecef = transform_data(imu_vel_ned, "NED", "ECEF", C_NED_to_ECEF=C_NED_to_ECEF)
 
     fig, axes = plt.subplots(3, 3, figsize=(15, 10))
     labels = ["X", "Y", "Z"]
@@ -54,12 +57,14 @@ def plot_ecef(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
         axes[0, j].plot(t_gnss, gnss_pos_ecef[:, j], 'k-', label="GNSS (Measured)")
         if t_truth is not None and pos_truth is not None:
             axes[0, j].plot(t_truth, pos_truth[:, j], 'm-', label="Truth")
+        axes[0, j].plot(t_imu, imu_pos_ecef[:, j], 'g--', label="IMU (Derived)")
         axes[0, j].plot(t_imu, pos_fused[:, j], 'b-', label="Fused GNSS + IMU")
         axes[0, j].set_title(f"Position {labels[j]} (ECEF)")
 
         axes[1, j].plot(t_gnss, gnss_vel_ecef[:, j], 'k-', label="GNSS (Measured)")
         if t_truth is not None and vel_truth is not None:
             axes[1, j].plot(t_truth, vel_truth[:, j], 'm-', label="Truth")
+        axes[1, j].plot(t_imu, imu_vel_ecef[:, j], 'g--', label="IMU (Derived)")
         axes[1, j].plot(t_imu, vel_fused[:, j], 'b-', label="Fused GNSS + IMU")
         axes[1, j].set_title(f"Velocity {labels[j]} (ECEF)")
 
@@ -84,6 +89,7 @@ def plot_ecef(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
 
 def plot_ned(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
              imu_acc_body, fused_pos_ned, fused_vel_ned, fused_acc_ned,
+             imu_pos_ned, imu_vel_ned,
              C_NED_to_ECEF, C_B_N, out_file: Path, *,
              t_truth: Optional[np.ndarray] = None,
              pos_truth: Optional[np.ndarray] = None,
@@ -93,6 +99,8 @@ def plot_ned(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
     gnss_pos_ned = transform_data(gnss_pos_ecef, "ECEF", "NED", C_NED_to_ECEF=C_NED_to_ECEF)
     gnss_vel_ned = transform_data(gnss_vel_ecef, "ECEF", "NED", C_NED_to_ECEF=C_NED_to_ECEF)
     imu_acc_ned = transform_data(imu_acc_body, "body", "NED", C_B_N=C_B_N)
+    imu_pos_ned = np.asarray(imu_pos_ned)
+    imu_vel_ned = np.asarray(imu_vel_ned)
 
     fig, axes = plt.subplots(3, 3, figsize=(15, 10))
     labels = ["N", "E", "D"]
@@ -101,12 +109,14 @@ def plot_ned(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
         axes[0, j].plot(t_gnss, gnss_pos_ned[:, j], 'k-', label="GNSS (Derived)")
         if t_truth is not None and pos_truth is not None:
             axes[0, j].plot(t_truth, pos_truth[:, j], 'm-', label="Truth")
+        axes[0, j].plot(t_imu, imu_pos_ned[:, j], 'g--', label="IMU (Derived)")
         axes[0, j].plot(t_imu, fused_pos_ned[:, j], 'b-', label="Fused GNSS + IMU")
         axes[0, j].set_title(f"Position {labels[j]} (NED)")
 
         axes[1, j].plot(t_gnss, gnss_vel_ned[:, j], 'k-', label="GNSS (Derived)")
         if t_truth is not None and vel_truth is not None:
             axes[1, j].plot(t_truth, vel_truth[:, j], 'm-', label="Truth")
+        axes[1, j].plot(t_imu, imu_vel_ned[:, j], 'g--', label="IMU (Derived)")
         axes[1, j].plot(t_imu, fused_vel_ned[:, j], 'b-', label="Fused GNSS + IMU")
         axes[1, j].set_title(f"Velocity {labels[j]} (NED)")
 
@@ -131,6 +141,7 @@ def plot_ned(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
 
 def plot_body(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
               imu_acc_body, fused_pos_ned, fused_vel_ned, fused_acc_ned,
+              imu_pos_ned, imu_vel_ned,
               C_NED_to_ECEF, C_B_N, out_file: Path, *,
               t_truth: Optional[np.ndarray] = None,
               pos_truth: Optional[np.ndarray] = None,
@@ -144,6 +155,8 @@ def plot_body(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
     fused_pos_body = transform_data(fused_pos_ned, "NED", "body", C_B_N=C_B_N)
     fused_vel_body = transform_data(fused_vel_ned, "NED", "body", C_B_N=C_B_N)
     fused_acc_body = transform_data(fused_acc_ned, "NED", "body", C_B_N=C_B_N)
+    imu_pos_body = transform_data(imu_pos_ned, "NED", "body", C_B_N=C_B_N)
+    imu_vel_body = transform_data(imu_vel_ned, "NED", "body", C_B_N=C_B_N)
 
     fig, axes = plt.subplots(3, 3, figsize=(15, 10))
     labels = ["X", "Y", "Z"]
@@ -152,12 +165,14 @@ def plot_body(t_gnss, t_imu, gnss_pos_ecef, gnss_vel_ecef,
         axes[0, j].plot(t_gnss, gnss_pos_body[:, j], 'k-', label="GNSS (Derived)")
         if t_truth is not None and pos_truth is not None:
             axes[0, j].plot(t_truth, pos_truth[:, j], 'm-', label="Truth")
+        axes[0, j].plot(t_imu, imu_pos_body[:, j], 'g--', label="IMU (Derived)")
         axes[0, j].plot(t_imu, fused_pos_body[:, j], 'b-', label="Fused GNSS + IMU")
         axes[0, j].set_title(f"Position {labels[j]} (Body)")
 
         axes[1, j].plot(t_gnss, gnss_vel_body[:, j], 'k-', label="GNSS (Derived)")
         if t_truth is not None and vel_truth is not None:
             axes[1, j].plot(t_truth, vel_truth[:, j], 'm-', label="Truth")
+        axes[1, j].plot(t_imu, imu_vel_body[:, j], 'g--', label="IMU (Derived)")
         axes[1, j].plot(t_imu, fused_vel_body[:, j], 'b-', label="Fused GNSS + IMU")
         axes[1, j].set_title(f"Velocity {labels[j]} (Body)")
 
