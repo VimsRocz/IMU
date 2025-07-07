@@ -110,6 +110,11 @@ def main(argv=None):
         help="Skip plot generation for faster execution",
     )
     parser.add_argument(
+        "--task",
+        type=int,
+        help="Run a single helper task and exit",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -119,6 +124,17 @@ def main(argv=None):
 
     if args.verbose:
         logger.setLevel(logging.DEBUG)
+
+    if args.task == 7:
+        from evaluate_filter_results import run_evaluation
+
+        run_evaluation(
+            prediction_file="outputs/predicted_states.csv",
+            gnss_file="outputs/gnss_measurements.csv",
+            attitude_file="outputs/estimated_attitude.csv",
+            save_path="plots/task7/",
+        )
+        return
 
     if args.config:
         cases, methods = load_config(args.config)
