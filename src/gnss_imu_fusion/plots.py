@@ -40,8 +40,25 @@ def save_zupt_variance(
     plt.close()
 
 
-def save_euler_angles(t: np.ndarray, euler_angles: np.ndarray) -> None:
-    """Plot roll, pitch and yaw over time."""
+def save_euler_angles(
+    t: np.ndarray,
+    euler_angles: np.ndarray,
+    dataset_id: str,
+    method: str,
+) -> None:
+    """Plot roll, pitch and yaw over time.
+
+    Parameters
+    ----------
+    t : np.ndarray
+        Time vector corresponding to ``euler_angles``.
+    euler_angles : np.ndarray
+        Array of roll, pitch and yaw angles in degrees.
+    dataset_id : str
+        Identifier of the processed dataset.
+    method : str
+        Name of the attitude initialisation method.
+    """
     plt.figure()
     plt.plot(t, euler_angles[:, 0], label="Roll")
     plt.plot(t, euler_angles[:, 1], label="Pitch")
@@ -51,7 +68,8 @@ def save_euler_angles(t: np.ndarray, euler_angles: np.ndarray) -> None:
     plt.legend(loc="best")
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) vs. Time")
-    plt.savefig("results/attitude_angles_over_time.pdf")
+    filename = f"results/{dataset_id}_{method}_attitude_angles_over_time.pdf"
+    plt.savefig(filename)
     plt.close()
 
 
@@ -61,8 +79,28 @@ def save_residual_plots(
     pos_gnss: np.ndarray,
     vel_filter: np.ndarray,
     vel_gnss: np.ndarray,
+    dataset_id: str,
+    method: str,
 ) -> None:
-    """Plot aggregated position and velocity residuals."""
+    """Plot aggregated position and velocity residuals.
+
+    Parameters
+    ----------
+    t : np.ndarray
+        Time vector for the GNSS measurements.
+    pos_filter : np.ndarray
+        Filtered position in NED frame.
+    pos_gnss : np.ndarray
+        GNSS derived position in NED frame.
+    vel_filter : np.ndarray
+        Filtered velocity in NED frame.
+    vel_gnss : np.ndarray
+        GNSS derived velocity in NED frame.
+    dataset_id : str
+        Identifier of the processed dataset.
+    method : str
+        Name of the attitude initialisation method.
+    """
     residual_pos = pos_filter - pos_gnss
     residual_vel = vel_filter - vel_gnss
     labels = ["North", "East", "Down"]
@@ -75,7 +113,8 @@ def save_residual_plots(
     plt.title("Position Residuals vs. Time")
     plt.legend(loc="best")
     plt.tight_layout()
-    plt.savefig("results/position_residuals_vs_time.pdf")
+    filename = f"results/{dataset_id}_{method}_position_residuals.pdf"
+    plt.savefig(filename)
     plt.close()
 
     plt.figure(figsize=(10, 5))
@@ -86,12 +125,30 @@ def save_residual_plots(
     plt.title("Velocity Residuals vs. Time")
     plt.legend(loc="best")
     plt.tight_layout()
-    plt.savefig("results/velocity_residuals_vs_time.pdf")
+    filename = f"results/{dataset_id}_{method}_velocity_residuals.pdf"
+    plt.savefig(filename)
     plt.close()
 
 
-def save_attitude_over_time(t: np.ndarray, euler_angles: np.ndarray) -> None:
-    """Plot roll, pitch and yaw over the entire dataset."""
+def save_attitude_over_time(
+    t: np.ndarray,
+    euler_angles: np.ndarray,
+    dataset_id: str,
+    method: str,
+) -> None:
+    """Plot roll, pitch and yaw over the entire dataset.
+
+    Parameters
+    ----------
+    t : np.ndarray
+        Time vector corresponding to ``euler_angles``.
+    euler_angles : np.ndarray
+        Array of roll, pitch and yaw angles in degrees.
+    dataset_id : str
+        Identifier of the processed dataset.
+    method : str
+        Name of the attitude initialisation method.
+    """
     plt.figure()
     plt.plot(t, euler_angles[:, 0], label="Roll")
     plt.plot(t, euler_angles[:, 1], label="Pitch")
@@ -101,7 +158,8 @@ def save_attitude_over_time(t: np.ndarray, euler_angles: np.ndarray) -> None:
     plt.legend(loc="best")
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) Over Time")
-    plt.savefig("results/attitude_angles_over_time.pdf")
+    filename = f"results/{dataset_id}_{method}_attitude_angles_over_time.pdf"
+    plt.savefig(filename)
     plt.close()
 
 
