@@ -1278,6 +1278,8 @@ fig, axes = plt.subplots(3, 3, figsize=(15, 10))
 for j in range(3):
     ax = axes[0, j]
     ax.plot(imu_time, gnss_pos_ned_interp[:, j], 'k-', label='GNSS')
+    if truth_pos_ned_interp is not None:
+        ax.plot(imu_time, truth_pos_ned_interp[:, j], colors['Truth'], linestyle='--', label='Truth')
     logging.info(f"Subtask 5.8.4: Plotted GNSS position {directions[j]}: "
                  f"First = {gnss_pos_ned_interp[0, j]:.4f}, Last = {gnss_pos_ned_interp[-1, j]:.4f}")
     print(f"# Plotted GNSS position {directions[j]}: "
@@ -1297,6 +1299,8 @@ for j in range(3):
 for j in range(3):
     ax = axes[1, j]
     ax.plot(imu_time, gnss_vel_ned_interp[:, j], 'k-', label='GNSS')
+    if truth_vel_ned_interp is not None:
+        ax.plot(imu_time, truth_vel_ned_interp[:, j], colors['Truth'], linestyle='--', label='Truth')
     logging.info(f"Subtask 5.8.4: Plotted GNSS velocity {directions[j]}: "
                  f"First = {gnss_vel_ned_interp[0, j]:.4f}, Last = {gnss_vel_ned_interp[-1, j]:.4f}")
     print(f"# Plotted GNSS velocity {directions[j]}: "
@@ -1316,6 +1320,8 @@ for j in range(3):
 for j in range(3):
     ax = axes[2, j]
     ax.plot(imu_time, gnss_acc_ned_interp[:, j], 'k-', label='GNSS')
+    if truth_acc_ned_interp is not None:
+        ax.plot(imu_time, truth_acc_ned_interp[:, j], colors['Truth'], linestyle='--', label='Truth')
     logging.info(f"Subtask 5.8.4: Plotted GNSS acceleration {directions[j]}: "
                  f"First = {gnss_acc_ned_interp[0, j]:.4f}, Last = {gnss_acc_ned_interp[-1, j]:.4f}")
     print(f"# Plotted GNSS acceleration {directions[j]}: "
@@ -1338,3 +1344,64 @@ plt.close()
 logging.info("Subtask 5.8.4: Comparison plot for all methods saved as 'task5_results_all_methods.png'")
 print("# Subtask 5.8.4: Plotting completed. Saved as 'task5_results_all_methods.png'. "
       "Colors: TRIAD (red), Davenport (green), SVD (blue), GNSS (black), Truth (magenta).")
+
+# ================================
+# Task 6: Plot residuals and attitude angles
+# ================================
+logging.info("Task 6: plotting residuals and attitude angles.")
+
+from scipy.spatial.transform import Rotation as R
+
+# Choose the method to analyze (use the first method by default)
+method = methods[0] if isinstance(methods, list) else 'TRIAD'
+
+# Interpolate fused data to GNSS time for residual computation
+fused_pos_interp = np.vstack([
+    np.interp(gnss_time, imu_time, fused_pos[method][:, i])
+    for i in range(3)
+]).T
+fused_vel_interp = np.vstack([
+    np.interp(gnss_time, imu_time, fused_vel[method][:, i])
+    for i in range(3)
+]).T
+
+# Compute residuals
+residual_pos = fused_pos_interp - gnss_pos_ned
+residual_vel = fused_vel_interp - gnss_vel_ned
+
+labels = ["North", "East", "Down"]
+fig, axes = plt.subplots(2, 1, figsize=(10, 8))
+for i, lbl in enumerate(labels):
+    axes[0].plot(gnss_time, residual_pos[:, i], label=lbl)
+axes[0].set_xlabel("Time (s)")
+axes[0].set_ylabel("Position Residual (m)")
+axes[0].set_title("Position Residuals vs. Time")
+axes[0].legend(loc="best")
+
+for i, lbl in enumerate(labels):
+    axes[1].plot(gnss_time, residual_vel[:, i], label=lbl)
+axes[1].set_xlabel("Time (s)")
+axes[1].set_ylabel("Velocity Residual (m/s)")
+axes[1].set_title("Velocity Residuals vs. Time")
+axes[1].legend(loc="best")
+
+plt.tight_layout()
+plt.savefig(f"Task6_Residuals_{method}.pdf")
+plt.close()
+
+# Compute attitude angles (roll, pitch, yaw) for the selected method
+R_BN = C_B_N_methods[method]
+euler_static = R.from_matrix(R_BN).as_euler("xyz", degrees=True)
+euler_angles = np.tile(euler_static, (len(imu_time), 1))
+
+plt.figure()
+plt.plot(imu_time, euler_angles[:, 0], label="Roll")
+plt.plot(imu_time, euler_angles[:, 1], label="Pitch")
+plt.plot(imu_time, euler_angles[:, 2], label="Yaw")
+plt.xlabel("Time (s)")
+plt.ylabel("Angle (deg)")
+plt.title("Attitude Angles vs. Time")
+plt.legend(loc="best")
+plt.tight_layout()
+plt.savefig(f"Task6_AttitudeAngles_{method}.pdf")
+plt.close()
