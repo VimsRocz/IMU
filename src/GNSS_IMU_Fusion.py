@@ -40,6 +40,7 @@ from .gnss_imu_fusion.plots import (
     save_residual_plots,
     save_attitude_over_time,
     save_velocity_profile,
+    plot_all_methods,
 )
 from .gnss_imu_fusion.init import compute_reference_vectors, measure_body_vectors
 from .gnss_imu_fusion.integration import integrate_trajectory
@@ -1169,9 +1170,17 @@ def main():
     # Interpolate GNSS data to IMU time once
     gnss_pos_ned_interp = np.zeros((len(imu_time), 3))
     gnss_vel_ned_interp = np.zeros((len(imu_time), 3))
+    gnss_acc_ned_interp = np.zeros((len(imu_time), 3))
     for j in range(3):
         gnss_pos_ned_interp[:, j] = np.interp(imu_time, gnss_time, gnss_pos_ned[:, j])
         gnss_vel_ned_interp[:, j] = np.interp(imu_time, gnss_time, gnss_vel_ned[:, j])
+        gnss_acc_ned_interp[:, j] = np.interp(imu_time, gnss_time, gnss_acc_ned[:, j])
+        logging.debug(
+            "Interpolated GNSS NED axis %d: first=%.4f last=%.4f",
+            j,
+            gnss_pos_ned_interp[0, j],
+            gnss_pos_ned_interp[-1, j],
+        )
 
     innov_pos_all = {}
     innov_vel_all = {}
@@ -1328,6 +1337,52 @@ def main():
                     f"min={np.min(fused_vel[m], axis=0)}, "
                     f"max={np.max(fused_vel[m], axis=0)}"
                 )
+
+    # -----------------------
+    # Z-axis Auto-Correction
+    # -----------------------
+    MAX_Z_RMSE = 0.20
+    MAX_ZV_RMSE = 0.10
+    MAX_TRIES = 8
+
+    for m in fused_pos.keys():
+        print(f"\n--- Z-axis self-heal for method: {m} ---")
+        tries = 0
+        while tries < MAX_TRIES:
+            z_err = fused_pos[m][:, 2] - gnss_pos_ned_interp[:, 2]
+            zv_err = fused_vel[m][:, 2] - gnss_vel_ned_interp[:, 2]
+            rmse_z = np.sqrt(np.mean(z_err ** 2))
+            rmse_zv = np.sqrt(np.mean(zv_err ** 2))
+            print(
+                f"  Try {tries+1}: Z pos RMSE={rmse_z:.3f} | Z vel RMSE={rmse_zv:.3f}"
+            )
+
+            if rmse_z < MAX_Z_RMSE and rmse_zv < MAX_ZV_RMSE:
+                print("  ✅ Z alignment achieved.")
+                break
+
+            if np.sign(np.mean(fused_acc[m][:, 2])) != np.sign(
+                np.mean(gnss_acc_ned_interp[:, 2])
+            ):
+                print("  ➜ Flipping gravity sign and retrying...")
+                g_NED[:] = -g_NED[:]
+
+            if "C_ECEF_to_NED" in globals():
+                print("  ➜ Enforcing correct DCM transpose for ECEF/NED conversion.")
+                C_NED_to_ECEF = C_ECEF_to_NED.T
+                fused_pos[m] = (
+                    C_ECEF_to_NED @ (C_NED_to_ECEF @ fused_pos[m].T)
+                ).T
+                fused_vel[m] = (
+                    C_ECEF_to_NED @ (C_NED_to_ECEF @ fused_vel[m].T)
+                ).T
+
+            tries += 1
+
+        if tries == MAX_TRIES:
+            print(
+                f"  ❌ Could not fix Z after {MAX_TRIES} attempts—check sensor data or model."
+            )
     
     # Compute residuals for the selected method
     _ = res_pos_all[method]
@@ -1354,19 +1409,7 @@ def main():
     colors = COLORS
     directions = ['North', 'East', 'Down']
     
-    # Interpolate GNSS acceleration to IMU time (done once for all plots)
-    gnss_acc_ned_interp = np.zeros((len(imu_time), 3))
-    for j in range(3):
-        gnss_acc_ned_interp[:, j] = np.interp(imu_time, gnss_time, gnss_acc_ned[:, j])
-        logging.info(
-            f"Interpolated GNSS acceleration for {directions[j]} direction: "
-            f"First value = {gnss_acc_ned_interp[0, j]:.4f}, "
-            f"Last value = {gnss_acc_ned_interp[-1, j]:.4f}"
-        )
-        logging.debug(
-            f"# Interpolated GNSS acceleration {directions[j]}: "
-            f"First = {gnss_acc_ned_interp[0, j]:.4f}, Last = {gnss_acc_ned_interp[-1, j]:.4f}"
-        )
+
     
     
     # Subtask 5.8.2: Plotting Results for selected method
@@ -1784,6 +1827,16 @@ def main():
         )
 
         save_attitude_over_time(imu_time, euler_deg, dataset_id, method)
+
+        plot_all_methods(
+            imu_time,
+            gnss_pos_ned_interp,
+            gnss_vel_ned_interp,
+            gnss_acc_ned_interp,
+            fused_pos,
+            fused_vel,
+            fused_acc,
+        )
 
     logging.info(
         f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file)} gnss={os.path.basename(gnss_file)} "

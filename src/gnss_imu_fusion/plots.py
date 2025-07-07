@@ -178,3 +178,53 @@ def save_velocity_profile(t: np.ndarray, vel_filter: np.ndarray, vel_gnss: np.nd
     plt.savefig("results/velocity_profile.pdf")
     plt.close()
 
+
+def plot_all_methods(
+    imu_time: np.ndarray,
+    gnss_pos_ned_interp: np.ndarray,
+    gnss_vel_ned_interp: np.ndarray,
+    gnss_acc_ned_interp: np.ndarray,
+    fused_pos: dict,
+    fused_vel: dict,
+    fused_acc: dict,
+    methods: list[str] | None = None,
+    colors: dict[str, str] | None = None,
+    savefile: str = "task5_results_all_methods.png",
+) -> None:
+    """Plot position, velocity and acceleration for all methods in one figure."""
+
+    if methods is None:
+        methods = ["TRIAD", "Davenport", "SVD"]
+    if colors is None:
+        colors = {"TRIAD": "r", "Davenport": "g", "SVD": "b"}
+
+    directions = ["North", "East", "Down"]
+    names = ["Position", "Velocity", "Acceleration"]
+    ylabels = ["Position (m)", "Velocity (m/s)", "Acceleration (m/s²)"]
+
+    fig, axes = plt.subplots(3, 3, figsize=(18, 10))
+
+    for row, (truth, data_dict) in enumerate(
+        zip(
+            [gnss_pos_ned_interp, gnss_vel_ned_interp, gnss_acc_ned_interp],
+            [fused_pos, fused_vel, fused_acc],
+        )
+    ):
+        for col in range(3):
+            ax = axes[row, col]
+            ax.plot(imu_time, truth[:, col], "k-", label="GNSS")
+            for m in methods:
+                if m not in data_dict:
+                    continue
+                c = colors.get(m, None)
+                ax.plot(imu_time, data_dict[m][:, col], c, alpha=0.8, label=m)
+            ax.set_title(f"{names[row]} {directions[col]}")
+            ax.set_xlabel("Time (s)")
+            ax.set_ylabel(ylabels[row])
+            if row == 0 and col == 0:
+                ax.legend()
+
+    plt.tight_layout()
+    plt.savefig(savefile, dpi=200)
+    plt.close(fig)
+
