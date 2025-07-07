@@ -173,6 +173,12 @@ python src/validate_with_truth.py --est-file <kf.mat> \
 Optional arguments `--ref-lat`, `--ref-lon` and `--ref-r0` override the reference
 coordinate if it is not embedded in the estimate file.
 
+`validate_and_plot.py` wraps `validate_with_truth.py` so that a single command
+produces the figures. Run it with `--est-file`, `--truth-file` and an optional
+`--output` directory. The script creates the directory if necessary and then
+generates the overlay plots and error metrics based on the provided ground
+truth.
+
 For a quick look at ±3σ bounds stored in the covariance matrix run:
 
 ```bash
