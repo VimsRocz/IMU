@@ -54,7 +54,7 @@ for i = 1:numel(methods)
         grid on
     end
     legend('show');
-    saveas(h, fullfile(resultsDir, [method '_pos_3sigma.png']));
+    print(h, fullfile(resultsDir, [method '_pos_3sigma.pdf']), '-dpdf', '-bestfit');
 
     % plot velocity errors
     h = figure('Visible','off');
@@ -73,7 +73,7 @@ for i = 1:numel(methods)
         grid on
     end
     legend('show');
-    saveas(h, fullfile(resultsDir, [method '_vel_3sigma.png']));
+    print(h, fullfile(resultsDir, [method '_vel_3sigma.pdf']), '-dpdf', '-bestfit');
 
     % plot quaternion errors (4 subplots)
     qlabels = {'q0','q1','q2','q3'};
@@ -93,7 +93,7 @@ for i = 1:numel(methods)
         grid on
     end
     legend('show');
-    saveas(h, fullfile(resultsDir, [method '_quat_3sigma.png']));
+    print(h, fullfile(resultsDir, [method '_quat_3sigma.pdf']), '-dpdf', '-bestfit');
 
     % save errors and sigma for later review
     save(fullfile(resultsDir, [method '_validate.mat']), 'err_pos','err_vel','err_quat', 'sigma_pos','sigma_vel','sigma_quat');
