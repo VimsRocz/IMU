@@ -12,3 +12,12 @@
 - **task5_all_body.pdf**: Kalman filter results in body frame
 - **davenport_residuals.pdf**: Position and velocity residuals
 - **davenport_attitude_angles.pdf**: Attitude angles over time
+
+## Subtask 5.8 Comparison Plots
+
+| Figure File | Content |
+|-------------|---------|
+| task5_results_TRIAD.png | 3×3: GNSS vs Fused TRIAD—Position, Velocity, Acceleration (N/E/D) |
+| task5_results_Davenport.png | 3×3: GNSS vs Fused Davenport—Position, Velocity, Acceleration (N/E/D) |
+| task5_results_SVD.png | 3×3: GNSS vs Fused SVD—Position, Velocity, Acceleration (N/E/D) |
+| task5_results_all_methods.png | 3×3: GNSS, TRIAD, Davenport, SVD—Position, Velocity, Acceleration (N/E/D) |
