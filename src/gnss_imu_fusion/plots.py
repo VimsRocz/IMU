@@ -2,6 +2,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+from typing import Optional, List, Dict
 
 
 def save_zupt_variance(
@@ -187,8 +188,8 @@ def plot_all_methods(
     fused_pos: dict,
     fused_vel: dict,
     fused_acc: dict,
-    methods: list[str] | None = None,
-    colors: dict[str, str] | None = None,
+    methods: Optional[List[str]] = None,
+    colors: Optional[Dict[str, str]] = None,
     savefile: str = "task5_results_all_methods.png",
 ) -> None:
     """Plot position, velocity and acceleration for all methods in one figure."""

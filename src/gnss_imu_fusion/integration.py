@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from typing import Optional, Tuple
 
 from ..utils import compute_C_ECEF_to_NED, gravity_ecef
 
@@ -9,21 +10,21 @@ def integrate_trajectory(
     acc_body: np.ndarray,
     imu_time: np.ndarray,
     C_B_N: np.ndarray,
-    g_NED: np.ndarray | None = None,
+    g_NED: Optional[np.ndarray] = None,
     *,
-    lat: np.ndarray | None = None,
-    lon: np.ndarray | None = None,
-    g_ecef: np.ndarray | None = None,
-    h: np.ndarray | None = None,
-    ref_lat: float | None = None,
-    ref_lon: float | None = None,
-    ref_ecef: np.ndarray | None = None,
-) -> tuple[
+    lat: Optional[np.ndarray] = None,
+    lon: Optional[np.ndarray] = None,
+    g_ecef: Optional[np.ndarray] = None,
+    h: Optional[np.ndarray] = None,
+    ref_lat: Optional[float] = None,
+    ref_lon: Optional[float] = None,
+    ref_ecef: Optional[np.ndarray] = None,
+) -> Tuple[
     np.ndarray,
     np.ndarray,
     np.ndarray,
-    np.ndarray | None,
-    np.ndarray | None,
+    Optional[np.ndarray],
+    Optional[np.ndarray],
 ]:
     """Integrate body-frame accelerations to position and velocity.
 

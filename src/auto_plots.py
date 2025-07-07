@@ -9,7 +9,7 @@ hooked into :mod:`run_all_datasets` or another driver script.
 from __future__ import annotations
 
 import os
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, List
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -24,7 +24,7 @@ OUTPUT_DIR = "results/auto_plots"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Collect metrics for the summary table
-summary_records: list[dict] = []
+summary_records: List[dict] = []
 
 
 # ---------------------------------------------------------------------------
