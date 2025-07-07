@@ -1423,7 +1423,7 @@ def main():
         ax.plot(imu_time, gnss_pos_ned_interp[:, j], 'k-', label='GNSS (Measured)')
         ax.plot(imu_time, imu_pos[method][:, j], 'g--', label='IMU (Derived)')
         c = colors.get(method, None)
-        ax.plot(imu_time, fused_pos[method][:, j], c, alpha=0.7, label=f'Fused GNSS + IMU')
+        ax.plot(imu_time, fused_pos[method][:, j], c, alpha=0.7, label='Fused GNSS + IMU')
         ax.set_title(f'Position {directions[j]}')
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Position (m)')
@@ -1751,7 +1751,7 @@ def main():
     pos_body = (C_N_B @ fused_pos[method].T).T
     vel_body = (C_N_B @ fused_vel[method].T).T
 
-    np.savez(
+    np.savez_compressed(
         f"results/{tag}_kf_output.npz",
         summary=dict(
             rmse_pos=rmse_pos,
