@@ -1481,6 +1481,48 @@ def main():
     logging.info(f"Subtask 5.8.2: {method} plot saved as '{out_pdf}'")
     logging.debug(f"# Subtask 5.8.2: {method} plotting completed. Saved as '{out_pdf}'.")
 
+    # Plot fused data in mixed reference frames
+    logging.info("Plotting fused data in mixed frames.")
+    fig_mixed_fused, ax_mixed_fused = plt.subplots(3, 3, figsize=(15, 10))
+    dirs_pos = ['X_ECEF', 'Y_ECEF', 'Z_ECEF']
+    dirs_vel = ['VX_ECEF', 'VY_ECEF', 'VZ_ECEF']
+    dirs_acc = ['AX_body', 'AY_body', 'AZ_body']
+    c = colors.get(method, None)
+    pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
+    vel_ecef = (C_NED_to_ECEF @ fused_vel[method].T).T
+    C_N_B = C_B_N_methods[method].T
+    acc_body = (C_N_B @ fused_acc[method].T).T
+    for i in range(3):
+        for j in range(3):
+            ax = ax_mixed_fused[i, j]
+            if i == 0:
+                ax.plot(t_rel_gnss, gnss_pos_ecef[:, j], 'k-', label='Measured GNSS')
+                ax.plot(t_rel_ilu, pos_ecef[:, j], c, alpha=0.7,
+                        label=f'Fused (GNSS+IMU, {method})')
+                if truth_pos_ecef_i is not None:
+                    ax.plot(t_rel_ilu, truth_pos_ecef_i[:, j], 'm-', label='Truth')
+                ax.set_title(f'Position {dirs_pos[j]}')
+            elif i == 1:
+                ax.plot(t_rel_gnss, gnss_vel_ecef[:, j], 'k-', label='Measured GNSS')
+                ax.plot(t_rel_ilu, vel_ecef[:, j], c, alpha=0.7,
+                        label=f'Fused (GNSS+IMU, {method})')
+                if truth_vel_ecef_i is not None:
+                    ax.plot(t_rel_ilu, truth_vel_ecef_i[:, j], 'm-', label='Truth')
+                ax.set_title(f'Velocity {dirs_vel[j]}')
+            else:
+                ax.plot(t_rel_ilu, acc_body[:, j], c, alpha=0.7,
+                        label=f'Fused (GNSS+IMU, {method})')
+                ax.set_title(f'Acceleration {dirs_acc[j]}')
+            ax.set_xlabel('Time (s)')
+            ax.set_ylabel('Value')
+            ax.legend(loc="best")
+    fig_mixed_fused.suptitle(f"{method} – Mixed Frames (Fused vs. Measured GNSS)")
+    fig_mixed_fused.tight_layout(rect=[0, 0, 1, 0.95])
+    if not args.no_plots:
+        plt.savefig(f"results/{tag}_task5_mixed_frames.pdf")
+    plt.close()
+    logging.info("Fused mixed frames plot saved")
+
     # ----- Additional reference frame plots -----
     logging.info("Plotting all data in NED frame.")
     fig_ned_all, ax_ned_all = plt.subplots(3, 3, figsize=(15, 10))
@@ -1649,6 +1691,7 @@ def main():
         f'{tag}_task4_all_ecef.pdf': 'Integrated data in ECEF frame',
         f'{tag}_task4_all_body.pdf': 'Integrated data in body frame',
         f'{tag}_task5_results_{method}.pdf': f'Kalman filter results using {method}',
+        f'{tag}_task5_mixed_frames.pdf': 'Kalman filter results in mixed frames',
         f'{tag}_task5_all_ned.pdf': 'Kalman filter results in NED frame',
         f'{tag}_task5_all_ecef.pdf': 'Kalman filter results in ECEF frame',
         f'{tag}_task5_all_body.pdf': 'Kalman filter results in body frame',
