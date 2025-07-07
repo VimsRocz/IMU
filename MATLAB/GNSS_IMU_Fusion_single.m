@@ -866,6 +866,9 @@ else
     S = struct();
 end
 
+% Call helper to generate combined Task 4/5/6 figures
+plot_task456_gnss_imu_fused(imu_file, gnss_file, S);
+
 % Rename key figures to match the Python naming scheme
 rename_plot(sprintf('%s_Task3_ErrorComparison.pdf', tag), ...
             sprintf('%s_task3_errors_comparison.pdf', tag));
