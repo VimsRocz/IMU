@@ -68,7 +68,10 @@ To run the unit tests install the package in editable mode with the
 ```bash
 pip install -e .[tests]
 ```
-This pulls in `pytest` and the additional dependencies such as `cartopy`.
+This pulls in `pytest` together with the runtime libraries listed under
+`[project.optional-dependencies] tests` in `pyproject.toml` &mdash; most
+notably `numpy`, `scipy`, `matplotlib`, `pandas`, `filterpy`, and
+`cartopy`.
 
 #### Offline installation (optional)
 
@@ -361,7 +364,8 @@ mandatory** before executing any tests. The suite relies on *all* entries in
 some time to build. Using a dedicated virtual environment or container is
 strongly recommended.  The `test` target in the `Makefile` installs these
 extras for you. Alternatively, run the helper script `scripts/setup_tests.sh`
-before invoking `pytest`:
+before invoking `pytest` to install `numpy`, `scipy`, `matplotlib` and the
+other libraries defined in the `[tests]` extras:
 
 ```bash
 ./scripts/setup_tests.sh
