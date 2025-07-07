@@ -62,11 +62,22 @@ for m = 1:numel(methods)
     Task_2(imu_path, gnss_path, method);
     Task_3(imu_path, gnss_path, method);
     Task_4(imu_path, gnss_path, method);
-    S = Task_5(imu_path, gnss_path, method);
+    Task_5(imu_path, gnss_path, method);
 
-    fused_pos{m} = S.x_log(1:3,:)';
-    fused_vel{m} = S.vel_log';
-    fused_acc{m} = S.accel_from_vel';
+    % Task_5 saves the full filter logs to a MAT file
+    pair_tag = [imu_name '_' gnss_name];
+    method_file = fullfile(resultsDir, sprintf('%s_%s_task5_results.mat', pair_tag, method));
+    if isfile(method_file)
+        data = load(method_file, 'x_log', 'vel_log', 'accel_from_vel');
+        fused_pos{m} = data.x_log(1:3,:)';
+        fused_vel{m} = data.vel_log';
+        fused_acc{m} = data.accel_from_vel';
+    else
+        warning('Result file not found: %s', method_file);
+        fused_pos{m} = [];
+        fused_vel{m} = [];
+        fused_acc{m} = [];
+    end
 
     % Per-method plot
     outfile = fullfile(resultsDir, sprintf('%s_task5_results_%s.pdf', tag, method));
