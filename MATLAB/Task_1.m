@@ -24,6 +24,21 @@ if ~exist('results','dir')
     mkdir('results');
 end
 
+% Print dataset and method like the Python script
+[~, imu_name, ~] = fileparts(imu_path);
+[~, gnss_name, ~] = fileparts(gnss_path);
+if isempty(method)
+    tag = [imu_name '_' gnss_name];
+else
+    tag = [imu_name '_' gnss_name '_' method];
+end
+
+fprintf('\u25B6 %s\n', tag); % \u25B6 is the triangle symbol
+fprintf('Ensured ''results/'' directory exists.\n');
+if ~isempty(method)
+    fprintf('Running attitude-estimation method: %s\n', method);
+end
+
 if isempty(method)
     log_tag = '';
 else
@@ -33,13 +48,6 @@ fprintf('TASK 1%s: Define reference vectors in NED frame\n', log_tag);
 
 % --- Configuration ---
 results_dir = 'results';
-[~, imu_name, ~] = fileparts(imu_path);
-[~, gnss_name, ~] = fileparts(gnss_path);
-if isempty(method)
-    tag = [imu_name '_' gnss_name];
-else
-    tag = [imu_name '_' gnss_name '_' method];
-end
 
 
 % ================================
@@ -72,13 +80,12 @@ if ~isempty(valid_idx)
     z_ecef = initial_row.Z_ECEF_m;
     
     % Convert ECEF to geodetic coordinates using the shared helper
-    [lat_deg, lon_deg, ~] = ecef2geodetic(x_ecef, y_ecef, z_ecef);
+    [lat_deg, lon_deg, alt_m] = ecef2geodetic(x_ecef, y_ecef, z_ecef);
     
     % Convert degrees to radians for calculations
     lat = deg2rad(lat_deg);
     
-    fprintf('Computed initial latitude: %.6f°, longitude: %.6f° from ECEF coordinates.\n', lat_deg, lon_deg);
-    fprintf('Initial latitude: %.6f°, Initial longitude: %.6f°\n', lat_deg, lon_deg);
+    fprintf('Computed initial latitude: %.6f°, longitude: %.6f° from GNSS\n', lat_deg, lon_deg);
 else
     error('No valid ECEF coordinates found in GNSS data.');
 end
@@ -89,10 +96,8 @@ end
 % ================================
 fprintf('\nSubtask 1.2: Defining gravity vector in NED frame.\n');
 
-g = constants.GRAVITY; % Approximate gravity magnitude
-g_NED = [0; 0; g]; % Gravity vector in NED (North, East, Down)
-
-fprintf('Gravity vector in NED: [%.2f, %.2f, %.2f] m/s^2 (Down positive, magnitude g = %.2f m/s^2)\n', g_NED(1), g_NED(2), g_NED(3), g);
+% Compute gravity magnitude using WGS-84 model and print validation line
+g_NED = validate_gravity_vector(lat_deg, alt_m);
 
 
 % ================================
@@ -106,7 +111,7 @@ omega_E = constants.EARTH_RATE;
 % Earth rotation rate vector in NED frame: ω_ie,NED = ω_E * [cos(φ); 0; -sin(φ)]
 omega_ie_NED = omega_E * [cos(lat); 0; -sin(lat)];
 
-fprintf('Earth rotation rate in NED: [%.2e, %.2e, %.2e] rad/s (North, East, Down)\n', omega_ie_NED(1), omega_ie_NED(2), omega_ie_NED(3));
+fprintf('Earth rotation rate (NED):   [%.8e %.8e %.8e] rad/s\n', omega_ie_NED(1), omega_ie_NED(2), omega_ie_NED(3));
 
 
 % ================================
@@ -124,8 +129,8 @@ fprintf('Reference vectors validated successfully.\n');
 
 % Print reference vectors
 fprintf('\n==== Reference Vectors in NED Frame ====\n');
-fprintf('Gravity vector (NED):        [%.4f, %.4f, %.4f] m/s^2\n', g_NED);
-fprintf('Earth rotation rate (NED):   [%.4e, %.4e, %.4e] rad/s\n', omega_ie_NED);
+fprintf('Gravity vector (NED):        [%.8f %.8f %.8f] m/s^2\n', g_NED);
+fprintf('Earth rotation rate (NED):   [%.8e %.8e %.8e] rad/s\n', omega_ie_NED);
 fprintf('Latitude (deg):              %.6f\n', lat_deg);
 fprintf('Longitude (deg):             %.6f\n', lon_deg);
 
@@ -158,7 +163,7 @@ if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
     % Save the plot
     output_filename = fullfile(results_dir, sprintf('%s_location_map.pdf', tag));
     saveas(gcf, output_filename);
-    fprintf('Location map saved to %s\n', output_filename);
+    fprintf('Location map saved\n');
 else
     warning('Mapping Toolbox not found. Skipping geographic plot.');
 end
