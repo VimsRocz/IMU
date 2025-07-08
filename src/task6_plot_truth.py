@@ -118,6 +118,30 @@ def main() -> None:
         t_g, p_g, v_g, a_g = data["gnss"]
         t_f, p_f, v_f, a_f = data["fused"]
         truth = data.get("truth")
+
+        # ------------------------------------------------------------------
+        # Normalise time vectors so that the first sample is at t=0. GNSS data
+        # in the ECEF frame typically uses absolute POSIX timestamps, while
+        # the filter output and truth data start at zero.  Subtracting the
+        # initial timestamp ensures all curves share the same time axis.
+        # ------------------------------------------------------------------
+        if frame_name == "ECEF":
+            t_g = t_g - t_g[0]
+            t_i = t_i - t_i[0]
+            t_f = t_f - t_f[0]
+            if truth is not None:
+                t_t, p_t, v_t, a_t = truth
+                t_t = t_t - t_t[0]
+                truth = (t_t, p_t, v_t, a_t)
+        else:
+            offset = t_i[0]
+            t_g = t_g - offset
+            t_i = t_i - offset
+            t_f = t_f - offset
+            if truth is not None:
+                t_t, p_t, v_t, a_t = truth
+                t_t = t_t - offset
+                truth = (t_t, p_t, v_t, a_t)
         plot_overlay(
             frame_name,
             method,
@@ -141,6 +165,10 @@ def main() -> None:
         raw = truth_frames_raw.get(frame_name)
         if raw is not None:
             t_t, p_t, v_t, a_t = raw
+            if frame_name == "ECEF":
+                t_t = t_t - t_t[0]
+            else:
+                t_t = t_t - t_i[0]
             plot_overlay(
                 frame_name,
                 method,
