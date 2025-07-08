@@ -689,6 +689,18 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
             print(f"Failed to load truth file {truth_file}: {e}")
             truth_file = None
 
+    # --------------------------------------------------------------
+    # Normalise all time vectors to a common origin for plotting
+    # --------------------------------------------------------------
+    t0_candidates = [t_gnss[0], t_est[0]]
+    if truth_file is not None:
+        t0_candidates.append(t_truth[0])
+    t0 = float(np.min(t0_candidates))
+    t_gnss = t_gnss - t0
+    t_est = t_est - t0
+    if truth_file is not None:
+        t_truth = t_truth - t0
+
     q = est.get("quat")
     if q is not None:
         rot = R.from_quat(np.asarray(q)[: len(t_est)][:, [1, 2, 3, 0]])
