@@ -89,6 +89,10 @@ def main() -> None:
     else:
         ref_lat = float(np.asarray(ref_lat).squeeze())
         ref_lon = float(np.asarray(ref_lon).squeeze())
+        # Convert to radians when values appear to be in degrees
+        if abs(ref_lat) > np.pi or abs(ref_lon) > np.pi:
+            ref_lat = np.deg2rad(ref_lat)
+            ref_lon = np.deg2rad(ref_lon)
         ref_r0 = np.asarray(ref_r0).squeeze()
 
     C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
