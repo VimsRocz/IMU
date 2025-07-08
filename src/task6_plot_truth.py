@@ -121,6 +121,10 @@ def main() -> None:
         "Body": (t_truth, pos_truth_body, vel_truth_body, acc_truth_body),
     }
 
+    def centre(arr: np.ndarray) -> np.ndarray:
+        """Return *arr* translated so its first sample is zero."""
+        return arr - arr[0]
+
     for frame_name, data in frames.items():
         t_i, p_i, v_i, a_i = data["imu"]
         t_g, p_g, v_g, a_g = data["gnss"]
@@ -151,18 +155,18 @@ def main() -> None:
                 t_t = t_t - offset
                 truth = (t_t, p_t, v_t, a_t)
         if frame_name == "NED":
-            p_i = p_i * sign
+            p_i = centre(p_i * sign)
             v_i = v_i * sign
             a_i = a_i * sign
-            p_g = p_g * sign
+            p_g = centre(p_g * sign)
             v_g = v_g * sign
             a_g = a_g * sign
-            p_f = p_f * sign
+            p_f = centre(p_f * sign)
             v_f = v_f * sign
             a_f = a_f * sign
             if truth is not None:
                 t_t, p_t, v_t, a_t = truth
-                p_t = p_t * sign
+                p_t = centre(p_t * sign)
                 v_t = v_t * sign
                 a_t = a_t * sign
                 truth = (t_t, p_t, v_t, a_t)
@@ -193,11 +197,13 @@ def main() -> None:
                 t_t = t_t - t_t[0]
             else:
                 t_t = t_t - t_i[0]
-            plot_overlay(
-                frame_name,
-                method,
-                t_i,
-                p_i,
+            if frame_name == "NED":
+                p_t = centre(p_t)
+        plot_overlay(
+            frame_name,
+            method,
+            t_i,
+            p_i,
                 v_i,
                 a_i,
                 t_g,
