@@ -8,6 +8,8 @@ The following codex-style guidelines summarize how to present and document plots
 - Each plot must have:
   - A descriptive title.
   - Axis labels with units (e.g. `Time [s]`, `Position North [m]`).
+  - Subtract the first timestamp so the time axis starts at zero. This avoids
+    huge offsets like `1e9` on the x‑axis.
   - A legend if multiple data series are shown.
   - Consistent colors across figures (North: blue, East: green, Down: red).
 - Annotate key results directly on the plot (e.g. RMSE or max error).
