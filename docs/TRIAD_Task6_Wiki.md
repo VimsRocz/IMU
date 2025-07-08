@@ -8,7 +8,9 @@ plotted for comparison.
 
 The stored Kalman filter result is loaded and aligned with the corresponding
 GNSS/IMU logs and the `STATE_X001.txt` reference. The existing Task 5 plots are
-recreated with the truth trajectory shown in black.
+recreated with the truth trajectory shown in black.  Because NED uses a
+positive *Down* axis, the script flips that component so altitude appears
+upward on screen.
 
 ```text
 Task 5 fused trajectory
