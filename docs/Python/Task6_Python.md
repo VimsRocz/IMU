@@ -9,7 +9,8 @@ a black **Truth** line for direct comparison.
 The script loads the stored filter results (`*_kf_output.mat` or `.npz`),
 retrieves the corresponding GNSS and IMU logs and aligns them with the ground
 truth file. The helper :func:`plot_overlay` then creates 3×3 figures in the NED,
-ECEF and body frames.
+ECEF and body frames.  Since NED uses a positive *Down* axis, the script flips
+that component before plotting so altitude increases upward in the figures.
 
 ```text
 Task 5 output

@@ -95,6 +95,10 @@ def main() -> None:
     pos_truth_ned = np.array([C @ (p - ref_r0) for p in pos_truth_ecef])
     vel_truth_ned = np.array([C @ v for v in vel_truth_ecef])
     acc_truth_ned = np.array([C @ a for a in acc_truth_ecef])
+    sign = np.array([1.0, 1.0, -1.0])
+    pos_truth_ned *= sign
+    vel_truth_ned *= sign
+    acc_truth_ned *= sign
 
     q = est.get("quat")
     if q is not None:
@@ -141,6 +145,22 @@ def main() -> None:
             if truth is not None:
                 t_t, p_t, v_t, a_t = truth
                 t_t = t_t - offset
+                truth = (t_t, p_t, v_t, a_t)
+        if frame_name == "NED":
+            p_i = p_i * sign
+            v_i = v_i * sign
+            a_i = a_i * sign
+            p_g = p_g * sign
+            v_g = v_g * sign
+            a_g = a_g * sign
+            p_f = p_f * sign
+            v_f = v_f * sign
+            a_f = a_f * sign
+            if truth is not None:
+                t_t, p_t, v_t, a_t = truth
+                p_t = p_t * sign
+                v_t = v_t * sign
+                a_t = a_t * sign
                 truth = (t_t, p_t, v_t, a_t)
         plot_overlay(
             frame_name,
