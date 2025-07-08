@@ -221,6 +221,28 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
     produced = {p.name for p in Path("results").glob("*_overlay_truth.pdf")}
     assert expected.issubset(produced), f"Missing overlays: {expected - produced}"
 
+    # verify raw STATE overlay generation via task6_plot_truth.py
+    from src.task6_plot_truth import main as task6_main
+    # provide IMU/GNSS files expected by the script
+    Path("IMU_X001_small.dat").write_bytes((repo / "IMU_X001_small.dat").read_bytes())
+    Path("GNSS_X001_small.csv").write_bytes((repo / "GNSS_X001_small.csv").read_bytes())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "task6_plot_truth.py",
+            "--est-file",
+            str(est_file),
+            "--truth-file",
+            str(repo / "STATE_X001_small.txt"),
+            "--output",
+            str(Path("results")),
+        ],
+    )
+    task6_main()
+    state_files = {p.name for p in Path("results").glob("*_overlay_state.pdf")}
+    assert state_files, "Missing state overlay plots"
+
 
 def test_assemble_frames_small_truth():
     repo = Path(__file__).resolve().parent / "data"

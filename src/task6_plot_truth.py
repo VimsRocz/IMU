@@ -12,6 +12,9 @@ from pathlib import Path
 
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
+from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
+from scipy.spatial.transform import Rotation as R
+import numpy as np
 
 
 def main() -> None:
@@ -51,6 +54,65 @@ def main() -> None:
     est = load_estimate(str(est_path))
     frames = assemble_frames(est, imu_file, gnss_file, args.truth_file)
 
+    # Load raw truth data without interpolation
+    truth_raw = np.loadtxt(args.truth_file, comments="#")
+    t_truth = truth_raw[:, 1]
+    pos_truth_ecef = truth_raw[:, 2:5]
+    vel_truth_ecef = truth_raw[:, 5:8]
+    acc_truth_ecef = np.zeros_like(vel_truth_ecef)
+    if len(t_truth) > 1:
+        dt = np.diff(t_truth, prepend=t_truth[0])
+        acc_truth_ecef[1:] = np.diff(vel_truth_ecef, axis=0) / dt[1:, None]
+
+    ref_lat = est.get("ref_lat")
+    if ref_lat is None:
+        ref_lat = est.get("ref_lat_rad")
+    if ref_lat is None:
+        ref_lat = est.get("lat0")
+
+    ref_lon = est.get("ref_lon")
+    if ref_lon is None:
+        ref_lon = est.get("ref_lon_rad")
+    if ref_lon is None:
+        ref_lon = est.get("lon0")
+
+    ref_r0 = est.get("ref_r0")
+    if ref_r0 is None:
+        ref_r0 = est.get("ref_r0_m")
+    if ref_r0 is None:
+        ref_r0 = est.get("r0")
+    if ref_lat is None or ref_lon is None or ref_r0 is None:
+        lat_deg, lon_deg, _ = ecef_to_geodetic(*pos_truth_ecef[0])
+        ref_lat = np.deg2rad(lat_deg)
+        ref_lon = np.deg2rad(lon_deg)
+        ref_r0 = pos_truth_ecef[0]
+    else:
+        ref_lat = float(np.asarray(ref_lat).squeeze())
+        ref_lon = float(np.asarray(ref_lon).squeeze())
+        ref_r0 = np.asarray(ref_r0).squeeze()
+
+    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+    pos_truth_ned = np.array([C @ (p - ref_r0) for p in pos_truth_ecef])
+    vel_truth_ned = np.array([C @ v for v in vel_truth_ecef])
+    acc_truth_ned = np.array([C @ a for a in acc_truth_ecef])
+
+    q = est.get("quat")
+    if q is not None:
+        rot = R.from_quat(np.asarray(q)[: len(t_truth)][:, [1, 2, 3, 0]])
+        pos_truth_body = rot.apply(pos_truth_ned)
+        vel_truth_body = rot.apply(vel_truth_ned)
+        acc_truth_body = rot.apply(acc_truth_ned)
+    else:
+        pos_truth_body = pos_truth_ned
+        vel_truth_body = vel_truth_ned
+        acc_truth_body = acc_truth_ned
+
+    truth_frames_raw = {
+        "NED": (t_truth, pos_truth_ned, vel_truth_ned, acc_truth_ned),
+        "ECEF": (t_truth, pos_truth_ecef, vel_truth_ecef, acc_truth_ecef),
+        "Body": (t_truth, pos_truth_body, vel_truth_body, acc_truth_body),
+    }
+
     for frame_name, data in frames.items():
         t_i, p_i, v_i, a_i = data["imu"]
         t_g, p_g, v_g, a_g = data["gnss"]
@@ -74,6 +136,33 @@ def main() -> None:
             out_dir,
             truth,
         )
+
+        # Additional plot using raw STATE data without interpolation
+        raw = truth_frames_raw.get(frame_name)
+        if raw is not None:
+            t_t, p_t, v_t, a_t = raw
+            plot_overlay(
+                frame_name,
+                method,
+                t_i,
+                p_i,
+                v_i,
+                a_i,
+                t_g,
+                p_g,
+                v_g,
+                a_g,
+                t_f,
+                p_f,
+                v_f,
+                a_f,
+                out_dir,
+                t_truth=t_t,
+                pos_truth=p_t,
+                vel_truth=v_t,
+                acc_truth=a_t,
+                suffix="_overlay_state.pdf",
+            )
 
 
 if __name__ == "__main__":

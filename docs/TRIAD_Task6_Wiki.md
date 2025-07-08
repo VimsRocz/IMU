@@ -20,6 +20,9 @@ Task 5 fused trajectory
 1. Load the Task 5 output file (`*_kf_output.mat` or `.npz`).
 2. Interpolate IMU, GNSS and truth samples onto the same time vector.
 3. Save NED, ECEF and body-frame overlay plots using the standard layout.
+4. Create additional figures overlaying the raw `STATE_X*.txt` data without
+   alignment. These highlight how the estimator drifts relative to the logged
+   truth.
 
 ## Result
 
