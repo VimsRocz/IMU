@@ -53,7 +53,7 @@ def plot_overlay(
         suffix = "_overlay_truth.pdf" if t_truth is not None else "_overlay.pdf"
 
     axis_labels = {
-        "NED": ["N", "E", "D"],
+        "NED": ["\u0394N [m]", "\u0394E [m]", "\u0394D [m]"],
         "ECEF": ["X", "Y", "Z"],
         "Body": ["X", "Y", "Z"],
     }
