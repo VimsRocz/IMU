@@ -125,6 +125,11 @@ def main() -> None:
         """Return *arr* translated so its first sample is zero."""
         return arr - arr[0]
 
+    def ensure_relative_time(t: np.ndarray) -> np.ndarray:
+        """Return time vector shifted so t[0] == 0."""
+        t = np.asarray(t).squeeze()
+        return t - t[0]
+
     for frame_name, data in frames.items():
         t_i, p_i, v_i, a_i = data["imu"]
         t_g, p_g, v_g, a_g = data["gnss"]
@@ -143,7 +148,7 @@ def main() -> None:
             t_f = t_f - t_f[0]
             if truth is not None:
                 t_t, p_t, v_t, a_t = truth
-                t_t = t_t - t_t[0]
+                t_t = ensure_relative_time(t_t)
                 truth = (t_t, p_t, v_t, a_t)
         else:
             offset = t_i[0]
@@ -152,7 +157,7 @@ def main() -> None:
             t_f = t_f - offset
             if truth is not None:
                 t_t, p_t, v_t, a_t = truth
-                t_t = t_t - offset
+                t_t = ensure_relative_time(t_t)
                 truth = (t_t, p_t, v_t, a_t)
         if frame_name == "NED":
             p_i = centre(p_i * sign)
@@ -193,10 +198,7 @@ def main() -> None:
         raw = truth_frames_raw.get(frame_name)
         if raw is not None:
             t_t, p_t, v_t, a_t = raw
-            if frame_name == "ECEF":
-                t_t = t_t - t_t[0]
-            else:
-                t_t = t_t - t_i[0]
+            t_t = ensure_relative_time(t_t)
             if frame_name == "NED":
                 p_t = centre(p_t)
         plot_overlay(
