@@ -95,6 +95,7 @@ if dt_imu <= 0 || isnan(dt_imu)
     dt_imu = 1.0 / 400.0;
 end
 fprintf('Estimated IMU sampling period: %.6f s (%.1f Hz)\n', dt_imu, 1/dt_imu);
+fprintf('Estimated IMU dt: %.6f s\n', dt_imu);
 
 
 %% ================================
@@ -266,6 +267,8 @@ gyro_bias  = static_gyro - omega_ie_body;
 
 fprintf('Estimated accel_bias = [% .6f % .6f % .6f]\n', accel_bias);
 fprintf('Estimated gyro_bias  = [% .6e % .6e % .6e]\n', gyro_bias);
+fprintf('Gravity vector (body): [% .8e % .8e % .8e]\n', g_body);
+fprintf('Earth rotation (body): [% .8e % .8e % .8e]\n', omega_ie_body);
 
 fprintf('Gravity vector in body frame (g_body):           [%.4f; %.4f; %.4f] m/s^2\n', g_body);
 fprintf('Earth rotation rate in body frame (omega_ie_body): [%.6e; %.6e; %.6e] rad/s\n', omega_ie_body);
@@ -299,11 +302,11 @@ fprintf('From accelerometer (assuming static IMU): a_measured = -g_body \n');
 fprintf('From gyroscope (assuming static IMU):     w_measured = omega_ie_body \n');
 
 % Save results for later tasks
-save(fullfile('results', ['Task2_body_' tag '.mat']), 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
+save(fullfile('results', ['Task2_body_' tag '.mat']), 'dt_imu', 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
 fprintf('Body-frame vectors and biases saved to %s\n', fullfile('results', ['Task2_body_' tag '.mat']));
 
 % Return results and store in base workspace
-result = struct('g_body', g_body, 'g_body_scaled', g_body_scaled, ...
+result = struct('dt_imu', dt_imu, 'g_body', g_body, 'g_body_scaled', g_body_scaled, ...
                 'omega_ie_body', omega_ie_body, 'accel_bias', accel_bias, ...
                 'gyro_bias', gyro_bias);
 assignin('base', 'task2_results', result);
