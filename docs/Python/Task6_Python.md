@@ -24,6 +24,10 @@ Task 5 output
    data in NED, ECEF and body frames.
 3. **Generate Plots** – call :func:`plot_overlay` for each frame to save PDFs
    named `<METHOD>_<FRAME>_overlay_truth.pdf` in the results directory.
+4. **State Comparison** – additionally plot the raw `STATE_X*.txt` trajectory
+   using its original time vector. These files are saved as
+   `<METHOD>_<FRAME>_overlay_state.pdf` and highlight any time offsets
+   between the estimate and truth.
 
 ## Result
 
