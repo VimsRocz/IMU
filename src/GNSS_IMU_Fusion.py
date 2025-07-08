@@ -161,7 +161,7 @@ def main():
     # ================================
     # TASK 1: Define Reference Vectors in NED Frame
     # ================================
-    logging.info("TASK 1: Define reference vectors in NED frame")
+    logging.info(f"TASK 1 ({method}): Define reference vectors in NED frame")
 
     (
         lat_deg,

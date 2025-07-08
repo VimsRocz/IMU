@@ -29,7 +29,15 @@ def compute_reference_vectors(
     np.ndarray,
 ]:
     """Return latitude/longitude and reference vectors in the NED frame."""
+    logging.info("Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.")
     gnss_data = pd.read_csv(gnss_file)
+    logging.info("GNSS data columns:\n%s", "\n".join(f"    {c!r}" for c in gnss_data.columns))
+    logging.info(
+        "First few rows of ECEF coordinates:\n%s",
+        gnss_data[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]]
+        .head()
+        .to_string(index=False),
+    )
     valid_rows = gnss_data[(gnss_data["X_ECEF_m"] != 0) | (gnss_data["Y_ECEF_m"] != 0) | (gnss_data["Z_ECEF_m"] != 0)]
     if valid_rows.empty:
         raise ValueError("No valid ECEF coordinates found in GNSS data")
@@ -40,11 +48,15 @@ def compute_reference_vectors(
     lat_deg, lon_deg, alt = ecef_to_geodetic(x_ecef, y_ecef, z_ecef)
     lat = np.deg2rad(lat_deg)
     lon = np.deg2rad(lon_deg)
+    logging.info("Subtask 1.2: Defining gravity vector in NED frame.")
     g_ned = validate_gravity_vector(lat_deg, alt)
+    logging.info("Subtask 1.3: Defining Earth rotation rate vector in NED frame.")
     omega_ie_ned = EARTH_RATE * np.array([np.cos(lat), 0.0, -np.sin(lat)])
+    logging.info("Subtask 1.4: Validating reference vectors.")
     initial_vel = row[["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]].values
     C_e2n = compute_C_ECEF_to_NED(lat, lon)
     initial_vel_ned = C_e2n @ initial_vel
+    logging.info("Reference vectors validated successfully.")
 
     mag_ned = None
     if mag_file:
