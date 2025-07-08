@@ -182,6 +182,11 @@ fprintf('Quaternion (SVD, Case 1):   [%.6f, %.6f, %.6f, %.6f]\n', q_svd);
 fprintf('Quaternion (TRIAD, Case 2): [%.6f, %.6f, %.6f, %.6f]\n', q_tri_doc);
 fprintf('Quaternion (SVD, Case 2):   [%.6f, %.6f, %.6f, %.6f]\n', q_svd_doc);
 
+% Display roll/pitch/yaw for TRIAD case 1 (body->NED)
+eul_tri = rad2deg(quat_to_euler(q_tri));
+fprintf('TRIAD initial attitude (deg): roll=%.3f pitch=%.3f yaw=%.3f\n', ...
+        eul_tri(1), eul_tri(2), eul_tri(3));
+
 
 %% ========================================================================
 % Subtask 3.6: Validate Attitude Determination and Compare Methods
@@ -265,6 +270,9 @@ save(fullfile(results_dir, sprintf('Task3_results_%s.mat', tag)), 'method_result
 % Return and store in base workspace
 assignin('base', 'task3_results', task3_results);
 
+stored_methods = fieldnames(task3_results); % cell array
+fprintf('Task 3 results stored in memory: %s\n', strjoin(stored_methods', ', '));
+
 end
 
 
@@ -347,5 +355,13 @@ function [grav_err, earth_err] = compute_wahba_errors(C_bn, g_body, omega_ie_bod
     omega_pred_ned = C_bn * omega_ie_body;
     grav_err = angle_between(g_pred_ned, g_ref_ned);
     earth_err = angle_between(omega_pred_ned, omega_ref_ned);
+end
+
+function eul = quat_to_euler(q)
+    R = quat_to_rot(q);
+    phi = atan2(R(3,2), R(3,3));
+    theta = -asin(R(3,1));
+    psi = atan2(R(2,1), R(1,1));
+    eul = [phi; theta; psi];
 end
 
