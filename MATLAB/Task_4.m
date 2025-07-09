@@ -135,6 +135,7 @@ fprintf('\nSubtask 4.6: Computing ECEF to NED rotation matrix.\n');
 C_ECEF_to_NED = compute_C_ECEF_to_NED(ref_lat, ref_lon);
 C_NED_to_ECEF = C_ECEF_to_NED';
 fprintf('-> ECEF to NED rotation matrix computed.\n');
+fprintf('-> NED to ECEF rotation matrix computed.\n');
 
 
 %% ========================================================================
@@ -208,7 +209,6 @@ for i = 1:length(methods)
     % Use biases estimated in Task 2 instead of recomputing
     acc_bias  = loaded_accel_bias(:);  % accelerometer bias from Task 2
     gyro_bias = loaded_gyro_bias(:);   % gyroscope bias from Task 2
-    fprintf('Method %s: Using Task 2 biases.\n', method);
     scale = constants.GRAVITY / norm(static_acc' - acc_bias);         % accelerometer scale
 
     % Apply bias and scale corrections
@@ -218,8 +218,10 @@ for i = 1:length(methods)
     gyro_biases.(method) = gyro_bias;
     scale_factors.(method) = scale;
 
-    fprintf('Method %s: Accel bias=[%.4f, %.4f, %.4f], Gyro bias=[%.6f, %.6f, %.6f], Scale=%.4f\n', ...
-            method, acc_bias, gyro_bias, scale);
+    fprintf('Method %s: Accelerometer bias: [% .8f % .8f % .8f] (|b|=%.6f m/s^2)\n', ...
+            method, acc_bias, norm(acc_bias));
+    fprintf('Method %s: Gyroscope bias: [% .8e % .8e % .8e]\n', method, gyro_bias);
+    fprintf('Method %s: Accelerometer scale factor: %.4f\n', method, scale);
 end
 fprintf('-> IMU data corrected for bias and scale for each method.\n');
 
@@ -228,7 +230,7 @@ fprintf('-> IMU data corrected for bias and scale for each method.\n');
 % =========================================================================
 fprintf('\nSubtask 4.10: Setting IMU parameters and gravity vector.\n');
 fprintf('-> IMU sample interval dt = %.6f s\n', dt_imu);
-fprintf('-> Gravity vector g_NED = [%.2f, %.2f, %.2f] m/s^2\n', g_NED);
+fprintf('Gravity vector set: [%.2f %.2f %.2f]\n', g_NED);
 
 
 
@@ -490,10 +492,11 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     fname = [base '_Task4_NEDFrame.pdf'];
     set(fig,'PaperPositionMode','auto');
     print(fig,fname,'-dpdf','-bestfit');
-    fprintf('Saved plot: %s\n', fname);
+    fprintf('Comparison plot in NED frame saved\n');
     close(fig);
 
     % ----- ECEF frame -----
+    fprintf('Plotting all data in ECEF frame.\n');
     C_n2e = C_e2n';
     fig = figure('Visible','off','Position',[100 100 1200 900]);
     p_gnss_ecef = (C_n2e*p_gnss_ned' + r0_ecef)';
@@ -523,10 +526,11 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     fname = [base '_Task4_ECEFFrame.pdf'];
     set(fig,'PaperPositionMode','auto');
     print(fig,fname,'-dpdf','-bestfit');
-    fprintf('Saved plot: %s\n', fname);
+    fprintf('All data in ECEF frame plot saved\n');
     close(fig);
 
     % ----- Body frame -----
+    fprintf('Plotting all data in body frame.\n');
     fig = figure('Visible','off','Position',[100 100 1200 900]);
     C_N_B = C_B_N';
     pos_body = (C_N_B*p_gnss_ned')';
@@ -541,10 +545,11 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     fname = [base '_Task4_BodyFrame.pdf'];
     set(fig,'PaperPositionMode','auto');
     print(fig,fname,'-dpdf','-bestfit');
-    fprintf('Saved plot: %s\n', fname);
+    fprintf('All data in body frame plot saved\n');
     close(fig);
 
     % ----- Mixed frame (ECEF position/velocity + body acceleration) -----
+    fprintf('Plotting data in mixed frames.\n');
     fig = figure('Visible','off','Position',[100 100 1200 900]);
     for i = 1:3
         subplot(3,3,i); plot(t_gnss,p_gnss_ecef(:,i),'k-'); grid on; title(['Pos ' dims_e{i} ' ECEF']); ylabel('m');
@@ -555,7 +560,7 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     fname = [base '_Task4_MixedFrame.pdf'];
     set(fig,'PaperPositionMode','auto');
     print(fig,fname,'-dpdf','-bestfit');
-    fprintf('Saved plot: %s\n', fname);
+    fprintf('Mixed frames plot saved\n');
     close(fig);
 end
 
