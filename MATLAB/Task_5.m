@@ -354,7 +354,8 @@ att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
 set(gcf,'PaperPositionMode','auto');
 print(gcf, att_file, '-dpdf', '-bestfit');
 fprintf('Saved plot: %s\n', att_file);
-fprintf('Plotting fused data in mixed frames.\n');
+plot_task5_mixed_frame(imu_time, x_log(1:3,:), x_log(4:6,:), ...
+    acc_log, euler_log, C_ECEF_to_NED, ref_r0, g_NED, tag, method, results_dir, all_file);
 fprintf('Fused mixed frames plot saved\n');
 fprintf('Plotting all data in NED frame.\n');
 fprintf('All data in NED frame plot saved\n');
@@ -548,5 +549,42 @@ end % End of main function
         omega_pred = C_bn * omega_b;
         grav_err = angle_between(g_pred, g_ref);
         earth_err = angle_between(omega_pred, omega_ref);
+    end
+
+    function R = euler_to_rot(eul)
+        cr = cos(eul(1)); sr = sin(eul(1));
+        cp = cos(eul(2)); sp = sin(eul(2));
+        cy = cos(eul(3)); sy = sin(eul(3));
+        R = [cy*cp, cy*sp*sr - sy*cr, cy*sp*cr + sy*sr;
+             sy*cp, sy*sp*sr + cy*cr, sy*sp*cr - cy*sr;
+             -sp,   cp*sr,            cp*cr];
+    end
+
+    function plot_task5_mixed_frame(t, pos_ned, vel_ned, acc_ned, eul_log, C_E_N, r0, g_N, tag, method, results_dir, all_file)
+        pos_ecef = (C_E_N' * pos_ned) + r0;
+        vel_ecef = C_E_N' * vel_ned;
+        N = size(acc_ned,2);
+        acc_body = zeros(3,N);
+        for k = 1:N
+            C_B_N = euler_to_rot(eul_log(:,k));
+            acc_body(:,k) = C_B_N' * (acc_ned(:,k) - g_N);
+        end
+        fig = figure('Visible','off','Position',[100 100 1200 900]);
+        dims_e = {'X','Y','Z'}; dims_b = {'X','Y','Z'};
+        for i = 1:3
+            subplot(3,3,i);   plot(t, pos_ecef(i,:), 'b-'); grid on;
+            title(['Pos ' dims_e{i} ' ECEF']); ylabel('m');
+            subplot(3,3,i+3); plot(t, vel_ecef(i,:), 'b-'); grid on;
+            title(['Vel ' dims_e{i} ' ECEF']); ylabel('m/s');
+            subplot(3,3,i+6); plot(t, acc_body(i,:), 'b-'); grid on;
+            title(['Acc ' dims_b{i} ' Body']); ylabel('m/s^2');
+        end
+        sgtitle([method ' Mixed Frame Data']);
+        fname = fullfile(results_dir, sprintf('%s_Task5_MixedFrame.pdf', tag));
+        set(fig,'PaperPositionMode','auto');
+        print(fig, fname, '-dpdf', '-bestfit');
+        exportgraphics(fig, all_file, 'Append', true);
+        fprintf('Saved plot: %s\n', fname);
+        close(fig);
     end
 
