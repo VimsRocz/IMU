@@ -336,11 +336,11 @@ for i = 1:3
 end
 xlabel('Time (s)');
 sgtitle('Kalman Filter Results vs. GNSS');
-out_pdf = fullfile(results_dir, sprintf('%s_task5_results_%s.pdf', tag, method));
-set(fig,'PaperPositionMode','auto');
-print(fig, out_pdf, '-dpdf', '-bestfit');
-fprintf('Subtask 5.8.2: %s plot saved as ''%s''\n', method, out_pdf);
-exportgraphics(fig, all_file, 'Append', true);
+% out_pdf = fullfile(results_dir, sprintf('%s_task5_results_%s.pdf', tag, method));
+% set(fig,'PaperPositionMode','auto');
+% print(fig, out_pdf, '-dpdf', '-bestfit');
+% fprintf('Subtask 5.8.2: %s plot saved as ''%s''\n', method, out_pdf);
+% exportgraphics(fig, all_file, 'Append', true);
 
 % --- Plot 4: Attitude (Euler Angles) ---
 figure('Name', 'KF Results: Attitude', 'Position', [200 200 1200 600]);
@@ -351,10 +351,10 @@ for i = 1:3
     grid on; ylabel('[deg]'); title([euler_labels{i} ' Angle']);
 end
 xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
-att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
-set(gcf,'PaperPositionMode','auto');
-print(gcf, att_file, '-dpdf', '-bestfit');
-fprintf('Saved plot: %s\n', att_file);
+% att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
+% set(gcf,'PaperPositionMode','auto');
+% print(gcf, att_file, '-dpdf', '-bestfit');
+% fprintf('Saved plot: %s\n', att_file);
 plot_task5_mixed_frame(imu_time, x_log(1:3,:), x_log(4:6,:), ...
     acc_log, euler_log, C_ECEF_to_NED, ref_r0, g_NED, tag, method, results_dir, all_file);
 fprintf('Fused mixed frames plot saved\n');
@@ -411,11 +411,11 @@ for i = 1:3
     grid on; ylabel('[m]'); title(['Residual ' err_labels{i}]);
 end
 xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
-err_file = fullfile(results_dir, sprintf('%s_Task5_ErrorAnalysis.pdf', tag));
-set(gcf,'PaperPositionMode','auto');
-print(gcf, err_file, '-dpdf', '-bestfit');
-fprintf('Saved plot: %s\n', err_file);
-exportgraphics(gcf, all_file, 'Append', true);
+% err_file = fullfile(results_dir, sprintf('%s_Task5_ErrorAnalysis.pdf', tag));
+% set(gcf,'PaperPositionMode','auto');
+% print(gcf, err_file, '-dpdf', '-bestfit');
+% fprintf('Saved plot: %s\n', err_file);
+% exportgraphics(gcf, all_file, 'Append', true);
 summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%8.2fm ' ...
     'final_pos=%8.2fm rms_resid_pos=%8.2fm max_resid_pos=%8.2fm ' ...
     'rms_resid_vel=%8.2fm max_resid_vel=%8.2fm accel_bias=%.4f gyro_bias=%.4f ' ...
@@ -582,7 +582,7 @@ end % End of main function
             C_B_N = euler_to_rot(eul_log(:,k));
             acc_body(:,k) = C_B_N' * (acc_ned(:,k) - g_N);
         end
-        fig = figure('Visible','off','Position',[100 100 1200 900]);
+        fig = figure('Name','Task5 Mixed Frame','Position',[100 100 1200 900]);
         dims_e = {'X','Y','Z'}; dims_b = {'X','Y','Z'};
         for i = 1:3
             subplot(3,3,i);   plot(t, pos_ecef(i,:), 'b-'); grid on;
@@ -593,12 +593,12 @@ end % End of main function
             title(['Acc ' dims_b{i} ' Body']); ylabel('m/s^2');
         end
         sgtitle([method ' Mixed Frame Data']);
-        fname = fullfile(results_dir, sprintf('%s_Task5_MixedFrame.pdf', tag));
-        set(fig,'PaperPositionMode','auto');
-        print(fig, fname, '-dpdf', '-bestfit');
-        exportgraphics(fig, all_file, 'Append', true);
-        fprintf('Saved plot: %s\n', fname);
-        close(fig);
+        % fname = fullfile(results_dir, sprintf('%s_Task5_MixedFrame.pdf', tag));
+        % set(fig,'PaperPositionMode','auto');
+        % print(fig, fname, '-dpdf', '-bestfit');
+        % exportgraphics(fig, all_file, 'Append', true);
+        % fprintf('Saved plot: %s\n', fname);
+        % close(fig);
     end
 
     function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_gnss, vel_gnss, acc_gnss, method)
