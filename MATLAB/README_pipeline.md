@@ -99,8 +99,8 @@ matching the corresponding `results/Result_<IMU>_<GNSS>_TRIAD.mat` file.
 Use `GNSS_IMU_Fusion_single` when you only need to process one IMU/GNSS pair.
 The function mirrors `run_triad_only.py` and generates the same location map,
 Task 3/4/5 results, residuals and attitude plots in the `results/` folder.
-An extra figure from `plot_task456_gnss_imu_fused` summarises the fused
-GNSS/IMU trajectory after Task 5 completes.
+After saving the results, `plot_task5_results_all_methods` produces a
+summary of the fused GNSS/IMU trajectory for Task 5.
 
 ```matlab
 GNSS_IMU_Fusion_single('IMU_X001.dat','GNSS_X001.csv')

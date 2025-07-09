@@ -866,8 +866,15 @@ else
     S = struct();
 end
 
-% Call helper to generate combined Task 4/5/6 figures
-plot_task456_gnss_imu_fused(imu_file, gnss_file, S);
+% Generate standard Task 5 plot with GNSS overlay
+gnss_pos_interp = interp1(gnss_time, gnss_pos_ned, imu_time, 'linear', 'extrap');
+gnss_vel_interp = interp1(gnss_time, gnss_vel_ned, imu_time, 'linear', 'extrap');
+gnss_acc_interp = interp1(gnss_time, gnss_accel_ned, imu_time, 'linear', 'extrap');
+pos_struct = struct('TRIAD', S.x_log(1:3,:)');
+vel_struct = struct('TRIAD', S.vel_log');
+acc_struct = struct('TRIAD', S.accel_from_vel');
+plot_task5_results_all_methods(imu_time, pos_struct, vel_struct, acc_struct, ...
+    gnss_pos_interp, gnss_vel_interp, gnss_acc_interp);
 
 % Rename key figures to match the Python naming scheme
 rename_plot(sprintf('%s_Task3_ErrorComparison.pdf', tag), ...
