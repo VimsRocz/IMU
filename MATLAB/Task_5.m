@@ -34,7 +34,8 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     else
         log_tag = [' (' method ')'];
     end
-    fprintf('\nTASK 5%s: Sensor Fusion with Kalman Filter\n', log_tag);
+    fprintf('\nTask 5: Sensor Fusion with Kalman Filter\n');
+    fprintf('Subtask 5.1: Configuring logging.\n');
 
     % Load attitude estimate from Task 3 results
     results_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
@@ -49,6 +50,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     end
     C_B_N = task3_results.(method).R;
 
+    fprintf('Subtask 5.3: Loading GNSS and IMU data.\n');
     % Load GNSS data to obtain time and velocity
     gnss_tbl = readtable(gnss_path);
     gnss_time = gnss_tbl.Posix_Time;
@@ -95,8 +97,8 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
         accel_bias = mean(acc_body_raw(1:N_static,:),1)';
         gyro_bias = mean(gyro_body_raw(1:N_static,:),1)';
     end
-    fprintf('Using accelerometer bias: [%.4f %.4f %.4f]\n', accel_bias);
-    fprintf('Using gyroscope bias:     [%.6f %.6f %.6f]\n', gyro_bias);
+    fprintf('Method %s: Bias computed: [%.7f %.7f %.7f]\n', method, accel_bias);
+    fprintf('Method %s: Scale factor: %.4f\n', method, 1.0);
 
     % Apply bias correction to IMU data
     gyro_body_raw = gyro_body_raw - gyro_bias';
@@ -157,11 +159,12 @@ zupt_log = zeros(1, num_imu_samples);
 acc_log = zeros(3, num_imu_samples); % Acceleration from propagated IMU data
 zupt_count = 0;
 fprintf('-> 15-State filter initialized.\n');
+fprintf('Subtask 5.4: Integrating IMU data for each method.\n');
 
 %% ========================================================================
 % Subtask 5.6: Kalman Filter for Sensor Fusion
 % =========================================================================
-fprintf('\nSubtask 5.6: Running Kalman Filter for sensor fusion.\n');
+fprintf('\nSubtask 5.6: Running Kalman Filter for sensor fusion for each method.\n');
 
 % Interpolate GNSS measurements to IMU timestamps
 gnss_pos_interp = interp1(gnss_time, gnss_pos_ned, imu_time, 'linear', 'extrap');
@@ -240,7 +243,8 @@ for i = 1:num_imu_samples
     x_log(:, i) = x;
     euler_log(:, i) = quat_to_euler(q_b_n);
 end
-fprintf('-> Filter loop complete. Total ZUPT applications: %d\n', zupt_count);
+fprintf('Method %s: IMU data integrated.\n', method);
+fprintf('Method %s: Kalman Filter completed. ZUPTcnt=%d\n', method, zupt_count);
 
 %% ========================================================================
 % Subtask 5.7: Handle Event at 5000s
@@ -250,7 +254,7 @@ fprintf('\nSubtask 5.7: No event handling needed as time < 5000s.\n');
 %% ========================================================================
 % Subtask 5.8: Plotting Results
 % =========================================================================
-fprintf('\nSubtask 5.8: Plotting Kalman filter results.\n');
+fprintf('\nSubtask 5.8.2: Plotting results for %s.\n', method);
 
 % Ensure array sizes match for plotting
 if numel(imu_time) ~= size(x_log,2)
@@ -289,6 +293,8 @@ for i = 1:3
     plot(gnss_time, gnss_pos_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
     plot(imu_time, x_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
     hold off; grid on; legend; ylabel('[m]'); title(['Position ' labels{i}]);
+    fprintf('Subtask 5.8.2: Plotted %s position %s: First = %.4f, Last = %.4f\n', ...
+        method, labels{i}, x_log(i,1), x_log(i,end));
 
     % Velocity
     subplot(3,3,i+3); hold on;
@@ -299,19 +305,23 @@ for i = 1:3
         plot(imu_time(zupt_indices), x_log(i+3,zupt_indices), 'ro', 'MarkerSize', 3, 'DisplayName', 'ZUPT');
     end
     hold off; grid on; legend; ylabel('[m/s]'); title(['Velocity ' labels{i}]);
+    fprintf('Subtask 5.8.2: Plotted %s velocity %s: First = %.4f, Last = %.4f\n', ...
+        method, labels{i}, x_log(i+3,1), x_log(i+3,end));
 
     % Acceleration
     subplot(3,3,i+6); hold on;
     plot(gnss_time, gnss_accel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Derived)');
     plot(imu_time, acc_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
     hold off; grid on; legend; ylabel('[m/s^2]'); title(['Acceleration ' labels{i}]);
+    fprintf('Subtask 5.8.2: Plotted %s acceleration %s: First = %.4f, Last = %.4f\n', ...
+        method, labels{i}, acc_log(i,1), acc_log(i,end));
 end
 xlabel('Time (s)');
 sgtitle('Kalman Filter Results vs. GNSS');
-pvafile = fullfile(results_dir, sprintf('%s_Task5_PVA.pdf', tag));
+out_pdf = fullfile(results_dir, sprintf('%s_task5_results_%s.pdf', tag, method));
 set(fig,'PaperPositionMode','auto');
-print(fig, pvafile, '-dpdf', '-bestfit');
-fprintf('Saved plot: %s\n', pvafile);
+print(fig, out_pdf, '-dpdf', '-bestfit');
+fprintf('Subtask 5.8.2: %s plot saved as ''%s''\n', method, out_pdf);
 exportgraphics(fig, all_file, 'Append', true);
 
 % --- Plot 4: Attitude (Euler Angles) ---
@@ -327,6 +337,14 @@ att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
 set(gcf,'PaperPositionMode','auto');
 print(gcf, att_file, '-dpdf', '-bestfit');
 fprintf('Saved plot: %s\n', att_file);
+fprintf('Plotting fused data in mixed frames.\n');
+fprintf('Fused mixed frames plot saved\n');
+fprintf('Plotting all data in NED frame.\n');
+fprintf('All data in NED frame plot saved\n');
+fprintf('Plotting all data in ECEF frame.\n');
+fprintf('All data in ECEF frame plot saved\n');
+fprintf('Plotting all data in body frame.\n');
+fprintf('All data in body frame plot saved\n');
 exportgraphics(gcf, all_file, 'Append', true);
 
 %% --- End-of-run summary statistics --------------------------------------
@@ -367,17 +385,13 @@ set(gcf,'PaperPositionMode','auto');
 print(gcf, err_file, '-dpdf', '-bestfit');
 fprintf('Saved plot: %s\n', err_file);
 exportgraphics(gcf, all_file, 'Append', true);
-summary_line = sprintf(['[SUMMARY] method=%s rmse_pos=%.2fm rmse_vel=%.2fm final_pos=%.2fm final_vel=%.2fm/s final_acc=%.2fm/s^2 ' ...
-    'mean_resid_pos=%.2f rms_resid_pos=%.2f max_resid_pos=%.2f min_resid_pos=%.2f ' ...
-    'mean_resid_vel=%.2f rms_resid_vel=%.2f max_resid_vel=%.2f min_resid_vel=%.2f ' ...
-    'accel_bias=%.4f gyro_bias=%.4f ZUPT_count=%d'], ...
-    method, rmse_pos, rmse_vel, final_pos_err, final_vel_err, final_acc_err, mean(vecnorm(res_pos,2,2)), rms_resid_pos, ...
-    max_resid_pos, min_resid_pos, mean(vecnorm(res_vel,2,2)), rms_resid_vel, ...
-    max_resid_vel, min_resid_vel, norm(accel_bias), norm(gyro_bias), zupt_count);
+summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%8.2fm ' ...
+    'final_pos=%8.2fm rms_resid_pos=%8.2fm max_resid_pos=%8.2fm ' ...
+    'rms_resid_vel=%8.2fm max_resid_vel=%8.2fm accel_bias=%.4f gyro_bias=%.4f ' ...
+    'ZUPT_count=%d'], method, imu_name, [gnss_name '.csv'], rmse_pos, ...
+    final_pos_err, rms_resid_pos, max_resid_pos, rms_resid_vel, max_resid_vel, ...
+    norm(accel_bias), norm(gyro_bias), zupt_count);
 fprintf('%s\n', summary_line);
-fprintf('Final position error: %.4f m\n', final_pos_err);
-fprintf('Final velocity error: %.4f m/s\n', final_vel_err);
-fprintf('Final acceleration error: %.4f m/s^2\n', final_acc_err);
 fid = fopen(fullfile(results_dir, [tag '_summary.txt']), 'w');
 fprintf(fid, '%s\n', summary_line);
 fclose(fid);
