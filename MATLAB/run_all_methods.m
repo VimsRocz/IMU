@@ -51,6 +51,11 @@ imu_raw = readmatrix(imu_path);
 dt_imu = mean(diff(imu_raw(1:100,2)));
 t_imu = (0:size(imu_raw,1)-1)'*dt_imu + t_gnss(1);
 
+% Interpolate GNSS measurements to IMU timestamps for standard Task 5 plot
+gnss_pos_interp = interp1(t_gnss, pos_ned_gnss, t_imu, 'linear', 'extrap');
+gnss_vel_interp = interp1(t_gnss, vel_ned_gnss, t_imu, 'linear', 'extrap');
+gnss_acc_interp = interp1(t_gnss, acc_ned_gnss, t_imu, 'linear', 'extrap');
+
 fused_pos = cell(size(methods));
 fused_vel = cell(size(methods));
 fused_acc = cell(size(methods));
@@ -72,7 +77,6 @@ for m = 1:numel(methods)
         fused_pos{m} = data.x_log(1:3,:)';
         fused_vel{m} = data.vel_log';
         fused_acc{m} = data.accel_from_vel';
-        plot_task456_gnss_imu_fused(imu_file, gnss_file, data);
     else
         warning('Result file not found: %s', method_file);
         fused_pos{m} = [];
@@ -84,6 +88,16 @@ for m = 1:numel(methods)
     outfile = fullfile(resultsDir, sprintf('%s_task5_results_%s.pdf', tag, method));
     save_pva_grid(t_imu, fused_pos{m}, fused_vel{m}, fused_acc{m}, outfile);
 end
+
+% Generate standard Task 5 plot comparing all methods
+pos_struct = struct('TRIAD', fused_pos{1}, 'Davenport', fused_pos{2}, ...
+                    'SVD', fused_pos{3});
+vel_struct = struct('TRIAD', fused_vel{1}, 'Davenport', fused_vel{2}, ...
+                    'SVD', fused_vel{3});
+acc_struct = struct('TRIAD', fused_acc{1}, 'Davenport', fused_acc{2}, ...
+                    'SVD', fused_acc{3});
+plot_task5_results_all_methods(t_imu, pos_struct, vel_struct, acc_struct, ...
+    gnss_pos_interp, gnss_vel_interp, gnss_acc_interp);
 
 % Overlay plot of all methods
 fig = figure('Visible','off','Units','pixels','Position',[0 0 1200 900]);
