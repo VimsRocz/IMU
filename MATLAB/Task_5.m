@@ -91,11 +91,15 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
             accel_bias = t2.acc_bias; % backward compatibility
         end
         gyro_bias = t2.gyro_bias;
+        if isfield(t2, 'g_body');         g_body = t2.g_body;         else; g_body = zeros(3,1); end
+        if isfield(t2, 'omega_ie_body');  omega_ie_body = t2.omega_ie_body; else; omega_ie_body = zeros(3,1); end
     else
         warning('Task 2 results not found, estimating biases from first samples');
         N_static = min(4000, size(acc_body_raw,1));
         accel_bias = mean(acc_body_raw(1:N_static,:),1)';
         gyro_bias = mean(gyro_body_raw(1:N_static,:),1)';
+        g_body = -mean(acc_body_raw(1:N_static,:),1)';
+        omega_ie_body = mean(gyro_body_raw(1:N_static,:),1)';
     end
     fprintf('Method %s: Bias computed: [%.7f %.7f %.7f]\n', method, accel_bias);
     fprintf('Method %s: Scale factor: %.4f\n', method, 1.0);
@@ -146,6 +150,19 @@ q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
 
 % Gravity vector in NED frame
 g_NED = [0; 0; constants.GRAVITY];
+
+    % -- Compute Wahba Errors using all Task 3 rotation matrices --
+    methods_all = fieldnames(task3_results);
+    grav_errors = zeros(1, numel(methods_all));
+    omega_errors = zeros(1, numel(methods_all));
+    for mi = 1:numel(methods_all)
+        Rtmp = task3_results.(methods_all{mi}).R;
+        [grav_errors(mi), omega_errors(mi)] = compute_wahba_errors(Rtmp, g_body, omega_ie_body, g_NED, omega_ie_NED);
+    end
+    grav_err_mean  = mean(grav_errors);
+    grav_err_max   = max(grav_errors);
+    omega_err_mean = mean(omega_errors);
+    omega_err_max  = max(omega_errors);
 
 % Trapezoidal integration state
 prev_a_ned = zeros(3,1);
@@ -388,9 +405,11 @@ exportgraphics(gcf, all_file, 'Append', true);
 summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%8.2fm ' ...
     'final_pos=%8.2fm rms_resid_pos=%8.2fm max_resid_pos=%8.2fm ' ...
     'rms_resid_vel=%8.2fm max_resid_vel=%8.2fm accel_bias=%.4f gyro_bias=%.4f ' ...
+    'grav_err_mean=%.4f grav_err_max=%.4f omega_err_mean=%.4f omega_err_max=%.4f ' ...
     'ZUPT_count=%d'], method, imu_name, [gnss_name '.csv'], rmse_pos, ...
     final_pos_err, rms_resid_pos, max_resid_pos, rms_resid_vel, max_resid_vel, ...
-    norm(accel_bias), norm(gyro_bias), zupt_count);
+    norm(accel_bias), norm(gyro_bias), grav_err_mean, grav_err_max, ...
+    omega_err_mean, omega_err_max, zupt_count);
 fprintf('%s\n', summary_line);
 fid = fopen(fullfile(results_dir, [tag '_summary.txt']), 'w');
 fprintf(fid, '%s\n', summary_line);
@@ -399,7 +418,9 @@ fclose(fid);
 % Store summary metrics and biases for later analysis
 results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, ...
     'final_pos_error', final_pos_err, 'final_vel_error', final_vel_err, ...
-    'final_acc_error', final_acc_err, 'accel_bias', accel_bias, 'gyro_bias', gyro_bias);
+    'final_acc_error', final_acc_err, 'accel_bias', accel_bias, 'gyro_bias', gyro_bias, ...
+    'grav_err_mean', grav_err_mean, 'grav_err_max', grav_err_max, ...
+    'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
 if isfile(perf_file)
     save(perf_file, '-append', 'results');
@@ -515,5 +536,17 @@ end % End of main function
         acc_thresh = 0.01; gyro_thresh = 1e-6;
         is_stat = all(var(acc,0,1) < acc_thresh) && ...
                    all(var(gyro,0,1) < gyro_thresh);
+    end
+
+    function deg = angle_between(v1, v2)
+        cos_theta = max(min(dot(v1, v2) / (norm(v1) * norm(v2)), 1.0), -1.0);
+        deg = acosd(cos_theta);
+    end
+
+    function [grav_err, earth_err] = compute_wahba_errors(C_bn, g_b, omega_b, g_ref, omega_ref)
+        g_pred = C_bn * g_b;
+        omega_pred = C_bn * omega_b;
+        grav_err = angle_between(g_pred, g_ref);
+        earth_err = angle_between(omega_pred, omega_ref);
     end
 
