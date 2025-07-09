@@ -337,8 +337,11 @@ att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
 set(gcf,'PaperPositionMode','auto');
 print(gcf, att_file, '-dpdf', '-bestfit');
 fprintf('Saved plot: %s\n', att_file);
-fprintf('Plotting fused data in mixed frames.\n');
-fprintf('Fused mixed frames plot saved\n');
+mixed_file = plot_task5_mixed_frame(imu_time, gnss_time, ...
+    x_log(1:3,:), x_log(4:6,:), accel_from_vel, ...
+    gnss_pos_ecef, gnss_vel_ecef, C_ECEF_to_NED, C_B_N, ref_r0, ...
+    tag, method, results_dir, all_file);
+fprintf('Fused mixed frames plot saved as %s\n', mixed_file);
 fprintf('Plotting all data in NED frame.\n');
 fprintf('All data in NED frame plot saved\n');
 fprintf('Plotting all data in ECEF frame.\n');
@@ -515,5 +518,42 @@ end % End of main function
         acc_thresh = 0.01; gyro_thresh = 1e-6;
         is_stat = all(var(acc,0,1) < acc_thresh) && ...
                    all(var(gyro,0,1) < gyro_thresh);
+    end
+
+    function fname = plot_task5_mixed_frame(t_imu, t_gnss, pos_ned, vel_ned, acc_ned, pos_gnss_ecef, vel_gnss_ecef, C_e2n, C_b_n, r0, tg, meth, out_dir, append_file)
+        %PLOT_TASK5_MIXED_FRAME Plot fused P/V (ECEF) with body-frame accel.
+        C_n2e = C_e2n';
+        pos_ecef = (C_n2e * pos_ned + r0)';
+        vel_ecef = (C_n2e * vel_ned)';
+        C_n_b = C_b_n';
+        acc_body = (C_n_b * acc_ned)';
+        dims_e = {'X','Y','Z'};
+        dims_b = {'X','Y','Z'};
+        fig = figure('Visible','off','Position',[100 100 1200 900]);
+        for k = 1:3
+            subplot(3,3,k); hold on;
+            plot(t_gnss, pos_gnss_ecef(:,k),'k--','DisplayName','GNSS');
+            plot(t_imu, pos_ecef(:,k),'b-','DisplayName',['Fused (' meth ')']);
+            hold off; grid on; legend; ylabel('m');
+            title(['Position ' dims_e{k} ' ECEF']);
+
+            subplot(3,3,k+3); hold on;
+            plot(t_gnss, vel_gnss_ecef(:,k),'k--','DisplayName','GNSS');
+            plot(t_imu, vel_ecef(:,k),'b-','DisplayName',['Fused (' meth ')']);
+            hold off; grid on; legend; ylabel('m/s');
+            title(['Velocity ' dims_e{k} ' ECEF']);
+
+            subplot(3,3,k+6);
+            plot(t_imu, acc_body(:,k),'b-'); grid on;
+            ylabel('m/s^2'); title(['Acc ' dims_b{k} ' Body']);
+        end
+        sgtitle([meth ' Mixed Frame Data']);
+        fname = fullfile(out_dir, sprintf('%s_Task5_MixedFrame.pdf', tg));
+        set(fig,'PaperPositionMode','auto');
+        print(fig, fname, '-dpdf', '-bestfit');
+        if exist('append_file','var') && ~isempty(append_file)
+            exportgraphics(fig, append_file, 'Append', true);
+        end
+        close(fig);
     end
 
