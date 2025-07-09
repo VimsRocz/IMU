@@ -1338,51 +1338,6 @@ def main():
                     f"max={np.max(fused_vel[m], axis=0)}"
                 )
 
-    # -----------------------
-    # Z-axis Auto-Correction
-    # -----------------------
-    MAX_Z_RMSE = 0.20
-    MAX_ZV_RMSE = 0.10
-    MAX_TRIES = 8
-
-    for m in fused_pos.keys():
-        print(f"\n--- Z-axis self-heal for method: {m} ---")
-        tries = 0
-        while tries < MAX_TRIES:
-            z_err = fused_pos[m][:, 2] - gnss_pos_ned_interp[:, 2]
-            zv_err = fused_vel[m][:, 2] - gnss_vel_ned_interp[:, 2]
-            rmse_z = np.sqrt(np.mean(z_err ** 2))
-            rmse_zv = np.sqrt(np.mean(zv_err ** 2))
-            print(
-                f"  Try {tries+1}: Z pos RMSE={rmse_z:.3f} | Z vel RMSE={rmse_zv:.3f}"
-            )
-
-            if rmse_z < MAX_Z_RMSE and rmse_zv < MAX_ZV_RMSE:
-                print("  ✅ Z alignment achieved.")
-                break
-
-            if np.sign(np.mean(fused_acc[m][:, 2])) != np.sign(
-                np.mean(gnss_acc_ned_interp[:, 2])
-            ):
-                print("  ➜ Flipping gravity sign and retrying...")
-                g_NED[:] = -g_NED[:]
-
-            if "C_ECEF_to_NED" in globals():
-                print("  ➜ Enforcing correct DCM transpose for ECEF/NED conversion.")
-                C_NED_to_ECEF = C_ECEF_to_NED.T
-                fused_pos[m] = (
-                    C_ECEF_to_NED @ (C_NED_to_ECEF @ fused_pos[m].T)
-                ).T
-                fused_vel[m] = (
-                    C_ECEF_to_NED @ (C_NED_to_ECEF @ fused_vel[m].T)
-                ).T
-
-            tries += 1
-
-        if tries == MAX_TRIES:
-            print(
-                f"  ❌ Could not fix Z after {MAX_TRIES} attempts—check sensor data or model."
-            )
     
     # Compute residuals for the selected method
     _ = res_pos_all[method]
