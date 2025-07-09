@@ -342,12 +342,6 @@ mixed_file = plot_task5_mixed_frame(imu_time, gnss_time, ...
     gnss_pos_ecef, gnss_vel_ecef, C_ECEF_to_NED, C_B_N, ref_r0, ...
     tag, method, results_dir, all_file);
 fprintf('Fused mixed frames plot saved as %s\n', mixed_file);
-fprintf('Plotting all data in NED frame.\n');
-fprintf('All data in NED frame plot saved\n');
-fprintf('Plotting all data in ECEF frame.\n');
-fprintf('All data in ECEF frame plot saved\n');
-fprintf('Plotting all data in body frame.\n');
-fprintf('All data in body frame plot saved\n');
 exportgraphics(gcf, all_file, 'Append', true);
 
 %% --- End-of-run summary statistics --------------------------------------
