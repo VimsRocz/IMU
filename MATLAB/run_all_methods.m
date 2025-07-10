@@ -32,6 +32,15 @@ colors  = {'r','g','b'};
 resultsDir = 'results';
 if ~exist(resultsDir,'dir'); mkdir(resultsDir); end
 
+% Check if ground truth file is available for optional Task 6 overlay
+stateName = [strrep(imu_name,'IMU','STATE') '.txt'];
+try
+    get_data_file(stateName); % throws if not found
+    haveTruth = true;
+catch
+    haveTruth = false;
+end
+
 % Load GNSS data and derive NED trajectory
 Tgnss = readtable(gnss_path);
 t_gnss = Tgnss.Posix_Time - Tgnss.Posix_Time(1);
@@ -87,6 +96,14 @@ for m = 1:numel(methods)
     % Per-method plot
     outfile = fullfile(resultsDir, sprintf('%s_task5_results_%s.pdf', tag, method));
     save_pva_grid(t_imu, fused_pos{m}, fused_vel{m}, fused_acc{m}, outfile);
+
+    if haveTruth
+        try
+            Task_6(imu_path, gnss_path, method);
+        catch ME
+            fprintf('Task_6 skipped for %s: %s\n', method, ME.message);
+        end
+    end
 end
 
 % Generate standard Task 5 plot comparing all methods

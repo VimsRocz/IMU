@@ -52,6 +52,18 @@ for k = 1:size(pairs,1)
         S = load(task5File);
         save(outFile, '-struct', 'S');
         plot_results(outFile);
+        stateName = [strrep(imuStem,'IMU','STATE') '.txt'];
+        cand = fullfile(dataDir, stateName);
+        if ~isfile(cand)
+            cand = fullfile(root, stateName);
+        end
+        if isfile(cand)
+            try
+                Task_6(imu, gnss, 'TRIAD');
+            catch ME
+                fprintf('Task_6 skipped: %s\n', ME.message);
+            end
+        end
     else
         warning('Missing %s', task5File);
     end

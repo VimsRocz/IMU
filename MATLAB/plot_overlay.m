@@ -42,39 +42,39 @@ h = figure('Visible','off');
 
 subplot(4,1,1); hold on;
 plot(t_gnss, vecnorm(pos_gnss,2,2), 'k-', 'DisplayName', 'Measured GNSS');
-plot(t_imu, vecnorm(pos_imu,2,2), 'c--', 'DisplayName', 'Measured IMU');
+plot(t_imu, vecnorm(pos_imu,2,2), 'c--', 'DisplayName', 'Derived IMU');
 if ~isempty(Ttruth) && ~isempty(ptruth)
     plot(Ttruth, vecnorm(ptruth,2,2), 'm-', 'DisplayName', 'Truth');
 end
-plot(t_fused, vecnorm(pos_fused,2,2), 'g:', 'DisplayName', ['Fused GNSS+IMU (' method ')']);
+plot(t_fused, vecnorm(pos_fused,2,2), 'g:', 'DisplayName', ['Fused ' method]);
 ylabel('Position [m]');
 legend('show');
 
 subplot(4,1,2); hold on;
 plot(t_gnss, vecnorm(vel_gnss,2,2), 'k-', 'DisplayName', 'Measured GNSS');
-plot(t_imu, vecnorm(vel_imu,2,2), 'c--', 'DisplayName', 'Measured IMU');
+plot(t_imu, vecnorm(vel_imu,2,2), 'c--', 'DisplayName', 'Derived IMU');
 if ~isempty(Ttruth) && ~isempty(vtruth)
     plot(Ttruth, vecnorm(vtruth,2,2), 'm-', 'DisplayName', 'Truth');
 end
-plot(t_fused, vecnorm(vel_fused,2,2), 'g:', 'DisplayName', ['Fused GNSS+IMU (' method ')']);
+plot(t_fused, vecnorm(vel_fused,2,2), 'g:', 'DisplayName', ['Fused ' method]);
 ylabel('Velocity [m/s]');
 
 subplot(4,1,3); hold on;
 plot(t_gnss, vecnorm(acc_gnss,2,2), 'k-', 'DisplayName', 'Measured GNSS');
-plot(t_imu, vecnorm(acc_imu,2,2), 'c--', 'DisplayName', 'Measured IMU');
+plot(t_imu, vecnorm(acc_imu,2,2), 'c--', 'DisplayName', 'Derived IMU');
 if ~isempty(Ttruth) && ~isempty(atruth)
     plot(Ttruth, vecnorm(atruth,2,2), 'm-', 'DisplayName', 'Truth');
 end
-plot(t_fused, vecnorm(acc_fused,2,2), 'g:', 'DisplayName', ['Fused GNSS+IMU (' method ')']);
+plot(t_fused, vecnorm(acc_fused,2,2), 'g:', 'DisplayName', ['Fused ' method]);
 ylabel('Acceleration [m/s^2]');
 
 subplot(4,1,4); hold on;
 plot(pos_gnss(:,1), pos_gnss(:,2), 'k-', 'DisplayName', 'Measured GNSS');
-plot(pos_imu(:,1), pos_imu(:,2), 'c--', 'DisplayName', 'Measured IMU');
+plot(pos_imu(:,1), pos_imu(:,2), 'c--', 'DisplayName', 'Derived IMU');
 if ~isempty(ptruth)
     plot(ptruth(:,1), ptruth(:,2), 'm-', 'DisplayName', 'Truth');
 end
-plot(pos_fused(:,1), pos_fused(:,2), 'g:', 'DisplayName', ['Fused GNSS+IMU (' method ')']);
+plot(pos_fused(:,1), pos_fused(:,2), 'g:', 'DisplayName', ['Fused ' method]);
 xlabel([frame ' X']);
 ylabel([frame ' Y']);
 title('Trajectory');
