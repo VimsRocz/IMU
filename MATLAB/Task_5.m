@@ -369,7 +369,7 @@ plot_task5_ecef_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
 
 fprintf('Plotting all data in body frame.\n');
 plot_task5_body_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, euler_log, ...
-    gnss_time, gnss_pos_ned, gnss_vel_ned, method, g_NED);
+    gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, g_NED);
 
 state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
 if exist(state_file, 'file')
@@ -648,7 +648,7 @@ end % End of main function
         sgtitle([method ' - All data in ECEF frame']);
     end
 
-    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, eul_log, t_gnss, pos_gnss_ned, vel_gnss_ned, method, g_N)
+    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, eul_log, t_gnss, pos_gnss_ned, vel_gnss_ned, acc_gnss_ned, method, g_N)
         labels = {'X','Y','Z'};
         N = size(pos_ned,2);
         pos_body = zeros(3,N); vel_body = zeros(3,N); acc_body = zeros(3,N);
@@ -660,10 +660,12 @@ end % End of main function
         end
         eul_gnss = interp1(t, eul_log', t_gnss, 'linear', 'extrap')';
         pos_gnss_body = zeros(size(pos_gnss_ned')); vel_gnss_body = zeros(size(vel_gnss_ned'));
+        acc_gnss_body = zeros(size(acc_gnss_ned'));
         for k = 1:length(t_gnss)
             C_B_N = euler_to_rot(eul_gnss(:,k));
             pos_gnss_body(:,k) = C_B_N' * pos_gnss_ned(k,:)';
             vel_gnss_body(:,k) = C_B_N' * vel_gnss_ned(k,:)';
+            acc_gnss_body(:,k) = C_B_N' * (acc_gnss_ned(k,:)' - g_N);
         end
         figure('Name','Task5 Body Frame','Position',[100 100 1200 900]);
         for j = 1:3
@@ -678,6 +680,7 @@ end % End of main function
             hold off; grid on; ylabel('[m/s]'); title(['Velocity ' labels{j}]); legend;
 
             subplot(3,3,6+j); hold on;
+            plot(t_gnss, acc_gnss_body(j,:),'k:','DisplayName','GNSS');
             plot(t, acc_body(j,:),'b-','DisplayName','Fused');
             hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{j}']); legend;
         end
