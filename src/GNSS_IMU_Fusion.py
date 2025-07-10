@@ -761,8 +761,10 @@ def main():
     # Subtask 4.10: Set IMU Parameters and Gravity Vector
     # --------------------------------
     logging.info("Subtask 4.10: Setting IMU parameters and gravity vector.")
-    g_NED = np.array([0.0, 0.0, GRAVITY])
-    logging.info(f"Gravity vector set: {g_NED}")
+    # Use the gravity vector computed in Task 1 instead of overwriting with the
+    # constant defined in ``constants.GRAVITY``.  This preserves any
+    # location-specific variation calculated earlier in the pipeline.
+    logging.info(f"Using gravity vector from Task 1: {g_NED}")
     
     # --------------------------------
     # Subtask 4.11: Initialize Output Arrays
