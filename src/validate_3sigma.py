@@ -7,7 +7,8 @@ interchangeably.  Ground truth is provided in ``STATE_X001.txt``
 with columns ``[time,x,y,z,vx,vy,vz,qw,qx,qy,qz]``.  Only the overlapping
 time window is used when computing the error and the ±3σ envelopes.  If
 there is no overlap, a ``RuntimeError`` is raised with the estimator and
-truth time ranges to aid debugging.
+truth time ranges to aid debugging.  Pass ``--time-shift`` to offset the
+truth timestamps when they need aligning with the estimate.
 """
 
 from __future__ import annotations
@@ -62,6 +63,12 @@ def main() -> None:
     ap.add_argument(
         "--output-dir", default="results/", help="Directory where plots are saved"
     )
+    ap.add_argument(
+        "--time-shift",
+        type=float,
+        default=0.0,
+        help="Seconds to add to truth timestamps before comparison",
+    )
     args = ap.parse_args()
 
     out_dir = Path(args.output_dir)
@@ -77,6 +84,8 @@ def main() -> None:
     P = np.asarray(est.get("P")) if est.get("P") is not None else None
 
     truth_t, truth_pos, truth_vel, truth_quat = load_truth(args.truth_file)
+
+    truth_t += args.time_shift
 
     truth_t_raw = truth_t.copy()
 
