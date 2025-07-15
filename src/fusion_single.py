@@ -11,8 +11,6 @@ from utils import compute_C_ECEF_to_NED
 from constants import GRAVITY, EARTH_RATE
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-os.makedirs('results', exist_ok=True)
-logging.info("Ensured 'results/' directory exists.")
 
 
 def butter_lowpass_filter(data, cutoff=5.0, fs=400.0, order=4):
@@ -53,6 +51,8 @@ def quat_to_rot(q):
 
 
 def main():
+    os.makedirs('results', exist_ok=True)
+    logging.info("Ensured 'results/' directory exists.")
     parser = argparse.ArgumentParser()
     parser.add_argument('--imu-file', default='IMU_X001.dat')
     parser.add_argument('--gnss-file', default='GNSS_X001.csv')
