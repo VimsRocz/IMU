@@ -13,8 +13,9 @@ import os
 import logging
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-os.makedirs('results', exist_ok=True)
-logging.info("Ensured 'results/' directory exists.")
+if __name__ == "__main__":
+    os.makedirs('results', exist_ok=True)
+    logging.info("Ensured 'results/' directory exists.")
 RESULTS_DIR = pathlib.Path("results")
 COLOURS     = {"X001": "tab:blue", "X002": "tab:orange", "X003": "tab:green"}
 LABEL_MAP   = {"N": "North", "E": "East", "D": "Down"}

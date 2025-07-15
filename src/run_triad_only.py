@@ -18,8 +18,6 @@ from validate_with_truth import load_estimate, assemble_frames
 from utils import ensure_dependencies
 from pyproj import Transformer
 
-os.makedirs('results', exist_ok=True)
-
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 
@@ -28,7 +26,9 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
-logging.info("Ensured 'results/' directory exists.")
+if __name__ == "__main__":
+    os.makedirs('results', exist_ok=True)
+    logging.info("Ensured 'results/' directory exists.")
 
 TRUTH_PATH = HERE / "STATE_X001.txt"
 DATASETS = ["X001", "X002", "X003"]

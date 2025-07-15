@@ -25,8 +25,6 @@ from utils import (
 from constants import GRAVITY, EARTH_RATE
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
-
-os.makedirs('results', exist_ok=True)
 from .gnss_imu_fusion.init_vectors import (
     average_rotation_matrices,
     svd_alignment,
@@ -77,13 +75,14 @@ logging.basicConfig(
     format="%(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
-logging.info("Ensured 'results/' directory exists.")
 
 # Minimum number of samples required from a static interval for bias estimation
 MIN_STATIC_SAMPLES = 500
 
 
 def main():
+    os.makedirs('results', exist_ok=True)
+    logging.info("Ensured 'results/' directory exists.")
     # Parse command-line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--imu-file", required=True)
