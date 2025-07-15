@@ -5,7 +5,9 @@ This utility supports both ``.mat`` and ``.npz`` estimator files.  The
 variable names are normalised so that different pipelines can be used
 interchangeably.  Ground truth is provided in ``STATE_X001.txt``
 with columns ``[time,x,y,z,vx,vy,vz,qw,qx,qy,qz]``.  Only the overlapping
-time window is used when computing the error and the ±3σ envelopes.
+time window is used when computing the error and the ±3σ envelopes.  If
+there is no overlap, a ``RuntimeError`` is raised with the estimator and
+truth time ranges to aid debugging.
 """
 
 from __future__ import annotations
@@ -76,6 +78,8 @@ def main() -> None:
 
     truth_t, truth_pos, truth_vel, truth_quat = load_truth(args.truth_file)
 
+    truth_t_raw = truth_t.copy()
+
     # clip truth to the estimator time window
     mask = (truth_t >= t.min()) & (truth_t <= t.max())
     truth_t = truth_t[mask]
@@ -85,7 +89,8 @@ def main() -> None:
 
     if truth_t.size == 0:
         raise RuntimeError(
-            "No overlapping time range between estimator output and ground truth"
+            f"No overlap: estimate spans {t[0]:.2f}-{t[-1]:.2f}s "
+            f"but truth spans {truth_t_raw[0]:.2f}-{truth_t_raw[-1]:.2f}s"
         )
 
     pos_truth_i = np.vstack(
