@@ -25,8 +25,6 @@ from tabulate import tabulate
 from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-os.makedirs('results', exist_ok=True)
-logging.info("Ensured 'results/' directory exists.")
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -79,6 +77,8 @@ def run_one(imu, gnss, method, verbose=False):
     return summary_lines
 
 def main():
+    os.makedirs('results', exist_ok=True)
+    logging.info("Ensured 'results/' directory exists.")
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", action="store_true", help="Print detailed debug info")
     parser.add_argument("--datasets", default="ALL",

@@ -12,8 +12,9 @@ import os
 import logging
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-os.makedirs('results', exist_ok=True)
-logging.info("Ensured 'results/' directory exists.")
+if __name__ == "__main__":
+    os.makedirs('results', exist_ok=True)
+    logging.info("Ensured 'results/' directory exists.")
 RESULTS_DIR = pathlib.Path("results")
 
 LOG_DIR = pathlib.Path("logs")

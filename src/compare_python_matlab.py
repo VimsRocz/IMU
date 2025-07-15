@@ -10,8 +10,6 @@ import os
 import logging
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-os.makedirs('results', exist_ok=True)
-logging.info("Ensured 'results/' directory exists.")
 
 
 def run_python_pipeline(imu_file: str, gnss_file: str, method: str) -> Path:
@@ -78,6 +76,8 @@ def load_matlab_metrics(mat_path: Path, imu_file: str, gnss_file: str) -> Tuple[
 
 
 def main() -> None:
+    os.makedirs('results', exist_ok=True)
+    logging.info("Ensured 'results/' directory exists.")
     ap = argparse.ArgumentParser(description="Compare Python and MATLAB results")
     ap.add_argument("--imu", default="IMU_X001.dat")
     ap.add_argument("--gnss", default="GNSS_X001.csv")

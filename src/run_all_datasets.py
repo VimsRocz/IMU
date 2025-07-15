@@ -27,8 +27,6 @@ from validate_with_truth import load_estimate, assemble_frames
 from plot_overlay import plot_overlay
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-os.makedirs('results', exist_ok=True)
-logging.info("Ensured 'results/' directory exists.")
 
 ensure_dependencies()
 
@@ -87,6 +85,8 @@ def run_one(imu, gnss, method, verbose=False):
 
 
 def main():
+    os.makedirs('results', exist_ok=True)
+    logging.info("Ensured 'results/' directory exists.")
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", action="store_true", help="Print detailed debug info")
     parser.add_argument("--datasets", default="ALL",

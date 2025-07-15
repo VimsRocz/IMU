@@ -38,8 +38,6 @@ from utils import compute_C_ECEF_to_NED
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-os.makedirs('results', exist_ok=True)
-logger.info("Ensured 'results/' directory exists.")
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -97,6 +95,8 @@ def run_case(cmd, log_path):
 
 
 def main(argv=None):
+    os.makedirs('results', exist_ok=True)
+    logger.info("Ensured 'results/' directory exists.")
     parser = argparse.ArgumentParser(
         description="Run GNSS_IMU_Fusion with multiple datasets and methods",
     )
