@@ -25,13 +25,25 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 def load_truth(path: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Return time, position, velocity and quaternion arrays."""
+    """Return time, position, velocity and quaternion arrays.
+
+    The ground-truth files normally contain a leading ``count`` column followed
+    by ``time, x, y, z, vx, vy, vz, q0, q1, q2, q3``.  Older files may omit the
+    count column.  This loader transparently handles both formats.
+    """
 
     data = np.loadtxt(path)
-    time = data[:, 0]
-    pos = data[:, 1:4]
-    vel = data[:, 4:7]
-    quat = data[:, 7:11]
+
+    if data.ndim != 2 or data.shape[1] < 11:
+        raise ValueError(f"Unexpected truth data shape {data.shape}")
+
+    # Detect optional leading count column (12 columns instead of 11)
+    offset = 1 if data.shape[1] >= 12 else 0
+
+    time = data[:, offset + 0]
+    pos = data[:, offset + 1 : offset + 4]
+    vel = data[:, offset + 4 : offset + 7]
+    quat = data[:, offset + 7 : offset + 11]
     return time, pos, vel, quat
 
 
