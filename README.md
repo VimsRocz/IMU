@@ -190,6 +190,8 @@ For a quick look at ±3σ bounds stored in the covariance matrix run:
 python src/validate_3sigma.py --est-file <kf.npz> --truth-file STATE_X001.txt \
     --output-dir results
 ```
+If the estimator output and truth file do not overlap, the script now
+prints a detailed error showing both time ranges.
 
 ### Sample Processing Report
 
