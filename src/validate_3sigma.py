@@ -83,6 +83,11 @@ def main() -> None:
     truth_vel = truth_vel[mask]
     truth_quat = truth_quat[mask]
 
+    if truth_t.size == 0:
+        raise RuntimeError(
+            "No overlapping time range between estimator output and ground truth"
+        )
+
     pos_truth_i = np.vstack(
         [np.interp(t, truth_t, truth_pos[:, i]) for i in range(3)]
     ).T
