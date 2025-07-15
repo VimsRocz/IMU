@@ -34,6 +34,7 @@ def test_no_overlap_error(tmp_path, monkeypatch):
     msg = str(excinfo.value)
     assert "estimate spans 10.00-12.00s" in msg
     assert "truth spans 0.00-2.00s" in msg
+    assert "time-shift" in msg
 
 
 def test_time_shift_allows_overlap(tmp_path, monkeypatch):

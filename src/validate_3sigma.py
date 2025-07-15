@@ -99,7 +99,8 @@ def main() -> None:
     if truth_t.size == 0:
         raise RuntimeError(
             f"No overlap: estimate spans {t[0]:.2f}-{t[-1]:.2f}s "
-            f"but truth spans {truth_t_raw[0]:.2f}-{truth_t_raw[-1]:.2f}s"
+            f"but truth spans {truth_t_raw[0]:.2f}-{truth_t_raw[-1]:.2f}s. "
+            "If the ranges look correct but shifted, try --time-shift."
         )
 
     pos_truth_i = np.vstack(
