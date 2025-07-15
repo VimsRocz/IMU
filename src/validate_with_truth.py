@@ -8,6 +8,7 @@ import numpy as np
 from scipy.io import loadmat
 from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
+from tabulate import tabulate
 
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
 from plot_overlay import plot_overlay
@@ -57,6 +58,13 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
         converted to NED to match the estimate.
     debug : bool, optional
         Enable verbose debug logging.
+
+    Returns
+    -------
+    tuple
+        ``(rmse_pos, final_pos, rmse_vel, final_vel, rmse_eul, final_eul, rmse_acc, final_acc)``
+        containing root-mean-square and final errors for position, velocity,
+        attitude and acceleration.
     """
 
     if debug:
@@ -178,6 +186,21 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
     final_pos = np.linalg.norm(pos_err[-1, :])
     rmse_vel = np.sqrt(np.mean(np.linalg.norm(vel_err, axis=1) ** 2))
     final_vel = np.linalg.norm(vel_err[-1, :])
+
+    # --- acceleration error -------------------------------------------------
+    dt = np.diff(truth_time, prepend=truth_time[0])
+    acc_est = np.zeros_like(vel_interp)
+    acc_est[1:] = np.diff(vel_interp, axis=0) / dt[1:, None]
+    if convert_est_to_ecef:
+        vel_truth = truth[:, 5:8]
+    else:
+        vel_truth = truth_vel_ned
+    acc_truth = np.zeros_like(vel_truth)
+    acc_truth[1:] = np.diff(vel_truth, axis=0) / dt[1:, None]
+    acc_err = acc_est - acc_truth
+    rmse_acc = np.sqrt(np.mean(np.linalg.norm(acc_err, axis=1) ** 2))
+    final_acc = np.linalg.norm(acc_err[-1, :])
+
     rmse_eul = np.sqrt(np.mean(np.linalg.norm(eul_err, axis=1) ** 2))
     final_eul = np.linalg.norm(eul_err[-1, :])
 
@@ -188,7 +211,16 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
             f"RMSE eul={rmse_eul:.3f}\u00b0, Final eul={final_eul:.3f}\u00b0"
         )
 
-    return rmse_pos, final_pos, rmse_vel, final_vel, rmse_eul, final_eul
+    return (
+        rmse_pos,
+        final_pos,
+        rmse_vel,
+        final_vel,
+        rmse_eul,
+        final_eul,
+        rmse_acc,
+        final_acc,
+    )
 
 
 def validate_ecef_only(est_file, truth_file, debug=False):
@@ -931,6 +963,18 @@ def main():
             f"Final velocity error: {final_vel_error:.2f} m/s",
             f"RMSE velocity error: {rmse_vel:.2f} m/s",
         ]
+        dt = np.diff(t_truth, prepend=t_truth[0])
+        acc_est = np.zeros_like(err_vel)
+        acc_est[1:] = np.diff(np.asarray(est["vel"]), axis=0) / dt[1:, None]
+        acc_truth = np.zeros_like(err_vel)
+        acc_truth[1:] = np.diff(truth_vel_ned, axis=0) / dt[1:, None]
+        err_acc = acc_est - acc_truth
+        final_acc_error = np.linalg.norm(err_acc[-1])
+        rmse_acc = np.sqrt(np.mean(np.sum(err_acc**2, axis=1)))
+        summary_lines += [
+            f"Final acceleration error: {final_acc_error:.2f} m/s^2",
+            f"RMSE acceleration error: {rmse_acc:.2f} m/s^2",
+        ]
     if err_quat is not None:
         summary_lines += [
             f"Final attitude error: {final_att_error:.4f} deg",
@@ -1024,6 +1068,16 @@ def main():
 
     for line in summary_lines:
         print(line)
+
+    # Tabulated summary for easy comparison
+    table_rows = [["Position [m]", final_pos_error, rmse_pos]]
+    if rmse_vel is not None:
+        table_rows.append(["Velocity [m/s]", final_vel_error, rmse_vel])
+    if 'rmse_acc' in locals():
+        table_rows.append(["Acceleration [m/s^2]", final_acc_error, rmse_acc])
+    if err_quat is not None:
+        table_rows.append(["Attitude [deg]", final_att_error, rmse_att])
+    print(tabulate(table_rows, headers=["Metric", "Final Error", "RMSE"], floatfmt=".3f"))
 
     try:
         with open(summary_path, "w") as f:
