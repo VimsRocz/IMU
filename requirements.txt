@@ -11,3 +11,4 @@ filterpy
 cartopy
 geomaglib>=1.2.1
 pyproj
+fastdtw
