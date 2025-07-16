@@ -66,3 +66,33 @@ def test_time_shift_allows_overlap(tmp_path, monkeypatch):
 
     main()
     assert (tmp_path / "pos_err_X.pdf").exists()
+
+
+def test_auto_time_shift(tmp_path, monkeypatch):
+    data = {
+        "time": np.array([3.0, 4.0, 5.0]),
+        "pos": np.zeros((3, 3)),
+        "vel": np.zeros((3, 3)),
+        "quat": np.tile([1.0, 0.0, 0.0, 0.0], (3, 1)),
+    }
+    est_file = tmp_path / "est.npz"
+    np.savez(est_file, **data)
+    truth_file = Path("tests/data/simple_truth.txt")
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validate_3sigma.py",
+            "--est-file",
+            str(est_file),
+            "--truth-file",
+            str(truth_file),
+            "--output-dir",
+            str(tmp_path),
+            "--auto-time-shift",
+        ],
+    )
+
+    main()
+    assert (tmp_path / "vel_err_Vx.pdf").exists()

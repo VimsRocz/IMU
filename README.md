@@ -193,7 +193,8 @@ python src/validate_3sigma.py --est-file <kf.npz> --truth-file STATE_X001.txt \
 If the estimator output and truth file do not overlap, the script now
 prints a detailed error showing both time ranges.  A constant offset can be
 applied to the truth timestamps via the optional `--time-shift` argument when
-alignment is required.
+alignment is required.  Passing `--auto-time-shift` will automatically apply
+the offset `est_start - truth_start` when no manual shift is provided.
 
 ### Sample Processing Report
 
