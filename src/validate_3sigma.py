@@ -69,6 +69,11 @@ def main() -> None:
         default=0.0,
         help="Seconds to add to truth timestamps before comparison",
     )
+    ap.add_argument(
+        "--auto-time-shift",
+        action="store_true",
+        help="Automatically align truth timestamps to the estimate start",
+    )
     args = ap.parse_args()
 
     out_dir = Path(args.output_dir)
@@ -84,6 +89,13 @@ def main() -> None:
     P = np.asarray(est.get("P")) if est.get("P") is not None else None
 
     truth_t, truth_pos, truth_vel, truth_quat = load_truth(args.truth_file)
+
+    if args.auto_time_shift and args.time_shift == 0.0:
+        args.time_shift = float(t[0] - truth_t[0])
+        logging.info(
+            "Auto time shift enabled, applying %.3f s offset to truth timestamps",
+            args.time_shift,
+        )
 
     truth_t += args.time_shift
 
