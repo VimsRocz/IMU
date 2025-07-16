@@ -23,6 +23,7 @@ dependencies = [
   "filterpy",
   "cartopy",
   "geomaglib>=1.2.1",
+  "fastdtw",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +40,7 @@ tests = [
     "cartopy",
     "tqdm",
     "tabulate",
+    "fastdtw",
     "pytest",
 ]
 

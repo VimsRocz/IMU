@@ -196,6 +196,19 @@ applied to the truth timestamps via the optional `--time-shift` argument when
 alignment is required.  Passing `--auto-time-shift` will automatically apply
 the offset `est_start - truth_start` when no manual shift is provided.
 
+### Aligning Datasets with DTW
+
+The helper script `align_datasets_dtw.py` aligns an estimator output with the
+reference trajectory using Dynamic Time Warping. Edit the file paths at the top
+of the script if your results live elsewhere and then run:
+
+```bash
+pip install fastdtw
+python align_datasets_dtw.py
+```
+It prints the mean and standard deviation of the position error and writes the
+per‑sample errors to `aligned_position_errors.txt`.
+
 ### Sample Processing Report
 
 A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/` directory.
