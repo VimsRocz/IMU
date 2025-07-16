@@ -199,13 +199,18 @@ the offset `est_start - truth_start` when no manual shift is provided.
 ### Aligning Datasets with DTW
 
 The helper script `align_datasets_dtw.py` aligns an estimator output with the
-reference trajectory using Dynamic Time Warping. Edit the file paths at the top
-of the script if your results live elsewhere and then run:
+reference trajectory using Dynamic Time Warping.  Provide the estimator results
+and reference trajectory on the command line and run:
 
 ```bash
 pip install fastdtw
-python align_datasets_dtw.py
+python align_datasets_dtw.py \
+    --est-file results/my_kf_output.npz \
+    --truth-file STATE_X001.txt \
+    --ref-lat 51.0 --ref-lon -0.1
 ```
+If both files are already in ECEF coordinates the latitude and longitude
+options can be omitted.
 If the install fails with a message about `setuptools` missing in the build
 environment, upgrade pip and install build tools first:
 
