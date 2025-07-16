@@ -11,7 +11,22 @@ est_data = np.load(EST_FILE)
 truth_data = np.loadtxt(TRUTH_FILE, usecols=[1, 2, 3])
 
 # Step 2: Extract position arrays
-est_pos = est_data["position"]
+# Some result files use different keys for the estimated position.  Try a
+# couple of common alternatives before giving up.
+possible_keys = ["position", "pos_ned", "pos_ned_m", "pos", "fused_pos"]
+est_pos = None
+for key in possible_keys:
+    if key in est_data:
+        est_pos = est_data[key]
+        print(f"Using '{key}' for estimator position")
+        break
+
+if est_pos is None:
+    raise KeyError(
+        f"None of {possible_keys} found in estimator file! Available keys: "
+        f"{list(est_data.keys())}"
+    )
+
 truth_pos = truth_data
 
 # Step 3: Normalise positions to [0, 1]
