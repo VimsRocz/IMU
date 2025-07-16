@@ -206,6 +206,12 @@ of the script if your results live elsewhere and then run:
 pip install fastdtw
 python align_datasets_dtw.py
 ```
+If the install fails with a message about `setuptools` missing in the build
+environment, upgrade pip and install build tools first:
+
+```bash
+pip install --upgrade pip setuptools wheel
+```
 It prints the mean and standard deviation of the position error and writes the
 per‑sample errors to `aligned_position_errors.txt`.
 
