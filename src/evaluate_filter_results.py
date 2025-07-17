@@ -123,6 +123,17 @@ def run_evaluation_npz(npz_file: str, save_path: str) -> None:
     if res_pos is None or res_vel is None or t is None or quat is None:
         raise KeyError("Required residuals not found in NPZ file")
 
+    if len(t) != len(res_pos) or len(t) != len(res_vel):
+        n = min(len(t), len(res_pos), len(res_vel))
+        print(
+            f"Warning: residual arrays and time length mismatch, truncating to {n} samples"
+        )
+        t = t[:n]
+        res_pos = res_pos[:n]
+        res_vel = res_vel[:n]
+    else:
+        n = len(t)
+
     mean_pos = res_pos.mean(axis=0)
     std_pos = res_pos.std(axis=0)
     mean_vel = res_vel.mean(axis=0)
