@@ -33,6 +33,9 @@ from tabulate import tabulate
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from utils import save_mat
+from contextlib import redirect_stdout
+import io
+from evaluate_filter_results import run_evaluation_npz
 
 from utils import compute_C_ECEF_to_NED
 
@@ -242,6 +245,50 @@ def main(argv=None):
                 "method_name": m,
             }
             save_mat(npz_path.with_suffix(".mat"), mat_out)
+
+            # ----------------------------
+            # Task 6: Truth overlay plots
+            # ----------------------------
+            truth_file = ROOT / "STATE_X001.txt"
+            if truth_file.exists():
+                overlay_cmd = [
+                    sys.executable,
+                    str(HERE / "task6_plot_truth.py"),
+                    "--est-file",
+                    str(npz_path.with_suffix(".mat")),
+                    "--truth-file",
+                    str(truth_file),
+                    "--output",
+                    "results",
+                ]
+                with open(log_path, "a") as log:
+                    log.write("\nTASK 6: Overlay fused output with truth\n")
+                    proc = subprocess.Popen(
+                        overlay_cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                    )
+                    for line in proc.stdout:
+                        print(line, end="")
+                        log.write(line)
+                    proc.wait()
+
+            # ----------------------------
+            # Task 7: Evaluation
+            # ----------------------------
+            task7_dir = pathlib.Path("results") / "task7" / tag
+            with open(log_path, "a") as log:
+                log.write("\nTASK 7: Evaluate residuals\n")
+                buf = io.StringIO()
+                with redirect_stdout(buf):
+                    try:
+                        run_evaluation_npz(str(npz_path), str(task7_dir))
+                    except Exception as e:
+                        print(f"Task 7 failed: {e}")
+                output = buf.getvalue()
+                print(output, end="")
+                log.write(output)
 
     # --- nicely formatted summary table --------------------------------------
     if results:

@@ -110,13 +110,74 @@ def run_evaluation(
     plt.close(fig)
 
 
+def run_evaluation_npz(npz_file: str, save_path: str) -> None:
+    """Evaluate residuals stored in a ``*_kf_output.npz`` file."""
+    out_dir = Path(save_path)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    data = np.load(npz_file)
+    res_pos = data.get("residual_pos")
+    res_vel = data.get("residual_vel")
+    t = data.get("time_residuals")
+    quat = data.get("attitude_q")
+    if res_pos is None or res_vel is None or t is None or quat is None:
+        raise KeyError("Required residuals not found in NPZ file")
+
+    mean_pos = res_pos.mean(axis=0)
+    std_pos = res_pos.std(axis=0)
+    mean_vel = res_vel.mean(axis=0)
+    std_vel = res_vel.std(axis=0)
+
+    print("Position residual mean [m]:", mean_pos)
+    print("Position residual std  [m]:", std_pos)
+    print("Velocity residual mean [m/s]:", mean_vel)
+    print("Velocity residual std  [m/s]:", std_vel)
+
+    labels = ["X", "Y", "Z"]
+    fig, axes = plt.subplots(2, 3, figsize=(12, 6), sharex=True)
+    for i in range(3):
+        axes[0, i].plot(t, res_pos[:, i])
+        axes[0, i].set_title(labels[i])
+        axes[0, i].set_ylabel("Pos Residual [m]")
+        axes[0, i].grid(True)
+        axes[1, i].plot(t, res_vel[:, i])
+        axes[1, i].set_xlabel("Time [s]")
+        axes[1, i].set_ylabel("Vel Residual [m/s]")
+        axes[1, i].grid(True)
+    fig.suptitle("GNSS - Predicted Residuals")
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.savefig(out_dir / "residuals_position_velocity.pdf")
+    plt.close(fig)
+
+    rot = R.from_quat(quat[:, [1, 2, 3, 0]])
+    euler = rot.as_euler("xyz", degrees=True)
+
+    fig, axs = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
+    names = ["Roll", "Pitch", "Yaw"]
+    for i in range(3):
+        axs[i].plot(t, euler[:, i])
+        axs[i].set_ylabel(f"{names[i]} [deg]")
+        axs[i].grid(True)
+    axs[2].set_xlabel("Time [s]")
+    fig.suptitle("Attitude Angles")
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.savefig(out_dir / "attitude_angles_euler.pdf")
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     import argparse
 
     ap = argparse.ArgumentParser(description="Evaluate filter results")
-    ap.add_argument("--prediction", required=True)
-    ap.add_argument("--gnss", required=True)
-    ap.add_argument("--attitude", required=True)
+    ap.add_argument("--prediction")
+    ap.add_argument("--gnss")
+    ap.add_argument("--attitude")
+    ap.add_argument("--npz", help="NPZ file produced by GNSS_IMU_Fusion.py")
     ap.add_argument("--output", default="plots/task7/")
     args = ap.parse_args()
-    run_evaluation(args.prediction, args.gnss, args.attitude, args.output)
+    if args.npz:
+        run_evaluation_npz(args.npz, args.output)
+    else:
+        if not (args.prediction and args.gnss and args.attitude):
+            ap.error("--prediction, --gnss and --attitude are required when --npz is not given")
+        run_evaluation(args.prediction, args.gnss, args.attitude, args.output)
