@@ -13,6 +13,8 @@
 - **X001_TRIAD_task5_mixed_frames.pdf**: Kalman filter results in mixed frames
 - **X001_TRIAD_residuals.pdf**: Position and velocity residuals
 - **X001_TRIAD_attitude_angles.pdf**: Attitude angles over time
+- **<method>_<frame>_overlay_truth.pdf**: Fused results versus reference
+- **<method>_<frame>_overlay_state.pdf**: Fused results versus raw state file
 
 ## Subtask 5.8 Comparison Plots
 
