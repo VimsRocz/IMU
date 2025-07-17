@@ -113,6 +113,11 @@ def main(argv=None):
         help="Skip plot generation for faster execution",
     )
     parser.add_argument(
+        "--fused-only",
+        action="store_true",
+        help="Forward --fused-only to Task 6 overlay plots",
+    )
+    parser.add_argument(
         "--task",
         type=int,
         help="Run a single helper task and exit",
@@ -261,6 +266,8 @@ def main(argv=None):
                     "--output",
                     "results",
                 ]
+                if args.fused_only:
+                    overlay_cmd.append("--fused-only")
                 with open(log_path, "a") as log:
                     log.write("\nTASK 6: Overlay fused output with truth\n")
                     proc = subprocess.Popen(

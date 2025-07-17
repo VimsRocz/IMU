@@ -38,6 +38,11 @@ def main() -> None:
         default="results",
         help="Directory for the generated PDFs",
     )
+    parser.add_argument(
+        "--fused-only",
+        action="store_true",
+        help="Hide IMU and GNSS measurements in the overlay plots",
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.output)
@@ -192,6 +197,7 @@ def main() -> None:
             a_f,
             out_dir,
             truth,
+            include_measurements=not args.fused_only,
         )
 
         # Additional plot using raw STATE data without interpolation
@@ -211,18 +217,19 @@ def main() -> None:
                 t_g,
                 p_g,
                 v_g,
-                a_g,
-                t_f,
-                p_f,
-                v_f,
-                a_f,
-                out_dir,
-                t_truth=t_t,
-                pos_truth=p_t,
-                vel_truth=v_t,
-                acc_truth=a_t,
-                suffix="_overlay_state.pdf",
-            )
+            a_g,
+            t_f,
+            p_f,
+            v_f,
+            a_f,
+            out_dir,
+            t_truth=t_t,
+            pos_truth=p_t,
+            vel_truth=v_t,
+            acc_truth=a_t,
+            suffix="_overlay_state.pdf",
+            include_measurements=not args.fused_only,
+        )
 
 
 if __name__ == "__main__":
