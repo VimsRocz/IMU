@@ -242,6 +242,23 @@ Typical result PDFs:
 - `<method>_attitude_angles.pdf` – attitude angles over time
 - `<method>_<frame>_overlay_truth.pdf` – fused output vs reference using `STATE_X001.txt` (e.g. `SVD_ecef_overlay_truth.pdf`)
 
+## Task 6: Truth Overlay
+
+This step recreates the Task 5 plots with the recorded reference trajectory added for comparison.
+
+### How to run
+
+The overlay is executed automatically when running `src/run_all_methods.py` but can also be called directly:
+
+```bash
+python src/task6_plot_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat \
+    --truth-file STATE_X001.txt --output results
+```
+
+### Output
+
+* `<method>_<frame>_overlay_truth.pdf` – fused output vs reference
+
 ## Task 7: Evaluation of Filter Results
 
 This task analyzes the filter's prediction accuracy.
@@ -298,6 +315,9 @@ python src/run_all_methods.py --config your_config.yml
 ```
 
 Running the script without `--config` processes the bundled example data sets.
+Task 6 (truth overlay) and Task 7 (evaluation) are performed automatically for
+each run and the additional figures are stored under `results/` and
+`results/task7/`.
 
 
 #### run_all_datasets.py
