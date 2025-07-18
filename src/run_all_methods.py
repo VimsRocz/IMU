@@ -51,7 +51,9 @@ except ModuleNotFoundError:  # allow running without PyYAML installed
     yaml = None
 
 DEFAULT_DATASETS: Iterable[Tuple[str, str]] = [
+    ("IMU_X001.dat", "GNSS_X001.csv"),
     ("IMU_X002.dat", "GNSS_X002.csv"),
+    ("IMU_X003.dat", "GNSS_X002.csv"),  # dataset X003 shares GNSS_X002
 ]
 
 DEFAULT_METHODS = ["TRIAD", "SVD", "Davenport"]
