@@ -29,10 +29,23 @@ def run_evaluation(
     gnss_file: str,
     attitude_file: str,
     save_path: str,
+    tag: str | None = None,
 ) -> None:
-    """Compute residuals and plot attitude angles."""
+    """Compute residuals and plot attitude angles.
+
+    Parameters
+    ----------
+    prediction_file, gnss_file, attitude_file
+        CSV files containing the filter prediction, GNSS measurements and
+        attitude estimates.
+    save_path
+        Output directory where figures are saved.
+    tag
+        Optional dataset tag added as a prefix to the plot filenames.
+    """
     out_dir = Path(save_path)
     out_dir.mkdir(parents=True, exist_ok=True)
+    prefix = f"{tag}_" if tag else ""
 
     pred = pd.read_csv(prediction_file)
     gnss = pd.read_csv(gnss_file)
@@ -89,7 +102,7 @@ def run_evaluation(
         axes[1, i].grid(True)
     fig.suptitle("GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(out_dir / "residuals_position_velocity.pdf")
+    fig.savefig(out_dir / f"{prefix}residuals_position_velocity.pdf")
     plt.close(fig)
 
     quat = att[quat_cols].to_numpy()
@@ -106,14 +119,25 @@ def run_evaluation(
     axs[2].set_xlabel("Time [s]")
     fig.suptitle("Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(out_dir / "attitude_angles_euler.pdf")
+    fig.savefig(out_dir / f"{prefix}attitude_angles_euler.pdf")
     plt.close(fig)
 
 
-def run_evaluation_npz(npz_file: str, save_path: str) -> None:
-    """Evaluate residuals stored in a ``*_kf_output.npz`` file."""
+def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) -> None:
+    """Evaluate residuals stored in a ``*_kf_output.npz`` file.
+
+    Parameters
+    ----------
+    npz_file
+        File produced by :mod:`GNSS_IMU_Fusion` containing residual arrays.
+    save_path
+        Directory where the evaluation plots will be written.
+    tag
+        Optional dataset tag used to prefix the filenames.
+    """
     out_dir = Path(save_path)
     out_dir.mkdir(parents=True, exist_ok=True)
+    prefix = f"{tag}_" if tag else ""
 
     data = np.load(npz_file)
     res_pos = data.get("residual_pos")
@@ -157,7 +181,7 @@ def run_evaluation_npz(npz_file: str, save_path: str) -> None:
         axes[1, i].grid(True)
     fig.suptitle("GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(out_dir / "residuals_position_velocity.pdf")
+    fig.savefig(out_dir / f"{prefix}residuals_position_velocity.pdf")
     plt.close(fig)
 
     rot = R.from_quat(quat[:, [1, 2, 3, 0]])
@@ -172,7 +196,7 @@ def run_evaluation_npz(npz_file: str, save_path: str) -> None:
     axs[2].set_xlabel("Time [s]")
     fig.suptitle("Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(out_dir / "attitude_angles_euler.pdf")
+    fig.savefig(out_dir / f"{prefix}attitude_angles_euler.pdf")
     plt.close(fig)
 
 
@@ -185,10 +209,11 @@ if __name__ == "__main__":
     ap.add_argument("--attitude")
     ap.add_argument("--npz", help="NPZ file produced by GNSS_IMU_Fusion.py")
     ap.add_argument("--output", default="plots/task7/")
+    ap.add_argument("--tag", help="Dataset tag used as filename prefix")
     args = ap.parse_args()
     if args.npz:
-        run_evaluation_npz(args.npz, args.output)
+        run_evaluation_npz(args.npz, args.output, args.tag)
     else:
         if not (args.prediction and args.gnss and args.attitude):
             ap.error("--prediction, --gnss and --attitude are required when --npz is not given")
-        run_evaluation(args.prediction, args.gnss, args.attitude, args.output)
+        run_evaluation(args.prediction, args.gnss, args.attitude, args.output, args.tag)

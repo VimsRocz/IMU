@@ -290,7 +290,7 @@ def main(argv=None):
                 buf = io.StringIO()
                 with redirect_stdout(buf):
                     try:
-                        run_evaluation_npz(str(npz_path), str(task7_dir))
+                        run_evaluation_npz(str(npz_path), str(task7_dir), tag)
                     except Exception as e:
                         print(f"Task 7 failed: {e}")
                 output = buf.getvalue()
