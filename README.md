@@ -240,7 +240,8 @@ Typical result PDFs:
 - `task5_all_body.pdf` – Kalman filter results in body frame
 - `<method>_residuals.pdf` – position and velocity residuals
 - `<method>_attitude_angles.pdf` – attitude angles over time
-- `<method>_<frame>_overlay_truth.pdf` – fused output vs reference using `STATE_X001.txt` (e.g. `SVD_ecef_overlay_truth.pdf`)
+- `<tag>_<frame>_overlay_truth.pdf` – fused output vs reference (dataset tag is
+  derived from the estimator filename)
 
 ## Task 6: Truth Overlay
 
@@ -261,7 +262,8 @@ to make this distinction clear.
 
 ### Output
 
-* `<method>_<frame>_overlay_truth.pdf` – fused output vs reference
+* `<tag>_<frame>_overlay_truth.pdf` – fused output vs reference
+* `<tag>_task6_fused_truth_<frame>.pdf` – when `--fused-only` is used
 
 ## Task 7: Evaluation of Filter Results
 
