@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Run all datasets using only the TRIAD initialisation method and
-validate results when ground truth data is available."""
+validate results when ground truth data is available.
+
+The summary table now reports acceleration RMSE, final error and maximum
+deviation in addition to the existing position, velocity and attitude
+statistics."""
 
 import subprocess
 import sys
@@ -108,28 +112,61 @@ def compute_errors(truth_data, est_pos, est_vel, est_eul, truth_time, est_time):
         )
         eul_err = np.linalg.norm(truth_eul - eul_i, axis=1)
 
+        # compute acceleration from finite differences
+        dt = np.diff(truth_time)
+        acc_truth = np.diff(truth_data[:, 5:8], axis=0) / dt[:, None]
+        acc_est = np.diff(vel_i, axis=0) / dt[:, None]
+        acc_err = np.linalg.norm(acc_truth - acc_est, axis=1)
+
         rmse_pos = float(np.sqrt(np.mean(pos_err**2)))
         final_pos = float(pos_err[-1])
         rmse_vel = float(np.sqrt(np.mean(vel_err**2)))
         final_vel = float(vel_err[-1])
+        rmse_acc = float(np.sqrt(np.mean(acc_err**2)))
+        final_acc = float(acc_err[-1])
+        max_acc = float(np.max(acc_err))
         rmse_eul = float(np.sqrt(np.mean(eul_err**2)))
         final_eul = float(eul_err[-1])
 
         logger.debug(
-            "RMSE pos=%.3f m, Final pos=%.3f m, RMSE vel=%.3f m/s, "
-            "Final vel=%.3f m/s, RMSE eul=%.3f deg, Final eul=%.3f deg",
+            "RMSE pos=%.3f m, Final pos=%.3f m, RMSE vel=%.3f m/s, Final vel=%.3f m/s, "
+            "RMSE acc=%.3f m/s^2, Final acc=%.3f m/s^2, Max acc=%.3f m/s^2, "
+            "RMSE eul=%.3f deg, Final eul=%.3f deg",
             rmse_pos,
             final_pos,
             rmse_vel,
             final_vel,
+            rmse_acc,
+            final_acc,
+            max_acc,
             rmse_eul,
             final_eul,
         )
 
-        return rmse_pos, final_pos, rmse_vel, final_vel, rmse_eul, final_eul
+        return (
+            rmse_pos,
+            final_pos,
+            rmse_vel,
+            final_vel,
+            rmse_acc,
+            final_acc,
+            max_acc,
+            rmse_eul,
+            final_eul,
+        )
     except Exception as e:  # pragma: no cover - safety
         logger.error(f"Error computation failed: {e}")
-        return None, None, None, None, None, None
+        return (
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
 
 # Install any missing dependencies before running the batch command
 ensure_dependencies()
@@ -207,6 +244,12 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
         m_val = re.search(r"RMSE velocity error:\s*([0-9.eE+-]+)", line)
         if m_val:
             metrics["rmse_vel"] = float(m_val.group(1))
+        m_val = re.search(r"Final acceleration error:\s*([0-9.eE+-]+)", line)
+        if m_val:
+            metrics["final_acc"] = float(m_val.group(1))
+        m_val = re.search(r"RMSE acceleration error:\s*([0-9.eE+-]+)", line)
+        if m_val:
+            metrics["rmse_acc"] = float(m_val.group(1))
         m_val = re.search(r"Final attitude error:\s*([0-9.eE+-]+)", line)
         if m_val:
             metrics["final_att"] = float(m_val.group(1))
@@ -223,7 +266,17 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
     else:
         est_eul = np.zeros_like(est_interp["pos"])
 
-    rmse_pos, final_pos, rmse_vel, final_vel, rmse_eul, final_eul = compute_errors(
+    (
+        rmse_pos,
+        final_pos,
+        rmse_vel,
+        final_vel,
+        rmse_acc,
+        final_acc,
+        max_acc,
+        rmse_eul,
+        final_eul,
+    ) = compute_errors(
         trimmed_data,
         np.asarray(est_interp["pos"]),
         np.asarray(est_interp["vel"]),
@@ -234,6 +287,9 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
     logger.debug(
         "%s - interp RMSEpos=%.3f m, final=%.3f m", dataset, rmse_pos, final_pos
     )
+    metrics["rmse_acc"] = rmse_acc
+    metrics["final_acc"] = final_acc
+    metrics["max_acc"] = max_acc
     try:
         t_truth = trimmed_time
         est = load_estimate(str(mat), times=t_truth)
@@ -302,13 +358,15 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
 if summary:
     rows = [
         [s.get('dataset'), s.get('rmse_pos'), s.get('final_pos'), s.get('rmse_vel'),
-         s.get('final_vel'), s.get('rmse_att'), s.get('final_att'),
+         s.get('final_vel'), s.get('rmse_acc'), s.get('final_acc'), s.get('max_acc'),
+         s.get('rmse_att'), s.get('final_att'),
          s.get('q0_w'), s.get('q0_x'), s.get('q0_y'), s.get('q0_z'),
          s.get('Pxx'), s.get('Pyy'), s.get('Pzz')]
         for s in summary
     ]
     headers = [
         'Dataset', 'RMSEpos[m]', 'FinalPos[m]', 'RMSEvel[m/s]', 'FinalVel[m/s]',
+        'RMSEacc[m/s^2]', 'FinalAcc[m/s^2]', 'MaxAcc[m/s^2]',
         'RMSEatt[deg]', 'FinalAtt[deg]', 'q0_w', 'q0_x', 'q0_y', 'q0_z',
         'Pxx', 'Pyy', 'Pzz'
     ]
