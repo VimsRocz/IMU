@@ -204,11 +204,19 @@ def main(argv=None):
         if npz_path.exists():
             data = np.load(npz_path, allow_pickle=True)
             logger.debug(f"Loaded output {npz_path} with keys: {list(data.keys())}")
-            time_s = data.get("time")
-            pos_ned = data.get("pos_ned")
-            vel_ned = data.get("vel_ned")
+            time_s = data.get("time_s")
+            if time_s is None:
+                time_s = data.get("time")
+
+            pos_ned = data.get("pos_ned_m")
+            if pos_ned is None:
+                pos_ned = data.get("pos_ned")
             if pos_ned is None:
                 pos_ned = data.get("fused_pos")
+
+            vel_ned = data.get("vel_ned_ms")
+            if vel_ned is None:
+                vel_ned = data.get("vel_ned")
             if vel_ned is None:
                 vel_ned = data.get("fused_vel")
             if logger.isEnabledFor(logging.DEBUG):
@@ -219,15 +227,26 @@ def main(argv=None):
                 logger.debug(
                     f"Position shape: {pos_ned.shape if pos_ned is not None else 'None'}"
                 )
-            ref_lat = float(np.squeeze(data.get("ref_lat")))
-            ref_lon = float(np.squeeze(data.get("ref_lon")))
-            ref_r0 = np.asarray(data.get("ref_r0"))
+            ref_lat = data.get("ref_lat_rad")
+            ref_lon = data.get("ref_lon_rad")
+            ref_r0 = data.get("ref_r0_m")
+            if ref_lat is None:
+                ref_lat = data.get("ref_lat")
+            if ref_lon is None:
+                ref_lon = data.get("ref_lon")
+            if ref_r0 is None:
+                ref_r0 = data.get("ref_r0")
+            ref_lat = float(np.squeeze(ref_lat))
+            ref_lon = float(np.squeeze(ref_lon))
+            ref_r0 = np.asarray(ref_r0)
 
             C_NED_ECEF = compute_C_NED_to_ECEF(ref_lat, ref_lon)
             pos_ecef = (C_NED_ECEF @ pos_ned.T).T + ref_r0
             vel_ecef = (C_NED_ECEF @ vel_ned.T).T
 
-            quat = data.get("attitude_q")
+            quat = data.get("att_quat")
+            if quat is None:
+                quat = data.get("attitude_q")
             if quat is not None:
                 rot = R.from_quat(quat[:, [1, 2, 3, 0]])
                 C_B_N = rot.as_matrix()
