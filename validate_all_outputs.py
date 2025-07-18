@@ -3,7 +3,7 @@
 
 This helper looks for files ending in ``_kf_output.mat`` or ``_kf_output.npz``
 inside the results folder and runs :mod:`validate_and_plot` for each one using
-the common ``STATE_X001.txt`` truth file.
+the matching ``STATE_X*.txt`` truth file when available.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ def main(argv: list[str] | None = None) -> None:
         "--truth-dir",
         type=Path,
         default=Path("."),
-        help="directory containing STATE_X001.txt",
+        help="directory containing STATE_X*.txt files",
     )
     parser.add_argument(
         "--output",
@@ -50,9 +50,12 @@ def main(argv: list[str] | None = None) -> None:
         m = re.search(r"IMU_(X\d+)", est_file.name)
         if not m:
             continue
-        truth_file = args.truth_dir / "STATE_X001.txt"
+        dataset_id = m.group(1)
+        truth_file = args.truth_dir / f"STATE_{dataset_id}.txt"
         if not truth_file.exists():
-            print(f"Truth file '{truth_file}' not found, skipping {est_file.name}.")
+            print(
+                f"Truth file '{truth_file}' not found, skipping {est_file.name}."
+            )
             continue
         cmd = [
             sys.executable,
