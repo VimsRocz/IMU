@@ -1,7 +1,10 @@
 import argparse
+import os
+import re
 from pathlib import Path
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
 from pyproj import Transformer
@@ -107,6 +110,13 @@ def main():
     args = parser.parse_args()
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    m_est = re.search(r"IMU_(X\d+)", os.path.basename(args.est_file))
+    m_truth = re.search(r"STATE_(X\d+)", os.path.basename(args.truth_file))
+    if m_est and m_truth and m_est.group(1) != m_truth.group(1):
+        parser.error(
+            f"Estimator {m_est.group(1)} does not match truth {m_truth.group(1)}"
+        )
 
     est_pos, est_frame_auto, est_time = load_estimator_positions(args.est_file)
     est_frame = args.est_frame or est_frame_auto or "ned"
