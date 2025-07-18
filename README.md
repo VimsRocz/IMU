@@ -220,6 +220,10 @@ pip install --upgrade pip setuptools wheel
 It prints the mean and standard deviation of the position error and writes the
 per‑sample errors to `aligned_position_errors.txt`.
 
+Both filenames should include a dataset identifier such as `IMU_X001` or
+`STATE_X001`. The script now checks that these match before loading the files and
+aborts with an error if they differ.
+
 ### Sample Processing Report
 
 A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/` directory.
