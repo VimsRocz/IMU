@@ -32,6 +32,7 @@ def plot_overlay(
     vel_truth: Optional[np.ndarray] = None,
     acc_truth: Optional[np.ndarray] = None,
     suffix: Optional[str] = None,
+    filename: Optional[str] = None,
     include_measurements: bool = True,
 ) -> None:
     """Save a 3x3 overlay plot comparing measured IMU, measured GNSS and
@@ -46,6 +47,10 @@ def plot_overlay(
         Filename suffix appended to ``"{method}_{frame}"`` when saving the
         figure. Defaults to ``"_overlay_truth.pdf"`` if any truth arrays are
         supplied and ``"_overlay.pdf"`` otherwise.
+    filename : str or None, optional
+        Full filename (relative to ``out_dir``) for the saved figure. When
+        provided, overrides the ``method``/``frame`` naming scheme and the
+        ``suffix`` parameter.
     include_measurements : bool, optional
         Plot measured IMU and GNSS series when ``True`` (default). When ``False``
         only the fused estimate and optional truth data are shown.
@@ -94,6 +99,9 @@ def plot_overlay(
         title = f"{method} – {frame} Frame (Fused vs. Truth)" if t_truth is not None else f"{method} – {frame} Frame (Fused)"
     fig.suptitle(title)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out_path = Path(out_dir) / f"{method}_{frame}{suffix}"
+    if filename is not None:
+        out_path = Path(out_dir) / filename
+    else:
+        out_path = Path(out_dir) / f"{method}_{frame}{suffix}"
     fig.savefig(out_path)
     plt.close(fig)

@@ -39,6 +39,10 @@ def main() -> None:
         help="Directory for the generated PDFs",
     )
     parser.add_argument(
+        "--tag",
+        help="Dataset tag used as filename prefix. Defaults to the prefix of --est-file",
+    )
+    parser.add_argument(
         "--fused-only",
         action="store_true",
         help="Hide IMU and GNSS measurements in the overlay plots",
@@ -55,6 +59,7 @@ def main() -> None:
     imu_file = Path(f"{m.group(1)}.dat")
     gnss_file = Path(f"{m.group(2)}.csv")
     method = m.group(3)
+    tag = args.tag or f"{m.group(1)}_{m.group(2)}_{method}"
 
     est = load_estimate(str(est_path))
     frames = assemble_frames(est, imu_file, gnss_file, args.truth_file)
@@ -180,6 +185,11 @@ def main() -> None:
                 v_t = v_t * sign
                 a_t = a_t * sign
                 truth = (t_t, p_t, v_t, a_t)
+        name = (
+            f"{tag}_task6_fused_truth_{frame_name.lower()}.pdf"
+            if args.fused_only
+            else f"{tag}_{frame_name}_overlay_truth.pdf"
+        )
         plot_overlay(
             frame_name,
             method,
@@ -197,6 +207,7 @@ def main() -> None:
             a_f,
             out_dir,
             truth,
+            filename=name,
             include_measurements=not args.fused_only,
         )
 
@@ -207,16 +218,17 @@ def main() -> None:
             t_t = ensure_relative_time(t_t)
             if frame_name == "NED":
                 p_t = centre(p_t)
+        name_state = f"{tag}_{frame_name}_overlay_state.pdf"
         plot_overlay(
             frame_name,
             method,
             t_i,
             p_i,
-                v_i,
-                a_i,
-                t_g,
-                p_g,
-                v_g,
+            v_i,
+            a_i,
+            t_g,
+            p_g,
+            v_g,
             a_g,
             t_f,
             p_f,
@@ -227,7 +239,7 @@ def main() -> None:
             pos_truth=p_t,
             vel_truth=v_t,
             acc_truth=a_t,
-            suffix="_overlay_state.pdf",
+            filename=name_state,
             include_measurements=not args.fused_only,
         )
 
