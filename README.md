@@ -285,7 +285,8 @@ python src/run_all_methods.py --task 7
 
 ### Output:
 
-* Plots saved in `plots/task7/` using filenames
+* When running `run_all_methods.py`, plots are stored in
+  `results/task7/<tag>/` as
   `<tag>_residuals_position_velocity.pdf` and
   `<tag>_attitude_angles_euler.pdf`
 
@@ -329,9 +330,10 @@ python src/run_all_methods.py --config your_config.yml
 
 Running the script without `--config` processes the bundled example data sets.
 Task 6 (truth overlay) and Task 7 (evaluation) are performed automatically for
-each run and the additional figures are stored under `results/` and
-`results/task7/`.  Task 7 uses the dataset tag as a prefix so you will find
-files like `<tag>_residuals_position_velocity.pdf` inside that folder.
+each run.  The additional figures are written to `results/` with the evaluation
+plots placed inside `results/task7/<tag>/`. Task 7 uses the dataset tag as a
+prefix, so you will find files like `<tag>_residuals_position_velocity.pdf`
+inside that folder.
 
 
 #### run_all_datasets.py
