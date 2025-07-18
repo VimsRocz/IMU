@@ -270,6 +270,7 @@ This task analyzes the filter's prediction accuracy.
 ### Includes:
 - Position and velocity residuals (GNSS - filter prediction)
 - Roll, pitch, yaw plots derived from quaternion
+- Optional acceleration error statistics when truth data is supplied
 
 ### How to run:
 ```bash
@@ -362,7 +363,8 @@ run_triad_only
 This is equivalent to running `python src/run_all_datasets.py --method TRIAD`.
 The script also validates the fused trajectory against the common
 `STATE_X001.txt` file and writes an extended summary to
-`results/summary_truth.csv`.
+`results/summary_truth.csv`. The table now includes acceleration RMSE,
+final and maximum errors.
 
 
 After all runs complete you can compare the datasets side by side:
