@@ -99,6 +99,25 @@ def test_load_estimate_alt_names(tmp_path, pos_key, vel_key):
     assert np.allclose(est["P"], data["P_hist"])
 
 
+def test_load_estimate_time_s(tmp_path):
+    np = pytest.importorskip("numpy")
+    scipy = pytest.importorskip("scipy.io")
+
+    data = {
+        "fused_pos": np.zeros((5, 3)),
+        "fused_vel": np.zeros((5, 3)),
+        "attitude_q": np.tile([1, 0, 0, 0], (5, 1)),
+        "time_s": np.linspace(0.0, 1.0, 5),
+    }
+
+    f = tmp_path / "est.mat"
+    scipy.savemat(f, data)
+
+    est = load_estimate(str(f))
+
+    assert np.allclose(est["time"], data["time_s"])
+
+
 def test_load_estimate_interpolation(tmp_path):
     np = pytest.importorskip("numpy")
     scipy = pytest.importorskip("scipy.io")

@@ -456,7 +456,7 @@ def load_estimate(path, times=None):
 
     if path.endswith(".npz"):
         data = np.load(path, allow_pickle=True)
-        t = pick_key(["time_residuals", "time"], data)
+        t = pick_key(["time_residuals", "time", "time_s"], data)
         if t is not None:
             t = np.asarray(t).squeeze()
         pos = pick_key(["fused_pos", "pos_ned", "pos"], data)
@@ -500,7 +500,7 @@ def load_estimate(path, times=None):
         }
     else:
         m = loadmat(path)
-        t = pick_key(["time_residuals", "time"], m)
+        t = pick_key(["time_residuals", "time", "time_s"], m)
         if t is not None:
             t = np.asarray(t).squeeze()
         pos = pick_key(["fused_pos", "pos_ned", "pos"], m)
