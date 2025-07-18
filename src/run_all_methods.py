@@ -270,6 +270,9 @@ def main(argv=None):
                     overlay_cmd.append("--fused-only")
                 with open(log_path, "a") as log:
                     log.write("\nTASK 6: Overlay fused output with truth\n")
+                    msg = "Starting Task 6 overlay ..."
+                    logger.info(msg)
+                    log.write(msg + "\n")
                     proc = subprocess.Popen(
                         overlay_cmd,
                         stdout=subprocess.PIPE,
@@ -287,6 +290,9 @@ def main(argv=None):
             task7_dir = pathlib.Path("results") / "task7" / tag
             with open(log_path, "a") as log:
                 log.write("\nTASK 7: Evaluate residuals\n")
+                msg = "Running Task 7 evaluation ..."
+                logger.info(msg)
+                log.write(msg + "\n")
                 buf = io.StringIO()
                 with redirect_stdout(buf):
                     try:
