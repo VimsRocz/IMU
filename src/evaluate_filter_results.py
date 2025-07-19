@@ -102,9 +102,9 @@ def run_evaluation(
         axes[1, i].set_xlabel("Time [s]")
         axes[1, i].set_ylabel("Vel Residual [m/s]")
         axes[1, i].grid(True)
-    fig.suptitle("GNSS - Predicted Residuals")
+    fig.suptitle("Task 7 – GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out_path = out_dir / f"{prefix}residuals_position_velocity.pdf"
+    out_path = out_dir / f"{prefix}task7_residuals_position_velocity.pdf"
     fig.savefig(out_path)
     print(f"Saved {out_path}")
     plt.close(fig)
@@ -117,9 +117,9 @@ def run_evaluation(
             axes[i].set_xlabel(f"{lab} Residual")
             axes[i].set_ylabel("Count")
             axes[i].grid(True)
-        fig.suptitle(f"Histogram of {name} residuals")
+        fig.suptitle(f"Task 7 – Histogram of {name} residuals")
         fig.tight_layout(rect=[0, 0, 1, 0.95])
-        hist_path = out_dir / f"{prefix}hist_{name}_residuals.pdf"
+        hist_path = out_dir / f"{prefix}task7_hist_{name}_residuals.pdf"
         fig.savefig(hist_path)
         print(f"Saved {hist_path}")
         plt.close(fig)
@@ -136,9 +136,9 @@ def run_evaluation(
         axs[i].set_ylabel(f"{names[i]} [deg]")
         axs[i].grid(True)
     axs[2].set_xlabel("Time [s]")
-    fig.suptitle("Attitude Angles")
+    fig.suptitle("Task 7 – Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(out_dir / f"{prefix}attitude_angles_euler.pdf")
+    fig.savefig(out_dir / f"{prefix}task7_attitude_angles_euler.pdf")
     plt.close(fig)
 
 
@@ -199,9 +199,9 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         axes[1, i].set_xlabel("Time [s]")
         axes[1, i].set_ylabel("Vel Residual [m/s]")
         axes[1, i].grid(True)
-    fig.suptitle("GNSS - Predicted Residuals")
+    fig.suptitle("Task 7 – GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out_path = out_dir / f"{prefix}residuals_position_velocity.pdf"
+    out_path = out_dir / f"{prefix}task7_residuals_position_velocity.pdf"
     fig.savefig(out_path)
     print(f"Saved {out_path}")
     plt.close(fig)
@@ -216,9 +216,9 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         axs[i].set_ylabel(f"{names[i]} [deg]")
         axs[i].grid(True)
     axs[2].set_xlabel("Time [s]")
-    fig.suptitle("Attitude Angles")
+    fig.suptitle("Task 7 – Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    att_path = out_dir / f"{prefix}attitude_angles_euler.pdf"
+    att_path = out_dir / f"{prefix}task7_attitude_angles_euler.pdf"
     fig.savefig(att_path)
     print(f"Saved {att_path}")
     plt.close(fig)
@@ -238,7 +238,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     ax.legend()
     ax.grid(True)
     fig.tight_layout()
-    norm_path = out_dir / f"{prefix}error_norms.pdf"
+    norm_path = out_dir / f"{prefix}task7_error_norms.pdf"
     fig.savefig(norm_path)
     print(f"Saved {norm_path}")
     plt.close(fig)
