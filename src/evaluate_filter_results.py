@@ -177,6 +177,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         res_vel = res_vel[:n]
     else:
         n = len(t)
+    quat = quat[:n]
 
     mean_pos = res_pos.mean(axis=0)
     std_pos = res_pos.std(axis=0)
