@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Optional, Tuple
 
+from matplotlib.lines import Line2D
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -76,33 +78,65 @@ def plot_overlay(
         (acc_imu, acc_gnss, acc_fused, acc_truth, "Acceleration [m/s$^2$]"),
     ]
 
+    legend_handles = []
+    legend_labels = []
+
+    def add_handle(handle, label):
+        if label not in legend_labels:
+            legend_handles.append(handle)
+            legend_labels.append(label)
+
+    has_acc_truth = acc_truth is not None and len(acc_truth) > 0
+
     for row, (imu, gnss, fused, truth, ylab) in enumerate(datasets):
         for col, axis in enumerate(cols):
             ax = axes[row, col]
             if include_measurements:
-                ax.plot(t_gnss, gnss[:, col], "k", label="Measured GNSS")
-                ax.plot(t_imu, imu[:, col], "c--", label="Measured IMU")
-            if t_truth is not None and truth is not None:
-                ax.plot(t_truth, truth[:, col], "m-", label="Truth")
-            ax.plot(t_fused, fused[:, col], "g:", label=f"Fused GNSS+IMU ({method})")
+                (h,) = ax.plot(t_gnss, gnss[:, col], "k", label="Measured GNSS")
+                add_handle(h, "Measured GNSS")
+                (h,) = ax.plot(t_imu, imu[:, col], "c--", label="Measured IMU")
+                add_handle(h, "Measured IMU")
+            if (
+                t_truth is not None
+                and truth is not None
+                and not (row == 2 and not has_acc_truth)
+            ):
+                (h,) = ax.plot(t_truth, truth[:, col], "m-", label="Truth")
+                add_handle(h, "Truth")
+            (h,) = ax.plot(
+                t_fused, fused[:, col], "g:", label=f"Fused GNSS+IMU ({method})"
+            )
+            add_handle(h, f"Fused GNSS+IMU ({method})")
             if row == 0:
                 ax.set_title(axis)
             if col == 0:
                 ax.set_ylabel(ylab)
             if row == 2:
                 ax.set_xlabel("Time [s]")
-            ax.legend(loc="best")
 
-    if include_measurements:
+    if t_truth is not None:
+        title = f"Task 6 – {method} – {frame} Frame (Fused vs. Truth)"
+    elif include_measurements:
         title = f"Task 6 – {method} – {frame} Frame (Fused vs. Measured GNSS)"
     else:
-        title = (
-            f"Task 6 – {method} – {frame} Frame (Fused vs. Truth)"
-            if t_truth is not None
-            else f"Task 6 – {method} – {frame} Frame (Fused)"
+        title = f"Task 6 – {method} – {frame} Frame (Fused)"
+
+    if not has_acc_truth and t_truth is not None:
+        add_handle(
+            Line2D([], [], color="none", label="No acceleration for Truth"),
+            "No acceleration for Truth",
         )
+
+    fig.legend(
+        legend_handles,
+        legend_labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.05),
+        ncol=len(legend_labels),
+        frameon=False,
+    )
     fig.suptitle(title)
-    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.tight_layout(rect=[0, 0, 1, 0.9])
     if filename is not None:
         out_path = Path(out_dir) / filename
     else:

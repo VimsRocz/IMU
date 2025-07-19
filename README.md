@@ -265,8 +265,9 @@ python src/task6_plot_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_ou
 ```
 
 Pass `--fused-only` to hide the IMU and GNSS measurements so only the fused
-trajectory and truth are shown. The overlay title changes to **Fused vs. Truth**
-to make this distinction clear.
+trajectory and truth are shown. When truth data is provided the title now always
+reads **Fused vs. Truth**.  Legends are consolidated below the figure and the
+truth acceleration curves are omitted when unavailable.
 
 ### Output
 
