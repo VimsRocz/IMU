@@ -100,7 +100,7 @@ def run_case(cmd, log_path):
 
 
 def main(argv=None):
-    os.makedirs('results', exist_ok=True)
+    os.makedirs("results", exist_ok=True)
     logger.info("Ensured 'results/' directory exists.")
     parser = argparse.ArgumentParser(
         description="Run GNSS_IMU_Fusion with multiple datasets and methods",
@@ -158,13 +158,19 @@ def main(argv=None):
     for (imu, gnss), m in itertools.product(cases, methods):
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
         log_path = pathlib.Path("results") / f"{tag}.log"
-        print(f"\u25B6 {tag}")
+        print(f"\u25b6 {tag}")
         if logger.isEnabledFor(logging.DEBUG):
             try:
-                gnss_preview = np.loadtxt(ROOT / gnss, delimiter=",", skiprows=1, max_rows=1)
+                gnss_preview = np.loadtxt(
+                    ROOT / gnss, delimiter=",", skiprows=1, max_rows=1
+                )
                 imu_preview = np.loadtxt(ROOT / imu, max_rows=1)
-                logger.debug(f"GNSS preview: shape {gnss_preview.shape}, first row: {gnss_preview}")
-                logger.debug(f"IMU preview: shape {imu_preview.shape}, first row: {imu_preview}")
+                logger.debug(
+                    f"GNSS preview: shape {gnss_preview.shape}, first row: {gnss_preview}"
+                )
+                logger.debug(
+                    f"IMU preview: shape {imu_preview.shape}, first row: {imu_preview}"
+                )
             except Exception as e:
                 logger.warning(f"Failed data preview for {imu} or {gnss}: {e}")
         cmd = [
@@ -186,17 +192,27 @@ def main(argv=None):
             raise subprocess.CalledProcessError(ret, cmd)
         for summary in summaries:
             kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
-            results.append({
-                "dataset": pathlib.Path(imu).stem,
-                "method": kv.get("method", m),
-                "rmse_pos": float(kv.get("rmse_pos", "nan").replace("m", "")),
-                "final_pos": float(kv.get("final_pos", "nan").replace("m", "")),
-                "rms_resid_pos": float(kv.get("rms_resid_pos", "nan").replace("m", "")),
-                "max_resid_pos": float(kv.get("max_resid_pos", "nan").replace("m", "")),
-                "rms_resid_vel": float(kv.get("rms_resid_vel", "nan").replace("m", "")),
-                "max_resid_vel": float(kv.get("max_resid_vel", "nan").replace("m", "")),
-                "runtime": runtime,
-            })
+            results.append(
+                {
+                    "dataset": pathlib.Path(imu).stem,
+                    "method": kv.get("method", m),
+                    "rmse_pos": float(kv.get("rmse_pos", "nan").replace("m", "")),
+                    "final_pos": float(kv.get("final_pos", "nan").replace("m", "")),
+                    "rms_resid_pos": float(
+                        kv.get("rms_resid_pos", "nan").replace("m", "")
+                    ),
+                    "max_resid_pos": float(
+                        kv.get("max_resid_pos", "nan").replace("m", "")
+                    ),
+                    "rms_resid_vel": float(
+                        kv.get("rms_resid_vel", "nan").replace("m", "")
+                    ),
+                    "max_resid_vel": float(
+                        kv.get("max_resid_vel", "nan").replace("m", "")
+                    ),
+                    "runtime": runtime,
+                }
+            )
         # ------------------------------------------------------------------
         # Convert NPZ output to a MATLAB file with explicit frame variables
         # ------------------------------------------------------------------
@@ -247,6 +263,8 @@ def main(argv=None):
             quat = data.get("att_quat")
             if quat is None:
                 quat = data.get("attitude_q")
+            if quat is None:
+                quat = data.get("quat_log")
             if quat is not None:
                 rot = R.from_quat(quat[:, [1, 2, 3, 0]])
                 C_B_N = rot.as_matrix()
@@ -269,8 +287,49 @@ def main(argv=None):
                 "ref_r0_m": ref_r0,
                 "att_quat": quat,
                 "method_name": m,
+                # Consistent fused data for Tasks 5 and 6
+                "fused_pos": pos_ned,
+                "fused_vel": vel_ned,
+                "quat_log": quat,
             }
             save_mat(npz_path.with_suffix(".mat"), mat_out)
+
+            logger.info(
+                "Subtask 6.8.2: Plotted %s position North: First = %.4f, Last = %.4f",
+                m,
+                pos_ned[0, 0],
+                pos_ned[-1, 0],
+            )
+            logger.info(
+                "Subtask 6.8.2: Plotted %s position East: First = %.4f, Last = %.4f",
+                m,
+                pos_ned[0, 1],
+                pos_ned[-1, 1],
+            )
+            logger.info(
+                "Subtask 6.8.2: Plotted %s position Down: First = %.4f, Last = %.4f",
+                m,
+                pos_ned[0, 2],
+                pos_ned[-1, 2],
+            )
+            logger.info(
+                "Subtask 6.8.2: Plotted %s velocity North: First = %.4f, Last = %.4f",
+                m,
+                vel_ned[0, 0],
+                vel_ned[-1, 0],
+            )
+            logger.info(
+                "Subtask 6.8.2: Plotted %s velocity East: First = %.4f, Last = %.4f",
+                m,
+                vel_ned[0, 1],
+                vel_ned[-1, 1],
+            )
+            logger.info(
+                "Subtask 6.8.2: Plotted %s velocity Down: First = %.4f, Last = %.4f",
+                m,
+                vel_ned[0, 2],
+                vel_ned[-1, 2],
+            )
 
             # ----------------------------
             # Task 6: Truth overlay plots
