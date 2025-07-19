@@ -12,5 +12,5 @@ def test_run_evaluation_npz_mismatched_lengths(tmp_path):
     f = tmp_path / "data.npz"
     np.savez(f, residual_pos=res_pos, residual_vel=res_vel, time_residuals=t, attitude_q=quat)
     run_evaluation_npz(str(f), str(tmp_path), tag="TEST")
-    assert (tmp_path / "TEST_residuals_position_velocity.pdf").exists()
-    assert (tmp_path / "TEST_attitude_angles_euler.pdf").exists()
+    assert (tmp_path / "TEST_task7_residuals_position_velocity.pdf").exists()
+    assert (tmp_path / "TEST_task7_attitude_angles_euler.pdf").exists()
