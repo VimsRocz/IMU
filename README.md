@@ -266,8 +266,8 @@ to make this distinction clear.
 
 ### Output
 
-* `<tag>_<frame>_overlay_truth.pdf` – fused output vs reference
-* `<tag>_task6_fused_truth_<frame>.pdf` – when `--fused-only` is used
+* `<tag>_task6_<frame>_overlay_truth.pdf` – fused output vs reference
+* `<tag>_task6_<frame>_overlay_fused_truth.pdf` – when `--fused-only` is used
 
 ## Task 7: Evaluation of Filter Results
 

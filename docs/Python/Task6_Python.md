@@ -24,12 +24,12 @@ Task 5 output
 2. **Assemble Frames** – use :func:`assemble_frames` to align IMU, GNSS and truth
    data in NED, ECEF and body frames.
 3. **Generate Plots** – call :func:`plot_overlay` for each frame to save PDFs
-   named `<TAG>_<FRAME>_overlay_truth.pdf` in the results directory. With
+   named `<TAG>_task6_<FRAME>_overlay_truth.pdf` in the results directory. With
    ``--fused-only`` the filenames become
-   `<TAG>_task6_fused_truth_<frame>.pdf`.
+   `<TAG>_task6_<frame>_overlay_fused_truth.pdf`.
 4. **State Comparison** – additionally plot the raw `STATE_X*.txt` trajectory
    using its original time vector. These files are saved as
-   `<METHOD>_<FRAME>_overlay_state.pdf` and highlight any time offsets
+   `<TAG>_task6_<FRAME>_overlay_state.pdf` and highlight any time offsets
    between the estimate and truth.
 
 ## Result
