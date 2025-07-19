@@ -178,6 +178,9 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     else:
         n = len(t)
 
+    # Ensure attitude quaternion array matches the residual length
+    quat = quat[:n]
+
     mean_pos = res_pos.mean(axis=0)
     std_pos = res_pos.std(axis=0)
     mean_vel = res_vel.mean(axis=0)
