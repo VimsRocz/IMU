@@ -4,7 +4,8 @@ validate results when ground truth data is available.
 
 The summary table now reports acceleration RMSE, final error and maximum
 deviation in addition to the existing position, velocity and attitude
-statistics."""
+statistics.  By default only the ``X001`` logs are processed to keep the
+runtime short.  Pass ``--datasets`` or ``--config`` to handle more pairs."""
 
 import subprocess
 import sys

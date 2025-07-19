@@ -2,9 +2,10 @@
 """Run every (IMU, GNSS, method) combo and log the output.
 
 The script processes each IMU/GNSS pair with all selected methods and writes
-the console output to ``results/<IMU>_<GNSS>_<method>.log``.  By default the
-bundled ``IMU_X`` data sets are used, but a YAML configuration file can
-override the data files and the list of methods.
+the console output to ``results/<IMU>_<GNSS>_<method>.log``.  To keep runtime
+short it now processes only the ``IMU_X001``/``GNSS_X001`` logs unless a YAML
+configuration file or the ``--datasets`` option specifies additional pairs.
+The config file can also override the list of methods.
 
 Example ``config.yml``::
 

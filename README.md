@@ -148,7 +148,8 @@ the MATLAB scripts.
 
 Run the following commands from the repository root so the helper
 scripts can locate the bundled data and truth file automatically.
-First process all datasets with every initialisation method:
+First process the example dataset with every initialisation method
+(use ``--config`` or ``--datasets`` to enable additional pairs):
 
 ```bash
 python src/run_all_methods.py

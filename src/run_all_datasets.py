@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
 Batch-runner for all IMU/GNSS sets and all attitude-initialisation methods.
-Writes one log file per run in ./logs and prints a short SUMMARY line
-that `summarise_runs.py` can aggregate later.
+Writes one log file per run in ``./logs`` and prints a short ``SUMMARY`` line
+that ``summarise_runs.py`` can aggregate later.  To keep the default runtime
+short the script now processes only the ``IMU_X001``/``GNSS_X001`` pair unless
+additional pairs are given via ``--datasets`` or a configuration file.
 """
 
 import pathlib
