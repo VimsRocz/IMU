@@ -24,7 +24,9 @@ Task 5 output
    reference latitude, longitude and origin saved in the result file.
 3. **Interpolate** – align IMU, GNSS and truth samples on the filter time grid.
 4. **Plot** – call `plot_overlay` for the three frames which stores PDFs named
-   `<METHOD>_<FRAME>_overlay_truth.pdf` in `results/`.
+   `<METHOD>_<FRAME>_overlay_truth.pdf` in `results/`. When truth data is
+   provided the title shows **Fused vs. Truth** and a single legend is placed
+   below the figure.
 
 ## Result
 
