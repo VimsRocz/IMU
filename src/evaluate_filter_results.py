@@ -3,8 +3,8 @@
 
 This module compares the predicted state from the Kalman filter
 against the recorded GNSS measurements and visualises the attitude
-history.  Residual statistics are printed and basic plots are saved
-under ``plots/task7/``.
+history. Residual statistics are printed and all plots are saved
+under ``results/`` (or the provided output directory).
 """
 from __future__ import annotations
 from pathlib import Path
@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
+from tabulate import tabulate
+import time
 
 
 def _find_cols(df: pd.DataFrame, options: Sequence[Sequence[str]]) -> Sequence[str]:
@@ -102,8 +104,25 @@ def run_evaluation(
         axes[1, i].grid(True)
     fig.suptitle("GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(out_dir / f"{prefix}residuals_position_velocity.pdf")
+    out_path = out_dir / f"{prefix}residuals_position_velocity.pdf"
+    fig.savefig(out_path)
+    print(f"Saved {out_path}")
     plt.close(fig)
+
+    # Histograms of residuals
+    for arr, name in [(res_pos, "position"), (res_vel, "velocity")]:
+        fig, axes = plt.subplots(1, 3, figsize=(12, 3))
+        for i, lab in enumerate(labels):
+            axes[i].hist(arr[:, i], bins=40, alpha=0.7)
+            axes[i].set_xlabel(f"{lab} Residual")
+            axes[i].set_ylabel("Count")
+            axes[i].grid(True)
+        fig.suptitle(f"Histogram of {name} residuals")
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        hist_path = out_dir / f"{prefix}hist_{name}_residuals.pdf"
+        fig.savefig(hist_path)
+        print(f"Saved {hist_path}")
+        plt.close(fig)
 
     quat = att[quat_cols].to_numpy()
     rot = R.from_quat(quat[:, [1, 2, 3, 0]])  # w,x,y,z -> x,y,z,w
@@ -135,6 +154,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     tag
         Optional dataset tag used to prefix the filenames.
     """
+    start_time = time.time()
     out_dir = Path(save_path)
     out_dir.mkdir(parents=True, exist_ok=True)
     prefix = f"{tag}_" if tag else ""
@@ -181,7 +201,9 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         axes[1, i].grid(True)
     fig.suptitle("GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(out_dir / f"{prefix}residuals_position_velocity.pdf")
+    out_path = out_dir / f"{prefix}residuals_position_velocity.pdf"
+    fig.savefig(out_path)
+    print(f"Saved {out_path}")
     plt.close(fig)
 
     rot = R.from_quat(quat[:, [1, 2, 3, 0]])
@@ -196,8 +218,51 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     axs[2].set_xlabel("Time [s]")
     fig.suptitle("Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(out_dir / f"{prefix}attitude_angles_euler.pdf")
+    att_path = out_dir / f"{prefix}attitude_angles_euler.pdf"
+    fig.savefig(att_path)
+    print(f"Saved {att_path}")
     plt.close(fig)
+
+    # Error norm plots
+    norm_pos = np.linalg.norm(res_pos, axis=1)
+    norm_vel = np.linalg.norm(res_vel, axis=1)
+    res_acc = np.gradient(res_vel, t, axis=0)
+    norm_acc = np.linalg.norm(res_acc, axis=1)
+
+    fig, ax = plt.subplots()
+    ax.plot(t, norm_pos, label="|pos error|")
+    ax.plot(t, norm_vel, label="|vel error|")
+    ax.plot(t, norm_acc, label="|acc error|")
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Error Norm")
+    ax.legend()
+    ax.grid(True)
+    fig.tight_layout()
+    norm_path = out_dir / f"{prefix}error_norms.pdf"
+    fig.savefig(norm_path)
+    print(f"Saved {norm_path}")
+    plt.close(fig)
+
+    rmse_pos = float(np.sqrt(np.mean(norm_pos**2)))
+    rmse_vel = float(np.sqrt(np.mean(norm_vel**2)))
+    rmse_acc = float(np.sqrt(np.mean(norm_acc**2)))
+    final_pos = float(norm_pos[-1])
+    final_vel = float(norm_vel[-1])
+    final_acc = float(norm_acc[-1])
+
+    table = [
+        ["Position [m]", final_pos, rmse_pos],
+        ["Velocity [m/s]", final_vel, rmse_vel],
+        ["Acceleration [m/s^2]", final_acc, rmse_acc],
+    ]
+    print(tabulate(table, headers=["Metric", "Final Error", "RMSE"], floatfmt=".3f"))
+
+    runtime = time.time() - start_time
+    method = tag.split("_")[-1] if tag else "unknown"
+    print(
+        f"[SUMMARY] method={method} rmse_pos={rmse_pos:.3f}m final_pos={final_pos:.3f}m "
+        f"rmse_vel={rmse_vel:.3f}m/s final_vel={final_vel:.3f}m/s runtime={runtime:.2f}s"
+    )
 
 
 if __name__ == "__main__":
