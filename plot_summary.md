@@ -13,6 +13,11 @@
 - **X001_TRIAD_task5_mixed_frames.pdf**: Kalman filter results in mixed frames
 - **X001_TRIAD_residuals.pdf**: Position and velocity residuals
 - **X001_TRIAD_attitude_angles.pdf**: Attitude angles over time
+- **<tag>_task6_fused_truth_ned.pdf**: Fused trajectory vs reference in NED frame
+- **<tag>_task6_fused_truth_ecef.pdf**: Fused trajectory vs reference in ECEF frame
+- **<tag>_task6_fused_truth_body.pdf**: Fused trajectory vs reference in body frame
+- **<tag>_task7_residuals_position_velocity.pdf**: Position and velocity residuals
+- **<tag>_task7_attitude_angles_euler.pdf**: Attitude angles derived from quaternions
 - **<method>_<frame>_overlay_truth.pdf**: Fused results versus reference
 - **<method>_<frame>_overlay_state.pdf**: Fused results versus raw state file
 

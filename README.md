@@ -328,7 +328,9 @@ configuration file to specify the datasets:
 python src/run_all_methods.py --config your_config.yml
 ```
 
-Running the script without `--config` processes the bundled example data sets.
+Running the script without `--config` now processes only the bundled
+`IMU_X001`/`GNSS_X001` logs.
+Provide a YAML file to run other pairs.
 Task 6 (truth overlay) and Task 7 (evaluation) are performed automatically for
 each run.  The additional figures are written to `results/` with the evaluation
 plots placed inside `results/task7/<tag>/`. Task 7 uses the dataset tag as a
@@ -343,8 +345,9 @@ To process every IMU/GNSS pair defined in `src/run_all_datasets.py`, simply run:
 ```bash
 python src/run_all_datasets.py
 ```
-By default this processes each dataset with the TRIAD, Davenport and SVD
-initialisation methods. To limit the run to a single method pass
+By default this now runs only the `IMU_X001`/`GNSS_X001` dataset with the
+TRIAD, Davenport and SVD methods. Use `--datasets` or `--config` to
+process additional pairs. To limit the run to a single method pass
 `--method METHODNAME`.
 The script shows a progress bar and finishes with a small summary table:
 
@@ -360,7 +363,10 @@ All cases: 100%|##########| 9/9 [00:12<00:00,  1.31s/it]
 
 #### run_triad_only.py
 
-If you want to process all datasets using just the TRIAD initialisation method, run the helper script `src/run_triad_only.py` or the MATLAB script `run_triad_only.m`:
+If you want to process datasets using just the TRIAD initialisation method,
+run the helper script `src/run_triad_only.py` or the MATLAB script `run_triad_only.m`.
+Without arguments it processes only the `X001` logs to keep execution short.
+Pass `--datasets` or a config file to handle more pairs:
 
 ```bash
 python src/run_triad_only.py

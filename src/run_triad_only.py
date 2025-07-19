@@ -35,7 +35,8 @@ if __name__ == "__main__":
     logging.info("Ensured 'results/' directory exists.")
 
 TRUTH_PATH = HERE / "STATE_X001.txt"
-DATASETS = ["X001", "X002", "X003"]
+# Default to the first dataset only. Use --datasets or a config file to run more.
+DATASETS = ["X001"]
 EXPECTED_LAT = -32.026554
 
 

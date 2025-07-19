@@ -36,10 +36,10 @@ SCRIPT = HERE / "GNSS_IMU_Fusion.py"
 LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
+# The batch runner now defaults to the first dataset only. Use --config or
+# --datasets to process additional files.
 DEFAULT_DATASETS = [
     ("IMU_X001.dat", "GNSS_X001.csv"),
-    ("IMU_X002.dat", "GNSS_X002.csv"),
-    ("IMU_X003.dat", "GNSS_X002.csv"),   # <- note the GNSS swap
 ]
 
 DEFAULT_METHODS = ["TRIAD", "Davenport", "SVD"]
