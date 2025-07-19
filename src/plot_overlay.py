@@ -94,9 +94,13 @@ def plot_overlay(
             ax.legend(loc="best")
 
     if include_measurements:
-        title = f"{method} – {frame} Frame (Fused vs. Measured GNSS)"
+        title = f"Task 6 – {method} – {frame} Frame (Fused vs. Measured GNSS)"
     else:
-        title = f"{method} – {frame} Frame (Fused vs. Truth)" if t_truth is not None else f"{method} – {frame} Frame (Fused)"
+        title = (
+            f"Task 6 – {method} – {frame} Frame (Fused vs. Truth)"
+            if t_truth is not None
+            else f"Task 6 – {method} – {frame} Frame (Fused)"
+        )
     fig.suptitle(title)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     if filename is not None:

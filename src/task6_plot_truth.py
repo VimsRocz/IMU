@@ -192,9 +192,9 @@ def main() -> None:
                 a_t = a_t * sign
                 truth = (t_t, p_t, v_t, a_t)
         name = (
-            f"{tag}_task6_fused_truth_{frame_name.lower()}.pdf"
+            f"{tag}_task6_{frame_name}_overlay_fused_truth.pdf"
             if args.fused_only
-            else f"{tag}_{frame_name}_overlay_truth.pdf"
+            else f"{tag}_task6_{frame_name}_overlay_truth.pdf"
         )
         plot_overlay(
             frame_name,
@@ -239,7 +239,7 @@ def main() -> None:
             t_t = ensure_relative_time(t_t)
             if frame_name == "NED":
                 p_t = centre(p_t)
-        name_state = f"{tag}_{frame_name}_overlay_state.pdf"
+        name_state = f"{tag}_task6_{frame_name}_overlay_state.pdf"
         plot_overlay(
             frame_name,
             method,
