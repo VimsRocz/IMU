@@ -3,21 +3,25 @@
 
 This helper script loads the Kalman filter output from Task 5 together with
 the corresponding ground truth file and saves overlay figures in the same
-style as Task 5 but with the truth trajectory included.
+style as Task 5 but with the truth trajectory included. Plots and logs will
+be saved in ``results/``.
 """
 
 import argparse
 import re
 from pathlib import Path
+import time
 
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
 from scipy.spatial.transform import Rotation as R
+from tabulate import tabulate
 import numpy as np
 
 
 def main() -> None:
+    start_time = time.time()
     parser = argparse.ArgumentParser(
         description=(
             "Plot fused IMU/GNSS output with the reference trajectory."
@@ -131,6 +135,8 @@ def main() -> None:
         "Body": (t_truth, pos_truth_body, vel_truth_body, acc_truth_body),
     }
 
+    summary_rows = []
+
     def centre(arr: np.ndarray) -> np.ndarray:
         """Return *arr* translated so its first sample is zero."""
         return arr - arr[0]
@@ -211,6 +217,21 @@ def main() -> None:
             include_measurements=not args.fused_only,
         )
 
+        if truth is not None:
+            t_t, p_t, v_t, a_t = truth
+            err_p = p_f - p_t
+            err_v = v_f - v_t
+            err_a = a_f - a_t
+            rmse_p = float(np.sqrt(np.mean(np.sum(err_p ** 2, axis=1))))
+            rmse_v = float(np.sqrt(np.mean(np.sum(err_v ** 2, axis=1))))
+            rmse_a = float(np.sqrt(np.mean(np.sum(err_a ** 2, axis=1))))
+            final_p = float(np.linalg.norm(err_p[-1]))
+            final_v = float(np.linalg.norm(err_v[-1]))
+            final_a = float(np.linalg.norm(err_a[-1]))
+            summary_rows.append(
+                [frame_name, rmse_p, final_p, rmse_v, final_v, rmse_a, final_a]
+            )
+
         # Additional plot using raw STATE data without interpolation
         raw = truth_frames_raw.get(frame_name)
         if raw is not None:
@@ -242,6 +263,20 @@ def main() -> None:
             filename=name_state,
             include_measurements=not args.fused_only,
         )
+
+    if summary_rows:
+        headers = [
+            "Frame",
+            "RMSEpos",
+            "FinalPos",
+            "RMSEvel",
+            "FinalVel",
+            "RMSEacc",
+            "FinalAcc",
+        ]
+        print(tabulate(summary_rows, headers=headers, floatfmt=".3f"))
+    runtime = time.time() - start_time
+    print(f"Task 6 runtime: {runtime:.2f} s")
 
 
 if __name__ == "__main__":

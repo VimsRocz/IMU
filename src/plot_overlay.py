@@ -104,4 +104,5 @@ def plot_overlay(
     else:
         out_path = Path(out_dir) / f"{method}_{frame}{suffix}"
     fig.savefig(out_path)
+    print(f"Saved overlay figure {out_path}")
     plt.close(fig)
