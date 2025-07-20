@@ -1,8 +1,7 @@
-# Python Pipeline – Task 6 Truth Overlay
+# Python Pipeline – Task 6 State Overlay
 
-Task 6 visualises the Kalman filter output from Task 5 together with the known
-reference trajectory. The figures are identical to the Task 5 plots but include
-a black **Truth** line for direct comparison.
+Task 6 visualises the Kalman filter output from Task 5 together with the raw
+`STATE_X` trajectory. Only the ``*_overlay_state.pdf`` figures are produced.
 
 ## Overview
 
@@ -24,15 +23,8 @@ Task 5 output
 2. **Assemble Frames** – use :func:`assemble_frames` to align IMU, GNSS and truth
    data in NED, ECEF and body frames.
 3. **Generate Plots** – call :func:`plot_overlay` for each frame to save PDFs
-   named `<TAG>_task6_<FRAME>_overlay_truth.pdf` in the results directory.
-   The title indicates **Fused vs. Truth** whenever a reference trajectory is
-   supplied and a single legend is placed below the figure.  With
-   ``--show-measurements`` the IMU and GNSS measurements are included and the
-   filenames become `<TAG>_task6_<frame>_overlay_measurements.pdf`.
-4. **State Comparison** – additionally plot the raw `STATE_X*.txt` trajectory
-   using its original time vector. These files are saved as
-   `<TAG>_task6_<FRAME>_overlay_state.pdf` and highlight any time offsets
-   between the estimate and truth.
+   named `<TAG>_task6_<FRAME>_overlay_state.pdf` in the results directory.  The
+   ``--show-measurements`` flag adds the raw IMU and GNSS curves.
 
 ## Result
 

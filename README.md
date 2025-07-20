@@ -246,14 +246,13 @@ Typical result PDFs:
 - `<method>_attitude_angles.pdf` – attitude angles over time
 - `<tag>_<frame>_overlay_truth.pdf` – fused output vs reference (dataset tag is
   derived from the estimator filename)
-- `task6_<frame>_overlay_truth.pdf` – Task 6 overlay with GNSS and IMU
-- `task6_<frame>_overlay_fused_truth.pdf` – overlay of fused output only
+- `task6_<frame>_overlay_state.pdf` – Task 6 overlay with GNSS, IMU and raw state
 - `task7_residuals_position_velocity.pdf` – Task 7 position/velocity residuals
 - `task7_attitude_angles_euler.pdf` – Task 7 Euler angle plots
 
-## Task 6: Truth Overlay
+## Task 6: State Overlay
 
-This step recreates the Task 5 plots with the recorded reference trajectory added for comparison.
+This step recreates the Task 5 plots but overlays the fused trajectory with the raw `STATE_X` data.
 
 ### How to run
 
@@ -264,16 +263,13 @@ python src/task6_plot_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_ou
     --truth-file STATE_X001.txt --output results
 ```
 
-By default only the fused estimate and truth are plotted.  Pass
-`--show-measurements` to include the raw IMU and GNSS curves.  When truth data is
-provided the title always reads **Fused vs. Truth**.  Legends are consolidated
-below the figure and the truth acceleration curves are omitted when
-unavailable.
+Passing `--show-measurements` adds the raw IMU and GNSS curves.  The resulting
+figures are written as ``<tag>_task6_<frame>_overlay_state.pdf`` in the
+``results/`` directory.
 
 ### Output
 
-* `<tag>_task6_<frame>_overlay_truth.pdf` – fused output vs reference
-* `<tag>_task6_<frame>_overlay_measurements.pdf` – when `--show-measurements` is used
+* `<tag>_task6_<frame>_overlay_state.pdf` – fused output vs raw state file
 
 ## Task 7: Evaluation of Filter Results
 
