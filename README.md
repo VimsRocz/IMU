@@ -264,15 +264,16 @@ python src/task6_plot_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_ou
     --truth-file STATE_X001.txt --output results
 ```
 
-Pass `--fused-only` to hide the IMU and GNSS measurements so only the fused
-trajectory and truth are shown. When truth data is provided the title now always
-reads **Fused vs. Truth**.  Legends are consolidated below the figure and the
-truth acceleration curves are omitted when unavailable.
+By default only the fused estimate and truth are plotted.  Pass
+`--show-measurements` to include the raw IMU and GNSS curves.  When truth data is
+provided the title always reads **Fused vs. Truth**.  Legends are consolidated
+below the figure and the truth acceleration curves are omitted when
+unavailable.
 
 ### Output
 
 * `<tag>_task6_<frame>_overlay_truth.pdf` – fused output vs reference
-* `<tag>_task6_<frame>_overlay_fused_truth.pdf` – when `--fused-only` is used
+* `<tag>_task6_<frame>_overlay_measurements.pdf` – when `--show-measurements` is used
 
 ## Task 7: Evaluation of Filter Results
 

@@ -26,9 +26,9 @@ Task 5 output
 3. **Generate Plots** – call :func:`plot_overlay` for each frame to save PDFs
    named `<TAG>_task6_<FRAME>_overlay_truth.pdf` in the results directory.
    The title indicates **Fused vs. Truth** whenever a reference trajectory is
-   supplied and a single legend is placed below the figure.  With ``--fused-only``
-   the IMU and GNSS measurements are hidden and the filenames become
-   `<TAG>_task6_<frame>_overlay_fused_truth.pdf`.
+   supplied and a single legend is placed below the figure.  With
+   ``--show-measurements`` the IMU and GNSS measurements are included and the
+   filenames become `<TAG>_task6_<frame>_overlay_measurements.pdf`.
 4. **State Comparison** – additionally plot the raw `STATE_X*.txt` trajectory
    using its original time vector. These files are saved as
    `<TAG>_task6_<FRAME>_overlay_state.pdf` and highlight any time offsets

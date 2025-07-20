@@ -256,7 +256,7 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
             str(repo / "STATE_X001_small.txt"),
             "--output",
             str(Path("results")),
-            "--fused-only",
+            "--show-measurements",
         ],
     )
     task6_main()

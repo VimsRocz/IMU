@@ -47,9 +47,9 @@ def main() -> None:
         help="Dataset tag used as filename prefix. Defaults to the prefix of --est-file",
     )
     parser.add_argument(
-        "--fused-only",
+        "--show-measurements",
         action="store_true",
-        help="Hide IMU and GNSS measurements in the overlay plots",
+        help="Include IMU and GNSS measurements in the overlay plots",
     )
     args = parser.parse_args()
 
@@ -192,9 +192,9 @@ def main() -> None:
                 a_t = a_t * sign
                 truth = (t_t, p_t, v_t, a_t)
         name = (
-            f"{tag}_task6_{frame_name}_overlay_fused_truth.pdf"
-            if args.fused_only
-            else f"{tag}_task6_{frame_name}_overlay_truth.pdf"
+            f"{tag}_task6_{frame_name}_overlay_truth.pdf"
+            if not args.show_measurements
+            else f"{tag}_task6_{frame_name}_overlay_measurements.pdf"
         )
         plot_overlay(
             frame_name,
@@ -214,7 +214,7 @@ def main() -> None:
             out_dir,
             truth,
             filename=name,
-            include_measurements=not args.fused_only,
+            include_measurements=args.show_measurements,
         )
 
         if truth is not None:
@@ -261,7 +261,7 @@ def main() -> None:
             vel_truth=v_t,
             acc_truth=a_t,
             filename=name_state,
-            include_measurements=not args.fused_only,
+            include_measurements=args.show_measurements,
         )
 
     if summary_rows:

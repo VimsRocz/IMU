@@ -19,6 +19,7 @@ def integrate_trajectory(
     ref_lat: Optional[float] = None,
     ref_lon: Optional[float] = None,
     ref_ecef: Optional[np.ndarray] = None,
+    debug: bool = False,
 ) -> Tuple[
     np.ndarray,
     np.ndarray,
@@ -32,6 +33,10 @@ def integrate_trajectory(
     position-dependent gravity vector is removed in the ECEF frame before
     converting the acceleration back to NED for integration.  Otherwise a
     constant ``g_NED`` is used for all epochs for backward compatibility.
+
+    When ``debug`` is ``True`` the function prints intermediate velocity
+    values at the start, middle and end of the integration to help diagnose
+    divergence issues.
     """
 
     n = len(imu_time)
@@ -45,10 +50,14 @@ def integrate_trajectory(
         for i in range(1, n):
             dt = imu_time[i] - imu_time[i - 1]
             f_ned = C_B_N @ acc_body[i]
-            a_ned = f_ned + g_NED
+            a_ned = f_ned - g_NED
             acc[i] = a_ned
             vel[i] = vel[i - 1] + a_ned * dt
             pos[i] = pos[i - 1] + vel[i] * dt
+            if debug and i in {1, n // 2, n - 1}:
+                print(
+                    f"[DEBUG] i={i} dt={dt:.4f} vel={vel[i]} acc={a_ned}",
+                )
         return pos, vel, acc, None, None
 
     lat = np.asarray(lat)
@@ -74,6 +83,10 @@ def integrate_trajectory(
         acc_ecef[i] = a_ecef
         vel_ecef[i] = vel_ecef[i - 1] + a_ecef * dt
         pos_ecef[i] = pos_ecef[i - 1] + vel_ecef[i] * dt
+        if debug and i in {1, n // 2, n - 1}:
+            print(
+                f"[DEBUG] i={i} dt={dt:.4f} vel_ecef={vel_ecef[i]} acc_ecef={a_ecef}"
+            )
 
     if ref_lat is None:
         ref_lat = float(lat[0])

@@ -793,6 +793,7 @@ def main():
             ref_lat=ref_lat,
             ref_lon=ref_lon,
             ref_ecef=ref_r0,
+            debug=args.verbose,
         )
         pos_integ[m] = pos
         vel_integ[m] = vel

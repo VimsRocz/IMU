@@ -115,9 +115,9 @@ def main(argv=None):
         help="Skip plot generation for faster execution",
     )
     parser.add_argument(
-        "--fused-only",
+        "--show-measurements",
         action="store_true",
-        help="Forward --fused-only to Task 6 overlay plots",
+        help="Include IMU and GNSS measurements in Task 6 overlay plots",
     )
     parser.add_argument(
         "--task",
@@ -346,8 +346,8 @@ def main(argv=None):
                     "--output",
                     "results",
                 ]
-                if args.fused_only:
-                    overlay_cmd.append("--fused-only")
+                if args.show_measurements:
+                    overlay_cmd.append("--show-measurements")
                 with open(log_path, "a") as log:
                     log.write("\nTASK 6: Overlay fused output with truth\n")
                     msg = "Starting Task 6 overlay ..."
