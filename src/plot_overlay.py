@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Optional, Tuple
 
-from matplotlib.lines import Line2D
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -45,9 +44,11 @@ def plot_overlay(
     t_truth, pos_truth, vel_truth, acc_truth : np.ndarray or None, optional
         Ground-truth time, position, velocity and acceleration samples. When
         provided, a black line labelled ``"Truth"`` is drawn in each subplot.
+    mode : str, default "state"
+        Only "state" is supported.  The "truth" option is obsolete.
     suffix : str or None, optional
         Filename suffix appended to ``"{method}_{frame}"`` when saving the
-        figure. Defaults to ``"_overlay_truth.pdf"`` if any truth arrays are
+        figure. Defaults to ``"_overlay_state.pdf"`` when truth data is
         supplied and ``"_overlay.pdf"`` otherwise.
     filename : str or None, optional
         Full filename (relative to ``out_dir``) for the saved figure. When
@@ -61,7 +62,7 @@ def plot_overlay(
         t_truth, pos_truth, vel_truth, acc_truth = truth
 
     if suffix is None:
-        suffix = "_overlay_truth.pdf" if t_truth is not None else "_overlay.pdf"
+        suffix = "_overlay_state.pdf" if t_truth is not None else "_overlay.pdf"
 
     axis_labels = {
         "NED": ["\u0394N [m]", "\u0394E [m]", "\u0394D [m]"],
@@ -78,35 +79,65 @@ def plot_overlay(
         (acc_imu, acc_gnss, acc_fused, acc_truth, "Acceleration [m/s$^2$]"),
     ]
 
-    legend_handles = []
-    legend_labels = []
-
-    def add_handle(handle, label):
-        if label not in legend_labels:
-            legend_handles.append(handle)
-            legend_labels.append(label)
+    color_map = {
+        "Truth": "black",
+        "Fused": "tab:blue",
+        "GNSS": "tab:green",
+        "IMU": "tab:orange",
+    }
 
     has_acc_truth = acc_truth is not None and len(acc_truth) > 0
 
     for row, (imu, gnss, fused, truth, ylab) in enumerate(datasets):
         for col, axis in enumerate(cols):
             ax = axes[row, col]
+            values = [fused[:, col]]
             if include_measurements:
-                (h,) = ax.plot(t_gnss, gnss[:, col], "k", label="Measured GNSS")
-                add_handle(h, "Measured GNSS")
-                (h,) = ax.plot(t_imu, imu[:, col], "c--", label="Measured IMU")
-                add_handle(h, "Measured IMU")
+                ax.plot(
+                    t_gnss,
+                    gnss[:, col],
+                    color=color_map["GNSS"],
+                    label="Measured GNSS",
+                )
+                ax.plot(
+                    t_imu,
+                    imu[:, col],
+                    linestyle="--",
+                    color=color_map["IMU"],
+                    label="Measured IMU",
+                )
+                values.append(gnss[:, col])
+                values.append(imu[:, col])
             if (
                 t_truth is not None
                 and truth is not None
                 and not (row == 2 and not has_acc_truth)
             ):
-                (h,) = ax.plot(t_truth, truth[:, col], "m-", label="Truth")
-                add_handle(h, "Truth")
-            (h,) = ax.plot(
-                t_fused, fused[:, col], "g:", label=f"Fused GNSS+IMU ({method})"
+                ax.plot(
+                    t_truth,
+                    truth[:, col],
+                    color=color_map["Truth"],
+                    label="Truth",
+                )
+                values.append(truth[:, col])
+            ax.plot(
+                t_fused,
+                fused[:, col],
+                color=color_map["Fused"],
+                linestyle=":",
+                label=f"Fused GNSS+IMU ({method})",
             )
-            add_handle(h, f"Fused GNSS+IMU ({method})")
+            values = np.concatenate(values)
+            lim = np.max(np.abs(values)) * 1.1
+            ax.set_ylim(-lim, lim)
+            handles, labels_ = ax.get_legend_handles_labels()
+            keep = [("Fused" in l) or ("Truth" in l) for l in labels_]
+            ax.legend(
+                [h for h, k in zip(handles, keep) if k],
+                [l for l, k in zip(labels_, keep) if k],
+                loc="upper right",
+                fontsize=8,
+            )
             if row == 0:
                 ax.set_title(axis)
             if col == 0:
@@ -122,25 +153,25 @@ def plot_overlay(
         title = f"Task 6 – {method} – {frame} Frame (Fused)"
 
     if not has_acc_truth and t_truth is not None:
-        add_handle(
-            Line2D([], [], color="none", label="No acceleration for Truth"),
+        axes[2, 0].text(
+            0.01,
+            0.05,
             "No acceleration for Truth",
+            transform=axes[2, 0].transAxes,
+            fontsize=8,
+            color="gray",
         )
 
-    fig.legend(
-        legend_handles,
-        legend_labels,
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.05),
-        ncol=len(legend_labels),
-        frameon=False,
-    )
     fig.suptitle(title)
     fig.tight_layout(rect=[0, 0, 1, 0.9])
     if filename is not None:
         out_path = Path(out_dir) / filename
     else:
         out_path = Path(out_dir) / f"{method}_{frame}{suffix}"
-    fig.savefig(out_path)
-    print(f"Saved overlay figure {out_path}")
+
+    fname_pdf = out_path.with_suffix(".pdf")
+    fname_png = out_path.with_suffix(".png")
+    fig.savefig(fname_pdf, dpi=300, bbox_inches="tight")
+    fig.savefig(fname_png, dpi=150, bbox_inches="tight")
+    print(f"Saved overlay figure {fname_pdf}")
     plt.close(fig)

@@ -28,7 +28,7 @@ def test_plot_overlay_with_truth(tmp_path):
         vel_truth=vel,
         acc_truth=acc,
     )
-    assert (tmp_path / "TEST_ECEF_overlay_truth.pdf").exists()
+    assert (tmp_path / "TEST_ECEF_overlay_state.pdf").exists()
 
 
 def test_plot_overlay_fused_only(tmp_path):
@@ -58,7 +58,7 @@ def test_plot_overlay_fused_only(tmp_path):
         vel_truth=vel,
         acc_truth=acc,
     )
-    assert (tmp_path / "TEST_ECEF_overlay_truth.pdf").exists()
+    assert (tmp_path / "TEST_ECEF_overlay_state.pdf").exists()
 
 
 def test_plot_overlay_custom_filename(tmp_path):
