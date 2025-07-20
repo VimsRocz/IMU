@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Task 6 – Overlay fused results with the true trajectory.
+"""Task 6 – Overlay fused results with the raw state trajectory.
 
 This helper script loads the Kalman filter output from Task 5 together with
-the corresponding ground truth file and saves overlay figures in the same
-style as Task 5 but with the truth trajectory included. Plots and logs will
-be saved in ``results/``.
+the corresponding ground truth file and saves only ``*_overlay_state.pdf``
+figures showing the fused estimate versus the raw ``STATE_X`` data. Any
+legacy ``*_overlay_truth.pdf`` output is skipped. Plots and logs will be
+saved in ``results/``.
 """
 
 import argparse
 import re
 from pathlib import Path
 import time
+import glob
+import os
 
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
@@ -55,6 +58,13 @@ def main() -> None:
 
     out_dir = Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Remove any existing Task 6 truth overlay PDFs to avoid confusion
+    for f in glob.glob(str(out_dir / "*task6_*_truth.pdf")):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
 
     est_path = Path(args.est_file)
     m = re.match(r"(IMU_\w+)_(GNSS_\w+)_([A-Za-z]+)_kf_output", est_path.stem)
@@ -191,31 +201,7 @@ def main() -> None:
                 v_t = v_t * sign
                 a_t = a_t * sign
                 truth = (t_t, p_t, v_t, a_t)
-        name = (
-            f"{tag}_task6_{frame_name}_overlay_truth.pdf"
-            if not args.show_measurements
-            else f"{tag}_task6_{frame_name}_overlay_measurements.pdf"
-        )
-        plot_overlay(
-            frame_name,
-            method,
-            t_i,
-            p_i,
-            v_i,
-            a_i,
-            t_g,
-            p_g,
-            v_g,
-            a_g,
-            t_f,
-            p_f,
-            v_f,
-            a_f,
-            out_dir,
-            truth,
-            filename=name,
-            include_measurements=args.show_measurements,
-        )
+        # Skip generation of legacy *overlay_truth.pdf figures
 
         if truth is not None:
             t_t, p_t, v_t, a_t = truth

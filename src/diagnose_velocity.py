@@ -67,7 +67,7 @@ def main() -> None:
     print(f"Initial pos diff: {diff0}")
 
     # Interpolate truth to estimator time
-    pos_truth_i = np.vstack([np.interp(t_est, t_truth, pos_truth[:, i]) for i in range(3)]).T
+    _pos_truth_i = np.vstack([np.interp(t_est, t_truth, pos_truth[:, i]) for i in range(3)]).T  # noqa: F841
     vel_truth_i = np.vstack([np.interp(t_est, t_truth, vel_truth[:, i]) for i in range(3)]).T
 
     # Velocity diagnostics
