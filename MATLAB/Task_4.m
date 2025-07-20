@@ -268,9 +268,9 @@ for i = 1:length(methods)
         q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
         C_B_N = quat_to_rot(q_b_n);
 
-        % Rotate measured specific force to NED and add gravity
+        % Rotate measured specific force to NED and subtract gravity
         f_ned = C_B_N * acc_body_corrected.(method)(k,:)';
-        a_ned = f_ned + g_NED;
+        a_ned = f_ned - g_NED;
         acc(k,:) = a_ned';
         
         % Trapezoidal integration
