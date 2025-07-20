@@ -233,11 +233,11 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
     validate_main()
 
     expected = {
-        "TRIAD_NED_overlay_truth.pdf",
-        "TRIAD_ECEF_overlay_truth.pdf",
-        "TRIAD_Body_overlay_truth.pdf",
+        "TRIAD_NED_overlay_state.pdf",
+        "TRIAD_ECEF_overlay_state.pdf",
+        "TRIAD_Body_overlay_state.pdf",
     }
-    produced = {p.name for p in Path("results").glob("*_overlay_truth.pdf")}
+    produced = {p.name for p in Path("results").glob("*_overlay_state.pdf")}
     assert expected.issubset(produced), f"Missing overlays: {expected - produced}"
 
     # verify raw STATE overlay generation via task6_plot_truth.py
