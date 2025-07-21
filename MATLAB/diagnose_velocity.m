@@ -5,6 +5,8 @@ function diagnose_velocity(est_file, truth_file, imu_file, gnss_file, frame, out
 %   is the MATLAB counterpart of the Python diagnose_velocity script.
 %   It is currently a placeholder and not implemented.
 %
+%   The Python implementation trims quaternion and time vectors to the
+%   shortest length when they differ.
 %   See diagnose_velocity.py for the full logic.
 %
 %See also: DIAGNOSE_VELOCITY.PY

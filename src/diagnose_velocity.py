@@ -7,6 +7,8 @@ Usage:
 
 The script loads fused estimator output, ground truth, IMU and GNSS data,
 performs a series of checks and plots to help debug velocity divergence.
+If quaternion and time vector lengths differ the data are trimmed to the
+shortest length.
 All figures are saved to the specified output directory.
 """
 
@@ -55,6 +57,19 @@ def main() -> None:
             " Ensure --truth-file is provided."
         )
     quat_est = np.asarray(est.get("quat"))
+
+    if quat_est is not None and len(quat_est) != len(t_est):
+        min_len = min(len(quat_est), len(t_est))
+        logger.warning(
+            "Quaternion length %d does not match time vector %d; trimming to %d",
+            len(quat_est),
+            len(t_est),
+            min_len,
+        )
+        quat_est = quat_est[:min_len]
+        t_est = t_est[:min_len]
+        pos_est = pos_est[:min_len]
+        vel_est = vel_est[:min_len]
     truth_raw = np.loadtxt(args.truth_file)
     quat_truth = truth_raw[:, 8:12]
 
@@ -125,9 +140,12 @@ def main() -> None:
         print(eul_est[:10])
         fig, axs = plt.subplots(3, 1, sharex=True)
         names = ["Roll", "Pitch", "Yaw"]
+        eul_truth_i = np.vstack([
+            np.interp(t_est, t_truth, eul_truth[:, i]) for i in range(3)
+        ]).T
         for i in range(3):
             axs[i].plot(t_est, eul_est[:, i], label="Fused")
-            axs[i].plot(t_truth, eul_truth[:, i], label="Truth")
+            axs[i].plot(t_est, eul_truth_i[:, i], label="Truth")
             axs[i].set_ylabel(f"{names[i]} [deg]")
             axs[i].grid(True)
         axs[0].legend()
