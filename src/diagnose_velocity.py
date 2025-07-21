@@ -183,6 +183,20 @@ def main() -> None:
     vel_check = np.cumsum(corrected_acc[:static_samples], axis=0) * dt
     print("Velocity after integrating corrected static acceleration:", vel_check[-1])
 
+    if quat_est is not None:
+        R_bn = R.from_quat(quat_est[: len(corrected_acc), [1, 2, 3, 0]]).as_matrix()
+        acc_ned = (R_bn @ corrected_acc[: len(R_bn)].T).T
+        acc_ned -= np.array([0.0, 0.0, 9.79])
+        mean_ned = acc_ned[:100].mean(axis=0)
+        print("Mean NED accel after gravity removal (first 100 samples):", mean_ned)
+    else:
+        print("Quaternion data not available; skipping NED acceleration check")
+
+    for idx in (0, len(t_est) // 2, len(t_est) - 1):
+        print(
+            f"Time {t_est[idx]:.2f}s: fused vel {vel_est[idx]} m/s vs GNSS {vel_truth_i[idx]} m/s"
+        )
+
     # GNSS timeline
     gnss = pd.read_csv(args.gnss_file)
     t_gnss = gnss["Posix_Time"].to_numpy()
