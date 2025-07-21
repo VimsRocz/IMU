@@ -115,6 +115,7 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
         [np.interp(truth_time, est_time, est_eul[:, i]) for i in range(3)]
     ).T
 
+    C_NED_to_ECEF = np.eye(3)
     if convert_est_to_ecef:
         logging.info("Entering NED-to-ECEF conversion block.")
         # convert estimate to ECEF for comparison
@@ -163,6 +164,7 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
             vel_interp,
             debug=debug,
         )
+        C_NED_to_ECEF = compute_C_ECEF_to_NED(ref_lat, ref_lon).T
         logging.info(
             "Converted estimate from NED to ECEF using reference parameters."
         )
@@ -173,9 +175,23 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
         ref_ecef = truth[0, 2:5]
         lat_deg, lon_deg, _ = ecef_to_geodetic(*ref_ecef)
         C = compute_C_ECEF_to_NED(np.deg2rad(lat_deg), np.deg2rad(lon_deg))
+        C_NED_to_ECEF = C.T
         truth_pos_ned = np.array([C @ (p - ref_ecef) for p in truth[:, 2:5]])
-        truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
-        pos_err = pos_interp - truth_pos_ned
+        # Smooth truth position and differentiate for a cleaner velocity
+        from scipy.signal import savgol_filter
+
+        window_length = 11
+        polyorder = 2
+        pos_sm = savgol_filter(truth_pos_ned, window_length, polyorder, axis=0)
+        dt_truth = np.diff(truth_time)
+        truth_vel_ned = np.zeros_like(pos_sm)
+        truth_vel_ned[1:-1] = (
+            pos_sm[2:] - pos_sm[:-2]
+        ) / (dt_truth[1:, None] + dt_truth[:-1, None])
+        truth_vel_ned[0] = (pos_sm[1] - pos_sm[0]) / dt_truth[0]
+        truth_vel_ned[-1] = (pos_sm[-1] - pos_sm[-2]) / dt_truth[-1]
+
+        pos_err = pos_interp - pos_sm
         vel_err = vel_interp - truth_vel_ned
 
     truth_quat = truth[:, 8:12]
@@ -963,6 +979,9 @@ def main():
             f"Final velocity error: {final_vel_error:.2f} m/s",
             f"RMSE velocity error: {rmse_vel:.2f} m/s",
         ]
+        print(f"Final fused_vel_ned: {est['vel'][-1]}")
+        print(f"Final truth_vel_ned: {truth_vel_ned[-1]}")
+        print(f"Final velocity error: {err_vel[-1]}")
         dt = np.diff(t_truth, prepend=t_truth[0])
         acc_est = np.zeros_like(err_vel)
         acc_est[1:] = np.diff(np.asarray(est["vel"]), axis=0) / dt[1:, None]

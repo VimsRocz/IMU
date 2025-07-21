@@ -655,6 +655,7 @@ def main():
     from utils import ecef_to_ned
     gnss_pos_ned = ecef_to_ned(gnss_pos_ecef, ref_lat, ref_lon, ref_r0)
     gnss_vel_ned = np.array([C_ECEF_to_NED @ v for v in gnss_vel_ecef])
+    logging.info(f"GNSS velocity incorporated: {gnss_vel_ned[0]}")
     logging.info("GNSS data transformed to NED frame.")
     
     # --------------------------------
@@ -1204,6 +1205,10 @@ def main():
         kf.P *= 1.0
         kf.R = np.eye(6) * 0.1
         kf.Q = np.eye(13) * 0.01
+        kf.Q[3:6, 3:6] *= 10
+        kf.R[3:6, 3:6] = np.eye(3) * 0.25
+        logging.info(f"Adjusted Q[3:6,3:6]: {kf.Q[3:6,3:6]}")
+        logging.info(f"Adjusted R[3:6,3:6]: {kf.R[3:6,3:6]}")
         fused_pos[m][0] = imu_pos[m][0]
         fused_vel[m][0] = imu_vel[m][0]
         fused_acc[m][0] = imu_acc[m][0]

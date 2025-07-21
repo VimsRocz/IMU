@@ -98,5 +98,8 @@ def integrate_trajectory(
     pos = np.array([C_ref @ (p - ref_ecef) for p in pos_ecef])
     vel = np.array([C_ref @ v for v in vel_ecef])
     acc = np.array([C_ref @ a for a in acc_ecef])
+    if debug:
+        print(f"First accel_ned: {acc[1]}, Last accel_ned: {acc[-1]}")
+        print(f"First velocity_ned: {vel[1]}, Last velocity_ned: {vel[-1]}")
 
     return pos, vel, acc, pos_ecef, vel_ecef
