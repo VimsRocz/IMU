@@ -5,7 +5,7 @@ function vel = derive_velocity(time_s, pos, window_length, polyorder)
 %   vel = derive_velocity(time_s, pos, window_length, polyorder)
 %
 % This is a MATLAB stub mirroring ``derive_velocity`` in
-% ``task6_plot_fused_trajectory.py``. It should smooth the input position
+% ``velocity_utils.py``. It should smooth the input position
 % with a Savitzky-Golay filter and apply a central difference.
 %
 % TODO: implement full MATLAB version.
