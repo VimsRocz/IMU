@@ -1,7 +1,7 @@
-function diagnose_velocity(est_file, truth_file, imu_file, gnss_file, output_dir)
+function diagnose_velocity(est_file, truth_file, imu_file, gnss_file, frame, output_dir)
 %DIAGNOSE_VELOCITY  Stub for velocity diagnostics in MATLAB.
 %
-%   diagnose_velocity(EST_FILE, TRUTH_FILE, IMU_FILE, GNSS_FILE, OUTPUT_DIR)
+%   diagnose_velocity(EST_FILE, TRUTH_FILE, IMU_FILE, GNSS_FILE, FRAME, OUTPUT_DIR)
 %   is the MATLAB counterpart of the Python diagnose_velocity script.
 %   It is currently a placeholder and not implemented.
 %
@@ -9,7 +9,7 @@ function diagnose_velocity(est_file, truth_file, imu_file, gnss_file, output_dir
 %
 %See also: DIAGNOSE_VELOCITY.PY
 
-if nargin < 5
+if nargin < 6
     output_dir = 'results';
 end
 
