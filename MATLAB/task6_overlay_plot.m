@@ -2,11 +2,13 @@ function task6_overlay_plot(~)
 %TASK6_OVERLAY_PLOT  Stub for Task 6 overlay plotting in MATLAB.
 %
 % Usage:
-%   task6_overlay_plot(est_file, truth_file, method, frame, dataset)
+%   task6_overlay_plot(est_file, truth_file, method, frame, dataset, debug)
 %
 % This stub mirrors ``task6_overlay_plot.py``. It should load the fused
 % estimator output and ground truth, synchronise their time bases, and plot
 % position, velocity and acceleration overlays in either ECEF or NED frames.
+% If ``debug`` is true the function should print dataset diagnostics similar to
+% the Python implementation.
 %
 % TODO: implement MATLAB version matching the Python functionality.
 %
