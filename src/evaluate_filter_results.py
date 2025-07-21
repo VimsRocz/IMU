@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from tabulate import tabulate
 import time
+from velocity_utils import derive_velocity
 
 
 def _find_cols(df: pd.DataFrame, options: Sequence[Sequence[str]]) -> Sequence[str]:
@@ -178,6 +179,28 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     else:
         n = len(t)
     quat = quat[:n]
+
+    # Reconstruct GNSS position and derive smoother velocity
+    fused_time = data.get("time")
+    fused_pos = data.get("pos_ned")
+    if fused_pos is None:
+        fused_pos = data.get("fused_pos")
+    fused_vel = data.get("vel_ned")
+    if fused_vel is None:
+        fused_vel = data.get("fused_vel")
+    if fused_time is not None and fused_pos is not None and fused_vel is not None:
+        pos_interp = np.vstack(
+            [np.interp(t, fused_time, fused_pos[:, i]) for i in range(3)]
+        ).T
+        vel_interp = np.vstack(
+            [np.interp(t, fused_time, fused_vel[:, i]) for i in range(3)]
+        ).T
+        truth_pos = pos_interp - res_pos
+        truth_vel = derive_velocity(t, truth_pos)
+        print(f"Final fused_vel_ned: {vel_interp[-1]}")
+        print(f"Final truth_vel_ned: {truth_vel[-1]}")
+        res_pos = pos_interp - truth_pos
+        res_vel = vel_interp - truth_vel
 
     mean_pos = res_pos.mean(axis=0)
     std_pos = res_pos.std(axis=0)
