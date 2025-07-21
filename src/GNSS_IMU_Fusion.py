@@ -107,6 +107,30 @@ def main():
     parser.add_argument("--accel-bias-noise", type=float, default=1e-5)
     parser.add_argument("--gyro-bias-noise", type=float, default=1e-5)
     parser.add_argument(
+        "--vel-q-scale",
+        type=float,
+        default=10.0,
+        help="Scale factor applied to Q[3:6,3:6] for velocity process noise",
+    )
+    parser.add_argument(
+        "--vel-r",
+        type=float,
+        default=0.25,
+        help="Diagonal value for R[3:6,3:6] velocity measurement noise",
+    )
+    parser.add_argument(
+        "--zupt-acc-var",
+        type=float,
+        default=0.01,
+        help="Accelerometer variance threshold for ZUPT detection",
+    )
+    parser.add_argument(
+        "--zupt-gyro-var",
+        type=float,
+        default=1e-6,
+        help="Gyroscope variance threshold for ZUPT detection",
+    )
+    parser.add_argument(
         "--static-start",
         type=int,
         default=None,
@@ -1205,8 +1229,8 @@ def main():
         kf.P *= 1.0
         kf.R = np.eye(6) * 0.1
         kf.Q = np.eye(13) * 0.01
-        kf.Q[3:6, 3:6] *= 10
-        kf.R[3:6, 3:6] = np.eye(3) * 0.25
+        kf.Q[3:6, 3:6] *= args.vel_q_scale
+        kf.R[3:6, 3:6] = np.eye(3) * args.vel_r
         logging.info(f"Adjusted Q[3:6,3:6]: {kf.Q[3:6,3:6]}")
         logging.info(f"Adjusted R[3:6,3:6]: {kf.R[3:6,3:6]}")
         fused_pos[m][0] = imu_pos[m][0]
@@ -1277,7 +1301,12 @@ def main():
             if len(acc_win) > win:
                 acc_win.pop(0)
                 gyro_win.pop(0)
-            if len(acc_win) == win and is_static(np.array(acc_win), np.array(gyro_win)):
+            if len(acc_win) == win and is_static(
+                np.array(acc_win),
+                np.array(gyro_win),
+                accel_var_thresh=args.zupt_acc_var,
+                gyro_var_thresh=args.zupt_gyro_var,
+            ):
                 H_z = np.zeros((3, 13))
                 H_z[:, 3:6] = np.eye(3)
                 R_z = np.eye(3) * 1e-4
