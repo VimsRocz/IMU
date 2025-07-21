@@ -96,7 +96,15 @@ def main() -> None:
     vel_error = vel_est - vel_truth_i
     vel_rmse = float(np.sqrt(np.mean(np.sum(vel_error**2, axis=1))))
     final_vel_err = float(np.linalg.norm(vel_error[-1]))
+    mean_vel_err = np.mean(vel_error, axis=0)
+    std_vel_err = np.std(vel_error, axis=0)
+    rmse_vec = np.sqrt(np.mean(vel_error**2, axis=0))
     print(f"Velocity RMSE: {vel_rmse:.3f} m/s, Final error: {final_vel_err:.3f} m/s")
+    print("Mean velocity residuals (ECEF):", mean_vel_err)
+    print("Std velocity residuals (ECEF):", std_vel_err)
+    print("RMSE velocity residuals (ECEF):", rmse_vec)
+    print("Final fused ECEF velocity:", vel_est[-1])
+    print("Final truth ECEF velocity:", vel_truth_i[-1])
 
     # Plots
     labels = ["X", "Y", "Z"]

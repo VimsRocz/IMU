@@ -6,7 +6,8 @@ function diagnose_velocity(est_file, truth_file, imu_file, gnss_file, frame, out
 %   It is currently a placeholder and not implemented.
 %
 %   The Python implementation trims quaternion and time vectors to the
-%   shortest length when they differ.
+%   shortest length when they differ and prints mean/std/RMSE velocity
+%   residuals in the ECEF frame.
 %   See diagnose_velocity.py for the full logic.
 %
 %See also: DIAGNOSE_VELOCITY.PY
