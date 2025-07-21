@@ -2,7 +2,8 @@
 
 Usage:
     python diagnose_velocity.py --est-file <file> --truth-file <truth> \
-        --imu-file <imu> --gnss-file <gnss> --output-dir results
+        --imu-file <imu> --gnss-file <gnss> [--frame ECEF] \
+        --output-dir results
 
 The script loads fused estimator output, ground truth, IMU and GNSS data,
 performs a series of checks and plots to help debug velocity divergence.
@@ -19,16 +20,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 
-from validate_with_truth import load_estimate
+from validate_with_truth import load_estimate, assemble_frames
 
 
 logger = logging.getLogger(__name__)
-
-
-def load_truth(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Return time, ECEF position, velocity and quaternion from STATE file."""
-    data = np.loadtxt(path)
-    return data[:, 1], data[:, 2:5], data[:, 5:8], data[:, 8:12]
 
 
 def main() -> None:
@@ -38,16 +33,30 @@ def main() -> None:
     parser.add_argument("--imu-file", required=True)
     parser.add_argument("--gnss-file", required=True)
     parser.add_argument("--output-dir", default="results")
+    parser.add_argument(
+        "--frame",
+        choices=["NED", "ECEF", "Body"],
+        default="ECEF",
+        help="reference frame for comparison",
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     est = load_estimate(args.est_file)
-    t_est = np.asarray(est["time"]).squeeze()
-    pos_est = np.asarray(est["pos"])
-    vel_est = np.asarray(est["vel"])
+    frames = assemble_frames(est, args.imu_file, args.gnss_file, args.truth_file)
+    try:
+        t_est, pos_est, vel_est, _ = frames[args.frame]["fused"]
+        t_truth, pos_truth, vel_truth, _ = frames[args.frame]["truth"]
+    except KeyError:
+        raise ValueError(
+            f"Truth data not available for frame {args.frame}."
+            " Ensure --truth-file is provided."
+        )
     quat_est = np.asarray(est.get("quat"))
+    truth_raw = np.loadtxt(args.truth_file)
+    quat_truth = truth_raw[:, 8:12]
 
     print(f"Estimator position shape: {pos_est.shape}")
     print(f"Estimator velocity shape: {vel_est.shape}")
@@ -56,7 +65,6 @@ def main() -> None:
     if np.any(np.isnan(pos_est)) or np.any(np.isnan(vel_est)):
         print("Warning: NaNs detected in estimator output")
 
-    t_truth, pos_truth, vel_truth, quat_truth = load_truth(Path(args.truth_file))
     print(f"Truth position shape: {pos_truth.shape}")
     print(f"Truth velocity shape: {vel_truth.shape}")
 
@@ -67,7 +75,6 @@ def main() -> None:
     print(f"Initial pos diff: {diff0}")
 
     # Interpolate truth to estimator time
-    _pos_truth_i = np.vstack([np.interp(t_est, t_truth, pos_truth[:, i]) for i in range(3)]).T  # noqa: F841
     vel_truth_i = np.vstack([np.interp(t_est, t_truth, vel_truth[:, i]) for i in range(3)]).T
 
     # Velocity diagnostics
