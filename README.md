@@ -331,8 +331,8 @@ configuration file to specify the datasets:
 python src/run_all_methods.py --config your_config.yml
 ```
 
-Running the script without `--config` processes only the bundled `IMU_X001.dat`
-and `GNSS_X001.csv` pair.
+Running the script without `--config` processes all bundled data sets
+(`IMU_X001`–`IMU_X003`).
 Provide a YAML configuration to process additional logs.
 Task 6 (truth overlay) and Task 7 (evaluation) are performed automatically for
 each run.  The additional figures are written to `results/` with the evaluation
@@ -348,9 +348,9 @@ To process every IMU/GNSS pair defined in `src/run_all_datasets.py`, simply run:
 ```bash
 python src/run_all_datasets.py
 ```
-By default this processes only the `IMU_X001.dat` and `GNSS_X001.csv` pair with
-all three methods. To process other datasets provide a configuration file or
-edit `src/run_all_datasets.py`. To limit the run to a single method pass
+By default this processes the three bundled IMU/GNSS pairs with all three
+methods. To process other datasets provide a configuration file or edit
+`src/run_all_datasets.py`. To limit the run to a single method pass
 `--method METHODNAME`.
 The script shows a progress bar and finishes with a small summary table:
 

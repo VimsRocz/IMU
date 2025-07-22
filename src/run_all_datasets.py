@@ -38,8 +38,8 @@ LOG_DIR.mkdir(exist_ok=True)
 
 DEFAULT_DATASETS = [
     ("IMU_X001.dat", "GNSS_X001.csv"),
-    # ("IMU_X002.dat", "GNSS_X002.csv"),
-    # ("IMU_X003.dat", "GNSS_X002.csv"),   # <- note the GNSS swap
+    ("IMU_X002.dat", "GNSS_X002.csv"),
+    ("IMU_X003.dat", "GNSS_X002.csv"),  # dataset X003 shares GNSS_X002
 ]
 
 DEFAULT_METHODS = ["TRIAD", "Davenport", "SVD"]
