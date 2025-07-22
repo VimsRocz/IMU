@@ -8,6 +8,7 @@ IMU data processing and initialization tools (Python)
 - [Running the Pipeline](#running-the-pipeline)
   - [run_all_datasets.py](#run_all_datasetspy)
   - [run_triad_only.py](#run_triad_onlypy)
+  - [run_method_only.py](#run_method_onlypy)
   - [GNSS_IMU_Fusion_single](#gnss_imu_fusion_singleimu_file-gnss_file)
 - [Per-Task Overview](#per-task-overview)
 - [Datasets](#datasets)
@@ -378,6 +379,19 @@ The script also validates the fused trajectory against the common
 `STATE_X001.txt` file and writes an extended summary to
 `results/summary_truth.csv`. The table now includes acceleration RMSE,
 final and maximum errors.
+
+#### run_method_only.py
+
+`run_method_only.py` extends the helper above with a selectable method.
+It reuses the dataset list from `run_all_datasets.py` and prints the same
+summary table. Call it directly or via the MATLAB wrapper:
+
+```bash
+python src/run_method_only.py --method SVD
+```
+```matlab
+run_method_only('SVD')
+```
 
 
 After all runs complete you can compare the datasets side by side:
