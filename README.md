@@ -393,6 +393,10 @@ python src/run_method_only.py --method SVD
 run_method_only('SVD')
 ```
 
+Dedicated wrappers `run_svd_only.py` and `run_davenport_only.py` mirror
+`run_triad_only.py` for the SVD and Davenport methods.  MATLAB users can
+call `run_svd_only` or `run_davenport_only` for the same behaviour.
+
 
 After all runs complete you can compare the datasets side by side:
 
