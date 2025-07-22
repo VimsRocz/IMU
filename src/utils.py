@@ -13,10 +13,15 @@ import logging
 
 
 def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
-    """Install packages from ``requirements.txt`` if key deps are missing."""
+    """Install packages from ``requirements.txt`` if key deps are missing.
+
+    Checks for :mod:`tabulate`, :mod:`tqdm` and :mod:`pandas` and installs
+    everything listed in the requirements file if any of them are not found.
+    """
     try:
         import tabulate  # noqa: F401
         import tqdm  # noqa: F401
+        import pandas  # noqa: F401
     except ModuleNotFoundError:
         if requirements is None:
             requirements = (
