@@ -2,7 +2,7 @@
 """Run all datasets using a selectable attitude initialisation method.
 
 This script generalises ``run_triad_only_cli.py``. It forwards the chosen
-method to ``run_all_datasets.py`` and validates the resulting trajectory
+method to ``run_all_methods.py`` and validates the resulting trajectory
 against the bundled ground truth when available. The printed summary table
 matches the one produced by ``run_triad_only_cli.py``.
 
@@ -31,7 +31,9 @@ from pyproj import Transformer
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Use the project root for locating the common truth file so the script works
@@ -74,7 +76,9 @@ def ecef_to_ned(r0):
         lon, lat, h = transformer.transform(*r0)
         logger.debug("Computed lat=%.6f° lon=%.6f° h=%.2f m", lat, lon, h)
         if abs(lat - EXPECTED_LAT) > 0.1:
-            logger.warning("Computed latitude %.6f° differs from expected %.6f°", lat, EXPECTED_LAT)
+            logger.warning(
+                "Computed latitude %.6f° differs from expected %.6f°", lat, EXPECTED_LAT
+            )
         return lat, lon, h
     except Exception as e:  # pragma: no cover - optional error
         logger.error(f"ECEF-to-NED conversion failed: {e}")
@@ -84,13 +88,21 @@ def ecef_to_ned(r0):
 def compute_errors(truth_data, est_pos, est_vel, est_eul, truth_time, est_time):
     logger.debug("Computing errors against truth data")
     try:
-        pos_i = np.vstack([np.interp(truth_time, est_time, est_pos[:, i]) for i in range(3)]).T
-        vel_i = np.vstack([np.interp(truth_time, est_time, est_vel[:, i]) for i in range(3)]).T
-        eul_i = np.vstack([np.interp(truth_time, est_time, est_eul[:, i]) for i in range(3)]).T
+        pos_i = np.vstack(
+            [np.interp(truth_time, est_time, est_pos[:, i]) for i in range(3)]
+        ).T
+        vel_i = np.vstack(
+            [np.interp(truth_time, est_time, est_vel[:, i]) for i in range(3)]
+        ).T
+        eul_i = np.vstack(
+            [np.interp(truth_time, est_time, est_eul[:, i]) for i in range(3)]
+        ).T
 
         pos_err = np.linalg.norm(truth_data[:, 2:5] - pos_i, axis=1)
         vel_err = np.linalg.norm(truth_data[:, 5:8] - vel_i, axis=1)
-        truth_eul = R.from_quat(truth_data[:, 8:12][:, [1, 2, 3, 0]]).as_euler("xyz", degrees=True)
+        truth_eul = R.from_quat(truth_data[:, 8:12][:, [1, 2, 3, 0]]).as_euler(
+            "xyz", degrees=True
+        )
         eul_err = np.linalg.norm(truth_eul - eul_i, axis=1)
 
         dt = np.diff(truth_time)
@@ -112,7 +124,15 @@ def compute_errors(truth_data, est_pos, est_vel, est_eul, truth_time, est_time):
             "RMSE pos=%.3f m, Final pos=%.3f m, RMSE vel=%.3f m/s, Final vel=%.3f m/s, "
             "RMSE acc=%.3f m/s^2, Final acc=%.3f m/s^2, Max acc=%.3f m/s^2, "
             "RMSE eul=%.3f deg, Final eul=%.3f deg",
-            rmse_pos, final_pos, rmse_vel, final_vel, rmse_acc, final_acc, max_acc, rmse_eul, final_eul,
+            rmse_pos,
+            final_pos,
+            rmse_vel,
+            final_vel,
+            rmse_acc,
+            final_acc,
+            max_acc,
+            rmse_eul,
+            final_eul,
         )
 
         return (
@@ -132,13 +152,23 @@ def compute_errors(truth_data, est_pos, est_vel, est_eul, truth_time, est_time):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Run all datasets with one method", allow_abbrev=False)
-    parser.add_argument("--method", choices=["TRIAD", "Davenport", "SVD"], default="TRIAD")
+    parser = argparse.ArgumentParser(
+        description="Run all datasets with one method", allow_abbrev=False
+    )
+    parser.add_argument(
+        "--method", choices=["TRIAD", "Davenport", "SVD"], default="TRIAD"
+    )
     args, remaining = parser.parse_known_args(argv)
 
     ensure_dependencies()
 
-    cmd = [sys.executable, str(HERE / "run_all_datasets.py"), "--method", args.method, *remaining]
+    cmd = [
+        sys.executable,
+        str(HERE / "run_all_methods.py"),
+        "--method",
+        args.method,
+        *remaining,
+    ]
     subprocess.run(cmd, check=True)
 
     summary = []
@@ -148,7 +178,9 @@ def main(argv=None):
         sys.exit(1)
 
     est_ref_time = np.arange(0, 1250, 0.0025)
-    trimmed_time, trimmed_data = trim_truth_to_estimate(truth_time, truth_data, est_ref_time)
+    trimmed_time, trimmed_data = trim_truth_to_estimate(
+        truth_time, truth_data, est_ref_time
+    )
     trimmed_truth_file = Path.cwd() / "results" / "STATE_X001_trimmed.txt"
     np.savetxt(trimmed_truth_file, trimmed_data, fmt="%0.8f")
     logger.debug(f"Trimmed truth saved to {trimmed_truth_file}")
@@ -156,7 +188,9 @@ def main(argv=None):
     results = Path.cwd() / "results"
     pattern = f"*_{args.method}_kf_output.mat"
     for mat in results.glob(pattern):
-        m = re.match(r"IMU_(X\d+)_.*_" + re.escape(args.method) + r"_kf_output\.mat", mat.name)
+        m = re.match(
+            r"IMU_(X\d+)_.*_" + re.escape(args.method) + r"_kf_output\.mat", mat.name
+        )
         if not m:
             continue
         dataset = m.group(1)
@@ -170,12 +204,20 @@ def main(argv=None):
         vcmd = [
             sys.executable,
             str(HERE / "validate_with_truth.py"),
-            "--est-file", str(mat),
-            "--truth-file", str(truth),
-            "--output", str(results),
-            "--ref-lat", str(lat_deg),
-            "--ref-lon", str(lon_deg),
-            "--ref-r0", str(r0[0]), str(r0[1]), str(r0[2]),
+            "--est-file",
+            str(mat),
+            "--truth-file",
+            str(truth),
+            "--output",
+            str(results),
+            "--ref-lat",
+            str(lat_deg),
+            "--ref-lon",
+            str(lon_deg),
+            "--ref-r0",
+            str(r0[0]),
+            str(r0[1]),
+            str(r0[2]),
         ]
         proc = subprocess.run(vcmd, check=True, capture_output=True, text=True)
         print(proc.stdout)
@@ -208,14 +250,23 @@ def main(argv=None):
 
         est_interp = load_estimate(str(mat), times=trimmed_time)
         est_eul = (
-            R.from_quat(np.asarray(est_interp["quat"])[:, [1, 2, 3, 0]]).as_euler("xyz", degrees=True)
+            R.from_quat(np.asarray(est_interp["quat"])[:, [1, 2, 3, 0]]).as_euler(
+                "xyz", degrees=True
+            )
             if est_interp.get("quat") is not None
             else np.zeros_like(est_interp["pos"])
         )
 
         (
-            rmse_pos, final_pos, rmse_vel, final_vel,
-            rmse_acc, final_acc, max_acc, rmse_eul, final_eul,
+            rmse_pos,
+            final_pos,
+            rmse_vel,
+            final_vel,
+            rmse_acc,
+            final_acc,
+            max_acc,
+            rmse_eul,
+            final_eul,
         ) = compute_errors(
             trimmed_data,
             np.asarray(est_interp["pos"]),
@@ -224,14 +275,19 @@ def main(argv=None):
             trimmed_time,
             trimmed_time,
         )
-        logger.debug("%s - interp RMSEpos=%.3f m, final=%.3f m", dataset, rmse_pos, final_pos)
+        logger.debug(
+            "%s - interp RMSEpos=%.3f m, final=%.3f m", dataset, rmse_pos, final_pos
+        )
         metrics["rmse_acc"] = rmse_acc
         metrics["final_acc"] = final_acc
         metrics["max_acc"] = max_acc
         try:
             t_truth = trimmed_time
             est = load_estimate(str(mat), times=t_truth)
-            m2 = re.match(r"(IMU_\w+)_((?:GNSS_)?\w+)_" + re.escape(args.method) + r"_kf_output", mat.stem)
+            m2 = re.match(
+                r"(IMU_\w+)_((?:GNSS_)?\w+)_" + re.escape(args.method) + r"_kf_output",
+                mat.stem,
+            )
             if m2:
                 imu_file = ROOT / f"{m2.group(1)}.dat"
                 gnss_file = ROOT / f"{m2.group(2)}.csv"
@@ -246,57 +302,100 @@ def main(argv=None):
                     else:
                         t_t = p_t = v_t = a_t = None
                     plot_overlay(
-                        frame_name, args.method, t_i, p_i, v_i, a_i,
-                        t_g, p_g, v_g, a_g,
-                        t_f, p_f, v_f, a_f,
+                        frame_name,
+                        args.method,
+                        t_i,
+                        p_i,
+                        v_i,
+                        a_i,
+                        t_g,
+                        p_g,
+                        v_g,
+                        a_g,
+                        t_f,
+                        p_f,
+                        v_f,
+                        a_f,
                         results,
-                        t_truth=t_t, pos_truth=p_t, vel_truth=v_t, acc_truth=a_t,
+                        t_truth=t_t,
+                        pos_truth=p_t,
+                        vel_truth=v_t,
+                        acc_truth=a_t,
                     )
 
-                npz_path = mat.with_suffix('.npz')
-                q0 = [float('nan')]*4
-                P0 = [float('nan')]*3
+                npz_path = mat.with_suffix(".npz")
+                q0 = [float("nan")] * 4
+                P0 = [float("nan")] * 3
                 try:
                     npz = np.load(npz_path, allow_pickle=True)
-                    if 'attitude_q' in npz:
-                        q0 = npz['attitude_q'][0]
-                    if 'P_hist' in npz:
-                        P0 = np.diagonal(npz['P_hist'][0])[:3]
+                    if "attitude_q" in npz:
+                        q0 = npz["attitude_q"][0]
+                    if "P_hist" in npz:
+                        P0 = np.diagonal(npz["P_hist"][0])[:3]
                 except Exception:
                     pass
 
-                summary.append({
-                    'dataset': m.group(1),
-                    **metrics,
-                    'q0_w': q0[0],
-                    'q0_x': q0[1],
-                    'q0_y': q0[2],
-                    'q0_z': q0[3],
-                    'Pxx': P0[0],
-                    'Pyy': P0[1],
-                    'Pzz': P0[2],
-                })
+                summary.append(
+                    {
+                        "dataset": m.group(1),
+                        **metrics,
+                        "q0_w": q0[0],
+                        "q0_x": q0[1],
+                        "q0_y": q0[2],
+                        "q0_z": q0[3],
+                        "Pxx": P0[0],
+                        "Pyy": P0[1],
+                        "Pzz": P0[2],
+                    }
+                )
         except Exception as e:
             print(f"Overlay plot failed: {e}")
 
     if summary:
         rows = [
-            [s.get('dataset'), s.get('rmse_pos'), s.get('final_pos'), s.get('rmse_vel'),
-             s.get('final_vel'), s.get('rmse_acc'), s.get('final_acc'), s.get('max_acc'),
-             s.get('rmse_att'), s.get('final_att'),
-             s.get('q0_w'), s.get('q0_x'), s.get('q0_y'), s.get('q0_z'),
-             s.get('Pxx'), s.get('Pyy'), s.get('Pzz')]
+            [
+                s.get("dataset"),
+                s.get("rmse_pos"),
+                s.get("final_pos"),
+                s.get("rmse_vel"),
+                s.get("final_vel"),
+                s.get("rmse_acc"),
+                s.get("final_acc"),
+                s.get("max_acc"),
+                s.get("rmse_att"),
+                s.get("final_att"),
+                s.get("q0_w"),
+                s.get("q0_x"),
+                s.get("q0_y"),
+                s.get("q0_z"),
+                s.get("Pxx"),
+                s.get("Pyy"),
+                s.get("Pzz"),
+            ]
             for s in summary
         ]
         headers = [
-            'Dataset', 'RMSEpos[m]', 'FinalPos[m]', 'RMSEvel[m/s]', 'FinalVel[m/s]',
-            'RMSEacc[m/s^2]', 'FinalAcc[m/s^2]', 'MaxAcc[m/s^2]',
-            'RMSEatt[deg]', 'FinalAtt[deg]', 'q0_w', 'q0_x', 'q0_y', 'q0_z',
-            'Pxx', 'Pyy', 'Pzz'
+            "Dataset",
+            "RMSEpos[m]",
+            "FinalPos[m]",
+            "RMSEvel[m/s]",
+            "FinalVel[m/s]",
+            "RMSEacc[m/s^2]",
+            "FinalAcc[m/s^2]",
+            "MaxAcc[m/s^2]",
+            "RMSEatt[deg]",
+            "FinalAtt[deg]",
+            "q0_w",
+            "q0_x",
+            "q0_y",
+            "q0_z",
+            "Pxx",
+            "Pyy",
+            "Pzz",
         ]
-        print(tabulate(rows, headers=headers, floatfmt='.3f'))
+        print(tabulate(rows, headers=headers, floatfmt=".3f"))
         df = pd.DataFrame(rows, columns=headers)
-        df.to_csv(results / 'summary_truth.csv', index=False)
+        df.to_csv(results / "summary_truth.csv", index=False)
 
 
 if __name__ == "__main__":

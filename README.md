@@ -379,7 +379,7 @@ run_triad_only
 ```
 The MATLAB version now calls `run_all_datasets_matlab` so it does not
 require Python. Both scripts generate the same output as running
-`python src/run_all_datasets.py --method TRIAD` and validate the fused
+`python src/run_all_methods.py --method TRIAD` and validate the fused
 trajectory against the common `STATE_X001.txt` file. The extended
 summary is written to `results/summary_truth.csv` and includes
 acceleration RMSE, final and maximum errors.
@@ -387,10 +387,11 @@ acceleration RMSE, final and maximum errors.
 #### run_method_only_cli.py
 
 `run_method_only_cli.py` extends the helper above with a selectable method and
-prints the same summary table as `run_triad_only_cli.py`.  The MATLAB function
-`run_method_only` now mirrors this behaviour purely within MATLAB by calling
-`run_all_datasets_matlab` with the chosen method.  No Python interpreter is
-required for the MATLAB workflow:
+prints the same summary table as `run_triad_only_cli.py`. The script now calls
+`run_all_methods.py` under the hood so the behaviour matches the full batch
+runner.  The MATLAB function `run_method_only` mirrors this behaviour purely
+within MATLAB via `run_all_datasets_matlab` and therefore requires no Python
+interpreter:
 
 ```bash
 python src/run_method_only_cli.py --method SVD

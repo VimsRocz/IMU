@@ -15,7 +15,9 @@ Example ``config.yml``::
         gnss: GNSS_X002.csv
     methods: [TRIAD, Davenport, SVD]
 
-Run the script with ``--config config.yml`` to process those files.
+Run the script with ``--config config.yml`` to process those files.  The
+``--datasets`` and ``--method`` options mirror ``run_all_datasets.py`` and
+restrict the processed data sets and attitude initialisation method.
 """
 
 import argparse
@@ -110,6 +112,17 @@ def main(argv=None):
         help="YAML file specifying datasets and methods",
     )
     parser.add_argument(
+        "--datasets",
+        default="ALL",
+        help="Comma separated dataset IDs (e.g. X001,X002) or ALL",
+    )
+    parser.add_argument(
+        "--method",
+        choices=["TRIAD", "SVD", "Davenport", "ALL"],
+        default="ALL",
+        help="Run only one attitude initialisation method",
+    )
+    parser.add_argument(
         "--no-plots",
         action="store_true",
         help="Skip plot generation for faster execution",
@@ -151,11 +164,20 @@ def main(argv=None):
     else:
         cases, methods = list(DEFAULT_DATASETS), list(DEFAULT_METHODS)
 
+    if args.datasets.upper() != "ALL":
+        ids = {d.strip() for d in args.datasets.split(",")}
+        cases = [p for p in cases if pathlib.Path(p[0]).stem.split("_")[1] in ids]
+
+    if args.method.upper() == "ALL":
+        method_list = methods
+    else:
+        method_list = [args.method]
+
     logger.debug(f"Datasets: {cases}")
-    logger.debug(f"Methods: {methods}")
+    logger.debug(f"Methods: {method_list}")
 
     results = []
-    for (imu, gnss), m in itertools.product(cases, methods):
+    for (imu, gnss), m in itertools.product(cases, method_list):
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
         log_path = pathlib.Path("results") / f"{tag}.log"
         print(f"\u25b6 {tag}")
