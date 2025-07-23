@@ -53,7 +53,7 @@ The results and validation plots appear inside the newly created `results/` fold
    ```matlab
    run_triad_only
    % or
-   run_all_datasets_matlab
+   run_all_datasets_matlab('TRIAD')
    ```
    MATLAB saves the figures to the `results/` folder as well.
 

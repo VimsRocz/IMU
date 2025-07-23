@@ -75,9 +75,9 @@ Task_5(imu, gnss, 'TRIAD');   % uses Task4 results, writes Task5_results_IMU_X00
 
 ### MATLAB-only pipeline
 ```matlab
-run_all_datasets_matlab
+run_all_datasets_matlab('TRIAD')
 ```
-The script scans `Data/` (or the repository root if that folder is missing) for matching IMU and GNSS logs, executes `Task_1` through `Task_5` for each pair and saves the results as `IMU_<id>_GNSS_<id>_TRIAD_kf_output.mat` in `results/`. `plot_results` is invoked automatically to export the standard PDF figures.
+The function accepts the initialisation method as an optional argument. It scans `Data/` (or the repository root if that folder is missing) for matching IMU and GNSS logs, executes `Task_1` through `Task_5` for each pair and saves the results as `IMU_<id>_GNSS_<id>_<METHOD>_kf_output.mat` in `results/`. `plot_results` is invoked automatically to export the standard PDF figures.
 
 Prerequisites: MATLAB R2023a or newer with the Signal Processing and Navigation Toolboxes.
 
