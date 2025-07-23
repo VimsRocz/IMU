@@ -374,11 +374,12 @@ python src/run_triad_only.py
 ```matlab
 run_triad_only
 ```
-This is equivalent to running `python src/run_all_datasets.py --method TRIAD`.
-The script also validates the fused trajectory against the common
-`STATE_X001.txt` file and writes an extended summary to
-`results/summary_truth.csv`. The table now includes acceleration RMSE,
-final and maximum errors.
+The MATLAB version now calls `run_all_datasets_matlab` so it does not
+require Python. Both scripts generate the same output as running
+`python src/run_all_datasets.py --method TRIAD` and validate the fused
+trajectory against the common `STATE_X001.txt` file. The extended
+summary is written to `results/summary_truth.csv` and includes
+acceleration RMSE, final and maximum errors.
 
 #### run_method_only.py
 
