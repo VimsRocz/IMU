@@ -13,9 +13,25 @@ def derive_velocity(
 ) -> np.ndarray:
     """Estimate velocity from position.
 
-    The position is first smoothed with a Savitzky--Golay filter and then
+    Parameters
+    ----------
+    time_s : ndarray of shape (N,)
+        Time samples in seconds.
+    pos : ndarray of shape (N, 3)
+        Position samples in meters (ECEF or NED).
+    window_length : int, optional
+        Odd window length for Savitzky--Golay smoothing.
+    polyorder : int, optional
+        Polynomial order for the smoothing filter.
+
+    Returns
+    -------
+    ndarray of shape (N, 3)
+        Estimated velocity in m/s.
+
+    The position is smoothed with a Savitzky--Golay filter and then
     differentiated using a central difference scheme. ``window_length`` must be
-    odd. ``polyorder`` controls the smoothing polynomial degree.
+    odd.
     """
     if window_length % 2 == 0:
         window_length += 1
