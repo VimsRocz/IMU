@@ -386,9 +386,11 @@ acceleration RMSE, final and maximum errors.
 
 #### run_method_only.py
 
-`run_method_only.py` extends the helper above with a selectable method.
-It reuses the dataset list from `run_all_datasets.py` and prints the same
-summary table. Call it directly or via the MATLAB wrapper:
+`run_method_only.py` extends the helper above with a selectable method and
+prints the same summary table as `run_triad_only.py`.  The MATLAB function
+`run_method_only` now mirrors this behaviour purely within MATLAB by calling
+`run_all_datasets_matlab` with the chosen method.  No Python interpreter is
+required for the MATLAB workflow:
 
 ```bash
 python src/run_method_only.py --method SVD
