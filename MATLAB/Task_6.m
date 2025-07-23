@@ -118,4 +118,17 @@ plot_overlay('Body', method, t_est, pos_body, vel_body, acc_body, ...
     't_truth', t_est, 'pos_truth', pos_truth_body, ...
     'vel_truth', vel_truth_body, 'acc_truth', acc_truth_body, ...
     'suffix', '_overlay_truth.pdf');
+
+% ------------------------------------------------------------------
+% Compute overlay metrics for summary tables
+% ------------------------------------------------------------------
+[mNED, ~]  = compute_overlay_metrics(t_est, pos_ned,  vel_ned,  pos_truth_ned_i,  vel_truth_ned_i);
+[mECEF, ~] = compute_overlay_metrics(t_est, pos_ecef, vel_ecef, pos_truth_ecef_i, vel_truth_ecef_i);
+[mBody, ~] = compute_overlay_metrics(t_est, pos_body, vel_body, pos_truth_body,  vel_truth_body);
+metrics = struct('NED', mNED, 'ECEF', mECEF, 'Body', mBody);
+metrics_file = fullfile(results_dir, sprintf('%s_%s_%s_task6_metrics.mat', ...
+    imu_name, gnss_name, method));
+save(metrics_file, 'metrics');
+fprintf('[Task6] %s %s RMSEpos(NED)=%.3f m final=%.3f m\n', ...
+    imu_name, method, mNED.rmse_pos, mNED.final_pos);
 end

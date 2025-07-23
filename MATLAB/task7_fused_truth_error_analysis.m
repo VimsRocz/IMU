@@ -1,0 +1,108 @@
+function summary = task7_fused_truth_error_analysis(est_file, truth_file, out_dir)
+%TASK7_FUSED_TRUTH_ERROR_ANALYSIS  Residual analysis of fused state vs. truth.
+%   SUMMARY = TASK7_FUSED_TRUTH_ERROR_ANALYSIS(EST_FILE, TRUTH_FILE, OUT_DIR)
+%   loads the fused estimator result and ground truth trajectory (MAT or NPZ
+%   files). Residual position, velocity and acceleration are computed in the
+%   ECEF frame. Plots of the residual components and their norms are saved
+%   under OUT_DIR and a structure of summary statistics is returned.
+
+if nargin < 3 || isempty(out_dir)
+    out_dir = 'results';
+end
+if ~exist(out_dir, 'dir'); mkdir(out_dir); end
+
+[t_est, pos_est, vel_est, acc_est] = load_est(est_file);
+[t_tru, pos_tru, vel_tru, acc_tru] = load_est(truth_file);
+
+pos_tru_i = interp1(t_tru, pos_tru, t_est, 'linear', 'extrap');
+vel_tru_i = interp1(t_tru, vel_tru, t_est, 'linear', 'extrap');
+acc_tru_i = interp1(t_tru, acc_tru, t_est, 'linear', 'extrap');
+
+res_pos = pos_est - pos_tru_i;
+res_vel = vel_est - vel_tru_i;
+res_acc = acc_est - acc_tru_i;
+
+plot_residuals(t_est, res_pos, res_vel, res_acc, out_dir);
+plot_norms(t_est, res_pos, res_vel, res_acc, out_dir);
+
+summary.rmse_pos = sqrt(mean(vecnorm(res_pos,2,2).^2));
+summary.final_pos = norm(res_pos(end,:));
+summary.rmse_vel = sqrt(mean(vecnorm(res_vel,2,2).^2));
+summary.final_vel = norm(res_vel(end,:));
+summary.rmse_acc = sqrt(mean(vecnorm(res_acc,2,2).^2));
+summary.final_acc = norm(res_acc(end,:));
+
+end
+
+% -------------------------------------------------------------------------
+function [t, pos, vel, acc] = load_est(file)
+%LOAD_EST Load NPZ or MAT estimate containing ECEF position and velocity.
+    f = string(file);
+    if endsWith(f,'.npz')
+        d = py.numpy.load(f);
+        t = double(d{'time_s'});
+        pos = double(d{'pos_ecef_m'});
+        vel = double(d{'vel_ecef_ms'});
+        if isKey(d,'acc_ecef_ms2')
+            acc = double(d{'acc_ecef_ms2'});
+        else
+            acc = gradient(gradient(pos)) ./ mean(diff(t))^2;
+        end
+    else
+        S = load(f);
+        if isfield(S,'time_s'); t = S.time_s(:); else; t = S.time(:); end
+        if isfield(S,'pos_ecef_m')
+            pos = S.pos_ecef_m;
+            vel = S.vel_ecef_ms;
+        else
+            pos = S.pos_ecef;
+            vel = S.vel_ecef;
+        end
+        if isfield(S,'acc_ecef_ms2')
+            acc = S.acc_ecef_ms2;
+        else
+            acc = gradient(gradient(pos)) ./ mean(diff(t))^2;
+        end
+    end
+end
+
+% -------------------------------------------------------------------------
+function plot_residuals(t, res_pos, res_vel, res_acc, out_dir)
+%PLOT_RESIDUALS Plot residual components.
+    labels = {'X','Y','Z'};
+    f = figure('Visible','off','Position',[100 100 900 700]);
+    for i = 1:3
+        for j = 1:3
+            ax = subplot(3,3,(i-1)*3+j); hold on;
+            switch i
+                case 1; arr = res_pos; ylab = 'Position Residual [m]';
+                case 2; arr = res_vel; ylab = 'Velocity Residual [m/s]';
+                otherwise; arr = res_acc; ylab = 'Acceleration Residual [m/s^2]';
+            end
+            plot(t, arr(:,j));
+            if i==1; title(labels{j}); end
+            if j==1; ylabel(ylab); end
+            if i==3; xlabel('Time [s]'); end
+            grid on;
+        end
+    end
+    sgtitle('Task 7 Residuals');
+    set(f,'PaperPositionMode','auto');
+    pdf = fullfile(out_dir,'task7_residuals.pdf');
+    print(f,pdf,'-dpdf');
+    close(f);
+end
+
+% -------------------------------------------------------------------------
+function plot_norms(t, res_pos, res_vel, res_acc, out_dir)
+%PLOT_NORMS Plot norms of the residual vectors.
+    f = figure('Visible','off');
+    plot(t, vecnorm(res_pos,2,2), 'DisplayName','|pos|'); hold on;
+    plot(t, vecnorm(res_vel,2,2), 'DisplayName','|vel|');
+    plot(t, vecnorm(res_acc,2,2), 'DisplayName','|acc|');
+    xlabel('Time [s]'); ylabel('Residual Norm'); legend; grid on;
+    set(f,'PaperPositionMode','auto');
+    pdf = fullfile(out_dir,'task7_residual_norms.pdf');
+    print(f,pdf,'-dpdf');
+    close(f);
+end

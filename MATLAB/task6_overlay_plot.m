@@ -78,23 +78,47 @@ end
 
 % -------------------------------------------------------------------------
 function [t, pos, vel, acc] = load_estimate(path, frame)
-%LOAD_ESTIMATE Load fused estimator result from NPZ.
+%LOAD_ESTIMATE Load fused estimator result from NPZ or MAT.
 
 ppath = string(path);
-data = py.numpy.load(ppath);
-t = double(data{'time_s'});
-if strcmpi(frame,'ECEF')
-    pos = double(data{'pos_ecef_m'});
-    vel = double(data{'vel_ecef_ms'});
+if endsWith(ppath,'.npz')
+    data = py.numpy.load(ppath);
+    t = double(data{'time_s'});
+    if strcmpi(frame,'ECEF')
+        pos = double(data{'pos_ecef_m'});
+        vel = double(data{'vel_ecef_ms'});
+    else
+        pos = double(data{'pos_ned_m'});
+        vel = double(data{'vel_ned_ms'});
+    end
+    if isKey(data, 'acc_ecef_ms2')
+        acc = double(data{sprintf('acc_%s_ms2', lower(frame))});
+    else
+        dt = mean(diff(t));
+        acc = gradient(gradient(pos)) / dt^2;
+    end
 else
-    pos = double(data{'pos_ned_m'});
-    vel = double(data{'vel_ned_ms'});
-end
-if isKey(data, 'acc_ecef_ms2')
-    acc = double(data{sprintf('acc_%s_ms2', lower(frame))});
-else
-    dt = mean(diff(t));
-    acc = gradient(gradient(pos)) / dt^2;
+    S = load(ppath);
+    if isfield(S,'time_s'); t = S.time_s(:); else; t = S.time(:); end
+    if strcmpi(frame,'ECEF')
+        pos = S.pos_ecef_m;
+        vel = S.vel_ecef_ms;
+        if isfield(S,'acc_ecef_ms2')
+            acc = S.acc_ecef_ms2;
+        else
+            dt = mean(diff(t));
+            acc = gradient(gradient(pos)) / dt^2;
+        end
+    else
+        pos = S.pos_ned;
+        vel = S.vel_ned;
+        if isfield(S,'acc_ned_ms2')
+            acc = S.acc_ned_ms2;
+        else
+            dt = mean(diff(t));
+            acc = gradient(gradient(pos)) / dt^2;
+        end
+    end
 end
 end
 
