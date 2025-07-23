@@ -1,6 +1,6 @@
 # Reference Vectors
 
-This page summarises **Task\u00a01** as executed by `run_triad_only_cli.py`. It derives the navigation-frame reference vectors from the GNSS log.
+This page summarises **Task\u00a01** as executed by `run_triad_only.py`. It derives the navigation-frame reference vectors from the GNSS log.
 
 ## Data file format
 

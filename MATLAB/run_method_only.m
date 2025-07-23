@@ -1,5 +1,5 @@
 %% RUN_METHOD_ONLY  Run all datasets with a chosen initialisation method
-% Pure MATLAB implementation mirroring ``run_method_only_cli.py``. The helper
+% Pure MATLAB implementation mirroring ``run_method_only.py``. The helper
 % forwards the selected METHOD to ``run_all_datasets_matlab`` so no Python
 % interpreter is required.
 %
