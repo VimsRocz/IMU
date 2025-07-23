@@ -41,6 +41,9 @@ acc_truth_i = interp1(t_truth, acc_truth, t_est, 'linear', 'extrap');
 pdf_path = plot_overlay(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
     vel_truth_i, acc_truth_i, frame, method, dataset, output_dir);
 
+plot_rmse(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
+    vel_truth_i, acc_truth_i, frame, method, dataset, output_dir);
+
 end
 
 % -------------------------------------------------------------------------
@@ -157,5 +160,36 @@ print(f, pdf_path, '-dpdf');
 print(f, png_path, '-dpng');
 close(f);
 fprintf('Saved overlay figure to %s\n', pdf_path);
+end
+
+% -------------------------------------------------------------------------
+function pdf_path = plot_rmse(t, pos_est, vel_est, acc_est, pos_truth, vel_truth, acc_truth, frame, method, dataset, out_dir)
+%PLOT_RMSE Plot total error magnitude and annotate RMSE values.
+
+pos_err = vecnorm(pos_est - pos_truth, 2, 2);
+vel_err = vecnorm(vel_est - vel_truth, 2, 2);
+acc_err = vecnorm(acc_est - acc_truth, 2, 2);
+
+rmse_pos = sqrt(mean(pos_err.^2));
+rmse_vel = sqrt(mean(vel_err.^2));
+rmse_acc = sqrt(mean(acc_err.^2));
+
+f = figure('Visible','off','Position',[100 100 600 400]);
+plot(t, pos_err, 'DisplayName', sprintf('Pos RMSE %.3f m', rmse_pos)); hold on;
+plot(t, vel_err, 'DisplayName', sprintf('Vel RMSE %.3f m/s', rmse_vel));
+plot(t, acc_err, 'DisplayName', sprintf('Acc RMSE %.3f m/s^2', rmse_acc));
+xlabel('Time [s]');
+ylabel('Error magnitude');
+grid on;
+legend('Location','northeast');
+title(sprintf('%s Task 6 RMSE \x2013 %s (%s frame)', dataset, method, upper(frame)));
+set(f,'PaperPositionMode','auto');
+if ~exist(out_dir,'dir'); mkdir(out_dir); end
+pdf_path = fullfile(out_dir, sprintf('%s_%s_Task6_%s_RMSE.pdf', dataset, method, upper(frame)));
+png_path = fullfile(out_dir, sprintf('%s_%s_Task6_%s_RMSE.png', dataset, method, upper(frame)));
+print(f, pdf_path, '-dpdf');
+print(f, png_path, '-dpng');
+close(f);
+fprintf('Saved RMSE figure to %s\n', pdf_path);
 end
 

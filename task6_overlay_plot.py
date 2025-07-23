@@ -161,6 +161,49 @@ def plot_overlay(
     return pdf_path
 
 
+def plot_rmse(
+    t: np.ndarray,
+    pos_est: np.ndarray,
+    vel_est: np.ndarray,
+    acc_est: np.ndarray,
+    pos_truth: np.ndarray,
+    vel_truth: np.ndarray,
+    acc_truth: np.ndarray,
+    frame: str,
+    method: str,
+    dataset: str,
+    out_dir: Path,
+) -> Path:
+    """Plot total error magnitude and annotate RMSE values."""
+    pos_err = np.linalg.norm(pos_est - pos_truth, axis=1)
+    vel_err = np.linalg.norm(vel_est - vel_truth, axis=1)
+    acc_err = np.linalg.norm(acc_est - acc_truth, axis=1)
+
+    rmse_pos = float(np.sqrt(np.mean(pos_err**2)))
+    rmse_vel = float(np.sqrt(np.mean(vel_err**2)))
+    rmse_acc = float(np.sqrt(np.mean(acc_err**2)))
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(t, pos_err, label=f"Pos RMSE {rmse_pos:.3f} m")
+    ax.plot(t, vel_err, label=f"Vel RMSE {rmse_vel:.3f} m/s")
+    ax.plot(t, acc_err, label=f"Acc RMSE {rmse_acc:.3f} m/s$^2$")
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Error magnitude")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    ax.set_title(f"{dataset} Task 6 RMSE — {method} ({frame} frame)")
+    fig.tight_layout()
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = out_dir / f"{dataset}_{method}_Task6_{frame}_RMSE.pdf"
+    png_path = out_dir / f"{dataset}_{method}_Task6_{frame}_RMSE.png"
+    fig.savefig(pdf_path)
+    fig.savefig(png_path)
+    plt.close(fig)
+    print(f"Saved RMSE figure to {pdf_path}")
+    return pdf_path
+
+
 # ---------------------------------------------------------------------------
 # main entry point
 # ---------------------------------------------------------------------------
@@ -201,6 +244,20 @@ def main() -> None:
         vel_est,
         acc_est,
         t_est,
+        pos_truth_i,
+        vel_truth_i,
+        acc_truth_i,
+        args.frame,
+        args.method,
+        args.dataset,
+        out_dir,
+    )
+
+    plot_rmse(
+        t_est,
+        pos_est,
+        vel_est,
+        acc_est,
         pos_truth_i,
         vel_truth_i,
         acc_truth_i,
