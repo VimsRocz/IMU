@@ -70,8 +70,10 @@ for k = 1:size(pairs,1)
                 fprintf('Task_6 skipped: %s\n', ME.message);
             end
             try
-                dataset = regexp(imuStem,'(X\d+)','match','once');
-                task7_ecef_residuals_plot(outFile, cand, dataset, resultsDir);
+                tag = sprintf('%s_%s_%s', imuStem, gnssStem, method);
+                outDir = fullfile(resultsDir, 'task7', tag);
+                summary = task7_fused_truth_error_analysis(outFile, cand, outDir);
+                save(fullfile(outDir,'task7_summary.mat'), 'summary');
             catch ME
                 fprintf('Task_7 skipped: %s\n', ME.message);
             end
