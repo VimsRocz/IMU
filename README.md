@@ -7,8 +7,8 @@ IMU data processing and initialization tools (Python)
 - [Installation](#installation)
 - [Running the Pipeline](#running-the-pipeline)
   - [run_all_datasets.py](#run_all_datasetspy)
-  - [run_triad_only.py](#run_triad_onlypy)
-  - [run_method_only.py](#run_method_onlypy)
+  - [run_triad_only_cli.py](#run_triad_only_clipy)
+  - [run_method_only_cli.py](#run_method_only_clipy)
   - [GNSS_IMU_Fusion_single](#gnss_imu_fusion_singleimu_file-gnss_file)
 - [Per-Task Overview](#per-task-overview)
 - [Datasets](#datasets)
@@ -227,7 +227,7 @@ aborts with an error if they differ.
 
 ### Sample Processing Report
 
-A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/` directory.
+A sample run of `run_triad_only_cli.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/` directory.
 
 Typical result PDFs:
 
@@ -367,12 +367,12 @@ All cases: 100%|##########| 9/9 [00:12<00:00,  1.31s/it]
 └─────────┴──────────┴──────────────┴───────────┘
 ```
 
-#### run_triad_only.py
+#### run_triad_only_cli.py
 
-If you want to process all datasets using just the TRIAD initialisation method, run the helper script `src/run_triad_only.py` or the MATLAB script `run_triad_only.m`:
+If you want to process all datasets using just the TRIAD initialisation method, run the helper script `src/run_triad_only_cli.py` or the MATLAB script `run_triad_only.m`:
 
 ```bash
-python src/run_triad_only.py
+python src/run_triad_only_cli.py
 ```
 ```matlab
 run_triad_only
@@ -384,24 +384,26 @@ trajectory against the common `STATE_X001.txt` file. The extended
 summary is written to `results/summary_truth.csv` and includes
 acceleration RMSE, final and maximum errors.
 
-#### run_method_only.py
+#### run_method_only_cli.py
 
-`run_method_only.py` extends the helper above with a selectable method and
-prints the same summary table as `run_triad_only.py`.  The MATLAB function
+`run_method_only_cli.py` extends the helper above with a selectable method and
+prints the same summary table as `run_triad_only_cli.py`.  The MATLAB function
 `run_method_only` now mirrors this behaviour purely within MATLAB by calling
 `run_all_datasets_matlab` with the chosen method.  No Python interpreter is
 required for the MATLAB workflow:
 
 ```bash
-python src/run_method_only.py --method SVD
+python src/run_method_only_cli.py --method SVD
 ```
 ```matlab
 run_method_only('SVD')
 ```
 
-Dedicated wrappers `run_svd_only.py` and `run_davenport_only.py` mirror
-`run_triad_only.py` for the SVD and Davenport methods.  MATLAB users can
-call `run_svd_only` or `run_davenport_only` for the same behaviour.
+Dedicated wrappers `run_svd_only_cli.py` and `run_davenport_only_cli.py` mirror
+`run_triad_only_cli.py` for the SVD and Davenport methods.  MATLAB users can
+call `run_svd_only` or `run_davenport_only` for the same behaviour.  The
+``*_cli.py`` suffix avoids name clashes with the MATLAB functions of the same
+base name when both toolchains are on the path.
 
 
 After all runs complete you can compare the datasets side by side:
