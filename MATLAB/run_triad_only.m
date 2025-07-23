@@ -1,5 +1,5 @@
 %% RUN_TRIAD_ONLY  Run all datasets using the TRIAD method (MATLAB pipeline)
-% This script mirrors ``run_triad_only.py`` but executes the batch
+% This script mirrors ``run_triad_only_cli.py`` but executes the batch
 % processing purely in MATLAB via ``run_all_datasets_matlab``.
 % All figures and MAT files are written to ``results/`` and Task 6 is
 % invoked automatically when matching ``STATE_X*.txt`` logs are present.

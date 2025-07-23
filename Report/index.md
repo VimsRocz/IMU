@@ -1,6 +1,6 @@
 # Processing Report
 
-This report summarises the output of `run_triad_only.py`. It is split into seven sections:
+This report summarises the output of `run_triad_only_cli.py`. It is split into seven sections:
 
 1. [Getting Started](getting_started.md)
 2. [Reference Vectors](task1_reference_vectors.md)
