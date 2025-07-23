@@ -6,7 +6,7 @@ function vel = derive_velocity(time_s, pos, window_length, polyorder)
 %
 % Inputs
 %   time_s       - Nx1 vector of time stamps [s]
-%   pos          - Nx3 matrix of positions [m]
+%   pos          - Nx3 matrix of positions [m] (ECEF or NED)
 %   window_length - (optional) odd window length for smoothing
 %   polyorder     - (optional) polynomial order for smoothing
 %

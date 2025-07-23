@@ -32,6 +32,8 @@ def derive_velocity(
     The position is smoothed with a Savitzky--Golay filter and then
     differentiated using a central difference scheme. ``window_length`` must be
     odd.
+
+    This implementation mirrors ``MATLAB/derive_velocity.m`` for parity.
     """
     if window_length % 2 == 0:
         window_length += 1
