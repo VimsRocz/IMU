@@ -1,13 +1,18 @@
-function run_all_datasets_matlab()
+function run_all_datasets_matlab(method)
 %RUN_ALL_DATASETS_MATLAB  Pure MATLAB batch runner for all datasets
-%   Enumerates the IMU/GNSS pairs in the repository and executes
-%   Task_1 through Task_5 for the TRIAD method. The final Task 5
-%   results are saved as <IMU>_<GNSS>_TRIAD_kf_output.mat in the
-%   results directory. plot_results is called on each file to
-%   recreate the standard figures.
+%   RUN_ALL_DATASETS_MATLAB(METHOD) enumerates the IMU/GNSS pairs in the
+%   repository and executes Task_1 through Task_5 for the selected
+%   attitude initialisation METHOD (``'TRIAD'`` by default). The final Task 5
+%   results are saved as <IMU>_<GNSS>_<METHOD>_kf_output.mat in the results
+%   directory. ``plot_results`` is called on each file to recreate the standard
+%   figures.
 
 here = fileparts(mfilename('fullpath'));
 root = fileparts(here);
+
+if nargin < 1 || isempty(method)
+    method = 'TRIAD';
+end
 
 % Prefer a dedicated Data folder if present
 dataDir = fullfile(root, 'Data');
@@ -34,20 +39,20 @@ for k = 1:size(pairs,1)
     if ~isfile(imu);  imu  = get_data_file(pairs{k,1});  end
     if ~isfile(gnss); gnss = get_data_file(pairs{k,2}); end
 
-    fprintf('Processing %s with %s...\n', pairs{k,1}, pairs{k,2});
+    fprintf('Processing %s with %s using %s...\n', pairs{k,1}, pairs{k,2}, method);
 
-    Task_1(imu, gnss, 'TRIAD');
-    Task_2(imu, gnss, 'TRIAD');
-    Task_3(imu, gnss, 'TRIAD');
-    Task_4(imu, gnss, 'TRIAD');
-    Task_5(imu, gnss, 'TRIAD');
+    Task_1(imu, gnss, method);
+    Task_2(imu, gnss, method);
+    Task_3(imu, gnss, method);
+    Task_4(imu, gnss, method);
+    Task_5(imu, gnss, method);
 
     [~, imuStem, ~]  = fileparts(pairs{k,1});
     [~, gnssStem, ~] = fileparts(pairs{k,2});
-    task5File = fullfile(resultsDir, sprintf('%s_%s_TRIAD_task5_results.mat', ...
-        imuStem, gnssStem));
-    outFile  = fullfile(resultsDir, sprintf('%s_%s_TRIAD_kf_output.mat', ...
-        imuStem, gnssStem));
+    task5File = fullfile(resultsDir, sprintf('%s_%s_%s_task5_results.mat', ...
+        imuStem, gnssStem, method));
+    outFile  = fullfile(resultsDir, sprintf('%s_%s_%s_kf_output.mat', ...
+        imuStem, gnssStem, method));
     if isfile(task5File)
         S = load(task5File);
         save(outFile, '-struct', 'S');
@@ -61,7 +66,7 @@ for k = 1:size(pairs,1)
         end
         if isfile(cand)
             try
-                Task_6(imu, gnss, 'TRIAD');
+                Task_6(imu, gnss, method);
             catch ME
                 fprintf('Task_6 skipped: %s\n', ME.message);
             end

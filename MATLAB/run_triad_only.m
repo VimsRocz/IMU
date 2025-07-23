@@ -9,5 +9,5 @@
 
 % Simply forward to the MATLAB batch runner. This enumerates all datasets,
 % runs Tasks 1--5 and triggers Task 6 when truth files exist.
-run_all_datasets_matlab();
+run_all_datasets_matlab('TRIAD');
 
