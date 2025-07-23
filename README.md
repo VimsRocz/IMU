@@ -378,7 +378,9 @@ python src/run_triad_only.py
 run_triad_only
 ```
 The MATLAB version now calls `run_all_datasets_matlab` so it does not
-require Python. Both scripts generate the same output as running
+require Python. **Make sure your current working directory is the repository
+root** so the scripts can locate the bundled data files. Both scripts
+generate the same output as running
 `python src/run_all_datasets.py --method TRIAD` and validate the fused
 trajectory against the common `STATE_X001.txt` file. The extended
 summary is written to `results/summary_truth.csv` and includes
@@ -403,6 +405,11 @@ Dedicated wrappers `run_svd_only.py` and `run_davenport_only.py` mirror
 `run_triad_only.py` for the SVD and Davenport methods. MATLAB users can
 call `run_svd_only` or `run_davenport_only` for the same behaviour.  The file
 names now match between Python and MATLAB for consistency.
+
+Wrapper overview:
+
+* Python: `src/run_triad_only.py`, `src/run_svd_only.py`, `src/run_davenport_only.py`
+* MATLAB: `run_triad_only.m`, `run_svd_only.m`, `run_davenport_only.m`
 
 
 After all runs complete you can compare the datasets side by side:
