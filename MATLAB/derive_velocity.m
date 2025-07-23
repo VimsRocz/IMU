@@ -2,11 +2,12 @@ function vel = derive_velocity(time_s, pos, window_length, polyorder)
 %DERIVE_VELOCITY  Estimate velocity from a position trajectory.
 %
 %   vel = DERIVE_VELOCITY(time_s, pos, window_length, polyorder) smooths the
-%   input ``pos`` using a Savitzky--Golay filter and differentiates with a
-%   central difference scheme. ``time_s`` is a Nx1 vector of timestamps in
-%   seconds and ``pos`` is Nx3. ``window_length`` must be odd and defaults to 11
-%   while ``polyorder`` defaults to 2. The implementation mirrors
-%   ``velocity_utils.derive_velocity`` in the Python codebase.
+%   Nx3 position array ``pos`` (metres) using a Savitzky--Golay filter and
+%   differentiates it with a central difference scheme. ``time_s`` is an Nx1
+%   vector of timestamps in seconds. ``window_length`` specifies the filter
+%   window length (samples) and must be odd; ``polyorder`` sets the polynomial
+%   order. The returned ``vel`` is Nx3 in metres per second. This implementation
+%   mirrors ``velocity_utils.derive_velocity`` in the Python codebase.
 
 if nargin < 3 || isempty(window_length)
     window_length = 11;
