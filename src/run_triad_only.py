@@ -3,7 +3,10 @@
 
 This script forwards any additional command line arguments to
 ``run_method_only.py`` with ``--method TRIAD`` so that the behaviour
-matches ``run_all_methods.py`` when the TRIAD method is selected.
+matches ``run_all_methods.py`` when the TRIAD method is selected. If
+``STATE_X*.txt`` truth logs are available the batch runner automatically
+performs the Task 6 overlay and Task 7 evaluation, matching the MATLAB
+workflow.
 
 Usage
 -----
