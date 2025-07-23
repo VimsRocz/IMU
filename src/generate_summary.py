@@ -1,3 +1,15 @@
+"""Assemble a PDF report summarising all fusion runs.
+
+Usage:
+    python generate_summary.py
+
+The script reads ``results/summary.csv`` produced by ``summarise_runs.py`` and
+creates ``results/project_summary.pdf`` with one page per dataset. Each page
+lists the RMSE and final error metrics and embeds the corresponding plot PDF if
+available. This utility mirrors the MATLAB helper ``validate_pipeline_summary.m``
+for cross-language comparison.
+"""
+
 import os
 import logging
 import pandas as pd
