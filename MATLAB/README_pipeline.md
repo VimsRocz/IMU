@@ -97,7 +97,7 @@ matching the corresponding `results/Result_<IMU>_<GNSS>_TRIAD.mat` file.
 ### GNSS_IMU_Fusion_single
 
 Use `GNSS_IMU_Fusion_single` when you only need to process one IMU/GNSS pair.
-The function mirrors `run_triad_only_cli.py` and generates the same location map,
+The function mirrors `run_triad_only.py` and generates the same location map,
 Task 3/4/5 results, residuals and attitude plots in the `results/` folder.
 After saving the results, `plot_task5_results_all_methods` produces a
 summary of the fused GNSS/IMU trajectory for Task 5.

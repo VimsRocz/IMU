@@ -39,7 +39,7 @@ This downloads any new files from GitHub.
 
 From the same terminal run one of the helper scripts:
 ```bash
-python src/run_triad_only_cli.py        # quick demo
+python src/run_triad_only.py        # quick demo
 # or
 python src/run_all_datasets.py      # full pipeline
 ```

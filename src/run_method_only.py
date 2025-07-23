@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Run all datasets using a selectable attitude initialisation method.
 
-This script generalises ``run_triad_only_cli.py``. It forwards the chosen
+This script generalises ``run_triad_only.py``. It forwards the chosen
 method to ``run_all_datasets.py`` and validates the resulting trajectory
 against the bundled ground truth when available. The printed summary table
-matches the one produced by ``run_triad_only_cli.py``.
+matches the one produced by ``run_triad_only.py``.
 
 Usage
 -----
-    python src/run_method_only_cli.py --method Davenport
+    python src/run_method_only.py --method Davenport
 """
 
 import argparse

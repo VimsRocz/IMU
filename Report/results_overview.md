@@ -1,6 +1,6 @@
 # Results Overview
 
-The table below summarises the statistics printed by `run_triad_only_cli.py` for datasets **X001**, **X002** and **X003** using the TRIAD initialisation method.
+The table below summarises the statistics printed by `run_triad_only.py` for datasets **X001**, **X002** and **X003** using the TRIAD initialisation method.
 
 | Dataset | RMSE Position [m] | Final Error [m] | Max Residual Pos [m] | Grav Err Mean [deg] | Earth Rate Max [deg] |
 |---------|------------------|-----------------|----------------------|--------------------|---------------------|
