@@ -34,7 +34,9 @@ ROOT = HERE.parent
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-TRUTH_PATH = HERE / "STATE_X001.txt"
+# Use the project root for locating the common truth file so the script works
+# regardless of the current working directory.
+TRUTH_PATH = ROOT / "STATE_X001.txt"
 EXPECTED_LAT = -32.026554
 
 
