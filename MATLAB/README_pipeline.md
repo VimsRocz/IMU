@@ -94,6 +94,16 @@ found even if you run the command from another folder.  When more than one
 pair is processed the function returns a cell array of result structs, each
 matching the corresponding `results/Result_<IMU>_<GNSS>_TRIAD.mat` file.
 
+Dedicated wrappers `run_triad_only.m`, `run_svd_only.m` and
+`run_davenport_only.m` behave like the Python helpers of the same name and
+simply forward the chosen method to `run_all_datasets_matlab`:
+
+```matlab
+run_triad_only      % TRIAD method
+run_svd_only        % SVD method
+run_davenport_only  % Davenport method
+```
+
 ### GNSS_IMU_Fusion_single
 
 Use `GNSS_IMU_Fusion_single` when you only need to process one IMU/GNSS pair.
