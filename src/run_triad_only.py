@@ -19,7 +19,7 @@ from tabulate import tabulate
 from scipy.spatial.transform import Rotation as R
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
-from utils import ensure_dependencies
+from utils import ensure_dependencies, ecef_to_geodetic
 from pyproj import Transformer
 
 HERE = Path(__file__).resolve().parent
@@ -34,7 +34,9 @@ if __name__ == "__main__":
     os.makedirs('results', exist_ok=True)
     logging.info("Ensured 'results/' directory exists.")
 
-TRUTH_PATH = HERE / "STATE_X001.txt"
+# Use the project root for locating the common truth file so the script
+# works regardless of the current working directory.
+TRUTH_PATH = ROOT / "STATE_X001.txt"
 DATASETS = ["X001", "X002", "X003"]
 EXPECTED_LAT = -32.026554
 
@@ -74,9 +76,9 @@ def trim_truth_to_estimate(truth_time, truth_data, est_time):
 
 
 def ecef_to_ned(r0):
-    transformer = Transformer.from_crs("EPSG:4978", "EPSG:4326", always_xy=True)
+    """Return geodetic coordinates from an ECEF reference point."""
     try:
-        lon, lat, h = transformer.transform(*r0)
+        lat, lon, h = ecef_to_geodetic(*r0)
         logger.debug(
             "Computed lat=%.6f\u00b0, lon=%.6f\u00b0, h=%.2f m", lat, lon, h
         )
@@ -88,7 +90,7 @@ def ecef_to_ned(r0):
             )
         return lat, lon, h
     except Exception as e:  # pragma: no cover - optional error
-        logger.error(f"ECEF-to-NED conversion failed: {e}")
+        logger.error(f"ECEF-to-Geodetic conversion failed: {e}")
         return None, None, None
 
 
@@ -166,7 +168,11 @@ def compute_errors(truth_data, est_pos, est_vel, est_eul, truth_time, est_time):
             None,
             None,
             None,
+
         )
+
+
+# Ensure two blank lines before the next top-level statement
 
 # Install any missing dependencies before running the batch command
 ensure_dependencies()
@@ -330,8 +336,8 @@ for mat in results.glob("*_TRIAD_kf_output.mat"):
                 )
 
             npz_path = mat.with_suffix('.npz')
-            q0 = [float('nan')]*4
-            P0 = [float('nan')]*3
+            q0 = [float('nan')] * 4
+            P0 = [float('nan')] * 3
             try:
                 npz = np.load(npz_path, allow_pickle=True)
                 if 'attitude_q' in npz:
@@ -373,4 +379,3 @@ if summary:
     print(tabulate(rows, headers=headers, floatfmt='.3f'))
     df = pd.DataFrame(rows, columns=headers)
     df.to_csv(results / 'summary_truth.csv', index=False)
-
