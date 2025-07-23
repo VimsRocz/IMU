@@ -1,23 +1,37 @@
 function vel = derive_velocity(time_s, pos, window_length, polyorder)
-%DERIVE_VELOCITY Estimate velocity using Savitzky-Golay smoothing.
+%DERIVE_VELOCITY  Estimate velocity from a position trajectory.
 %
-% Usage:
-%   vel = derive_velocity(time_s, pos, window_length, polyorder)
-%
-% This is a MATLAB stub mirroring ``derive_velocity`` in
-% ``velocity_utils.py``. It should smooth the input position
-% with a Savitzky-Golay filter and apply a central difference.
-%
-% TODO: implement full MATLAB version.
+%   vel = DERIVE_VELOCITY(time_s, pos, window_length, polyorder) smooths the
+%   input ``pos`` using a Savitzky--Golay filter and differentiates with a
+%   central difference scheme. ``time_s`` is a Nx1 vector of timestamps in
+%   seconds and ``pos`` is Nx3. ``window_length`` must be odd and defaults to 11
+%   while ``polyorder`` defaults to 2. The implementation mirrors
+%   ``velocity_utils.derive_velocity`` in the Python codebase.
 
-if nargin < 3
+if nargin < 3 || isempty(window_length)
     window_length = 11;
 end
-if nargin < 4
+if mod(window_length, 2) == 0
+    window_length = window_length + 1; % ensure odd length
+end
+if nargin < 4 || isempty(polyorder)
     polyorder = 2;
 end
 
-% Placeholder implementation
-vel = [zeros(1, size(pos,2)); diff(pos)./diff(time_s)];
-vel(1,:) = vel(2,:);
+pos_sm = sgolayfilt(pos, polyorder, window_length);
+vel = zeros(size(pos_sm));
+
+dt = diff(time_s(:));
+if isempty(dt)
+    return; % single sample
+end
+
+% central difference for interior points
+vel(2:end-1, :) = (pos_sm(3:end, :) - pos_sm(1:end-2, :)) ./ ...
+    (dt(2:end) + dt(1:end-1));
+
+% forward/backward difference at the edges
+vel(1, :) = (pos_sm(2, :) - pos_sm(1, :)) ./ dt(1);
+vel(end, :) = (pos_sm(end, :) - pos_sm(end-1, :)) ./ dt(end);
+
 end
