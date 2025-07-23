@@ -3,8 +3,10 @@
 
 This script generalises ``run_triad_only.py``. It forwards the chosen
 method to ``run_all_datasets.py`` and validates the resulting trajectory
-against the bundled ground truth when available. The printed summary table
-matches the one produced by ``run_triad_only.py``.
+against the bundled ground truth when available. Task 6 overlay plots and
+Task 7 residual evaluation are executed automatically when the truth data
+is present. The printed summary table matches the one produced by
+``run_triad_only.py``.
 
 Usage
 -----
@@ -25,6 +27,7 @@ from tabulate import tabulate
 from scipy.spatial.transform import Rotation as R
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
+from evaluate_filter_results import run_evaluation_npz
 from utils import ensure_dependencies
 from pyproj import Transformer
 
@@ -264,6 +267,15 @@ def main(argv=None):
                         P0 = np.diagonal(npz['P_hist'][0])[:3]
                 except Exception:
                     pass
+
+                # -------- Task 7: Residual evaluation --------
+                tag = f"{m2.group(1)}_{m2.group(2)}_{args.method}"
+                task7_dir = results / "task7" / tag
+                print("Running Task 7 evaluation ...")
+                try:
+                    run_evaluation_npz(str(npz_path), str(task7_dir), tag)
+                except Exception as e:
+                    print(f"Task 7 failed: {e}")
 
                 summary.append({
                     'dataset': m.group(1),
