@@ -250,6 +250,7 @@ Typical result PDFs:
 - `task6_<frame>_overlay_state.pdf` – Task 6 overlay with GNSS, IMU and raw state
 - `task7_residuals_position_velocity.pdf` – Task 7 position/velocity residuals
 - `task7_attitude_angles_euler.pdf` – Task 7 Euler angle plots
+- `task7_fused_vs_truth_error.pdf` – Task 7 fused minus truth velocity error
 
 ## Task 6: State Overlay
 
@@ -292,6 +293,8 @@ python src/run_all_methods.py --task 7
   `results/task7/<tag>/` as
   `<tag>_task7_residuals_position_velocity.pdf` and
   `<tag>_task7_attitude_angles_euler.pdf`
+* The helper script `src/task7_plot_error_fused_vs_truth.py` produces
+  `task7_fused_vs_truth_error.pdf` showing the fused minus truth velocity error.
 
 ### Notes
 
