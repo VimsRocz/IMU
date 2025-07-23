@@ -379,7 +379,7 @@ run_triad_only
 ```
 The MATLAB version now calls `run_all_datasets_matlab` so it does not
 require Python. Both scripts generate the same output as running
-`python src/run_all_datasets.py --method TRIAD` and validate the fused
+`python src/run_all_methods.py --methods TRIAD` and validate the fused
 trajectory against the common `STATE_X001.txt` file. The extended
 summary is written to `results/summary_truth.csv` and includes
 acceleration RMSE, final and maximum errors.
@@ -389,8 +389,10 @@ acceleration RMSE, final and maximum errors.
 `run_method_only.py` extends the helper above with a selectable method and
 prints the same summary table as `run_triad_only.py`.  The MATLAB function
 `run_method_only` now mirrors this behaviour purely within MATLAB by calling
-`run_all_datasets_matlab` with the chosen method.  No Python interpreter is
-required for the MATLAB workflow:
+`run_all_datasets_matlab` with the chosen method.  The Python version
+forwards the method to `run_all_methods.py` so no direct calls to
+`run_all_datasets.py` are needed. No Python interpreter is required for the
+MATLAB workflow:
 
 ```bash
 python src/run_method_only.py --method SVD
@@ -400,8 +402,9 @@ run_method_only('SVD')
 ```
 
 Dedicated wrappers `run_svd_only.py` and `run_davenport_only.py` mirror
-`run_triad_only.py` for the SVD and Davenport methods.  MATLAB users can
-call `run_svd_only` or `run_davenport_only` for the same behaviour.
+`run_triad_only.py` for the SVD and Davenport methods.  Each forwards the
+chosen method to `run_all_methods.py`.  MATLAB users can call `run_svd_only`
+or `run_davenport_only` for the same behaviour.
 
 
 After all runs complete you can compare the datasets side by side:

@@ -110,6 +110,15 @@ def main(argv=None):
         help="YAML file specifying datasets and methods",
     )
     parser.add_argument(
+        "--datasets",
+        default="ALL",
+        help="Comma separated dataset IDs (e.g. X001,X002) or ALL",
+    )
+    parser.add_argument(
+        "--methods",
+        help="Comma separated attitude initialisation methods or ALL",
+    )
+    parser.add_argument(
         "--no-plots",
         action="store_true",
         help="Skip plot generation for faster execution",
@@ -150,6 +159,19 @@ def main(argv=None):
         cases, methods = load_config(args.config)
     else:
         cases, methods = list(DEFAULT_DATASETS), list(DEFAULT_METHODS)
+
+    # Override dataset list via command line
+    if args.datasets and args.datasets.upper() != "ALL":
+        ids = {d.strip() for d in args.datasets.split(',')}
+        cases = [
+            (imu, gnss)
+            for imu, gnss in cases
+            if pathlib.Path(imu).stem.split('_')[1] in ids
+        ]
+
+    # Override method list via command line
+    if args.methods and args.methods.upper() != "ALL":
+        methods = [m.strip() for m in args.methods.split(',')]
 
     logger.debug(f"Datasets: {cases}")
     logger.debug(f"Methods: {methods}")
