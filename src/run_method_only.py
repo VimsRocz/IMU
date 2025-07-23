@@ -208,7 +208,7 @@ def main(argv=None):
 
         est_interp = load_estimate(str(mat), times=trimmed_time)
         est_eul = (
-            R.from_quat(np.asarray(est_interp["quat"])[[:, 1, 2, 3, 0]]).as_euler("xyz", degrees=True)
+            R.from_quat(np.asarray(est_interp["quat"])[:, [1, 2, 3, 0]]).as_euler("xyz", degrees=True)
             if est_interp.get("quat") is not None
             else np.zeros_like(est_interp["pos"])
         )

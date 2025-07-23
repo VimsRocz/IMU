@@ -51,7 +51,9 @@ for k = 1:size(pairs,1)
     if isfile(task5File)
         S = load(task5File);
         save(outFile, '-struct', 'S');
-        plot_results(outFile);
+        if exist('plot_results.m','file')
+            plot_results(outFile);
+        end
         stateName = [strrep(imuStem,'IMU','STATE') '.txt'];
         cand = fullfile(dataDir, stateName);
         if ~isfile(cand)
@@ -62,6 +64,12 @@ for k = 1:size(pairs,1)
                 Task_6(imu, gnss, 'TRIAD');
             catch ME
                 fprintf('Task_6 skipped: %s\n', ME.message);
+            end
+            try
+                dataset = regexp(imuStem,'(X\d+)','match','once');
+                task7_ecef_residuals_plot(outFile, cand, dataset, resultsDir);
+            catch ME
+                fprintf('Task_7 skipped: %s\n', ME.message);
             end
         end
     else
