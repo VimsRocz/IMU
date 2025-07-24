@@ -49,19 +49,27 @@ function [t, pos, vel, acc] = load_est(file)
             acc = gradient(gradient(pos)) ./ mean(diff(t))^2;
         end
     else
-        S = load(f);
-        if isfield(S,'time_s'); t = S.time_s(:); else; t = S.time(:); end
-        if isfield(S,'pos_ecef_m')
-            pos = S.pos_ecef_m;
-            vel = S.vel_ecef_ms;
+        if endsWith(f,'.txt')
+            raw = read_state_file(f);
+            t = raw(:,1);
+            pos = raw(:,2:4);
+            vel = raw(:,5:7);
+            acc = [zeros(1,3); diff(vel)./diff(t)];
         else
-            pos = S.pos_ecef;
-            vel = S.vel_ecef;
-        end
-        if isfield(S,'acc_ecef_ms2')
-            acc = S.acc_ecef_ms2;
-        else
-            acc = gradient(gradient(pos)) ./ mean(diff(t))^2;
+            S = load(f);
+            if isfield(S,'time_s'); t = S.time_s(:); else; t = S.time(:); end
+            if isfield(S,'pos_ecef_m')
+                pos = S.pos_ecef_m;
+                vel = S.vel_ecef_ms;
+            else
+                pos = S.pos_ecef;
+                vel = S.vel_ecef;
+            end
+            if isfield(S,'acc_ecef_ms2')
+                acc = S.acc_ecef_ms2;
+            else
+                acc = gradient(gradient(pos)) ./ mean(diff(t))^2;
+            end
         end
     end
 end

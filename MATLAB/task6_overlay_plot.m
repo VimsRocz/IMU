@@ -62,7 +62,8 @@ if endsWith(ppath, '.npz')
     end
     t = double(data{'time_s'});
 else
-    raw = load(ppath);
+    % Text truth files may include a comment header
+    raw = read_state_file(ppath);
     t = raw(:,2);
     if strcmpi(frame,'ECEF')
         pos = raw(:,3:5);
