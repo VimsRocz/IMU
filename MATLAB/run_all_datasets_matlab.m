@@ -12,6 +12,11 @@ end
 
 here = fileparts(mfilename('fullpath'));
 root = fileparts(here);
+% Ensure "results" directory is under the repository root regardless of the
+% caller's current working directory.
+orig_dir = pwd;
+cd(root);
+cleanupObj = onCleanup(@() cd(orig_dir));
 
 % Prefer a dedicated Data folder if present
 dataDir = fullfile(root, 'Data');
