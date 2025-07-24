@@ -6,6 +6,10 @@ the corresponding ground truth file and saves only ``*_overlay_state.pdf``
 figures showing the fused estimate versus the raw ``STATE_X`` data. Any
 legacy ``*_overlay_truth.pdf`` output is skipped. Plots and logs will be
 saved in ``results/``.
+
+The script normally infers the IMU and GNSS file names from the estimator
+file, but ``--imu-file`` and ``--gnss-file`` can override this behaviour to
+provide explicit paths.
 """
 
 import argparse
@@ -41,6 +45,14 @@ def main() -> None:
         help="STATE_X001.txt or similar ground truth file",
     )
     parser.add_argument(
+        "--imu-file",
+        help="Full path to the IMU data file. Defaults to the path derived from --est-file",
+    )
+    parser.add_argument(
+        "--gnss-file",
+        help="Full path to the GNSS data file. Defaults to the path derived from --est-file",
+    )
+    parser.add_argument(
         "--output",
         default="results",
         help="Directory for the generated PDFs",
@@ -69,9 +81,29 @@ def main() -> None:
     est_path = Path(args.est_file)
     m = re.match(r"(IMU_\w+)_(GNSS_\w+)_([A-Za-z]+)_kf_output", est_path.stem)
     if not m:
-        raise ValueError("Estimator filename must follow <IMU>_<GNSS>_<METHOD>_kf_output.*")
-    imu_file = Path(f"{m.group(1)}.dat")
-    gnss_file = Path(f"{m.group(2)}.csv")
+        raise ValueError(
+            "Estimator filename must follow <IMU>_<GNSS>_<METHOD>_kf_output.*"
+        )
+
+    root = Path(__file__).resolve().parent.parent
+    data_dir = root / "Data"
+
+    if args.imu_file:
+        imu_file = Path(args.imu_file)
+    else:
+        imu_file = data_dir / f"{m.group(1)}.dat"
+        if not imu_file.is_file():
+            imu_file = root / f"{m.group(1)}.dat"
+
+    if args.gnss_file:
+        gnss_file = Path(args.gnss_file)
+    else:
+        gnss_file = data_dir / f"{m.group(2)}.csv"
+        if not gnss_file.is_file():
+            gnss_file = root / f"{m.group(2)}.csv"
+
+    imu_file = imu_file.resolve()
+    gnss_file = gnss_file.resolve()
     method = m.group(3)
     tag = args.tag or f"{m.group(1)}_{m.group(2)}_{method}"
 
