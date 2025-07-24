@@ -8,8 +8,10 @@ Usage:
 
 This script synchronizes the time bases of the estimator output and ground
 truth, then generates a single figure with position, velocity and acceleration
-components overlaid. Only the fused estimate and truth are shown. The figure is
-saved to ``results/{DATASET}_{METHOD}_Task6_{FRAME}_Overlay.pdf`` and ``.png``.
+components overlaid. Only the fused estimate and truth are shown. Figures are
+written under ``results/task6/<run_id>/`` using the filename pattern
+``<run_id>_task6_overlay_state_<frame>.pdf`` where ``run_id`` combines the
+dataset and method, e.g. ``IMU_X003_GNSS_X002_TRIAD``.
 With ``--debug`` the script prints diagnostic information about the input
 datasets before plotting.
 """
@@ -151,9 +153,11 @@ def plot_overlay(
         ax.legend().set_visible(False)
 
     fig.tight_layout()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    pdf_path = out_dir / f"{dataset}_{method}_Task6_{frame}_Overlay.pdf"
-    png_path = out_dir / f"{dataset}_{method}_Task6_{frame}_Overlay.png"
+    run_id = f"{dataset}_{method}"
+    task_dir = out_dir / "task6" / run_id
+    task_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = task_dir / f"{run_id}_task6_overlay_state_{frame}.pdf"
+    png_path = task_dir / f"{run_id}_task6_overlay_state_{frame}.png"
     fig.savefig(pdf_path)
     fig.savefig(png_path)
     plt.close(fig)
