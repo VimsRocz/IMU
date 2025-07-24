@@ -261,7 +261,7 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
     )
     task6_main()
     state_dir = Path("results") / "task6" / "IMU_X001_small_GNSS_X001_small_TRIAD"
-    state_files = {p.name for p in state_dir.glob("*_overlay_state.pdf")}
+    state_files = {p.name for p in state_dir.glob("*_task6_overlay_state_*.pdf")}
     assert state_files, "Missing state overlay plots"
 
 
