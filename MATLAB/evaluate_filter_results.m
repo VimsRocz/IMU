@@ -134,7 +134,10 @@ function [diff_pos_ned, diff_vel_ned] = subtask7_5_diff_plot(time, fused_pos_ned
 %   [diff_pos_ned, diff_vel_ned] = SUBTASK7_5_DIFF_PLOT(time, fused_pos_ned,
 %   truth_pos_ned, fused_vel_ned, truth_vel_ned, run_id, out_dir) computes
 %   truth_pos_ned - fused_pos_ned and truth_vel_ned - fused_vel_ned at each
-%   time step and plots the results.
+%   time step, plots the results and prints the value range for each axis.
+%   Outlier samples above 1 m or 1 m/s are summarised by first and last
+%   index together with their count.  The figure is saved as
+%   <run_id>_diff_truth_fused_over_time.pdf in out_dir.
 
 diff_pos_ned = truth_pos_ned - fused_pos_ned;
 diff_vel_ned = truth_vel_ned - fused_vel_ned;
@@ -153,24 +156,35 @@ sgtitle('Truth - Fused Differences');
 set(f,'PaperPositionMode','auto');
 out_file = fullfile(out_dir, [run_id '_diff_truth_fused_over_time.pdf']);
 print(f, out_file, '-dpdf');
-close(f); fprintf('Saved %s\n', out_file);
+close(f);
+fprintf('--- Task 7, Subtask 7.5: Saved %s ---\n', out_file);
 
 pos_thr = 1.0; vel_thr = 1.0;
 for i = 1:3
     dp = diff_pos_ned(:,i); dv = diff_vel_ned(:,i);
-    fprintf('%s position difference range: %.2f m to %.2f m. ', labels{i}, min(dp), max(dp));
     idx_p = find(abs(dp) > pos_thr);
-    if ~isempty(idx_p)
-        fprintf('Outliers (>%.1fm) at samples: %s\n', pos_thr, mat2str(idx_p'));
-    else
-        fprintf('No outliers (>%.1fm).\n', pos_thr);
-    end
-    fprintf('%s velocity difference range: %.2f m/s to %.2f m/s. ', labels{i}, min(dv), max(dv));
     idx_v = find(abs(dv) > vel_thr);
-    if ~isempty(idx_v)
-        fprintf('Outliers (>%.1fm/s) at samples: %s\n', vel_thr, mat2str(idx_v'));
+    if ~isempty(idx_p)
+        if numel(idx_p) > 1
+            range_p = sprintf('%d-%d', idx_p(1), idx_p(end));
+        else
+            range_p = sprintf('%d', idx_p(1));
+        end
+        out_p = sprintf('Outliers (>%.1fm) at %s (%d samples)', pos_thr, range_p, numel(idx_p));
     else
-        fprintf('No outliers (>%.1fm/s).\n', vel_thr);
+        out_p = sprintf('No outliers (>%.1fm)', pos_thr);
     end
+    if ~isempty(idx_v)
+        if numel(idx_v) > 1
+            range_v = sprintf('%d-%d', idx_v(1), idx_v(end));
+        else
+            range_v = sprintf('%d', idx_v(1));
+        end
+        out_v = sprintf('Outliers (>%.1fm/s) at %s (%d samples)', vel_thr, range_v, numel(idx_v));
+    else
+        out_v = sprintf('No outliers (>%.1fm/s)', vel_thr);
+    end
+    fprintf('%s position diff range: %.2f m to %.2f m. %s\n', labels{i}, min(dp), max(dp), out_p);
+    fprintf('%s velocity diff range: %.2f m/s to %.2f m/s. %s\n', labels{i}, min(dv), max(dv), out_v);
 end
 end

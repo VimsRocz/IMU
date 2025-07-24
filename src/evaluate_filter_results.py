@@ -333,7 +333,13 @@ def subtask7_5_diff_plot(
     run_id: str,
     out_dir: str,
 ) -> None:
-    """Plot ``truth - fused`` position and velocity differences."""
+    """Plot ``truth - fused`` position/velocity differences and print stats.
+
+    The function saves ``<run_id>_diff_truth_fused_over_time.pdf`` under
+    ``out_dir`` and reports the value range for each NED axis.  Outlier samples
+    exceeding ``1 m`` (position) or ``1 m/s`` (velocity) are summarised by the
+    first and last index together with their count.
+    """
 
     diff_pos_ned = truth_pos_ned - fused_pos_ned
     diff_vel_ned = truth_vel_ned - fused_vel_ned
@@ -361,31 +367,33 @@ def subtask7_5_diff_plot(
     fig.savefig(pdf)
     fig.savefig(png)
     plt.close(fig)
+    print(f"--- Task 7, Subtask 7.5: Saved {pdf.name} ---")
 
     pos_thr = 1.0
     vel_thr = 1.0
     for i, lab in enumerate(labels):
         dp = diff_pos_ned[:, i]
         dv = diff_vel_ned[:, i]
-        print(
-            f"{lab} position difference range: {dp.min():.2f} m to {dp.max():.2f} m.",
-            end=" ",
-        )
         idx_p = np.where(np.abs(dp) > pos_thr)[0]
+        idx_v = np.where(np.abs(dv) > vel_thr)[0]
         if idx_p.size:
-            print(f"Outliers (> {pos_thr:.1f}m) at samples: {idx_p.tolist()}")
+            range_p = f"{idx_p[0]}-{idx_p[-1]}" if idx_p.size > 1 else f"{idx_p[0]}"
+            out_p = f"Outliers (> {pos_thr:.1f}m) at {range_p} ({idx_p.size} samples)"
         else:
-            print(f"No outliers (> {pos_thr:.1f}m).")
+            out_p = f"No outliers (> {pos_thr:.1f}m)"
+
+        if idx_v.size:
+            range_v = f"{idx_v[0]}-{idx_v[-1]}" if idx_v.size > 1 else f"{idx_v[0]}"
+            out_v = f"Outliers (> {vel_thr:.1f}m/s) at {range_v} ({idx_v.size} samples)"
+        else:
+            out_v = f"No outliers (> {vel_thr:.1f}m/s)"
 
         print(
-            f"{lab} velocity difference range: {dv.min():.2f} m/s to {dv.max():.2f} m/s.",
-            end=" ",
+            f"{lab} position diff range: {dp.min():.2f} m to {dp.max():.2f} m. {out_p}"
         )
-        idx_v = np.where(np.abs(dv) > vel_thr)[0]
-        if idx_v.size:
-            print(f"Outliers (> {vel_thr:.1f}m/s) at samples: {idx_v.tolist()}")
-        else:
-            print(f"No outliers (> {vel_thr:.1f}m/s).")
+        print(
+            f"{lab} velocity diff range: {dv.min():.2f} m/s to {dv.max():.2f} m/s. {out_v}"
+        )
 
 
 if __name__ == "__main__":
