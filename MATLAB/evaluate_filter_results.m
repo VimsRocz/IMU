@@ -5,7 +5,8 @@ function evaluate_filter_results(npz_file, output_dir, tag)
 %   ``run_evaluation_npz`` function. Residual position and velocity as well as
 %   quaternion attitude history are loaded from ``npz_file`` and basic
 %   statistics and plots are produced under ``output_dir``. ``tag`` is an
-%   optional prefix for the output filenames.
+%   optional prefix for the output filenames. The routine is divided into
+%   Subtasks 7.1-7.5 for clearer debugging output.
 
 if nargin < 2 || isempty(output_dir)
     output_dir = 'results';
@@ -17,6 +18,8 @@ end
 if ~exist(output_dir, 'dir'); mkdir(output_dir); end
 prefix = '';
 if ~isempty(tag); prefix = [tag '_']; end
+
+fprintf('--- Task 7, Subtask 7.1: Loading data and checking dimensions ---\n');
 
 data = py.numpy.load(string(npz_file));
 res_pos = double(data{'residual_pos'});
@@ -30,6 +33,10 @@ res_vel = res_vel(1:n,:);
 t = t(1:n);
 quat = quat(1:n,:);
 
+fprintf('Loaded %d samples. res_pos size %s, res_vel size %s\n', n, mat2str(size(res_pos)), mat2str(size(res_vel)));
+
+fprintf('--- Task 7, Subtask 7.2: Computing residuals ---\n');
+
 if isKey(data, 'time') && isKey(data,'pos_ned') && isKey(data,'vel_ned')
     fused_t = double(data{'time'});
     fused_pos = double(data{'pos_ned'});
@@ -40,6 +47,12 @@ if isKey(data, 'time') && isKey(data,'pos_ned') && isKey(data,'vel_ned')
     truth_vel = derive_velocity(t, truth_pos);
     res_pos = pos_interp - truth_pos;
     res_vel = vel_interp - truth_vel;
+else
+    fused_t = t;
+    pos_interp = nan(size(res_pos));
+    vel_interp = nan(size(res_vel));
+    truth_pos = nan(size(res_pos));
+    truth_vel = nan(size(res_vel));
 end
 
 mean_pos = mean(res_pos, 1);
@@ -50,6 +63,8 @@ fprintf('Position residual mean [m]: %s\n', mat2str(mean_pos,3));
 fprintf('Position residual std  [m]: %s\n', mat2str(std_pos,3));
 fprintf('Velocity residual mean [m/s]: %s\n', mat2str(mean_vel,3));
 fprintf('Velocity residual std  [m/s]: %s\n', mat2str(std_vel,3));
+
+fprintf('--- Task 7, Subtask 7.3: Saving residual and norm plots ---\n');
 
 labels = {'X','Y','Z'};
 f = figure('Visible','off','Position',[100 100 900 450]);
@@ -63,6 +78,7 @@ pdf = fullfile(output_dir, sprintf('%stask7_residuals_position_velocity.pdf', pr
 print(f, pdf, '-dpdf');
 close(f); fprintf('Saved %s\n', pdf);
 
+fprintf('--- Task 7, Subtask 7.4: Plotting attitude angles ---\n');
 eul = rad2deg(quat2eul(quat(:,[2 3 4 1])));
 f = figure('Visible','off','Position',[100 100 600 500]);
 names = {'Roll','Pitch','Yaw'};
@@ -87,6 +103,40 @@ xlabel('Time [s]'); ylabel('Error Norm'); legend; grid on;
 set(f,'PaperPositionMode','auto');
 pdf_norm = fullfile(output_dir, sprintf('%stask7_error_norms.pdf', prefix));
 print(f, pdf_norm, '-dpdf'); close(f); fprintf('Saved %s\n', pdf_norm);
+
+% Subtask 7.5: difference truth - fused over time
+fprintf('--- Task 7, Subtask 7.5: Plotting Truth - Fused differences ---\n');
+if ~any(isnan(truth_pos(:))) && ~any(isnan(pos_interp(:)))
+    diff_pos = truth_pos - pos_interp;
+    diff_vel = truth_vel - vel_interp;
+    f = figure('Visible','off');
+    plot(t, diff_pos(:,1), 'DisplayName','Pos N'); hold on;
+    plot(t, diff_pos(:,2), 'DisplayName','Pos E');
+    plot(t, diff_pos(:,3), 'DisplayName','Pos D');
+    plot(t, diff_vel(:,1), '--', 'DisplayName','Vel N');
+    plot(t, diff_vel(:,2), '--', 'DisplayName','Vel E');
+    plot(t, diff_vel(:,3), '--', 'DisplayName','Vel D');
+    xlabel('Time [s]'); ylabel('Truth - Fused');
+    legend('Location','best'); grid on;
+    set(f,'PaperPositionMode','auto');
+    diff_pdf = fullfile(output_dir, sprintf('%sdiff_truth_fused_over_time.pdf', prefix));
+    print(f, diff_pdf, '-dpdf'); close(f); fprintf('Saved %s\n', diff_pdf);
+
+    comp_labels = {'N','E','D'};
+    for i = 1:3
+        dp = diff_pos(:,i);
+        dv = diff_vel(:,i);
+        fprintf('Position %s difference range: %.4f to %.4f m\n', comp_labels{i}, min(dp), max(dp));
+        fprintf('Velocity %s difference range: %.4f to %.4f m/s\n', comp_labels{i}, min(dv), max(dv));
+        thr = 3*std([dp; dv]);
+        idx = find(abs([dp; dv]) > thr);
+        if ~isempty(idx)
+            fprintf('  Large deviations detected for component %s around indices %s\n', comp_labels{i}, mat2str(unique(mod(idx-1,length(dp))+1)));
+        end
+    end
+else
+    fprintf('Truth or fused data missing, skipping Subtask 7.5.\n');
+end
 
 rmse_pos = sqrt(mean(norm_pos.^2));
 rmse_vel = sqrt(mean(norm_vel.^2));
