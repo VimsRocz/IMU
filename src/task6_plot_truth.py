@@ -4,8 +4,8 @@
 This helper script loads the Kalman filter output from Task 5 together with
 the corresponding ground truth file and saves only ``*_overlay_state.pdf``
 figures showing the fused estimate versus the raw ``STATE_X`` data. Any
-legacy ``*_overlay_truth.pdf`` output is skipped. Plots and logs will be
-saved in ``results/``.
+legacy ``*_overlay_truth.pdf`` output is skipped. Figures are written to
+``results/task6/<run_id>/`` where ``run_id`` is ``<IMU>_<GNSS>_<METHOD>``.
 
 The script normally infers the IMU and GNSS file names from the estimator
 file, but ``--imu-file`` and ``--gnss-file`` can override this behaviour to
@@ -71,13 +71,6 @@ def main() -> None:
     out_dir = Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Remove any existing Task 6 truth overlay PDFs to avoid confusion
-    for f in glob.glob(str(out_dir / "*task6_*_truth.pdf")):
-        try:
-            os.remove(f)
-        except OSError:
-            pass
-
     est_path = Path(args.est_file)
     m = re.match(r"(IMU_\w+)_(GNSS_\w+)_([A-Za-z]+)_kf_output", est_path.stem)
     if not m:
@@ -106,6 +99,15 @@ def main() -> None:
     gnss_file = gnss_file.resolve()
     method = m.group(3)
     tag = args.tag or f"{m.group(1)}_{m.group(2)}_{method}"
+
+    task6_dir = out_dir / "task6" / tag
+    task6_dir.mkdir(parents=True, exist_ok=True)
+
+    for f in glob.glob(str(task6_dir / "*_truth.pdf")):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
 
     est = load_estimate(str(est_path))
     frames = assemble_frames(est, imu_file, gnss_file, args.truth_file)
@@ -257,7 +259,7 @@ def main() -> None:
             t_t = ensure_relative_time(t_t)
             if frame_name == "NED":
                 p_t = centre(p_t)
-        name_state = f"{tag}_task6_{frame_name}_overlay_state.pdf"
+        name_state = f"{tag}_task6_overlay_state_{frame_name}.pdf"
         plot_overlay(
             frame_name,
             method,
@@ -273,7 +275,7 @@ def main() -> None:
             p_f,
             v_f,
             a_f,
-            out_dir,
+            task6_dir,
             t_truth=t_t,
             pos_truth=p_t,
             vel_truth=v_t,

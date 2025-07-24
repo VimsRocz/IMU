@@ -260,7 +260,10 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
         ],
     )
     task6_main()
-    state_files = {p.name for p in Path("results").glob("*_overlay_state.pdf")}
+    state_files = {
+        p.name
+        for p in Path("results/task6").rglob("*_overlay_state_*.pdf")
+    }
     assert state_files, "Missing state overlay plots"
 
 

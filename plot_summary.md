@@ -15,7 +15,7 @@
 - **X001_TRIAD_attitude_angles.pdf**: Attitude angles over time
 - **<method>_<frame>_overlay_truth.pdf**: Fused results versus reference
 - **<method>_<frame>_overlay_state.pdf**: Fused results versus raw state file
-- **<tag>_task6_<frame>_overlay_state.pdf**: Task 6 overlay using raw state data
+- **<run_id>_task6_overlay_state_<frame>.pdf**: Task 6 overlay using raw state data
 - **<tag>_task7_residuals_position_velocity.pdf**: Task 7 residuals
 - **<tag>_task7_attitude_angles_euler.pdf**: Task 7 attitude angles
 

@@ -247,7 +247,7 @@ Typical result PDFs:
 - `<method>_attitude_angles.pdf` – attitude angles over time
 - `<tag>_<frame>_overlay_truth.pdf` – fused output vs reference (dataset tag is
   derived from the estimator filename)
-- `task6_<frame>_overlay_state.pdf` – Task 6 overlay with GNSS, IMU and raw state
+- `<run_id>_task6_overlay_state_<frame>.pdf` – Task 6 overlay with GNSS, IMU and raw state
 - `task7_residuals_position_velocity.pdf` – Task 7 position/velocity residuals
 - `task7_attitude_angles_euler.pdf` – Task 7 Euler angle plots
 - `task7_fused_vs_truth_error.pdf` – Task 7 fused minus truth velocity error
@@ -266,12 +266,13 @@ python src/task6_plot_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_ou
 ```
 
 Passing `--show-measurements` adds the raw IMU and GNSS curves.  The resulting
-figures are written as ``<tag>_task6_<frame>_overlay_state.pdf`` in the
-``results/`` directory.
+figures are written as ``<run_id>_task6_overlay_state_<frame>.pdf`` in the
+``results/task6/<run_id>/`` directory, where ``run_id`` is
+``<IMU>_<GNSS>_<METHOD>``.
 
 ### Output
 
-* `<tag>_task6_<frame>_overlay_state.pdf` – fused output vs raw state file
+* `<run_id>_task6_overlay_state_<frame>.pdf` – fused output vs raw state file
 
 ## Task 7: Evaluation of Filter Results
 

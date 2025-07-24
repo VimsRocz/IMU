@@ -7,8 +7,9 @@ function pdf_path = task6_overlay_plot(est_file, truth_file, method, frame, data
 %   ``.npz`` or ``.txt`` files containing the fused estimator output and
 %   ground truth respectively. ``frame`` is either ``'ECEF'`` or ``'NED'``.
 %   The interpolated truth is overlaid on the estimate for position,
-%   velocity and acceleration and the figure saved under ``output_dir`` with
-%   a name ``<dataset>_<method>_Task6_<frame>_Overlay``.
+%   velocity and acceleration and the figure saved under
+%   ``output_dir/task6/<dataset>_<method>/`` as
+%   ``<dataset>_<method>_task6_overlay_state_<frame>.pdf``.
 
 if nargin < 4 || isempty(frame)
     frame = 'ECEF';
@@ -178,9 +179,11 @@ for ax = 1:3
     end
 end
 set(f,'PaperPositionMode','auto');
-if ~exist(out_dir,'dir'); mkdir(out_dir); end
-pdf_path = fullfile(out_dir, sprintf('%s_%s_Task6_%s_Overlay.pdf', dataset, method, upper(frame)));
-png_path = fullfile(out_dir, sprintf('%s_%s_Task6_%s_Overlay.png', dataset, method, upper(frame)));
+run_id = sprintf('%s_%s', dataset, method);
+out_path = fullfile(out_dir, 'task6', run_id);
+if ~exist(out_path,'dir'); mkdir(out_path); end
+pdf_path = fullfile(out_path, sprintf('%s_task6_overlay_state_%s.pdf', run_id, upper(frame)));
+png_path = fullfile(out_path, sprintf('%s_task6_overlay_state_%s.png', run_id, upper(frame)));
 print(f, pdf_path, '-dpdf');
 print(f, png_path, '-dpng');
 close(f);
