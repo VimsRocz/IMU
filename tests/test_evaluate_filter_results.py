@@ -47,4 +47,4 @@ def test_run_evaluation_npz_diff_plot(tmp_path):
         vel_ned=fused_vel,
     )
     run_evaluation_npz(str(f), str(tmp_path), tag="TEST")
-    assert (tmp_path / "TEST_diff_truth_fused_over_time.pdf").exists()
+    assert (tmp_path / "TEST_task7_diff_truth_fused_over_time.pdf").exists()

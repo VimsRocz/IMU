@@ -151,9 +151,11 @@ for i = 1:3
 end
 sgtitle('Truth - Fused Differences');
 set(f,'PaperPositionMode','auto');
-out_file = fullfile(out_dir, [run_id '_diff_truth_fused_over_time.pdf']);
-print(f, out_file, '-dpdf');
-close(f); fprintf('Saved %s\n', out_file);
+out_file_pdf = fullfile(out_dir, [run_id '_task7_diff_truth_fused_over_time.pdf']);
+out_file_png = strrep(out_file_pdf, '.pdf', '.png');
+print(f, out_file_pdf, '-dpdf');
+print(f, out_file_png, '-dpng');
+close(f); fprintf('Saved %s\n', out_file_pdf);
 
 pos_thr = 1.0; vel_thr = 1.0;
 for i = 1:3
