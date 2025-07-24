@@ -57,7 +57,15 @@ function [t, pos, vel, acc] = load_est(file)
             acc = [zeros(1,3); diff(vel)./diff(t)];
         else
             S = load(f);
-            if isfield(S,'time_s'); t = S.time_s(:); else; t = S.time(:); end
+            if isfield(S,'time_s');
+                t = S.time_s(:);
+            elseif isfield(S,'time');
+                t = S.time(:);
+            elseif isfield(S,'imu_time')
+                t = S.imu_time(:);
+            else
+                t = (0:size(S.pos_ecef,1)-1)';
+            end
             if isfield(S,'pos_ecef_m')
                 pos = S.pos_ecef_m;
                 vel = S.vel_ecef_ms;
