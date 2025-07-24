@@ -10,6 +10,7 @@ function evaluate_filter_results(npz_file, output_dir, tag)
 if nargin < 2 || isempty(output_dir)
     output_dir = 'results';
 end
+
 if nargin < 3
     tag = '';
 end
@@ -40,6 +41,14 @@ if isKey(data, 'time') && isKey(data,'pos_ned') && isKey(data,'vel_ned')
     truth_vel = derive_velocity(t, truth_pos);
     res_pos = pos_interp - truth_pos;
     res_vel = vel_interp - truth_vel;
+
+    % Subtask 7.5: Truth minus Fused difference analysis
+    run_id = tag;
+    if isempty(run_id)
+        run_id = 'run';
+    end
+    subtask7_5_truth_fused_diff(pos_interp, truth_pos, vel_interp, ...
+        truth_vel, t, run_id, output_dir);
 end
 
 mean_pos = mean(res_pos, 1);
@@ -97,6 +106,69 @@ final_acc = norm_acc(end);
 
 fprintf('[SUMMARY] rmse_pos=%.3f m final_pos=%.3f m rmse_vel=%.3f m/s final_vel=%.3f m/s\n', ...
     rmse_pos, final_pos, rmse_vel, final_vel);
+
+end
+
+% -------------------------------------------------------------------------
+function [diff_pos_ned, diff_vel_ned] = subtask7_5_truth_fused_diff( ...
+    fused_pos_ned, truth_pos_ned, fused_vel_ned, truth_vel_ned, time, run_id, out_dir)
+%SUBTASK7_5_TRUTH_FUSED_DIFF  Plot and analyse Truth - Fused differences.
+%   [DIFF_POS_NED, DIFF_VEL_NED] = SUBTASK7_5_TRUTH_FUSED_DIFF(FUSED_POS_NED,
+%   TRUTH_POS_NED, FUSED_VEL_NED, TRUTH_VEL_NED, TIME, RUN_ID, OUT_DIR) computes
+%   the difference between truth and fused position/velocity in the NED frame,
+%   plots the components over TIME and saves the figure as
+%   ``<run_id>_diff_truth_fused_over_time.pdf`` under OUT_DIR.
+
+fprintf('--- Task 7, Subtask 7.5: Plotting and analyzing Truth - Fused differences ---\n');
+
+diff_pos_ned = truth_pos_ned - fused_pos_ned;
+diff_vel_ned = truth_vel_ned - fused_vel_ned;
+
+labels = {'North','East','Down'};
+fig = figure('Visible','off','Position',[100 100 900 600]);
+for i = 1:3
+    subplot(2,3,i);
+    plot(time, diff_pos_ned(:,i), 'DisplayName','Truth - Fused');
+    ylabel('Difference [m]');
+    title(labels{i});
+    grid on;
+end
+for i = 1:3
+    subplot(2,3,3+i);
+    plot(time, diff_vel_ned(:,i), 'DisplayName','Truth - Fused');
+    xlabel('Time [s]');
+    ylabel('Difference [m/s]');
+    grid on;
+end
+sgtitle('Truth - Fused Difference Over Time');
+set(fig,'PaperPositionMode','auto');
+pdf = fullfile(out_dir, [run_id '_diff_truth_fused_over_time.pdf']);
+print(fig, pdf, '-dpdf');
+close(fig); fprintf('Saved %s\n', pdf);
+
+pos_thresh = 1; vel_thresh = 1; % [m], [m/s]
+for i = 1:3
+    pmin = min(diff_pos_ned(:,i));
+    pmax = max(diff_pos_ned(:,i));
+    vidx = find(abs(diff_pos_ned(:,i)) > pos_thresh);
+    fprintf('%s position difference range: %.2f m to %.2f m. ', labels{i}, pmin, pmax);
+    if isempty(vidx)
+        fprintf('No outliers (>%.1fm).\n', pos_thresh);
+    else
+        fprintf('Outliers (>%.1fm) at samples: %s\n', pos_thresh, mat2str(vidx')); %#ok<*NMATSTR>
+    end
+end
+for i = 1:3
+    vmin = min(diff_vel_ned(:,i));
+    vmax = max(diff_vel_ned(:,i));
+    vidx = find(abs(diff_vel_ned(:,i)) > vel_thresh);
+    fprintf('%s velocity difference range: %.2f m/s to %.2f m/s. ', labels{i}, vmin, vmax);
+    if isempty(vidx)
+        fprintf('No outliers (>%.1fm/s).\n', vel_thresh);
+    else
+        fprintf('Outliers (>%.1fm/s) at samples: %s\n', vel_thresh, mat2str(vidx'));
+    end
+end
 
 end
 
