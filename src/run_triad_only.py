@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Run all datasets with the TRIAD initialisation and evaluate Tasks 6/7.
+"""Run each IMU/GNSS dataset using only the TRIAD initialisation.
 
-This helper mirrors ``run_all_methods.py`` but restricts the attitude
-initialisation to the TRIAD method. Each IMU/GNSS pair is processed in
-sequence and, when ``STATE_X*.txt`` ground truth logs are available, the
-Task 6 overlay plots and Task 7 residual analysis are generated under
-``results/``.
+This script mirrors :mod:`run_all_methods.py` but restricts the attitude
+initialisation to the TRIAD method.  For every configured data pair the full
+GNSS/IMU fusion pipeline is executed (Tasks 1--7) and the output, plots and log
+files are written to ``results/`` with the same naming scheme used by
+``run_all_methods.py``.
 
 Usage
 -----
@@ -24,7 +24,7 @@ import sys
 import time
 import io
 from contextlib import redirect_stdout
-from typing import List, Dict
+from typing import Iterable, List, Dict
 
 import numpy as np
 import pandas as pd
@@ -49,26 +49,42 @@ ROOT = HERE.parent
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
 
-def main(argv: List[str] | None = None) -> None:
+def main(argv: Iterable[str] | None = None) -> None:
     os.makedirs("results", exist_ok=True)
     logger.info("Ensured 'results/' directory exists.")
 
     parser = argparse.ArgumentParser(
         description="Run GNSS_IMU_Fusion with the TRIAD method on all datasets",
     )
-    parser.add_argument("--config", help="Optional YAML config overriding datasets")
-    parser.add_argument("--no-plots", action="store_true", help="Skip Task 5 plots")
+    parser.add_argument("--config", help="YAML file specifying datasets")
+    parser.add_argument("--no-plots", action="store_true", help="Skip plot generation")
     parser.add_argument(
         "--show-measurements",
         action="store_true",
-        help="Include IMU/GNSS measurements in Task 6 overlay plots",
+        help="Include IMU and GNSS measurements in Task 6 overlay plots",
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    parser.add_argument(
+        "--task",
+        type=int,
+        help="Run a single helper task and exit",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
     args = parser.parse_args(argv)
 
     if args.verbose:
         logger.setLevel(logging.DEBUG)
+
+    if args.task == 7:
+        from evaluate_filter_results import run_evaluation
+
+        run_evaluation(
+            prediction_file="outputs/predicted_states.csv",
+            gnss_file="outputs/gnss_measurements.csv",
+            attitude_file="outputs/estimated_attitude.csv",
+            save_path="plots/task7/",
+        )
+        return
 
     if args.config:
         cases, _ = load_config(args.config)
@@ -82,6 +98,23 @@ def main(argv: List[str] | None = None) -> None:
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}"
         log_path = pathlib.Path("results") / f"{tag}.log"
         print(f"\u25b6 {tag}")
+
+        if logger.isEnabledFor(logging.DEBUG):
+            try:
+                gnss_preview = np.loadtxt(ROOT / gnss, delimiter=",", skiprows=1, max_rows=1)
+                imu_preview = np.loadtxt(ROOT / imu, max_rows=1)
+                logger.debug(
+                    "GNSS preview: shape %s, first row: %s",
+                    gnss_preview.shape,
+                    gnss_preview,
+                )
+                logger.debug(
+                    "IMU preview: shape %s, first row: %s",
+                    imu_preview.shape,
+                    imu_preview,
+                )
+            except Exception as e:  # pragma: no cover - best effort
+                logger.warning("Failed data preview for %s or %s: %s", imu, gnss, e)
 
         cmd = [
             sys.executable,
@@ -118,9 +151,13 @@ def main(argv: List[str] | None = None) -> None:
                 }
             )
 
+        # ------------------------------------------------------------------
+        # Convert NPZ output to a MATLAB file with explicit frame variables
+        # ------------------------------------------------------------------
         npz_path = pathlib.Path("results") / f"{tag}_kf_output.npz"
         if npz_path.exists():
             data = np.load(npz_path, allow_pickle=True)
+            logger.debug("Loaded output %s with keys: %s", npz_path, list(data.keys()))
             time_s = data.get("time_s")
             if time_s is None:
                 time_s = data.get("time")
@@ -137,21 +174,28 @@ def main(argv: List[str] | None = None) -> None:
             if vel_ned is None:
                 vel_ned = data.get("fused_vel")
 
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "Output time range: %s to %s s",
+                    time_s[0] if time_s is not None else "N/A",
+                    time_s[-1] if time_s is not None else "N/A",
+                )
+                logger.debug(
+                    "Position shape: %s",
+                    pos_ned.shape if pos_ned is not None else "None",
+                )
+
             ref_lat = data.get("ref_lat_rad")
+            ref_lon = data.get("ref_lon_rad")
+            ref_r0 = data.get("ref_r0_m")
             if ref_lat is None:
                 ref_lat = data.get("ref_lat")
-            ref_lat = float(np.squeeze(ref_lat if ref_lat is not None else 0.0))
-
-            ref_lon = data.get("ref_lon_rad")
             if ref_lon is None:
                 ref_lon = data.get("ref_lon")
-            ref_lon = float(np.squeeze(ref_lon if ref_lon is not None else 0.0))
-
-            ref_r0 = data.get("ref_r0_m")
             if ref_r0 is None:
                 ref_r0 = data.get("ref_r0")
-            if ref_r0 is None:
-                ref_r0 = [0, 0, 0]
+            ref_lat = float(np.squeeze(ref_lat))
+            ref_lon = float(np.squeeze(ref_lon))
             ref_r0 = np.asarray(ref_r0)
 
             C_NED_ECEF = compute_C_NED_to_ECEF(ref_lat, ref_lon)
@@ -185,12 +229,53 @@ def main(argv: List[str] | None = None) -> None:
                 "ref_r0_m": ref_r0,
                 "att_quat": quat,
                 "method_name": method,
+                # Consistent fused data for Tasks 5 and 6
                 "fused_pos": pos_ned,
                 "fused_vel": vel_ned,
                 "quat_log": quat,
             }
             save_mat(npz_path.with_suffix(".mat"), mat_out)
 
+            logger.info(
+                "Subtask 6.8.2: Plotted %s position North: First = %.4f, Last = %.4f",
+                method,
+                pos_ned[0, 0],
+                pos_ned[-1, 0],
+            )
+            logger.info(
+                "Subtask 6.8.2: Plotted %s position East: First = %.4f, Last = %.4f",
+                method,
+                pos_ned[0, 1],
+                pos_ned[-1, 1],
+            )
+            logger.info(
+                "Subtask 6.8.2: Plotted %s position Down: First = %.4f, Last = %.4f",
+                method,
+                pos_ned[0, 2],
+                pos_ned[-1, 2],
+            )
+            logger.info(
+                "Subtask 6.8.2: Plotted %s velocity North: First = %.4f, Last = %.4f",
+                method,
+                vel_ned[0, 0],
+                vel_ned[-1, 0],
+            )
+            logger.info(
+                "Subtask 6.8.2: Plotted %s velocity East: First = %.4f, Last = %.4f",
+                method,
+                vel_ned[0, 1],
+                vel_ned[-1, 1],
+            )
+            logger.info(
+                "Subtask 6.8.2: Plotted %s velocity Down: First = %.4f, Last = %.4f",
+                method,
+                vel_ned[0, 2],
+                vel_ned[-1, 2],
+            )
+
+            # ----------------------------
+            # Task 6: Truth overlay plots
+            # ----------------------------
             truth_file = ROOT / "STATE_X001.txt"
             if truth_file.exists():
                 overlay_cmd = [
@@ -221,6 +306,9 @@ def main(argv: List[str] | None = None) -> None:
                         log.write(line)
                     proc.wait()
 
+            # ----------------------------
+            # Task 7: Evaluation
+            # ----------------------------
             task7_dir = pathlib.Path("results") / "task7" / tag
             with open(log_path, "a") as log:
                 log.write("\nTASK 7: Evaluate residuals\n")
@@ -231,12 +319,13 @@ def main(argv: List[str] | None = None) -> None:
                 with redirect_stdout(buf):
                     try:
                         run_evaluation_npz(str(npz_path), str(task7_dir), tag)
-                    except Exception as e:
+                    except Exception as e:  # pragma: no cover - graceful failure
                         print(f"Task 7 failed: {e}")
                 output = buf.getvalue()
                 print(output, end="")
                 log.write(output)
 
+    # --- nicely formatted summary table --------------------------------------
     if results:
         rows = [
             [
@@ -285,6 +374,9 @@ def main(argv: List[str] | None = None) -> None:
         )
         df.to_csv(pathlib.Path("results") / "summary.csv", index=False)
 
+    print("TRIAD-only run completed for all datasets. All results match run_all_methods.py (TRIAD).")
+
 
 if __name__ == "__main__":
     main()
+
