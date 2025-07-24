@@ -451,9 +451,21 @@ fprintf(fid_sum, '%s\n', summary_line);
 fclose(fid_sum);
 
 % Persist core results for unit tests and further analysis
+% Persist IMU and GNSS time vectors for Tasks 6 and 7
+time      = imu_time; %#ok<NASGU>  used by Task_6
+gnss_time = gnss_time; %#ok<NASGU>
+
+% Convenience fields matching the Python pipeline
+pos_ned = x_log(1:3,:)';
+vel_ned = x_log(4:6,:)';
+ref_lat = deg2rad(lat_deg); %#ok<NASGU>
+ref_lon = deg2rad(lon_deg); %#ok<NASGU>
+
 results_file = fullfile(results_dir, sprintf('Task5_results_%s.mat', pair_tag));
 save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
-    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log');
+    'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
+    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', ...
+    'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0');
 if isfile(results_file)
     fprintf('Results saved to %s\n', results_file);
 else
@@ -462,7 +474,9 @@ end
 
 method_file = fullfile(results_dir, [tag '_task5_results.mat']);
 save(method_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
-    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log');
+    'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
+    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', ...
+    'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0');
 if isfile(method_file)
     fprintf('Method-specific results saved to %s\n', method_file);
 else

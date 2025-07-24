@@ -64,8 +64,23 @@ acc_truth_ned = (C*acc_truth_ecef')';
 % Time vector from estimator
 if isfield(S,'time_residuals') && ~isempty(S.time_residuals)
     t_est = S.time_residuals;
-else
+elseif isfield(S,'time')
     t_est = S.time;
+elseif isfield(S,'imu_time')
+    t_est = S.imu_time;
+else
+    t_est = (0:size(S.x_log,2)-1)';
+end
+
+if ~isfield(S, 'gnss_time')
+    S.gnss_time = linspace(t_est(1), t_est(end), size(S.gnss_pos_ned,1))';
+end
+
+if ~isfield(S,'pos_ned')
+    S.pos_ned = S.x_log(1:3,:)';
+end
+if ~isfield(S,'vel_ned')
+    S.vel_ned = S.x_log(4:6,:)';
 end
 
 % Interpolate truth and GNSS to estimator time
