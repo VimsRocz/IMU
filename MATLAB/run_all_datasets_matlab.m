@@ -64,18 +64,20 @@ for k = 1:size(pairs,1)
         % dataset-specific truth files are unavailable.
         cand = fullfile(root, 'STATE_X001.txt');
         if isfile(cand)
+            fprintf('Starting Task 6 for %s + %s ...\n', imuStem, gnssStem);
             try
-                Task_6(imu, gnss, method);
+                Task_6(task5File, imu, gnss, cand);
             catch ME
-                fprintf('Task_6 skipped: %s\n', ME.message);
+                warning('Task 6 failed: %s', ME.message);
             end
+            fprintf('Starting Task 7 for %s + %s ...\n', imuStem, gnssStem);
             try
                 tag = sprintf('%s_%s_%s', imuStem, gnssStem, method);
                 outDir = fullfile(resultsDir, 'task7', tag);
                 summary = task7_fused_truth_error_analysis(outFile, cand, outDir);
                 save(fullfile(outDir,'task7_summary.mat'), 'summary');
             catch ME
-                fprintf('Task_7 skipped: %s\n', ME.message);
+                warning('Task 7 failed: %s', ME.message);
             end
         end
     else

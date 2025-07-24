@@ -1,37 +1,49 @@
-function Task_6(imu_path, gnss_path, method)
+function Task_6(task5_file, imu_path, gnss_path, truth_file)
 %TASK_6 Overlay ground truth on Task 5 results.
-%   TASK_6(IMU_PATH, GNSS_PATH, METHOD) loads the
-%   <IMU>_<GNSS>_<METHOD>_kf_output.mat file produced by Task 5 and the
-%   matching STATE_*.txt trajectory. IMU, GNSS and truth data are
-%   interpolated to a common time vector and passed to PLOT_OVERLAY for
-%   the NED, ECEF and body frames. The resulting PDFs
-%   <METHOD>_<FRAME>_overlay_truth.pdf are stored in the results folder.
+%   TASK_6(TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE) loads the
+%   Task 5 results MAT file along with the raw IMU, GNSS and ground truth
+%   trajectories.  All series are interpolated to the estimator time
+%   vector and ``plot_overlay`` is called for the NED, ECEF and body
+%   frames.  The resulting ``*_overlay_truth.pdf`` files are stored under
+%   ``results/``.
 
-if nargin < 3 || isempty(method)
-    method = 'TRIAD';
+if nargin < 4
+    error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');
 end
 
 [~, imu_name, ~]  = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
-results_dir = 'results';
 
-kf_file = fullfile(results_dir, sprintf('%s_%s_%s_kf_output.mat', ...
-    imu_name, gnss_name, method));
-if ~isfile(kf_file)
-    error('Task_6:FileNotFound', 'KF output not found: %s', kf_file);
+here = fileparts(mfilename('fullpath'));
+root = fileparts(here);
+results_dir = fullfile(root, 'results');
+
+if ~isfile(task5_file)
+    error('Task_6:FileNotFound', 'Task 5 result not found: %s', task5_file);
+end
+S = load(task5_file);
+
+% Derive method tag from filename or structure
+tok = regexp(task5_file, '_(\w+)_task5_results\.mat$', 'tokens');
+if ~isempty(tok)
+    method = tok{1}{1};
+elseif isfield(S,'method')
+    method = S.method;
+else
+    method = 'TRIAD';
 end
 
-% Always reference STATE\_X001.txt regardless of the dataset name so that
-% this task can run on all logs even when per-dataset truth is missing.
-state_name = 'STATE_X001.txt';
-try
-    state_file = get_data_file(state_name);
-catch
-    error('Task_6:TruthMissing', 'State file not found: %s', state_name);
+if nargin < 4 || isempty(truth_file)
+    % Default to the common STATE_X001.txt trajectory
+    state_name = 'STATE_X001.txt';
+    try
+        truth_file = get_data_file(state_name);
+    catch
+        error('Task_6:TruthMissing', 'State file not found: %s', state_name);
+    end
 end
 
-S = load(kf_file);
-truth = load(state_file);
+truth = load(truth_file);
 
 % Use reference coordinates from the estimate when available
 if isfield(S,'ref_lat'); ref_lat = S.ref_lat; else; ref_lat = deg2rad(-32.026554); end
@@ -134,3 +146,4 @@ save(metrics_file, 'metrics');
 fprintf('[Task6] %s %s RMSEpos(NED)=%.3f m final=%.3f m\n', ...
     imu_name, method, mNED.rmse_pos, mNED.final_pos);
 end
+

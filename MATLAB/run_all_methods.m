@@ -101,18 +101,20 @@ for m = 1:numel(methods)
     end
 
     if haveTruth
+        fprintf('Starting Task 6 for %s + %s ...\n', imu_name, gnss_name);
         try
-            Task_6(imu_path, gnss_path, method);
+            Task_6(method_file, imu_path, gnss_path, cand);
         catch ME
-            fprintf('Task_6 skipped for %s: %s\n', method, ME.message);
+            warning('Task 6 failed for %s: %s', method, ME.message);
         end
+        fprintf('Starting Task 7 for %s + %s ...\n', imu_name, gnss_name);
         try
             tag_m = sprintf('%s_%s_%s', imu_name, gnss_name, method);
             outDir = fullfile(resultsDir, 'task7', tag_m);
             summary = task7_fused_truth_error_analysis(out_kf, cand, outDir);
             save(fullfile(outDir,'task7_summary.mat'), 'summary');
         catch ME
-            fprintf('Task_7 skipped for %s: %s\n', method, ME.message);
+            warning('Task 7 failed for %s: %s', method, ME.message);
         end
     end
 end

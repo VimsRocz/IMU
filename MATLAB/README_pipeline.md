@@ -136,10 +136,11 @@ The comparison figures `<method>_<frame>_overlay_truth.pdf` are stored in the
 ### Task 6 – Truth Overlay
 
 `Task_6` automates the overlay step entirely in MATLAB. Call it with the
-same dataset arguments as the previous tasks:
+Task 5 result file and the associated data paths:
 
 ```matlab
-Task_6('IMU_X001.dat','GNSS_X001.csv','TRIAD')
+task5 = fullfile('results','IMU_X001_GNSS_X001_TRIAD_task5_results.mat');
+Task_6(task5,'IMU_X001.dat','GNSS_X001.csv','STATE_X001.txt');
 ```
 
 The function loads `<IMU>_<GNSS>_<METHOD>_kf_output.mat`, reads the matching
