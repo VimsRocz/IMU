@@ -8,6 +8,7 @@ under ``results/`` (or the provided output directory).
 """
 from __future__ import annotations
 from pathlib import Path
+import os
 from typing import Sequence
 
 import numpy as np
@@ -283,6 +284,24 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     print(f"Saved {norm_path}")
     plt.close(fig)
 
+    # Subtask 7.5: difference Truth - Fused
+    if fused_time is not None and fused_pos is not None and fused_vel is not None:
+        run_id = tag.replace(os.sep, "_") if tag else "run"
+        subtask7_5_diff_plot(
+            t,
+            pos_interp,
+            truth_pos,
+            vel_interp,
+            truth_vel,
+            run_id,
+            out_dir,
+        )
+        print(
+            f"Saved {Path(out_dir) / (run_id + '_diff_truth_fused_over_time.pdf')}"
+        )
+    else:
+        print("Subtask 7.5 skipped: missing fused or truth data")
+
     rmse_pos = float(np.sqrt(np.mean(norm_pos**2)))
     rmse_vel = float(np.sqrt(np.mean(norm_vel**2)))
     rmse_acc = float(np.sqrt(np.mean(norm_acc**2)))
@@ -314,9 +333,59 @@ def subtask7_5_diff_plot(
     run_id: str,
     out_dir: str,
 ) -> None:
-    """Placeholder for MATLAB Subtask 7.5."""
-    # TODO: implement plotting of truth minus fused differences
-    pass
+    """Plot ``truth - fused`` position and velocity differences."""
+
+    diff_pos_ned = truth_pos_ned - fused_pos_ned
+    diff_vel_ned = truth_vel_ned - fused_vel_ned
+
+    labels = ["North", "East", "Down"]
+    fig, axes = plt.subplots(2, 3, figsize=(9, 4), sharex=True)
+    for i in range(3):
+        axes[0, i].plot(time, diff_pos_ned[:, i])
+        axes[0, i].set_title(labels[i])
+        axes[0, i].set_ylabel("Difference [m]")
+        axes[0, i].grid(True)
+
+        axes[1, i].plot(time, diff_vel_ned[:, i])
+        axes[1, i].set_xlabel("Time [s]")
+        axes[1, i].set_ylabel("Difference [m/s]")
+        axes[1, i].grid(True)
+
+    fig.suptitle("Truth - Fused Differences")
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    pdf = out_dir / f"{run_id}_diff_truth_fused_over_time.pdf"
+    png = pdf.with_suffix(".png")
+    fig.savefig(pdf)
+    fig.savefig(png)
+    plt.close(fig)
+
+    pos_thr = 1.0
+    vel_thr = 1.0
+    for i, lab in enumerate(labels):
+        dp = diff_pos_ned[:, i]
+        dv = diff_vel_ned[:, i]
+        print(
+            f"{lab} position difference range: {dp.min():.2f} m to {dp.max():.2f} m.",
+            end=" ",
+        )
+        idx_p = np.where(np.abs(dp) > pos_thr)[0]
+        if idx_p.size:
+            print(f"Outliers (> {pos_thr:.1f}m) at samples: {idx_p.tolist()}")
+        else:
+            print(f"No outliers (> {pos_thr:.1f}m).")
+
+        print(
+            f"{lab} velocity difference range: {dv.min():.2f} m/s to {dv.max():.2f} m/s.",
+            end=" ",
+        )
+        idx_v = np.where(np.abs(dv) > vel_thr)[0]
+        if idx_v.size:
+            print(f"Outliers (> {vel_thr:.1f}m/s) at samples: {idx_v.tolist()}")
+        else:
+            print(f"No outliers (> {vel_thr:.1f}m/s).")
 
 
 if __name__ == "__main__":

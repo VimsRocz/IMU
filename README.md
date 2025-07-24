@@ -251,6 +251,8 @@ Typical result PDFs:
 - `task7_residuals_position_velocity.pdf` – Task 7 position/velocity residuals
 - `task7_attitude_angles_euler.pdf` – Task 7 Euler angle plots
 - `task7_fused_vs_truth_error.pdf` – Task 7 fused minus truth velocity error
+- `<tag>_diff_truth_fused_over_time.pdf` – Task 7 truth minus fused difference
+  plot
 
 ## Task 6: State Overlay
 
@@ -280,6 +282,7 @@ This task analyzes the filter's prediction accuracy.
 - Position and velocity residuals (GNSS - filter prediction)
 - Roll, pitch, yaw plots derived from quaternion
 - Optional acceleration error statistics when truth data is supplied
+- Truth minus fused difference plots (Subtask 7.5)
 
 ### How to run:
 ```bash
@@ -294,6 +297,8 @@ python src/run_all_methods.py --task 7
   `<tag>_task7_attitude_angles_euler.pdf`
 * The helper script `src/task7_plot_error_fused_vs_truth.py` produces
   `task7_fused_vs_truth_error.pdf` showing the fused minus truth velocity error.
+* Subtask 7.5 generates `<tag>_diff_truth_fused_over_time.pdf` with the
+  component-wise difference between truth and fused trajectories.
 
 ### Notes
 
