@@ -38,7 +38,8 @@ ref_r0 = double(npz{'ref_r0_m'});
 % -------------------------------------------------------------------------
 % Load truth trajectory
 % -------------------------------------------------------------------------
-truth_raw = load(truth_file);
+% Truth logs contain a comment header
+truth_raw = read_state_file(truth_file);
 truth_time = truth_raw(:,1);
 truth_pos_ecef = truth_raw(:,2:4);
 

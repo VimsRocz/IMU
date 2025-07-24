@@ -19,7 +19,12 @@ end
 if ~exist(output_dir, 'dir'); mkdir(output_dir); end
 
 F = load(fused_file);
-T = load(truth_file);
+% Truth file may include a comment header
+if endsWith(truth_file, '.txt')
+    T = read_state_file(truth_file);
+else
+    T = load(truth_file);
+end
 
 time = F.time_s(:);
 if isfield(F, 'vel_ned_ms')
@@ -27,10 +32,14 @@ if isfield(F, 'vel_ned_ms')
 else
     vel_f = [F.vx(:), F.vy(:), F.vz(:)];
 end
-if isfield(T, 'vel_ned_ms')
-    vel_t = T.vel_ned_ms;
+if isnumeric(T)
+    vel_t = T(:,5:7);
 else
-    vel_t = [T.vx(:), T.vy(:), T.vz(:)];
+    if isfield(T, 'vel_ned_ms')
+        vel_t = T.vel_ned_ms;
+    else
+        vel_t = [T.vx(:), T.vy(:), T.vz(:)];
+    end
 end
 
 err = vel_f - vel_t;

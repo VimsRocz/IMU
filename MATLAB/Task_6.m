@@ -43,7 +43,8 @@ if nargin < 4 || isempty(truth_file)
     end
 end
 
-truth = load(truth_file);
+% Load STATE_X truth file with comment support
+truth = read_state_file(truth_file);
 
 % Use reference coordinates from the estimate when available
 if isfield(S,'ref_lat'); ref_lat = S.ref_lat; else; ref_lat = deg2rad(-32.026554); end
