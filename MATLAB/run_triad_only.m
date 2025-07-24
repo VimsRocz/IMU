@@ -12,6 +12,11 @@ method = 'TRIAD';
 
 here = fileparts(mfilename('fullpath'));
 root = fileparts(here);
+% Switch to repository root so that all Tasks read/write results under
+% ``root/results`` regardless of the caller's working directory.
+orig_dir = pwd;
+cd(root);
+cleanupObj = onCleanup(@() cd(orig_dir));
 
 % Prefer a dedicated Data folder if present
 dataDir = fullfile(root, 'Data');
