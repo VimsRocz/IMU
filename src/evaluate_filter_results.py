@@ -297,7 +297,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
             out_dir,
         )
         print(
-            f"Saved {Path(out_dir) / (run_id + '_diff_truth_fused_over_time.pdf')}"
+            f"Saved {Path(out_dir) / (run_id + '_task7_diff_truth_fused_over_time.pdf')}"
         )
     else:
         print("Subtask 7.5 skipped: missing fused or truth data")
@@ -356,7 +356,7 @@ def subtask7_5_diff_plot(
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    pdf = out_dir / f"{run_id}_diff_truth_fused_over_time.pdf"
+    pdf = out_dir / f"{run_id}_task7_diff_truth_fused_over_time.pdf"
     png = pdf.with_suffix(".png")
     fig.savefig(pdf)
     fig.savefig(png)
