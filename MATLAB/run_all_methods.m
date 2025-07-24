@@ -32,14 +32,11 @@ colors  = {'r','g','b'};
 resultsDir = 'results';
 if ~exist(resultsDir,'dir'); mkdir(resultsDir); end
 
-% Check if ground truth file is available for optional Task 6 overlay
-stateName = [strrep(imu_name,'IMU','STATE') '.txt'];
-try
-    get_data_file(stateName); % throws if not found
-    haveTruth = true;
-catch
-    haveTruth = false;
-end
+% Always reference the common STATE\_X001.txt trajectory for Tasks 6 and 7
+% so that evaluation runs for any dataset regardless of its filename.
+stateName = 'STATE_X001.txt';
+cand = fullfile(fileparts(mfilename('fullpath')), '..', stateName);
+haveTruth = isfile(cand);
 
 % Load GNSS data and derive NED trajectory
 Tgnss = readtable(gnss_path);
@@ -112,8 +109,7 @@ for m = 1:numel(methods)
         try
             tag_m = sprintf('%s_%s_%s', imu_name, gnss_name, method);
             outDir = fullfile(resultsDir, 'task7', tag_m);
-            summary = task7_fused_truth_error_analysis(out_kf, ...
-                get_data_file(stateName), outDir);
+            summary = task7_fused_truth_error_analysis(out_kf, cand, outDir);
             save(fullfile(outDir,'task7_summary.mat'), 'summary');
         catch ME
             fprintf('Task_7 skipped for %s: %s\n', method, ME.message);

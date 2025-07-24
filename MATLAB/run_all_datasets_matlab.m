@@ -58,11 +58,11 @@ for k = 1:size(pairs,1)
         if exist('plot_results.m','file')
             plot_results(outFile);
         end
-        stateName = [strrep(imuStem,'IMU','STATE') '.txt'];
-        cand = fullfile(dataDir, stateName);
-        if ~isfile(cand)
-            cand = fullfile(root, stateName);
-        end
+        % Always use the common STATE\_X001.txt trajectory as the reference
+        % for Tasks 6 and 7 regardless of the IMU/GNSS filename.  This
+        % ensures that evaluation is performed for every dataset even when
+        % dataset-specific truth files are unavailable.
+        cand = fullfile(root, 'STATE_X001.txt');
         if isfile(cand)
             try
                 Task_6(imu, gnss, method);

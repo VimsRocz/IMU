@@ -21,7 +21,9 @@ if ~isfile(kf_file)
     error('Task_6:FileNotFound', 'KF output not found: %s', kf_file);
 end
 
-state_name = [strrep(imu_name,'IMU','STATE') '.txt'];
+% Always reference STATE\_X001.txt regardless of the dataset name so that
+% this task can run on all logs even when per-dataset truth is missing.
+state_name = 'STATE_X001.txt';
 try
     state_file = get_data_file(state_name);
 catch
