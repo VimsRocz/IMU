@@ -23,8 +23,9 @@ Task 5 output
 2. **Assemble Frames** – use :func:`assemble_frames` to align IMU, GNSS and truth
    data in NED, ECEF and body frames.
 3. **Generate Plots** – call :func:`plot_overlay` for each frame to save PDFs
-   named `<TAG>_task6_<FRAME>_overlay_state.pdf` in the results directory.  The
-   ``--show-measurements`` flag adds the raw IMU and GNSS curves.
+   named `<TAG>_task6_overlay_state_<FRAME>.pdf` inside
+   ``results/task6/<TAG>/``.  The ``--show-measurements`` flag adds the raw IMU
+   and GNSS curves.
 
 ## Result
 

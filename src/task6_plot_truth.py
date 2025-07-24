@@ -68,15 +68,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    out_dir = Path(args.output)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # Remove any existing Task 6 truth overlay PDFs to avoid confusion
-    for f in glob.glob(str(out_dir / "*task6_*_truth.pdf")):
-        try:
-            os.remove(f)
-        except OSError:
-            pass
+    out_base = Path(args.output)
 
     est_path = Path(args.est_file)
     m = re.match(r"(IMU_\w+)_(GNSS_\w+)_([A-Za-z]+)_kf_output", est_path.stem)
@@ -106,6 +98,16 @@ def main() -> None:
     gnss_file = gnss_file.resolve()
     method = m.group(3)
     tag = args.tag or f"{m.group(1)}_{m.group(2)}_{method}"
+
+    out_dir = out_base / "task6" / tag
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Remove any existing Task 6 truth overlay PDFs to avoid confusion
+    for f in glob.glob(str(out_dir / "*task6_*_truth.pdf")):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
 
     est = load_estimate(str(est_path))
     frames = assemble_frames(est, imu_file, gnss_file, args.truth_file)
@@ -257,7 +259,7 @@ def main() -> None:
             t_t = ensure_relative_time(t_t)
             if frame_name == "NED":
                 p_t = centre(p_t)
-        name_state = f"{tag}_task6_{frame_name}_overlay_state.pdf"
+        name_state = f"{tag}_task6_overlay_state_{frame_name}.pdf"
         plot_overlay(
             frame_name,
             method,

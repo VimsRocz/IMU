@@ -260,8 +260,15 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
         ],
     )
     task6_main()
-    state_files = {p.name for p in Path("results").glob("*_overlay_state.pdf")}
-    assert state_files, "Missing state overlay plots"
+    run_id = est_file.stem.replace("_kf_output", "")
+    run_dir = Path("results") / "task6" / run_id
+    expected_state = {
+        f"{run_id}_task6_overlay_state_NED.pdf",
+        f"{run_id}_task6_overlay_state_ECEF.pdf",
+        f"{run_id}_task6_overlay_state_Body.pdf",
+    }
+    produced_state = {p.name for p in run_dir.glob("*.pdf")}
+    assert expected_state.issubset(produced_state), f"Missing state overlays: {expected_state - produced_state}"
 
 
 def test_assemble_frames_small_truth():
