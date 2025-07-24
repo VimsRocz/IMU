@@ -121,23 +121,48 @@ def main(argv: List[str] | None = None) -> None:
         npz_path = pathlib.Path("results") / f"{tag}_kf_output.npz"
         if npz_path.exists():
             data = np.load(npz_path, allow_pickle=True)
-            time_s = data.get("time_s") or data.get("time")
-            pos_ned = data.get("pos_ned_m") or data.get("pos_ned") or data.get("fused_pos")
-            vel_ned = data.get("vel_ned_ms") or data.get("vel_ned") or data.get("fused_vel")
+            time_s = data.get("time_s")
+            if time_s is None:
+                time_s = data.get("time")
 
-            ref_lat = float(np.squeeze(data.get("ref_lat_rad") or data.get("ref_lat") or 0.0))
-            ref_lon = float(np.squeeze(data.get("ref_lon_rad") or data.get("ref_lon") or 0.0))
-            ref_r0 = np.asarray(data.get("ref_r0_m") or data.get("ref_r0") or [0, 0, 0])
+            pos_ned = data.get("pos_ned_m")
+            if pos_ned is None:
+                pos_ned = data.get("pos_ned")
+            if pos_ned is None:
+                pos_ned = data.get("fused_pos")
+
+            vel_ned = data.get("vel_ned_ms")
+            if vel_ned is None:
+                vel_ned = data.get("vel_ned")
+            if vel_ned is None:
+                vel_ned = data.get("fused_vel")
+
+            ref_lat = data.get("ref_lat_rad")
+            if ref_lat is None:
+                ref_lat = data.get("ref_lat")
+            ref_lat = float(np.squeeze(ref_lat if ref_lat is not None else 0.0))
+
+            ref_lon = data.get("ref_lon_rad")
+            if ref_lon is None:
+                ref_lon = data.get("ref_lon")
+            ref_lon = float(np.squeeze(ref_lon if ref_lon is not None else 0.0))
+
+            ref_r0 = data.get("ref_r0_m")
+            if ref_r0 is None:
+                ref_r0 = data.get("ref_r0")
+            if ref_r0 is None:
+                ref_r0 = [0, 0, 0]
+            ref_r0 = np.asarray(ref_r0)
 
             C_NED_ECEF = compute_C_NED_to_ECEF(ref_lat, ref_lon)
             pos_ecef = (C_NED_ECEF @ pos_ned.T).T + ref_r0
             vel_ecef = (C_NED_ECEF @ vel_ned.T).T
 
-            quat = (
-                data.get("att_quat")
-                or data.get("attitude_q")
-                or data.get("quat_log")
-            )
+            quat = data.get("att_quat")
+            if quat is None:
+                quat = data.get("attitude_q")
+            if quat is None:
+                quat = data.get("quat_log")
             if quat is not None:
                 rot = R.from_quat(quat[:, [1, 2, 3, 0]])
                 C_B_N = rot.as_matrix()
