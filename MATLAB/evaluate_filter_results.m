@@ -107,33 +107,11 @@ print(f, pdf_norm, '-dpdf'); close(f); fprintf('Saved %s\n', pdf_norm);
 % Subtask 7.5: difference truth - fused over time
 fprintf('--- Task 7, Subtask 7.5: Plotting Truth - Fused differences ---\n');
 if ~any(isnan(truth_pos(:))) && ~any(isnan(pos_interp(:)))
-    diff_pos = truth_pos - pos_interp;
-    diff_vel = truth_vel - vel_interp;
-    f = figure('Visible','off');
-    plot(t, diff_pos(:,1), 'DisplayName','Pos N'); hold on;
-    plot(t, diff_pos(:,2), 'DisplayName','Pos E');
-    plot(t, diff_pos(:,3), 'DisplayName','Pos D');
-    plot(t, diff_vel(:,1), '--', 'DisplayName','Vel N');
-    plot(t, diff_vel(:,2), '--', 'DisplayName','Vel E');
-    plot(t, diff_vel(:,3), '--', 'DisplayName','Vel D');
-    xlabel('Time [s]'); ylabel('Truth - Fused');
-    legend('Location','best'); grid on;
-    set(f,'PaperPositionMode','auto');
-    diff_pdf = fullfile(output_dir, sprintf('%sdiff_truth_fused_over_time.pdf', prefix));
-    print(f, diff_pdf, '-dpdf'); close(f); fprintf('Saved %s\n', diff_pdf);
-
-    comp_labels = {'N','E','D'};
-    for i = 1:3
-        dp = diff_pos(:,i);
-        dv = diff_vel(:,i);
-        fprintf('Position %s difference range: %.4f to %.4f m\n', comp_labels{i}, min(dp), max(dp));
-        fprintf('Velocity %s difference range: %.4f to %.4f m/s\n', comp_labels{i}, min(dv), max(dv));
-        thr = 3*std([dp; dv]);
-        idx = find(abs([dp; dv]) > thr);
-        if ~isempty(idx)
-            fprintf('  Large deviations detected for component %s around indices %s\n', comp_labels{i}, mat2str(unique(mod(idx-1,length(dp))+1)));
-        end
-    end
+    run_id = strrep(tag, filesep, '_');
+    if isempty(run_id); run_id = 'run'; end
+    out_dir = fullfile('results', 'task7', run_id);
+    if ~exist(out_dir, 'dir'); mkdir(out_dir); end
+    subtask7_5_diff_plot(t, pos_interp, truth_pos, vel_interp, truth_vel, run_id, out_dir);
 else
     fprintf('Truth or fused data missing, skipping Subtask 7.5.\n');
 end
@@ -150,3 +128,49 @@ fprintf('[SUMMARY] rmse_pos=%.3f m final_pos=%.3f m rmse_vel=%.3f m/s final_vel=
 
 end
 
+
+function [diff_pos_ned, diff_vel_ned] = subtask7_5_diff_plot(time, fused_pos_ned, truth_pos_ned, fused_vel_ned, truth_vel_ned, run_id, out_dir)
+%SUBTASK7_5_DIFF_PLOT Plot and analyse Truth minus Fused differences.
+%   [diff_pos_ned, diff_vel_ned] = SUBTASK7_5_DIFF_PLOT(time, fused_pos_ned,
+%   truth_pos_ned, fused_vel_ned, truth_vel_ned, run_id, out_dir) computes
+%   truth_pos_ned - fused_pos_ned and truth_vel_ned - fused_vel_ned at each
+%   time step and plots the results.
+
+diff_pos_ned = truth_pos_ned - fused_pos_ned;
+diff_vel_ned = truth_vel_ned - fused_vel_ned;
+
+labels = {'North','East','Down'};
+f = figure('Visible','off','Position',[100 100 900 450]);
+for i = 1:3
+    subplot(2,3,i); plot(time, diff_pos_ned(:,i));
+    title(labels{i}); ylabel('Difference [m]'); grid on;
+end
+for i = 1:3
+    subplot(2,3,3+i); plot(time, diff_vel_ned(:,i));
+    xlabel('Time [s]'); ylabel('Difference [m/s]'); grid on;
+end
+sgtitle('Truth - Fused Differences');
+set(f,'PaperPositionMode','auto');
+out_file = fullfile(out_dir, [run_id '_diff_truth_fused_over_time.pdf']);
+print(f, out_file, '-dpdf');
+close(f); fprintf('Saved %s\n', out_file);
+
+pos_thr = 1.0; vel_thr = 1.0;
+for i = 1:3
+    dp = diff_pos_ned(:,i); dv = diff_vel_ned(:,i);
+    fprintf('%s position difference range: %.2f m to %.2f m. ', labels{i}, min(dp), max(dp));
+    idx_p = find(abs(dp) > pos_thr);
+    if ~isempty(idx_p)
+        fprintf('Outliers (>%.1fm) at samples: %s\n', pos_thr, mat2str(idx_p'));
+    else
+        fprintf('No outliers (>%.1fm).\n', pos_thr);
+    end
+    fprintf('%s velocity difference range: %.2f m/s to %.2f m/s. ', labels{i}, min(dv), max(dv));
+    idx_v = find(abs(dv) > vel_thr);
+    if ~isempty(idx_v)
+        fprintf('Outliers (>%.1fm/s) at samples: %s\n', vel_thr, mat2str(idx_v'));
+    else
+        fprintf('No outliers (>%.1fm/s).\n', vel_thr);
+    end
+end
+end

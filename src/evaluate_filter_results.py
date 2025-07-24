@@ -61,10 +61,26 @@ def run_evaluation(
                     df.rename(columns={cand: "time"}, inplace=True)
                     break
 
-    pos_cols_p = _find_cols(pred, [["px", "py", "pz"], ["pos_x", "pos_y", "pos_z"], ["x", "y", "z"]])
+    pos_cols_p = _find_cols(
+        pred, [["px", "py", "pz"], ["pos_x", "pos_y", "pos_z"], ["x", "y", "z"]]
+    )
     vel_cols_p = _find_cols(pred, [["vx", "vy", "vz"], ["vel_x", "vel_y", "vel_z"]])
-    pos_cols_g = _find_cols(gnss, [["x", "y", "z"], ["pos_x", "pos_y", "pos_z"], ["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]])
-    vel_cols_g = _find_cols(gnss, [["vx", "vy", "vz"], ["vel_x", "vel_y", "vel_z"], ["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]])
+    pos_cols_g = _find_cols(
+        gnss,
+        [
+            ["x", "y", "z"],
+            ["pos_x", "pos_y", "pos_z"],
+            ["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"],
+        ],
+    )
+    vel_cols_g = _find_cols(
+        gnss,
+        [
+            ["vx", "vy", "vz"],
+            ["vel_x", "vel_y", "vel_z"],
+            ["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"],
+        ],
+    )
     quat_cols = _find_cols(att, [["qw", "qx", "qy", "qz"], ["q0", "q1", "q2", "q3"]])
 
     t_pred = pred["time"].to_numpy()
@@ -289,6 +305,20 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     )
 
 
+def subtask7_5_diff_plot(
+    time: np.ndarray,
+    fused_pos_ned: np.ndarray,
+    truth_pos_ned: np.ndarray,
+    fused_vel_ned: np.ndarray,
+    truth_vel_ned: np.ndarray,
+    run_id: str,
+    out_dir: str,
+) -> None:
+    """Placeholder for MATLAB Subtask 7.5."""
+    # TODO: implement plotting of truth minus fused differences
+    pass
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -304,5 +334,7 @@ if __name__ == "__main__":
         run_evaluation_npz(args.npz, args.output, args.tag)
     else:
         if not (args.prediction and args.gnss and args.attitude):
-            ap.error("--prediction, --gnss and --attitude are required when --npz is not given")
+            ap.error(
+                "--prediction, --gnss and --attitude are required when --npz is not given"
+            )
         run_evaluation(args.prediction, args.gnss, args.attitude, args.output, args.tag)
