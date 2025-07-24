@@ -258,7 +258,8 @@ def main() -> None:
             t_t = ensure_relative_time(t_t)
             if frame_name == "NED":
                 p_t = centre(p_t)
-        name_state = f"{tag}_task6_{frame_name}_overlay_state.pdf"
+        # Save overlay in results/task6/<run_id>/<run_id>_task6_overlay_state_<frame>.pdf
+        name_state = f"{tag}_task6_overlay_state_{frame_name}.pdf"
         plot_overlay(
             frame_name,
             method,
