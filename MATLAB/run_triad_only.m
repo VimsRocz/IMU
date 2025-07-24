@@ -62,11 +62,10 @@ for k = 1:size(pairs,1)
             plot_results(outFile);
         end
         % Optional Tasks 6 and 7 when ground truth is available
-        stateName = [strrep(imuStem,'IMU','STATE') '.txt'];
-        cand = fullfile(dataDir, stateName);
-        if ~isfile(cand)
-            cand = fullfile(root, stateName);
-        end
+        % Use the common STATE\_X001.txt reference trajectory for all
+        % datasets so that Tasks 6 and 7 are executed for every IMU/GNSS
+        % pair irrespective of the original dataset naming.
+        cand = fullfile(root, 'STATE_X001.txt');
         if isfile(cand)
             try
                 Task_6(imu, gnss, method);
