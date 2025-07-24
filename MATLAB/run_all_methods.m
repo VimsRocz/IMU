@@ -97,11 +97,26 @@ for m = 1:numel(methods)
     outfile = fullfile(resultsDir, sprintf('%s_task5_results_%s.pdf', tag, method));
     save_pva_grid(t_imu, fused_pos{m}, fused_vel{m}, fused_acc{m}, outfile);
 
+    out_kf = fullfile(resultsDir, sprintf('%s_%s_%s_kf_output.mat', ...
+        imu_name, gnss_name, method));
+    if isfile(method_file)
+        save(out_kf, '-struct', 'data');
+    end
+
     if haveTruth
         try
             Task_6(imu_path, gnss_path, method);
         catch ME
             fprintf('Task_6 skipped for %s: %s\n', method, ME.message);
+        end
+        try
+            tag_m = sprintf('%s_%s_%s', imu_name, gnss_name, method);
+            outDir = fullfile(resultsDir, 'task7', tag_m);
+            summary = task7_fused_truth_error_analysis(out_kf, ...
+                get_data_file(stateName), outDir);
+            save(fullfile(outDir,'task7_summary.mat'), 'summary');
+        catch ME
+            fprintf('Task_7 skipped for %s: %s\n', method, ME.message);
         end
     end
 end
