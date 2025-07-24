@@ -210,7 +210,10 @@ cutoff = 5.0;
 order = 4;
 nyquist_freq = 0.5 * fs;
 normal_cutoff = cutoff / nyquist_freq;
-if exist('filtfilt', 'file') == 2 && exist('butter', 'file') == 2 && license('test','Signal_Processing_Toolbox')
+% Check for Signal Processing Toolbox using known license feature names
+has_signal_toolbox = license('test','Signal_Toolbox') || ...
+                      license('test','Signal_Processing_Toolbox');
+if exist('filtfilt', 'file') == 2 && exist('butter', 'file') == 2 && has_signal_toolbox
     [b, a] = butter(order, normal_cutoff, 'low');
     acc_filt = filtfilt(b, a, acc);
     gyro_filt = filtfilt(b, a, gyro);
@@ -232,7 +235,7 @@ window_size = 80;
 accel_var_thresh = 0.01;
 gyro_var_thresh  = 1e-6;
 min_length = 80;
-if license('test', 'Signal_Processing_Toolbox') && exist('movvar', 'file')
+if has_signal_toolbox && exist('movvar', 'file')
     accel_var = movvar(acc_filt, window_size, 0, 'Endpoints', 'discard');
     gyro_var = movvar(gyro_filt, window_size, 0, 'Endpoints', 'discard');
 else
@@ -1059,8 +1062,19 @@ function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size,
     if nargin < 5 || isempty(gyro_var_thresh);  gyro_var_thresh = 1e-6; end
     if nargin < 6 || isempty(min_length);       min_length = 100;   end
     N = size(accel,1); if N < window_size, error('window_size larger than data length'); end
-    accel_var = movvar(accel, window_size, 0, 'Endpoints','discard');
-    gyro_var  = movvar(gyro,  window_size, 0, 'Endpoints','discard');
+    if exist('movvar', 'file') == 2
+        accel_var = movvar(accel, window_size, 0, 'Endpoints','discard');
+        gyro_var  = movvar(gyro,  window_size, 0, 'Endpoints','discard');
+    else
+        % Manual moving variance calculation when movvar is unavailable
+        num_windows = N - window_size + 1;
+        accel_var = zeros(num_windows, size(accel,2));
+        gyro_var  = zeros(num_windows, size(gyro,2));
+        for i = 1:num_windows
+            accel_var(i,:) = var(accel(i:i+window_size-1,:), 0, 1);
+            gyro_var(i,:)  = var(gyro(i:i+window_size-1,:),  0, 1);
+        end
+    end
     max_accel_var = max(accel_var, [], 2); max_gyro_var  = max(gyro_var, [], 2);
     static_mask = (max_accel_var < accel_var_thresh) & (max_gyro_var < gyro_var_thresh);
     diff_mask = diff([0; static_mask; 0]); starts = find(diff_mask == 1); ends = find(diff_mask == -1) - 1;
