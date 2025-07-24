@@ -32,6 +32,9 @@ ensure_dependencies()
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
+DATA_DIR = ROOT / "Data"
+if not DATA_DIR.is_dir():
+    DATA_DIR = ROOT
 SCRIPT = HERE / "GNSS_IMU_Fusion.py"
 LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -53,13 +56,20 @@ SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 def run_one(imu, gnss, method, verbose=False):
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
+    imu_path = DATA_DIR / imu
+    gnss_path = DATA_DIR / gnss
+    if not imu_path.is_file():
+        imu_path = ROOT / imu
+    if not gnss_path.is_file():
+        gnss_path = ROOT / gnss
+
     cmd = [
         sys.executable,
         SCRIPT,
         "--imu-file",
-        str(ROOT / imu),
+        str(imu_path),
         "--gnss-file",
-        str(ROOT / gnss),
+        str(gnss_path),
         "--method",
         method,
     ]
@@ -98,8 +108,6 @@ def main():
     )
     parser.add_argument('--config', help='YAML configuration file')
     args = parser.parse_args()
-
-    root_files = {p.name for p in ROOT.iterdir()}
 
     if args.config:
         with open(args.config) as fh:
@@ -142,8 +150,16 @@ def main():
             print("GNSS Head:\n", gnss_df.head())
             print("IMU Head:\n", imu_data[:5])
             print("============================")
-        if imu not in root_files or gnss not in root_files:
-            raise FileNotFoundError(f"Missing {imu} or {gnss} in {ROOT}")
+        imu_path = DATA_DIR / imu
+        gnss_path = DATA_DIR / gnss
+        if not imu_path.is_file():
+            imu_path = ROOT / imu
+        if not gnss_path.is_file():
+            gnss_path = ROOT / gnss
+
+        if not imu_path.is_file() or not gnss_path.is_file():
+            raise FileNotFoundError(f"Missing {imu} or {gnss}")
+
         start = time.time()
         summaries = run_one(imu, gnss, method, verbose=args.verbose)
         runtime = time.time() - start
@@ -224,7 +240,7 @@ def main():
                 truth_data = np.loadtxt(truth_path)
                 t_truth = truth_data[:, 1]
                 est = load_estimate(str(est_mat), times=t_truth)
-                frames = assemble_frames(est, ROOT / imu, ROOT / gnss, truth_path)
+                frames = assemble_frames(est, imu_path, gnss_path, truth_path)
                 for frame_name, data in frames.items():
                     t_i, p_i, v_i, a_i = data["imu"]
                     t_g, p_g, v_g, a_g = data["gnss"]
