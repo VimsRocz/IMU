@@ -10,7 +10,10 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
         method = 'TRIAD';
     end
 
-    results_dir = 'results';
+    % Store all outputs under the repository "results" directory
+    here = fileparts(mfilename('fullpath'));
+    root = fileparts(here);
+    results_dir = fullfile(root, 'results');
     if ~exist(results_dir,'dir')
         mkdir(results_dir);
     end
@@ -451,12 +454,20 @@ fclose(fid_sum);
 results_file = fullfile(results_dir, sprintf('Task5_results_%s.mat', pair_tag));
 save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
     'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log');
-fprintf('Results saved to %s\n', results_file);
+if isfile(results_file)
+    fprintf('Results saved to %s\n', results_file);
+else
+    warning('Missing %s', results_file);
+end
 
 method_file = fullfile(results_dir, [tag '_task5_results.mat']);
 save(method_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
     'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log');
-fprintf('Method-specific results saved to %s\n', method_file);
+if isfile(method_file)
+    fprintf('Method-specific results saved to %s\n', method_file);
+else
+    warning('Missing %s', method_file);
+end
 
 % Return results structure and store in base workspace
 result = results;
