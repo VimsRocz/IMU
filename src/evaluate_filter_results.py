@@ -373,9 +373,9 @@ def subtask7_5_diff_plot(
         )
         idx_p = np.where(np.abs(dp) > pos_thr)[0]
         if idx_p.size:
-            print(f"Outliers (> {pos_thr:.1f}m) at samples: {idx_p.tolist()}")
+            print(f"{idx_p.size} samples exceed {pos_thr:.1f} m")
         else:
-            print(f"No outliers (> {pos_thr:.1f}m).")
+            print(f"No samples exceed {pos_thr:.1f} m")
 
         print(
             f"{lab} velocity difference range: {dv.min():.2f} m/s to {dv.max():.2f} m/s.",
@@ -383,9 +383,9 @@ def subtask7_5_diff_plot(
         )
         idx_v = np.where(np.abs(dv) > vel_thr)[0]
         if idx_v.size:
-            print(f"Outliers (> {vel_thr:.1f}m/s) at samples: {idx_v.tolist()}")
+            print(f"{idx_v.size} samples exceed {vel_thr:.1f} m/s")
         else:
-            print(f"No outliers (> {vel_thr:.1f}m/s).")
+            print(f"No samples exceed {vel_thr:.1f} m/s")
 
 
 if __name__ == "__main__":
