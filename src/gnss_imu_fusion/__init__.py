@@ -3,6 +3,7 @@
 from .init_vectors import (
     average_rotation_matrices,
     svd_alignment,
+    triad_basis,
     triad_svd,
     davenport_q_method,
     butter_lowpass_filter,
@@ -21,6 +22,7 @@ from .plots import (
 __all__ = [
     "average_rotation_matrices",
     "svd_alignment",
+    "triad_basis",
     "triad_svd",
     "davenport_q_method",
     "butter_lowpass_filter",

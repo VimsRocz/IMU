@@ -30,6 +30,29 @@ def svd_alignment(
     return U @ M @ Vt
 
 
+def triad_basis(vec1: np.ndarray, vec2: np.ndarray) -> np.ndarray:
+    """Return an orthonormal basis using the classic TRIAD construction.
+
+    Parameters
+    ----------
+    vec1 : np.ndarray
+        Primary reference vector.
+    vec2 : np.ndarray
+        Secondary reference vector.
+
+    Returns
+    -------
+    np.ndarray
+        3×3 matrix with ``vec1`` as the first column.
+
+    Notes
+    -----
+    This placeholder mirrors the MATLAB ``triad_basis`` helper and will be
+    expanded to match its functionality.
+    """
+    raise NotImplementedError("triad_basis is not yet implemented")
+
+
 def triad_svd(
     body_vec1: np.ndarray,
     body_vec2: np.ndarray,
