@@ -196,6 +196,33 @@ def ecef_to_ned(pos_ecef: np.ndarray, ref_lat: float, ref_lon: float,
     return np.array([C @ (p - ref_ecef) for p in pos_ecef])
 
 
+def euler_to_rot(eul: np.ndarray) -> np.ndarray:
+    """Convert XYZ Euler angles to a rotation matrix.
+
+    Parameters
+    ----------
+    eul : array-like, shape (3,)
+        ``[roll, pitch, yaw]`` in **radians**.
+
+    Returns
+    -------
+    ndarray of shape (3, 3)
+        Rotation matrix from Body to NED using the XYZ convention.
+    """
+
+    eul = np.asarray(eul).reshape(3)
+    cr, sr = np.cos(eul[0]), np.sin(eul[0])
+    cp, sp = np.cos(eul[1]), np.sin(eul[1])
+    cy, sy = np.cos(eul[2]), np.sin(eul[2])
+    return np.array(
+        [
+            [cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
+            [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
+            [-sp, cp * sr, cp * cr],
+        ]
+    )
+
+
 def ecef_to_geodetic(x: float, y: float, z: float) -> Tuple[float, float, float]:
     """Convert ECEF coordinates to geodetic latitude, longitude and altitude.
 
