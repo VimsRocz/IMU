@@ -441,8 +441,12 @@ function data_filt = butter_lowpass_filter(data, cutoff, fs, order)
 
     nyq = 0.5 * fs;
     normal_cutoff = cutoff / nyq;
-    [b,a] = butter(order, normal_cutoff, 'low');
-    data_filt = filtfilt(b, a, data);
+    if license('test','Signal_Toolbox') && exist('butter','file')==2 && exist('filtfilt','file')==2
+        [b,a] = butter(order, normal_cutoff, 'low');
+        data_filt = filtfilt(b, a, data);
+    else
+        data_filt = basic_butterworth_filter(data, cutoff, fs, order);
+    end
 end
 
 function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size, accel_var_thresh, gyro_var_thresh, min_length)
