@@ -144,6 +144,7 @@ fprintf('-> NED to ECEF rotation matrix computed.\n');
 fprintf('\nSubtask 4.7: Converting GNSS data to NED frame.\n');
 gnss_pos_ned = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
 gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
+fprintf('GNSS velocity incorporated: [%.5f %.5f %.5f]\n', gnss_vel_ned(1,:));
 fprintf('-> GNSS data transformed to NED frame.\n');
 fprintf('   GNSS NED pos first=[%.2f %.2f %.2f], last=[%.2f %.2f %.2f]\n', ...
     gnss_pos_ned(1,:), gnss_pos_ned(end,:));
