@@ -113,6 +113,24 @@ def measure_body_vectors(
     else:
         static_start = max(0, static_start)
         static_end = min(static_end or len(acc), len(acc))
+
+    static_len = static_end - static_start
+    dataset_len = len(acc)
+    static_ratio = static_len / dataset_len
+    logging.info(
+        "Static interval: samples %d-%d (%.2f s) covering %.1f%% of dataset",
+        static_start,
+        static_end,
+        static_len * dt,
+        static_ratio * 100,
+    )
+    if static_ratio > 0.90:
+        logging.warning(
+            "Detected static interval covers %.1f%% of the dataset. "
+            "Verify motion data or adjust detection thresholds.",
+            static_ratio * 100,
+        )
+
     static_acc = np.mean(acc[static_start:static_end], axis=0)
     static_gyro = np.mean(gyro[static_start:static_end], axis=0)
     scale = GRAVITY / np.linalg.norm(static_acc)

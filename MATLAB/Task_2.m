@@ -221,14 +221,28 @@ end
 
 % --- Calculate static vectors from the interval ---
 N_static = end_idx - start_idx + 1;
+dataset_len = size(acc_filt, 1);
+static_duration = N_static * dt_imu;
+dataset_duration = dataset_len * dt_imu;
+
 static_acc_row = mean(acc_filt(start_idx:end_idx, :), 1);
 static_gyro_row = mean(gyro_filt(start_idx:end_idx, :), 1);
 acc_var = var(acc_filt(start_idx:end_idx, :), 0, 1);
 gyro_var = var(gyro_filt(start_idx:end_idx, :), 0, 1);
 
-fprintf('Static interval found: samples %d to %d (length %d samples)\n', start_idx, end_idx, N_static);
+fprintf('Static interval found: samples %d to %d (length %d samples, %.2f s)\n', ...
+        start_idx, end_idx, N_static, static_duration);
 fprintf('  Accel variance: [%.4g %.4g %.4g]\n', acc_var);
 fprintf('  Gyro  variance: [%.4g %.4g %.4g]\n', gyro_var);
+fprintf('  Static window covers %.1f%% of dataset duration.\n', ...
+        (N_static / dataset_len) * 100);
+fprintf('  Dataset duration: %.2f s\n', dataset_duration);
+if (N_static / dataset_len) > 0.90
+    warning(['Task_2:StaticPortionHigh', ...
+             ': detected static interval covers %.1f%% of the dataset. ', ...
+             'Verify motion data or adjust detection thresholds.'], ...
+            (N_static / dataset_len) * 100);
+end
 
 g_norm = norm(static_acc_row);
 fprintf('Estimated gravity magnitude from IMU: %.4f m/s^2 (expected ~%.2f)\n', ...
