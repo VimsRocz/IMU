@@ -29,6 +29,9 @@ Body-frame gravity g_body and Earth rate ω_ie_body
 - Optionally scale the accelerometer vector so its magnitude is exactly `9.81 m/s²`.
 - Plot the detected interval with `plot_zupt_and_variance()` and save the PDF to `results/<tag>_ZUPT_variance.pdf`.
 - Refer to the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) when labelling the curves.
+- The script prints the duration of the static window. If more than 90% of the
+  dataset is flagged as static a warning advises checking the motion data or
+  tweaking the detection thresholds.
 
 ### 2.3 Derive Body‑Frame Vectors
 - Negate the accelerometer mean to obtain `g_body`.
