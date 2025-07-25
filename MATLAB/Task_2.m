@@ -146,23 +146,16 @@ normal_cutoff = cutoff / nyquist_freq;
 % Refresh toolbox cache and check for Signal Processing Toolbox license
 rehash toolboxcache
 has_signal_toolbox = license('test', 'Signal_Toolbox');
-if has_signal_toolbox
+has_filtfilt = exist('filtfilt','file') == 2;
+has_butter = exist('butter','file') == 2;
+if has_signal_toolbox && has_filtfilt && has_butter
     [b, a] = butter(order, normal_cutoff, 'low');
     acc_filt = filtfilt(b, a, acc);
     gyro_filt = filtfilt(b, a, gyro);
 else
-    warning('Signal Processing Toolbox not found. Using simple moving average filter.');
-    win = max(1, round(fs * 0.05));
-    kernel = ones(win,1) / win;
-    % Apply the moving average filter to each axis separately to avoid
-    % the "A and B must be vectors" error when using conv on a matrix.
-    [numSamples, numAxes] = size(acc);
-    acc_filt = zeros(size(acc));
-    gyro_filt = zeros(size(gyro));
-    for ax = 1:numAxes
-        acc_filt(:,ax) = conv(acc(:,ax), kernel, 'same');
-        gyro_filt(:,ax) = conv(gyro(:,ax), kernel, 'same');
-    end
+    warning('Signal Processing Toolbox not found. Using basic Butterworth helper.');
+    acc_filt = basic_butterworth_filter(acc, cutoff, fs, order);
+    gyro_filt = basic_butterworth_filter(gyro, cutoff, fs, order);
 end
 
 % --- Detect a static interval automatically (inlined logic) ---

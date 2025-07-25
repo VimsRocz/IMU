@@ -56,6 +56,13 @@ def butter_lowpass_filter(
     return filtfilt(b, a, data, axis=0)
 
 
+def basic_butterworth_filter(
+    data: np.ndarray, cutoff: float = 5.0, fs: float = 400.0, order: int = 4
+) -> np.ndarray:
+    """Stub for MATLAB fallback Butterworth filter."""
+    return butter_lowpass_filter(data, cutoff, fs, order)
+
+
 def angle_between(a: np.ndarray, b: np.ndarray) -> float:
     """Return the angle in degrees between two vectors."""
     a = np.asarray(a)

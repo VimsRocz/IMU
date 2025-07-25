@@ -213,21 +213,16 @@ normal_cutoff = cutoff / nyquist_freq;
 % Refresh toolbox cache and check for Signal Processing Toolbox license
 rehash toolboxcache
 has_signal_toolbox = license('test', 'Signal_Toolbox');
-if has_signal_toolbox
+has_filtfilt = exist('filtfilt','file') == 2;
+has_butter = exist('butter','file') == 2;
+if has_signal_toolbox && has_filtfilt && has_butter
     [b, a] = butter(order, normal_cutoff, 'low');
     acc_filt = filtfilt(b, a, acc);
     gyro_filt = filtfilt(b, a, gyro);
 else
-    warning('Signal Processing Toolbox not found. Using simple moving average filter.');
-    win = max(1, round(fs * 0.05));
-    kernel = ones(win,1) / win;
-    [numSamples, numAxes] = size(acc);
-    acc_filt = zeros(size(acc));
-    gyro_filt = zeros(size(gyro));
-    for ax = 1:numAxes
-        acc_filt(:,ax) = conv(acc(:,ax), kernel, 'same');
-        gyro_filt(:,ax) = conv(gyro(:,ax), kernel, 'same');
-    end
+    warning('Signal Processing Toolbox not found. Using basic Butterworth helper.');
+    acc_filt = basic_butterworth_filter(acc, cutoff, fs, order);
+    gyro_filt = basic_butterworth_filter(gyro, cutoff, fs, order);
 end
 
 fprintf('Detecting static interval using variance thresholds...\n');
@@ -1052,8 +1047,13 @@ function data_filt = butter_lowpass_filter(data, cutoff, fs, order)
     if nargin < 4 || isempty(order);   order = 4;   end
     if nargin < 3 || isempty(fs);      fs = 400;   end
     if nargin < 2 || isempty(cutoff);  cutoff = 5.0; end
-    nyq = 0.5 * fs; normal_cutoff = cutoff / nyq; [b,a] = butter(order, normal_cutoff, 'low');
-    data_filt = filtfilt(b, a, data);
+    nyq = 0.5 * fs; normal_cutoff = cutoff / nyq;
+    if license('test','Signal_Toolbox') && exist('butter','file')==2 && exist('filtfilt','file')==2
+        [b,a] = butter(order, normal_cutoff, 'low');
+        data_filt = filtfilt(b, a, data);
+    else
+        data_filt = basic_butterworth_filter(data, cutoff, fs, order);
+    end
 end
 
 function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size, accel_var_thresh, gyro_var_thresh, min_length)
