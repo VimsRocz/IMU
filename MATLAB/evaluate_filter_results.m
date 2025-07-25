@@ -74,7 +74,7 @@ for i = 1:3
 end
 sgtitle('Task 7 - GNSS - Predicted Residuals');
 set(f,'PaperPositionMode','auto');
-pdf = fullfile(output_dir, sprintf('%stask7_residuals_position_velocity.pdf', prefix));
+pdf = fullfile(output_dir, sprintf('%stask7_3_residuals_position_velocity.pdf', prefix));
 print(f, pdf, '-dpdf');
 close(f); fprintf('Saved %s\n', pdf);
 
@@ -87,7 +87,7 @@ for i = 1:3
 end
 xlabel('Time [s]'); sgtitle('Task 7 - Attitude Angles');
 set(f,'PaperPositionMode','auto');
-pdf_att = fullfile(output_dir, sprintf('%stask7_attitude_angles_euler.pdf', prefix));
+pdf_att = fullfile(output_dir, sprintf('%stask7_4_attitude_angles_euler.pdf', prefix));
 print(f, pdf_att, '-dpdf'); close(f); fprintf('Saved %s\n', pdf_att);
 
 norm_pos = vecnorm(res_pos,2,2);
@@ -101,7 +101,7 @@ plot(t, norm_vel, 'DisplayName','|vel error|');
 plot(t, norm_acc, 'DisplayName','|acc error|');
 xlabel('Time [s]'); ylabel('Error Norm'); legend; grid on;
 set(f,'PaperPositionMode','auto');
-pdf_norm = fullfile(output_dir, sprintf('%stask7_error_norms.pdf', prefix));
+pdf_norm = fullfile(output_dir, sprintf('%stask7_3_error_norms.pdf', prefix));
 print(f, pdf_norm, '-dpdf'); close(f); fprintf('Saved %s\n', pdf_norm);
 
 % Subtask 7.5: difference truth - fused over time
@@ -151,7 +151,7 @@ for i = 1:3
 end
 sgtitle('Truth - Fused Differences');
 set(f,'PaperPositionMode','auto');
-out_file_pdf = fullfile(out_dir, [run_id '_task7_diff_truth_fused_over_time.pdf']);
+out_file_pdf = fullfile(out_dir, [run_id '_task7_5_diff_truth_fused_over_time.pdf']);
 out_file_png = strrep(out_file_pdf, '.pdf', '.png');
 print(f, out_file_pdf, '-dpdf');
 print(f, out_file_png, '-dpng');

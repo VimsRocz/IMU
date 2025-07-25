@@ -122,7 +122,7 @@ def run_evaluation(
         axes[1, i].grid(True)
     fig.suptitle("Task 7 – GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out_path = out_dir / f"{prefix}task7_residuals_position_velocity.pdf"
+    out_path = out_dir / f"{prefix}task7_3_residuals_position_velocity.pdf"
     fig.savefig(out_path)
     print(f"Saved {out_path}")
     plt.close(fig)
@@ -156,7 +156,7 @@ def run_evaluation(
     axs[2].set_xlabel("Time [s]")
     fig.suptitle("Task 7 – Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(out_dir / f"{prefix}task7_attitude_angles_euler.pdf")
+    fig.savefig(out_dir / f"{prefix}task7_4_attitude_angles_euler.pdf")
     plt.close(fig)
 
 
@@ -242,7 +242,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         axes[1, i].grid(True)
     fig.suptitle("Task 7 – GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out_path = out_dir / f"{prefix}task7_residuals_position_velocity.pdf"
+    out_path = out_dir / f"{prefix}task7_3_residuals_position_velocity.pdf"
     fig.savefig(out_path)
     print(f"Saved {out_path}")
     plt.close(fig)
@@ -259,7 +259,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     axs[2].set_xlabel("Time [s]")
     fig.suptitle("Task 7 – Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    att_path = out_dir / f"{prefix}task7_attitude_angles_euler.pdf"
+    att_path = out_dir / f"{prefix}task7_4_attitude_angles_euler.pdf"
     fig.savefig(att_path)
     print(f"Saved {att_path}")
     plt.close(fig)
@@ -279,7 +279,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     ax.legend()
     ax.grid(True)
     fig.tight_layout()
-    norm_path = out_dir / f"{prefix}task7_error_norms.pdf"
+    norm_path = out_dir / f"{prefix}task7_3_error_norms.pdf"
     fig.savefig(norm_path)
     print(f"Saved {norm_path}")
     plt.close(fig)
@@ -297,7 +297,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
             out_dir,
         )
         print(
-            f"Saved {Path(out_dir) / (run_id + '_task7_diff_truth_fused_over_time.pdf')}"
+            f"Saved {Path(out_dir) / (run_id + '_task7_5_diff_truth_fused_over_time.pdf')}"
         )
     else:
         print("Subtask 7.5 skipped: missing fused or truth data")
@@ -356,7 +356,7 @@ def subtask7_5_diff_plot(
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    pdf = out_dir / f"{run_id}_task7_diff_truth_fused_over_time.pdf"
+    pdf = out_dir / f"{run_id}_task7_5_diff_truth_fused_over_time.pdf"
     png = pdf.with_suffix(".png")
     fig.savefig(pdf)
     fig.savefig(png)
