@@ -115,10 +115,11 @@ order = 4;
 nyquist_freq = 0.5 * fs;
 normal_cutoff = cutoff / nyquist_freq;
 
-% Check for Signal Processing Toolbox using known license feature names
-has_signal_toolbox = license('test','Signal_Toolbox') || ...
-                      license('test','Signal_Processing_Toolbox');
-if exist('filtfilt', 'file') == 2 && exist('butter', 'file') == 2 && has_signal_toolbox
+% Check for Signal Processing Toolbox by verifying key functions exist
+has_signal_toolbox = (exist('filtfilt','file') == 2) && ...
+                     (exist('butter','file')  == 2) && ...
+                     (exist('movvar','file')  == 2);
+if has_signal_toolbox
     [b, a] = butter(order, normal_cutoff, 'low');
     acc_filt = filtfilt(b, a, acc);
     gyro_filt = filtfilt(b, a, gyro);
@@ -145,7 +146,7 @@ gyro_var_thresh  = 1e-6;    % match Python implementation
 min_length = 80;
 
 % Use movvar from Signal Processing Toolbox if available, otherwise use a loop
-if has_signal_toolbox && exist('movvar', 'file')
+if has_signal_toolbox
     accel_var = movvar(acc_filt, window_size, 0, 'Endpoints', 'discard');
     gyro_var = movvar(gyro_filt, window_size, 0, 'Endpoints', 'discard');
 else
