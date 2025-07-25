@@ -87,20 +87,21 @@ if ~isfield(S,'vel_ned')
 end
 
 % Interpolate truth and GNSS to estimator time
-pos_truth_ned_i  = interp1(t_truth, pos_truth_ned,  t_est);
-vel_truth_ned_i  = interp1(t_truth, vel_truth_ned,  t_est);
-acc_truth_ned_i  = interp1(t_truth, acc_truth_ned,  t_est);
-pos_truth_ecef_i = interp1(t_truth, pos_truth_ecef, t_est);
-vel_truth_ecef_i = interp1(t_truth, vel_truth_ecef, t_est);
-acc_truth_ecef_i = interp1(t_truth, acc_truth_ecef, t_est);
+% Interpolate and extrapolate so the entire estimator time range is covered
+pos_truth_ned_i  = interp1(t_truth, pos_truth_ned,  t_est, 'linear', 'extrap');
+vel_truth_ned_i  = interp1(t_truth, vel_truth_ned,  t_est, 'linear', 'extrap');
+acc_truth_ned_i  = interp1(t_truth, acc_truth_ned,  t_est, 'linear', 'extrap');
+pos_truth_ecef_i = interp1(t_truth, pos_truth_ecef, t_est, 'linear', 'extrap');
+vel_truth_ecef_i = interp1(t_truth, vel_truth_ecef, t_est, 'linear', 'extrap');
+acc_truth_ecef_i = interp1(t_truth, acc_truth_ecef, t_est, 'linear', 'extrap');
 
-pos_gnss_ned_i  = interp1(S.gnss_time, S.gnss_pos_ned,  t_est);
-vel_gnss_ned_i  = interp1(S.gnss_time, S.gnss_vel_ned,  t_est);
-acc_gnss_ned_i  = interp1(S.gnss_time, S.gnss_accel_ned, t_est);
+pos_gnss_ned_i  = interp1(S.gnss_time, S.gnss_pos_ned,  t_est, 'linear', 'extrap');
+vel_gnss_ned_i  = interp1(S.gnss_time, S.gnss_vel_ned,  t_est, 'linear', 'extrap');
+acc_gnss_ned_i  = interp1(S.gnss_time, S.gnss_accel_ned, t_est, 'linear', 'extrap');
 
-pos_gnss_ecef_i = interp1(S.gnss_time, S.gnss_pos_ecef,  t_est);
-vel_gnss_ecef_i = interp1(S.gnss_time, S.gnss_vel_ecef,  t_est);
-acc_gnss_ecef_i = interp1(S.gnss_time, S.gnss_accel_ecef, t_est);
+pos_gnss_ecef_i = interp1(S.gnss_time, S.gnss_pos_ecef,  t_est, 'linear', 'extrap');
+vel_gnss_ecef_i = interp1(S.gnss_time, S.gnss_vel_ecef,  t_est, 'linear', 'extrap');
+acc_gnss_ecef_i = interp1(S.gnss_time, S.gnss_accel_ecef, t_est, 'linear', 'extrap');
 
 % Fused IMU results and derived acceleration
 pos_ned = S.pos_ned;
