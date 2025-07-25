@@ -24,6 +24,20 @@ res_pos = pos_est - pos_tru_i;
 res_vel = vel_est - vel_tru_i;
 res_acc = acc_est - acc_tru_i;
 
+mean_pos = mean(res_pos, 1);
+std_pos  = std(res_pos, [], 1);
+mean_vel = mean(res_vel, 1);
+std_vel  = std(res_vel, [], 1);
+mean_acc = mean(res_acc, 1);
+std_acc  = std(res_acc, [], 1);
+
+fprintf('Position residual mean [m]: %s\n', mat2str(mean_pos,3));
+fprintf('Position residual std  [m]: %s\n', mat2str(std_pos,3));
+fprintf('Velocity residual mean [m/s]: %s\n', mat2str(mean_vel,3));
+fprintf('Velocity residual std  [m/s]: %s\n', mat2str(std_vel,3));
+fprintf('Acceleration residual mean [m/s^2]: %s\n', mat2str(mean_acc,3));
+fprintf('Acceleration residual std  [m/s^2]: %s\n', mat2str(std_acc,3));
+
 plot_residuals(t_est, res_pos, res_vel, res_acc, out_dir);
 plot_norms(t_est, res_pos, res_vel, res_acc, out_dir);
 
@@ -33,6 +47,33 @@ summary.rmse_vel = sqrt(mean(vecnorm(res_vel,2,2).^2));
 summary.final_vel = norm(res_vel(end,:));
 summary.rmse_acc = sqrt(mean(vecnorm(res_acc,2,2).^2));
 summary.final_acc = norm(res_acc(end,:));
+
+tbl = {
+    'Position [m]',    summary.final_pos, summary.rmse_pos;
+    'Velocity [m/s]',  summary.final_vel, summary.rmse_vel;
+    'Acceleration [m/s^2]', summary.final_acc, summary.rmse_acc;
+    };
+hdr = sprintf('%-18s %-12s %-10s', 'Metric', 'Final Error', 'RMSE');
+table_lines = cell(size(tbl,1),1);
+for ii = 1:size(tbl,1)
+    table_lines{ii} = sprintf('%-18s %10.3f %10.3f', tbl{ii,1}, tbl{ii,2}, tbl{ii,3});
+end
+table_str = strjoin([{hdr}; table_lines], '\n');
+table_str = sprintf('%s\n', table_str); % ensure trailing newline
+fprintf('%s\n', table_str);
+
+txt_file = fullfile(out_dir,'task7_metrics.txt');
+fid = fopen(txt_file,'w');
+if fid>0
+    fprintf(fid,'%s\n', table_str);
+    fclose(fid);
+end
+
+[~, tag] = fileparts(out_dir);
+parts = strsplit(tag,'_');
+method = parts{end};
+fprintf('[SUMMARY] method=%s rmse_pos=%.3f m final_pos=%.3f m rmse_vel=%.3f m/s final_vel=%.3f m/s\n', ...
+    method, summary.rmse_pos, summary.final_pos, summary.rmse_vel, summary.final_vel);
 
 end
 
