@@ -1,17 +1,18 @@
-function task7_ecef_residuals_plot(est_file, truth_file, dataset, output_dir)
+function task7_ecef_residuals_plot(est_file, imu_file, gnss_file, truth_file, dataset, output_dir)
 %TASK7_ECEF_RESIDUALS_PLOT  Plot ECEF residuals for Task 7.
 %
-%   task7_ecef_residuals_plot(est_file, truth_file, dataset, output_dir) mirrors
-%   the Python script ``task7_ecef_residuals_plot.py``. Both inputs are NPZ or
-%   MAT files containing estimator output and ground truth in the ECEF frame. The
-%   truth data is interpolated to the estimator timestamps and residuals in
-%   position, velocity and acceleration are plotted. Figures are saved under
+%   task7_ecef_residuals_plot(est_file, imu_file, gnss_file, truth_file, dataset, output_dir)
+%   mirrors the Python script ``task7_ecef_residuals_plot.py``. The IMU and GNSS
+%   file paths are currently unused but included for interface parity. The truth
+%   data is interpolated to the estimator timestamps and residuals in position,
+%   velocity and acceleration are plotted. Figures are saved under
 %   ``output_dir`` using ``dataset`` as part of the filename.
 
-if nargin < 4 || isempty(output_dir)
+if nargin < 6 || isempty(output_dir)
     output_dir = 'results';
 end
-if ~exist(output_dir,'dir'); mkdir(output_dir); end
+out_dir = fullfile(output_dir, 'task7', dataset);
+if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
 [t_est, pos_est, vel_est, ~] = load_est(est_file);
 [t_truth, pos_truth, vel_truth, ~] = load_est(truth_file);
@@ -21,7 +22,7 @@ vel_truth_i = interp1(t_truth, vel_truth, t_est, 'linear', 'extrap');
 
 [res_pos, res_vel, res_acc] = compute_residuals(t_est, pos_est, vel_est, pos_truth_i, vel_truth_i);
 
-plot_residuals(t_est, res_pos, res_vel, res_acc, dataset, output_dir);
+plot_residuals(t_est, res_pos, res_vel, res_acc, dataset, out_dir);
 
 end
 
