@@ -2,21 +2,41 @@ function summary = task7_fused_truth_error_analysis(est_file, truth_file, out_di
 %TASK7_FUSED_TRUTH_ERROR_ANALYSIS  Residual analysis of fused state vs. truth.
 %   SUMMARY = TASK7_FUSED_TRUTH_ERROR_ANALYSIS(EST_FILE, TRUTH_FILE, OUT_DIR)
 %   loads the fused estimator result and ground truth trajectory (MAT or NPZ
-%   files). Residual position, velocity and acceleration are computed in the
-%   ECEF frame. When loading NPZ files the function now accepts either
+%   files). Both trajectories are aligned in the local NED frame before
+%   computing residuals. The truth ECEF data is converted using
+%   ``compute_C_ECEF_to_NED`` with the estimator reference latitude,
+%   longitude and origin. When loading NPZ files the function accepts either
 %   ``pos_ecef_m``/``vel_ecef_ms`` or ``pos_ecef``/``vel_ecef`` keys.  When the
-%   estimate only contains NED states, it is converted using the stored
-%   reference latitude, longitude and origin.  Plots of the
-%   residual components and their norms are saved under OUT_DIR and a
-%   structure of summary statistics is returned.
+%   estimate only contains NED states, it is converted to ECEF and then to
+%   the common NED frame. Plots of the residual components and their norms
+%   are saved under OUT_DIR and a structure of summary statistics is returned.
 
 if nargin < 3 || isempty(out_dir)
     out_dir = 'results';
 end
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
-[t_est, pos_est, vel_est, acc_est] = load_est(est_file);
-[t_tru, pos_tru, vel_tru, acc_tru] = load_est(truth_file);
+[t_est, pos_est_ecef, vel_est_ecef, acc_est_ecef, lat, lon, r0] = load_est(est_file);
+[t_tru, pos_tru_ecef, vel_tru_ecef, acc_tru_ecef] = load_est(truth_file);
+
+% ------------------------------------------------------------------
+% Convert both trajectories to a common NED frame using the estimator
+% reference parameters.  When the estimator file lacks reference
+% information, fall back to the first truth sample.
+% ------------------------------------------------------------------
+if isnan(lat) || isnan(lon) || any(isnan(r0))
+    r0 = pos_tru_ecef(1,:);
+    [lat_deg, lon_deg, ~] = ecef_to_geodetic(r0(1), r0(2), r0(3));
+    lat = deg2rad(lat_deg);
+    lon = deg2rad(lon_deg);
+end
+C = compute_C_ECEF_to_NED(lat, lon);
+pos_est = (C*(pos_est_ecef - r0.')).';
+vel_est = (C*vel_est_ecef.').';
+acc_est = (C*acc_est_ecef.').';
+pos_tru = (C*(pos_tru_ecef - r0.')).';
+vel_tru = (C*vel_tru_ecef.').';
+acc_tru = (C*acc_tru_ecef.').';
 
 pos_tru_i = interp1(t_tru, pos_tru, t_est, 'linear', 'extrap');
 vel_tru_i = interp1(t_tru, vel_tru, t_est, 'linear', 'extrap');
@@ -80,9 +100,10 @@ fprintf('[SUMMARY] method=%s rmse_pos=%.3f m final_pos=%.3f m rmse_vel=%.3f m/s 
 end
 
 % -------------------------------------------------------------------------
-function [t, pos, vel, acc] = load_est(file)
+function [t, pos, vel, acc, lat, lon, r0] = load_est(file)
 %LOAD_EST Load NPZ or MAT estimate containing ECEF position and velocity.
     f = string(file);
+    lat = NaN; lon = NaN; r0 = [NaN NaN NaN];
     if endsWith(f,'.npz')
     d = py.numpy.load(f);
     t = double(d{'time_s'});
@@ -105,6 +126,9 @@ function [t, pos, vel, acc] = load_est(file)
     else
         acc = gradient(gradient(pos)) ./ mean(diff(t))^2;
     end
+    if isKey(d,'ref_lat_rad'); lat = double(d{'ref_lat_rad'}); elseif isKey(d,'ref_lat'); lat = double(d{'ref_lat'}); end
+    if isKey(d,'ref_lon_rad'); lon = double(d{'ref_lon_rad'}); elseif isKey(d,'ref_lon'); lon = double(d{'ref_lon'}); end
+    if isKey(d,'ref_r0_m'); r0 = double(d{'ref_r0_m'}); elseif isKey(d,'ref_r0'); r0 = double(d{'ref_r0'}); end
     else
         if endsWith(f,'.txt')
             raw = read_state_file(f);
@@ -131,12 +155,12 @@ function [t, pos, vel, acc] = load_est(file)
                 vel = S.vel_ecef;
             elseif isfield(S,'pos_ned') && isfield(S,'vel_ned')
                 % Derive ECEF using reference parameters
-                if isfield(S,'ref_lat'); lat = S.ref_lat; elseif isfield(S,'ref_lat_rad'); lat = S.ref_lat_rad; else; lat = 0; end
-                if isfield(S,'ref_lon'); lon = S.ref_lon; elseif isfield(S,'ref_lon_rad'); lon = S.ref_lon_rad; else; lon = 0; end
-                if isfield(S,'ref_r0'); r0 = S.ref_r0; elseif isfield(S,'ref_r0_m'); r0 = S.ref_r0_m; else; r0 = [0 0 0]; end
-                C = compute_C_ECEF_to_NED(lat, lon);
-                pos = (C' * S.pos_ned')' + r0(:)';
-                vel = (C' * S.vel_ned')';
+                if isfield(S,'ref_lat'); lat = S.ref_lat; elseif isfield(S,'ref_lat_rad'); lat = S.ref_lat_rad; else; lat = NaN; end
+                if isfield(S,'ref_lon'); lon = S.ref_lon; elseif isfield(S,'ref_lon_rad'); lon = S.ref_lon_rad; else; lon = NaN; end
+                if isfield(S,'ref_r0'); r0 = S.ref_r0; elseif isfield(S,'ref_r0_m'); r0 = S.ref_r0_m; else; r0 = [NaN NaN NaN]; end
+                Ctmp = compute_C_ECEF_to_NED(lat, lon);
+                pos = (Ctmp' * S.pos_ned')' + r0(:)';
+                vel = (Ctmp' * S.vel_ned')';
             else
                 error('Task7:BadData','Estimate lacks ECEF or NED position fields');
             end
@@ -155,8 +179,8 @@ end
 
 % -------------------------------------------------------------------------
 function plot_residuals(t, res_pos, res_vel, res_acc, out_dir)
-%PLOT_RESIDUALS Plot residual components.
-    labels = {'X','Y','Z'};
+%PLOT_RESIDUALS Plot residual components in NED.
+    labels = {'North','East','Down'};
     f = figure('Visible','off','Position',[100 100 900 700]);
     for i = 1:3
         for j = 1:3
