@@ -212,21 +212,31 @@ nyquist_freq = 0.5 * fs;
 normal_cutoff = cutoff / nyquist_freq;
 % Refresh toolbox cache and check for Signal Processing Toolbox license
 rehash toolboxcache
-has_signal_toolbox = license('test', 'Signal_Toolbox');
+has_signal_toolbox = license('test', 'Signal_Toolbox') && ...
+                      exist('filtfilt','file') == 2 && exist('butter','file') == 2;
+has_movmean = exist('movmean','file') == 2;
+
 if has_signal_toolbox
     [b, a] = butter(order, normal_cutoff, 'low');
     acc_filt = filtfilt(b, a, acc);
     gyro_filt = filtfilt(b, a, gyro);
 else
-    warning('Signal Processing Toolbox not found. Using simple moving average filter.');
-    win = max(1, round(fs * 0.05));
-    kernel = ones(win,1) / win;
-    [numSamples, numAxes] = size(acc);
-    acc_filt = zeros(size(acc));
-    gyro_filt = zeros(size(gyro));
-    for ax = 1:numAxes
-        acc_filt(:,ax) = conv(acc(:,ax), kernel, 'same');
-        gyro_filt(:,ax) = conv(gyro(:,ax), kernel, 'same');
+    if has_movmean
+        warning('Butter/filtfilt unavailable. Using movmean for low-pass filtering.');
+        win = max(1, round(fs * 0.05));
+        acc_filt = movmean(acc, win, 1, 'Endpoints','shrink');
+        gyro_filt = movmean(gyro, win, 1, 'Endpoints','shrink');
+    else
+        warning('Butter/filtfilt unavailable. Using manual moving average filter.');
+        win = max(1, round(fs * 0.05));
+        kernel = ones(win,1) / win;
+        [~, numAxes] = size(acc);
+        acc_filt = zeros(size(acc));
+        gyro_filt = zeros(size(gyro));
+        for ax = 1:numAxes
+            acc_filt(:,ax) = conv(acc(:,ax), kernel, 'same');
+            gyro_filt(:,ax) = conv(gyro(:,ax), kernel, 'same');
+        end
     end
 end
 
@@ -235,11 +245,11 @@ window_size = 80;
 accel_var_thresh = 0.01;
 gyro_var_thresh  = 1e-6;
 min_length = 80;
-if has_signal_toolbox
+if exist('movvar','file') == 2
     accel_var = movvar(acc_filt, window_size, 0, 'Endpoints', 'discard');
-    gyro_var = movvar(gyro_filt, window_size, 0, 'Endpoints', 'discard');
+    gyro_var  = movvar(gyro_filt, window_size, 0, 'Endpoints', 'discard');
 else
-    warning('Signal Processing Toolbox not found. Using manual (slower) moving variance calculation.');
+    warning('movvar unavailable. Using manual (slower) moving variance calculation.');
     num_windows = size(acc_filt, 1) - window_size + 1;
     accel_var = zeros(num_windows, size(acc_filt, 2));
     gyro_var = zeros(num_windows, size(gyro_filt, 2));
@@ -1063,7 +1073,7 @@ function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size,
     if nargin < 6 || isempty(min_length);       min_length = 100;   end
     N = size(accel,1); if N < window_size, error('window_size larger than data length'); end
     rehash toolboxcache
-    if license('test', 'Signal_Toolbox')
+    if exist('movvar','file') == 2
         accel_var = movvar(accel, window_size, 0, 'Endpoints','discard');
         gyro_var  = movvar(gyro,  window_size, 0, 'Endpoints','discard');
     else
