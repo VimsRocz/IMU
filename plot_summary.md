@@ -16,8 +16,8 @@
 - **<method>_<frame>_overlay_truth.pdf**: Fused results versus reference
 - **<method>_<frame>_overlay_state.pdf**: Fused results versus raw state file
 - **<tag>_task6_overlay_state_<frame>.pdf**: Task 6 overlay using raw state data
-- **<tag>_task7_residuals_position_velocity.pdf**: Task 7 residuals
-- **<tag>_task7_attitude_angles_euler.pdf**: Task 7 attitude angles
+ - **<tag>_task7_3_residuals_position_velocity.pdf**: Task 7 residuals
+ - **<tag>_task7_4_attitude_angles_euler.pdf**: Task 7 attitude angles
 
 ## Subtask 5.8 Comparison Plots
 

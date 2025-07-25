@@ -12,8 +12,8 @@ def test_run_evaluation_npz_mismatched_lengths(tmp_path):
     f = tmp_path / "data.npz"
     np.savez(f, residual_pos=res_pos, residual_vel=res_vel, time_residuals=t, attitude_q=quat)
     run_evaluation_npz(str(f), str(tmp_path), tag="TEST")
-    assert (tmp_path / "TEST_task7_residuals_position_velocity.pdf").exists()
-    assert (tmp_path / "TEST_task7_attitude_angles_euler.pdf").exists()
+    assert (tmp_path / "TEST_task7_3_residuals_position_velocity.pdf").exists()
+    assert (tmp_path / "TEST_task7_4_attitude_angles_euler.pdf").exists()
 
 
 def test_run_evaluation_npz_quat_longer(tmp_path):
@@ -24,8 +24,8 @@ def test_run_evaluation_npz_quat_longer(tmp_path):
     f = tmp_path / "data.npz"
     np.savez(f, residual_pos=res_pos, residual_vel=res_vel, time_residuals=t, attitude_q=quat)
     run_evaluation_npz(str(f), str(tmp_path), tag="TEST")
-    assert (tmp_path / "TEST_task7_residuals_position_velocity.pdf").exists()
-    assert (tmp_path / "TEST_task7_attitude_angles_euler.pdf").exists()
+    assert (tmp_path / "TEST_task7_3_residuals_position_velocity.pdf").exists()
+    assert (tmp_path / "TEST_task7_4_attitude_angles_euler.pdf").exists()
 
 
 def test_run_evaluation_npz_diff_plot(tmp_path):
@@ -47,4 +47,4 @@ def test_run_evaluation_npz_diff_plot(tmp_path):
         vel_ned=fused_vel,
     )
     run_evaluation_npz(str(f), str(tmp_path), tag="TEST")
-    assert (tmp_path / "TEST_task7_diff_truth_fused_over_time.pdf").exists()
+    assert (tmp_path / "TEST_task7_5_diff_truth_fused_over_time.pdf").exists()

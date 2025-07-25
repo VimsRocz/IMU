@@ -248,10 +248,10 @@ Typical result PDFs:
 - `<tag>_<frame>_overlay_truth.pdf` – fused output vs reference (dataset tag is
   derived from the estimator filename)
 - ``results/task6/<tag>/<tag>_task6_overlay_state_<frame>.pdf`` – Task 6 overlay with GNSS, IMU and raw state
-- `task7_residuals_position_velocity.pdf` – Task 7 position/velocity residuals
-- `task7_attitude_angles_euler.pdf` – Task 7 Euler angle plots
+- `task7_3_residuals_position_velocity.pdf` – Task 7 position/velocity residuals
+- `task7_4_attitude_angles_euler.pdf` – Task 7 Euler angle plots
 - `task7_fused_vs_truth_error.pdf` – Task 7 fused minus truth velocity error
-- `<tag>_task7_diff_truth_fused_over_time.pdf` – Task 7 truth minus fused difference
+- `<tag>_task7_5_diff_truth_fused_over_time.pdf` – Task 7 truth minus fused difference
   plot
 
 ## Task 6: State Overlay
@@ -293,11 +293,11 @@ python src/run_all_methods.py --task 7
 
 * When running `run_all_methods.py`, plots are stored in
   `results/task7/<tag>/` as
-  `<tag>_task7_residuals_position_velocity.pdf` and
-  `<tag>_task7_attitude_angles_euler.pdf`
+  `<tag>_task7_3_residuals_position_velocity.pdf` and
+  `<tag>_task7_4_attitude_angles_euler.pdf`
 * The helper script `src/task7_plot_error_fused_vs_truth.py` produces
   `task7_fused_vs_truth_error.pdf` showing the fused minus truth velocity error.
-* Subtask 7.5 generates `<tag>_task7_diff_truth_fused_over_time.pdf` with the
+* Subtask 7.5 generates `<tag>_task7_5_diff_truth_fused_over_time.pdf` with the
   component-wise difference between truth and fused trajectories.
 
 ### Notes
@@ -344,7 +344,7 @@ Provide a YAML configuration to process additional logs.
 Task 6 (truth overlay) and Task 7 (evaluation) are performed automatically for
 each run.  The additional figures are written to `results/` with the evaluation
 plots placed inside `results/task7/<tag>/`. Task 7 uses the dataset tag as a
-prefix, so you will find files like `<tag>_task7_residuals_position_velocity.pdf`
+prefix, so you will find files like `<tag>_task7_3_residuals_position_velocity.pdf`
 inside that folder.
 
 
