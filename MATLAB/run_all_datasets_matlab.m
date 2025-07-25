@@ -10,8 +10,12 @@ if nargin < 1 || isempty(method)
     method = 'TRIAD';
 end
 
-here = fileparts(mfilename('fullpath'));
+here = fileparts(mfilename('fullpath')); 
 root = fileparts(here);
+% Ensure this file's folder is on the MATLAB path so Task_* functions are
+% found even after changing directories. This mirrors the behaviour of the
+% Python batch runner which uses module imports.
+addpath(here);
 % Ensure "results" directory is under the repository root regardless of the
 % caller's current working directory.
 orig_dir = pwd;
