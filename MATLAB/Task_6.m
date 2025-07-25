@@ -11,6 +11,9 @@ if nargin < 4
     error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');
 end
 
+fprintf('Starting Task 6 overlay ...\n');
+start_time = tic;
+
 [~, imu_name, ~]  = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 
@@ -159,7 +162,14 @@ metrics = struct('NED', mNED, 'ECEF', mECEF, 'Body', mBody);
 metrics_file = fullfile(results_dir, sprintf('%s_%s_%s_task6_metrics.mat', ...
     imu_name, gnss_name, method));
 save(metrics_file, 'metrics');
-fprintf('[Task6] %s %s RMSEpos(NED)=%.3f m final=%.3f m\n', ...
-    imu_name, method, mNED.rmse_pos, mNED.final_pos);
+rows = {
+    'NED',  mNED.rmse_pos,  mNED.final_pos,  mNED.rmse_vel,  mNED.final_vel,  mNED.rmse_acc,  mNED.final_acc;
+    'ECEF', mECEF.rmse_pos, mECEF.final_pos, mECEF.rmse_vel, mECEF.final_vel, mECEF.rmse_acc, mECEF.final_acc;
+    'Body', mBody.rmse_pos, mBody.final_pos, mBody.rmse_vel, mBody.final_vel, mBody.rmse_acc, mBody.final_acc};
+header = {'Frame','RMSEpos','FinalPos','RMSEvel','FinalVel','RMSEacc','FinalAcc'};
+T = cell2table(rows,'VariableNames',header);
+disp(T);
+runtime = toc(start_time);
+fprintf('Task 6 runtime: %.2f s\n', runtime);
 end
 
