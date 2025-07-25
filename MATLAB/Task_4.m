@@ -449,7 +449,8 @@ function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size,
         error('window_size larger than data length');
     end
 
-    if exist('movvar','file')
+    rehash toolboxcache
+    if license('test', 'Signal_Toolbox')
         accel_var = movvar(accel, window_size, 0, 'Endpoints','discard');
         gyro_var  = movvar(gyro,  window_size, 0, 'Endpoints','discard');
     else
