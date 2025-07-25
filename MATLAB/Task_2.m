@@ -51,10 +51,30 @@ if ~exist('results','dir')
 end
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
+pair_tag = [imu_name '_' gnss_name];
 if isempty(method)
-    tag = [imu_name '_' gnss_name];
+    tag = pair_tag;
 else
-    tag = [imu_name '_' gnss_name '_' method];
+    tag = [pair_tag '_' method];
+end
+
+% ------------------------------------------------------------------
+% Attempt to load gravity vector produced by Task 1 for this IMU/GNSS pair
+% ------------------------------------------------------------------
+task1_file = fullfile('results', ['Task1_init_' pair_tag '.mat']);
+if isfile(task1_file)
+    task1_data = load(task1_file);
+    if isfield(task1_data, 'g_NED')
+        g_NED = task1_data.g_NED;
+    else
+        warning('Task_2:MissingField', ...
+            'File %s does not contain g_NED. Using default gravity.', task1_file);
+        g_NED = [0; 0; constants.GRAVITY];
+    end
+else
+    warning('Task_2:MissingTask1', ...
+        'Task 1 file not found: %s. Using default gravity.', task1_file);
+    g_NED = [0; 0; constants.GRAVITY];
 end
 
 imu_file = imu_path;
@@ -204,11 +224,14 @@ fprintf('  Accel variance: [%.4g %.4g %.4g]\n', acc_var);
 fprintf('  Gyro  variance: [%.4g %.4g %.4g]\n', gyro_var);
 
 g_norm = norm(static_acc_row);
-fprintf('Estimated gravity magnitude from IMU: %.4f m/s^2 (expected ~%.2f)\n', g_norm, constants.GRAVITY);
+fprintf('Estimated gravity magnitude from IMU: %.4f m/s^2 (expected ~%.2f)\n', ...
+        g_norm, norm(g_NED));
 
 % --- Simple accelerometer scale calibration ---
 scale_factor = 1.0;
-if g_norm > 1.0, scale_factor = constants.GRAVITY / g_norm; end
+if g_norm > 1.0
+    scale_factor = norm(g_NED) / g_norm;
+end
 
 if abs(scale_factor - 1.0) > 0.05
     fprintf('Applying accelerometer scale factor: %.4f\n', scale_factor);
@@ -217,14 +240,14 @@ end
 
 %% ================================
 % Subtask 2.3: Define Gravity and Earth Rate in Body Frame
-% (Gravity vector scaled to exactly 9.81 m/s^2)
+% (Gravity vector scaled to match g_NED magnitude)
 % ================================
 fprintf('\nSubtask 2.3: Defining gravity and Earth rotation rate in the body frame.\n');
 
 % By convention, vectors are column vectors. mean() returns a row, so we transpose it.
 g_body_raw = -static_acc_row';
 g_mag = norm(g_body_raw);
-g_body = (g_body_raw / g_mag) * constants.GRAVITY;   % Normalize then scale to GRAVITY
+g_body = (g_body_raw / g_mag) * norm(g_NED);   % Normalize then scale to measured gravity
 g_body_scaled = g_body;                  % explicitly store scaled gravity
 %% Compute Earth rotation in body frame using initial latitude
 % Load a GNSS sample to estimate the latitude so the expected
@@ -251,7 +274,6 @@ omega_ie_NED = omega_E * [cos(lat_rad); 0; -sin(lat_rad)];
 % the expected Earth rotation in the body frame can be determined.
 v1_B = -static_acc_row'/norm(static_acc_row);   % accelerometer measures -g
 v2_B = static_gyro_row'/norm(static_gyro_row);
-g_NED = [0;0;constants.GRAVITY];
 v1_N = g_NED/norm(g_NED);
 v2_N = omega_ie_NED/norm(omega_ie_NED);
 M_body = triad_basis(v1_B, v2_B);
@@ -288,14 +310,15 @@ expected_omega_mag = constants.EARTH_RATE; % rad/s
 assert(isequal(size(g_body), [3, 1]), 'g_body must be a 3x1 column vector.');
 assert(isequal(size(omega_ie_body), [3, 1]), 'omega_ie_body must be a 3x1 column vector.');
 
-if norm(g_body) < 0.1 * constants.GRAVITY
+if norm(g_body) < 0.1 * norm(g_NED)
     warning('Gravity magnitude is very low; check accelerometer or static assumption.');
 end
 if norm(omega_ie_body) < 0.5 * expected_omega_mag
     warning('Earth rotation rate is low; check gyroscope or static assumption.');
 end
 
-fprintf('Magnitude of g_body:         %.6f m/s^2 (expected ~%.2f m/s^2)\n', norm(g_body), constants.GRAVITY);
+fprintf('Magnitude of g_body:         %.6f m/s^2 (expected ~%.2f m/s^2)\n', ...
+        norm(g_body), norm(g_NED));
 fprintf('Magnitude of omega_ie_body:  %.6e rad/s (expected ~%.2e rad/s)\n', norm(omega_ie_body), constants.EARTH_RATE);
 
 fprintf('\n==== Measured Vectors in the Body Frame ====\n');
