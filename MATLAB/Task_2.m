@@ -135,10 +135,9 @@ order = 4;
 nyquist_freq = 0.5 * fs;
 normal_cutoff = cutoff / nyquist_freq;
 
-% Check for Signal Processing Toolbox by verifying key functions exist
-has_signal_toolbox = (exist('filtfilt','file') == 2) && ...
-                     (exist('butter','file')  == 2) && ...
-                     (exist('movvar','file')  == 2);
+% Refresh toolbox cache and check for Signal Processing Toolbox license
+rehash toolboxcache
+has_signal_toolbox = license('test', 'Signal_Toolbox');
 if has_signal_toolbox
     [b, a] = butter(order, normal_cutoff, 'low');
     acc_filt = filtfilt(b, a, acc);

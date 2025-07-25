@@ -210,10 +210,9 @@ cutoff = 5.0;
 order = 4;
 nyquist_freq = 0.5 * fs;
 normal_cutoff = cutoff / nyquist_freq;
-% Check for Signal Processing Toolbox by verifying key functions exist
-has_signal_toolbox = (exist('filtfilt','file') == 2) && ...
-                     (exist('butter','file')  == 2) && ...
-                     (exist('movvar','file')  == 2);
+% Refresh toolbox cache and check for Signal Processing Toolbox license
+rehash toolboxcache
+has_signal_toolbox = license('test', 'Signal_Toolbox');
 if has_signal_toolbox
     [b, a] = butter(order, normal_cutoff, 'low');
     acc_filt = filtfilt(b, a, acc);
@@ -1063,7 +1062,8 @@ function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size,
     if nargin < 5 || isempty(gyro_var_thresh);  gyro_var_thresh = 1e-6; end
     if nargin < 6 || isempty(min_length);       min_length = 100;   end
     N = size(accel,1); if N < window_size, error('window_size larger than data length'); end
-    if exist('movvar', 'file') == 2
+    rehash toolboxcache
+    if license('test', 'Signal_Toolbox')
         accel_var = movvar(accel, window_size, 0, 'Endpoints','discard');
         gyro_var  = movvar(gyro,  window_size, 0, 'Endpoints','discard');
     else
