@@ -3,8 +3,10 @@ function summary = task7_fused_truth_error_analysis(est_file, truth_file, out_di
 %   SUMMARY = TASK7_FUSED_TRUTH_ERROR_ANALYSIS(EST_FILE, TRUTH_FILE, OUT_DIR)
 %   loads the fused estimator result and ground truth trajectory (MAT or NPZ
 %   files). Residual position, velocity and acceleration are computed in the
-%   ECEF frame.  When the estimate only contains NED states, it is converted
-%   using the stored reference latitude, longitude and origin.  Plots of the
+%   ECEF frame. When loading NPZ files the function now accepts either
+%   ``pos_ecef_m``/``vel_ecef_ms`` or ``pos_ecef``/``vel_ecef`` keys.  When the
+%   estimate only contains NED states, it is converted using the stored
+%   reference latitude, longitude and origin.  Plots of the
 %   residual components and their norms are saved under OUT_DIR and a
 %   structure of summary statistics is returned.
 
@@ -82,15 +84,27 @@ function [t, pos, vel, acc] = load_est(file)
 %LOAD_EST Load NPZ or MAT estimate containing ECEF position and velocity.
     f = string(file);
     if endsWith(f,'.npz')
-        d = py.numpy.load(f);
-        t = double(d{'time_s'});
+    d = py.numpy.load(f);
+    t = double(d{'time_s'});
+    if isKey(d, 'pos_ecef_m')
         pos = double(d{'pos_ecef_m'});
+    elseif isKey(d, 'pos_ecef')
+        pos = double(d{'pos_ecef'});
+    else
+        error('Task7:BadData', 'NPZ file lacks ECEF position');
+    end
+    if isKey(d, 'vel_ecef_ms')
         vel = double(d{'vel_ecef_ms'});
-        if isKey(d,'acc_ecef_ms2')
-            acc = double(d{'acc_ecef_ms2'});
-        else
-            acc = gradient(gradient(pos)) ./ mean(diff(t))^2;
-        end
+    elseif isKey(d, 'vel_ecef')
+        vel = double(d{'vel_ecef'});
+    else
+        error('Task7:BadData', 'NPZ file lacks ECEF velocity');
+    end
+    if isKey(d,'acc_ecef_ms2')
+        acc = double(d{'acc_ecef_ms2'});
+    else
+        acc = gradient(gradient(pos)) ./ mean(diff(t))^2;
+    end
     else
         if endsWith(f,'.txt')
             raw = read_state_file(f);
