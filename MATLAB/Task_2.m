@@ -61,7 +61,15 @@ end
 % ------------------------------------------------------------------
 % Attempt to load gravity vector produced by Task 1 for this IMU/GNSS pair
 % ------------------------------------------------------------------
-task1_file = fullfile('results', ['Task1_init_' pair_tag '.mat']);
+task1_file = fullfile('results', ['Task1_init_' tag '.mat']);
+if ~isfile(task1_file)
+    % Fallback to method-agnostic filename for backwards compatibility
+    alt_file = fullfile('results', ['Task1_init_' pair_tag '.mat']);
+    if isfile(alt_file)
+        task1_file = alt_file;
+    end
+end
+
 if isfile(task1_file)
     task1_data = load(task1_file);
     if isfield(task1_data, 'g_NED')
