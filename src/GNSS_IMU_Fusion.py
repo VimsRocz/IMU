@@ -220,7 +220,10 @@ def main():
             ax.plot(lon_deg, lat_deg, "ro", markersize=10, transform=ccrs.PlateCarree())
             ax.text(lon_deg + 1, lat_deg, f"Lat: {lat_deg:.4f}°, Lon: {lon_deg:.4f}°", transform=ccrs.PlateCarree())
             plt.title("Initial Location on Earth Map")
-            plt.savefig(f"results/{tag}_location_map.pdf")
+            pdf = f"results/{tag}_location_map.pdf"
+            png = f"results/{tag}_location_map.png"
+            plt.savefig(pdf, bbox_inches="tight")
+            plt.savefig(png, dpi=150, bbox_inches="tight")
             plt.close()
             logging.info("Location map saved")
     else:
