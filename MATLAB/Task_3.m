@@ -206,6 +206,21 @@ for i = 1:length(methods)
     fprintf('%-10s -> Earth rate error (deg):  %.6f\n', methods{i}, o_err);
 end
 
+fprintf('\nDetailed Earth-Rate Errors:\n');
+for i = 1:length(methods)
+    fprintf('  %-10s: %.6f\xB0\n', methods{i}, omega_errors(i));
+end
+diff_err = max(omega_errors) - min(omega_errors);
+tol = 1e-5; % tolerance in degrees
+fprintf('\nEarth-rate errors by method:\n');
+for i = 1:length(methods)
+    fprintf('  %-10s: %.9f\xB0\n', methods{i}, omega_errors(i));
+end
+fprintf('  \x394 = %.2e\xB0 (tolerance = %.1e)\n', diff_err, tol);
+if diff_err < tol
+    warning('All Earth-rate errors are very close; differences are within %.1e\xB0', tol);
+end
+
 fprintf('\n==== Method Comparison for Case 1 ====\n');
 fprintf('%-10s  %-18s  %-22s\n', 'Method', 'Gravity Err (deg)', 'Earth-Rate Err (deg)');
 for i = 1:length(methods)
