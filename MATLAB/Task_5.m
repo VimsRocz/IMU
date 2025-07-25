@@ -107,12 +107,21 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
         g_body = -mean(acc_body_raw(1:N_static,:),1)';
         omega_ie_body = mean(gyro_body_raw(1:N_static,:),1)';
     end
+    % Load scale factor from Task 4 results when available
+    scale_factor = 1.0;
+    task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
+    if isfile(task4_file)
+        d4 = load(task4_file, 'scale_factors');
+        if isfield(d4, 'scale_factors') && isfield(d4.scale_factors, method)
+            scale_factor = d4.scale_factors.(method);
+        end
+    end
     fprintf('Method %s: Bias computed: [%.7f %.7f %.7f]\n', method, accel_bias);
-    fprintf('Method %s: Scale factor: %.4f\n', method, 1.0);
+    fprintf('Method %s: Scale factor: %.4f\n', method, scale_factor);
 
     % Apply bias correction to IMU data
     gyro_body_raw = gyro_body_raw - gyro_bias';
-    acc_body_raw  = acc_body_raw  - accel_bias';
+    acc_body_raw  = (acc_body_raw  - accel_bias') / scale_factor;
 
 
 
@@ -148,7 +157,8 @@ x(13:15) = gyro_bias(:);
 % EKF tuning parameters
 P = blkdiag(eye(9) * 0.01, eye(3) * 1e-4, eye(3) * 1e-8);
 Q = blkdiag(eye(9) * 0.01, eye(3) * 1e-6, eye(3) * 1e-6);
-R = eye(6) * 0.1;
+Q(4:6,4:6) = eye(3) * 0.1;  % higher process noise on velocity states
+R = diag([0.1 0.1 0.1 0.25 0.25 0.25]);
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
