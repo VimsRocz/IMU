@@ -160,10 +160,12 @@ if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
     % Set plot title
     title('Initial Location on Earth Map');
 
-    % Save the plot
-    output_filename = fullfile(results_dir, sprintf('%s_location_map.pdf', tag));
-    saveas(gcf, output_filename);
-    fprintf('Location map saved\n');
+    % Save the plot as both PDF and PNG using a reasonable page size
+    set(gcf, 'PaperPositionMode', 'auto');
+    base = fullfile(results_dir, sprintf('%s_location_map', tag));
+    print(gcf, [base '.pdf'], '-dpdf', '-bestfit');
+    print(gcf, [base '.png'], '-dpng');
+    fprintf('Location map saved to %s.[pdf|png]\n', base);
 else
     warning('Mapping Toolbox not found. Skipping geographic plot.');
 end

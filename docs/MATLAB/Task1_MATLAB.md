@@ -36,7 +36,7 @@ Optional magnetic field when a magnetometer log is present
 ### 1.5 Plot Initial Location
 - Create a small map with `geoplot` or `geoscatter` showing the derived position.
 - Annotate the latitude and longitude on the plot.
-- Save the figure as `results/<tag>_location_map.pdf` unless disabled.
+ - Save the figure as `results/<tag>_location_map.[pdf|png]` unless disabled.
 - Refer to the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) for consistent naming when adding legends.
 
 ## Result
