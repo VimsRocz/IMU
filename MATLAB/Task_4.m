@@ -191,7 +191,15 @@ fprintf('Static gyro var  =[%.4g %.4g %.4g]\n', gyro_var);
 % Gravity vector and Earth rotation in NED frame
 % Attempt to reuse the gravity vector estimated in Task 1; if unavailable,
 % fall back to the nominal constant.
-task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
+task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
+if ~isfile(task1_file)
+    % Fallback to method-agnostic filename for older runs
+    alt_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
+    if isfile(alt_file)
+        task1_file = alt_file;
+    end
+end
+
 if isfile(task1_file)
     t1 = load(task1_file);
     if isfield(t1, 'g_NED')

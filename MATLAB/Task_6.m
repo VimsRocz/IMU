@@ -30,9 +30,26 @@ if ~isfile(task5_file)
 end
 S = load(task5_file);
 
+% Determine method from filename or structure
+tok = regexp(task5_file, '_(\w+)_task5_results\.mat$', 'tokens');
+if ~isempty(tok)
+    method = tok{1}{1};
+elseif isfield(S,'method')
+    method = S.method;
+else
+    method = 'TRIAD';
+end
+
 % Load gravity vector from Task 1 initialisation
 pair_tag = [imu_name '_' gnss_name];
-task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
+task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', [pair_tag '_' method]));
+if ~isfile(task1_file)
+    % Fallback to methodless file for backward compatibility
+    alt_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
+    if isfile(alt_file)
+        task1_file = alt_file;
+    end
+end
 if isfile(task1_file)
     init_data = load(task1_file);
     if isfield(init_data, 'g_NED')
@@ -43,16 +60,6 @@ if isfile(task1_file)
 else
     warning('Task 1 output not found: %s', task1_file);
     g_NED = [0;0;constants.GRAVITY];
-end
-
-% Derive method tag from filename or structure
-tok = regexp(task5_file, '_(\w+)_task5_results\.mat$', 'tokens');
-if ~isempty(tok)
-    method = tok{1}{1};
-elseif isfield(S,'method')
-    method = S.method;
-else
-    method = 'TRIAD';
 end
 
 if nargin < 4 || isempty(truth_file)
