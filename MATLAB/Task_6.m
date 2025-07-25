@@ -5,7 +5,9 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 %   trajectories.  All series are interpolated to the estimator time
 %   vector and ``plot_overlay`` is called for the NED, ECEF and body
 %   frames.  The resulting ``*_overlay_truth.pdf`` files are stored under
-%   ``results/``.
+%   ``results/``.  This function expects the initialization output from
+%   Task 1 and the filter output from Task 5 to be present in the
+%   ``results`` directory.
 
 if nargin < 4
     error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');
@@ -25,6 +27,21 @@ if ~isfile(task5_file)
     error('Task_6:FileNotFound', 'Task 5 result not found: %s', task5_file);
 end
 S = load(task5_file);
+
+% Load gravity vector from Task 1 initialisation
+pair_tag = [imu_name '_' gnss_name];
+task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
+if isfile(task1_file)
+    init_data = load(task1_file);
+    if isfield(init_data, 'g_NED')
+        g_NED = init_data.g_NED;
+    else
+        g_NED = [0;0;constants.GRAVITY];
+    end
+else
+    warning('Task 1 output not found: %s', task1_file);
+    g_NED = [0;0;constants.GRAVITY];
+end
 
 % Derive method tag from filename or structure
 tok = regexp(task5_file, '_(\w+)_task5_results\.mat$', 'tokens');
@@ -113,7 +130,9 @@ vel_ecef = (C_N_E*vel_ned')';
 acc_ecef = (C_N_E*acc_ned')';
 
 % Body frame conversion
-g_N = [0 0 constants.GRAVITY]';
+if ~exist('g_NED','var')
+    g_NED = [0;0;constants.GRAVITY];
+end
 N = length(t_est);
 pos_body = zeros(N,3); vel_body = zeros(N,3); acc_body = zeros(N,3);
 pos_gnss_body = zeros(N,3); vel_gnss_body = zeros(N,3); acc_gnss_body = zeros(N,3);
@@ -122,13 +141,13 @@ for k = 1:N
     C_B_N = euler_to_rot(S.euler_log(:,k));
     pos_body(k,:) = (C_B_N'*pos_ned(k,:)')';
     vel_body(k,:) = (C_B_N'*vel_ned(k,:)')';
-    acc_body(k,:) = (C_B_N'*(acc_ned(k,:)' - g_N))';
+    acc_body(k,:) = (C_B_N'*(acc_ned(k,:)' - g_NED))';
     pos_gnss_body(k,:) = (C_B_N'*pos_gnss_ned_i(k,:)')';
     vel_gnss_body(k,:) = (C_B_N'*vel_gnss_ned_i(k,:)')';
-    acc_gnss_body(k,:) = (C_B_N'*(acc_gnss_ned_i(k,:)' - g_N))';
+    acc_gnss_body(k,:) = (C_B_N'*(acc_gnss_ned_i(k,:)' - g_NED))';
     pos_truth_body(k,:) = (C_B_N'*pos_truth_ned_i(k,:)')';
     vel_truth_body(k,:) = (C_B_N'*vel_truth_ned_i(k,:)')';
-    acc_truth_body(k,:) = (C_B_N'*(acc_truth_ned_i(k,:)' - g_N))';
+    acc_truth_body(k,:) = (C_B_N'*(acc_truth_ned_i(k,:)' - g_NED))';
 end
 
 plot_overlay('NED', method, t_est, pos_ned, vel_ned, acc_ned, ...
