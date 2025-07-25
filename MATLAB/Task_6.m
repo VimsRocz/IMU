@@ -107,7 +107,7 @@ end
 pos_truth_ecef_i = interp1(t_truth, pos_truth_ecef, t_est, 'linear', 'extrap');
 vel_truth_ecef_i = interp1(t_truth, vel_truth_ecef, t_est, 'linear', 'extrap');
 acc_truth_ecef_i = interp1(t_truth, acc_truth_ecef, t_est, 'linear', 'extrap');
-pos_truth_ned_i  = (C*(pos_truth_ecef_i - ref_r0')).';
+pos_truth_ned_i  = (C * (pos_truth_ecef_i' - ref_r0)).';
 vel_truth_ned_i  = (C*vel_truth_ecef_i.').';
 acc_truth_ned_i  = (C*acc_truth_ecef_i.').';
 
