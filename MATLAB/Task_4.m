@@ -188,8 +188,23 @@ fprintf('Static gyro mean =[%.6f %.6f %.6f]\n', static_gyro);
 fprintf('Static acc var   =[%.4g %.4g %.4g]\n', acc_var);
 fprintf('Static gyro var  =[%.4g %.4g %.4g]\n', gyro_var);
 
-% Gravity vector and Earth rotation in NED frame (Task 1 results)
-g_NED = [0; 0; constants.GRAVITY];
+% Gravity vector and Earth rotation in NED frame
+% Attempt to reuse the gravity vector estimated in Task 1; if unavailable,
+% fall back to the nominal constant.
+task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
+if isfile(task1_file)
+    t1 = load(task1_file);
+    if isfield(t1, 'g_NED')
+        g_NED = t1.g_NED(:);
+        fprintf('Loaded gravity from %s\n', task1_file);
+    else
+        warning('g_NED missing from %s, using default %.3f m/s^2', task1_file, constants.GRAVITY);
+        g_NED = [0; 0; constants.GRAVITY];
+    end
+else
+    warning('Task1 init file %s not found, using default gravity %.3f m/s^2', task1_file, constants.GRAVITY);
+    g_NED = [0; 0; constants.GRAVITY];
+end
 omega_E = constants.EARTH_RATE;                     % rad/s
 omega_ie_NED = omega_E * [cos(ref_lat); 0; -sin(ref_lat)];
 
@@ -231,7 +246,7 @@ fprintf('-> IMU data corrected for bias and scale for each method.\n');
 % =========================================================================
 fprintf('\nSubtask 4.10: Setting IMU parameters and gravity vector.\n');
 fprintf('-> IMU sample interval dt = %.6f s\n', dt_imu);
-fprintf('Gravity vector set: [%.2f %.2f %.2f]\n', g_NED);
+fprintf('Gravity vector applied: [%.2f %.2f %.2f]\n', g_NED);
 
 
 
