@@ -3,8 +3,10 @@ function summary = task7_fused_truth_error_analysis(est_file, truth_file, out_di
 %   SUMMARY = TASK7_FUSED_TRUTH_ERROR_ANALYSIS(EST_FILE, TRUTH_FILE, OUT_DIR)
 %   loads the fused estimator result and ground truth trajectory (MAT or NPZ
 %   files). Residual position, velocity and acceleration are computed in the
-%   ECEF frame. Plots of the residual components and their norms are saved
-%   under OUT_DIR and a structure of summary statistics is returned.
+%   ECEF frame.  When the estimate only contains NED states, it is converted
+%   using the stored reference latitude, longitude and origin.  Plots of the
+%   residual components and their norms are saved under OUT_DIR and a
+%   structure of summary statistics is returned.
 
 if nargin < 3 || isempty(out_dir)
     out_dir = 'results';
@@ -69,14 +71,28 @@ function [t, pos, vel, acc] = load_est(file)
             if isfield(S,'pos_ecef_m')
                 pos = S.pos_ecef_m;
                 vel = S.vel_ecef_ms;
-            else
+            elseif isfield(S,'pos_ecef')
                 pos = S.pos_ecef;
                 vel = S.vel_ecef;
+            elseif isfield(S,'pos_ned') && isfield(S,'vel_ned')
+                % Derive ECEF using reference parameters
+                if isfield(S,'ref_lat'); lat = S.ref_lat; elseif isfield(S,'ref_lat_rad'); lat = S.ref_lat_rad; else; lat = 0; end
+                if isfield(S,'ref_lon'); lon = S.ref_lon; elseif isfield(S,'ref_lon_rad'); lon = S.ref_lon_rad; else; lon = 0; end
+                if isfield(S,'ref_r0'); r0 = S.ref_r0; elseif isfield(S,'ref_r0_m'); r0 = S.ref_r0_m; else; r0 = [0 0 0]; end
+                C = compute_C_ECEF_to_NED(lat, lon);
+                pos = (C' * S.pos_ned')' + r0(:)';
+                vel = (C' * S.vel_ned')';
+            else
+                error('Task7:BadData','Estimate lacks ECEF or NED position fields');
             end
             if isfield(S,'acc_ecef_ms2')
                 acc = S.acc_ecef_ms2;
             else
-                acc = gradient(gradient(pos)) ./ mean(diff(t))^2;
+                if exist('vel','var') && numel(t) > 1
+                    acc = [zeros(1,3); diff(vel)./diff(t)];
+                else
+                    acc = gradient(gradient(pos)) ./ mean(diff(t))^2;
+                end
             end
         end
     end
