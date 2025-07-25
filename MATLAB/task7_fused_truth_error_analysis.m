@@ -31,10 +31,10 @@ if isnan(lat) || isnan(lon) || any(isnan(r0))
     lon = deg2rad(lon_deg);
 end
 C = compute_C_ECEF_to_NED(lat, lon);
-pos_est = (C*(pos_est_ecef - r0.')).';
+pos_est = (C * (pos_est_ecef' - r0)).';
 vel_est = (C*vel_est_ecef.').';
 acc_est = (C*acc_est_ecef.').';
-pos_tru = (C*(pos_tru_ecef - r0.')).';
+pos_tru = (C * (pos_tru_ecef' - r0)).';
 vel_tru = (C*vel_tru_ecef.').';
 acc_tru = (C*acc_tru_ecef.').';
 
