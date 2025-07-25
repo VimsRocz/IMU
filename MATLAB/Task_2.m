@@ -145,23 +145,31 @@ normal_cutoff = cutoff / nyquist_freq;
 
 % Refresh toolbox cache and check for Signal Processing Toolbox license
 rehash toolboxcache
-has_signal_toolbox = license('test', 'Signal_Toolbox');
+has_signal_toolbox = license('test', 'Signal_Toolbox') && ...
+                      exist('filtfilt','file') == 2 && exist('butter','file') == 2;
+has_movmean = exist('movmean','file') == 2;
+
 if has_signal_toolbox
     [b, a] = butter(order, normal_cutoff, 'low');
     acc_filt = filtfilt(b, a, acc);
     gyro_filt = filtfilt(b, a, gyro);
 else
-    warning('Signal Processing Toolbox not found. Using simple moving average filter.');
-    win = max(1, round(fs * 0.05));
-    kernel = ones(win,1) / win;
-    % Apply the moving average filter to each axis separately to avoid
-    % the "A and B must be vectors" error when using conv on a matrix.
-    [numSamples, numAxes] = size(acc);
-    acc_filt = zeros(size(acc));
-    gyro_filt = zeros(size(gyro));
-    for ax = 1:numAxes
-        acc_filt(:,ax) = conv(acc(:,ax), kernel, 'same');
-        gyro_filt(:,ax) = conv(gyro(:,ax), kernel, 'same');
+    if has_movmean
+        warning('Butter/filtfilt unavailable. Using movmean for low-pass filtering.');
+        win = max(1, round(fs * 0.05));
+        acc_filt = movmean(acc, win, 1, 'Endpoints','shrink');
+        gyro_filt = movmean(gyro, win, 1, 'Endpoints','shrink');
+    else
+        warning('Butter/filtfilt unavailable. Using manual moving average filter.');
+        win = max(1, round(fs * 0.05));
+        kernel = ones(win,1) / win;
+        [~, numAxes] = size(acc);
+        acc_filt = zeros(size(acc));
+        gyro_filt = zeros(size(gyro));
+        for ax = 1:numAxes
+            acc_filt(:,ax) = conv(acc(:,ax), kernel, 'same');
+            gyro_filt(:,ax) = conv(gyro(:,ax), kernel, 'same');
+        end
     end
 end
 
@@ -172,12 +180,12 @@ accel_var_thresh = 0.01;    % match Python implementation
 gyro_var_thresh  = 1e-6;    % match Python implementation
 min_length = 80;
 
-% Use movvar from Signal Processing Toolbox if available, otherwise use a loop
-if has_signal_toolbox
+% Use movvar if available, otherwise fall back to manual variance loop
+if exist('movvar','file') == 2
     accel_var = movvar(acc_filt, window_size, 0, 'Endpoints', 'discard');
-    gyro_var = movvar(gyro_filt, window_size, 0, 'Endpoints', 'discard');
+    gyro_var  = movvar(gyro_filt, window_size, 0, 'Endpoints', 'discard');
 else
-    warning('Signal Processing Toolbox not found. Using manual (slower) moving variance calculation.');
+    warning('movvar unavailable. Using manual (slower) moving variance calculation.');
     num_windows = size(acc_filt, 1) - window_size + 1;
     accel_var = zeros(num_windows, size(acc_filt, 2));
     gyro_var = zeros(num_windows, size(gyro_filt, 2));
