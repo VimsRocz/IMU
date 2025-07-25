@@ -92,6 +92,13 @@ end
 function plot_task6_results(est_pos, est_vel, est_quat, est_time, ...
     truth_pos, truth_time, ref_lat, ref_lon, ref_r0, out_dir, method)
 %PLOT_TASK6_RESULTS  Simplified Task 6 plots in NED frame.
+%
+%   PLOT_TASK6_RESULTS(EST_POS, EST_VEL, EST_QUAT, EST_TIME, TRUTH_POS,
+%   TRUTH_TIME, REF_LAT, REF_LON, REF_R0, OUT_DIR, METHOD) overlays the
+%   fused estimator output with the truth data and saves the figure as
+%   ``<METHOD>_task6_results_ned.pdf`` under OUT_DIR. METHOD should
+%   encode the dataset and algorithm name, e.g.,
+%   ``IMU_X001_GNSS_X001_Davenport``. This mirrors ``plot_task6_results.py``.
 
 truth_pos_i = interp1(truth_time, truth_pos, est_time, 'linear', 'extrap');
 dt = mean(diff(est_time));
