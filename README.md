@@ -5,6 +5,7 @@ IMU data processing and initialization tools (Python)
 
 ### Table of Contents
 - [Installation](#installation)
+- [MATLAB Requirements](#matlab-requirements)
 - [Running the Pipeline](#running-the-pipeline)
   - [run_all_datasets.py](#run_all_datasetspy)
   - [run_triad_only.py](#run_triad_onlypy)
@@ -103,6 +104,21 @@ If the build error complains about Cython install it explicitly first:
 pip3 install cython
 pip3 install filterpy
 ```
+
+### MATLAB Requirements
+
+The MATLAB scripts mirror the Python pipeline. We recommend **MATLAB R2023a**
+with the **Signal Processing Toolbox** installed. Without this toolbox, Task&nbsp;2
+uses a fallback moving-average filter and manual variance computation, which can
+degrade accuracy and slow down processing. Install the toolbox via MATLAB's
+**Add-On Manager** (Home → Add-Ons → Get Add-Ons) and verify the installation
+with:
+
+```matlab
+ver('signal')
+```
+
+If the command prints an entry for the toolbox, it is available for use.
 
 ### Per-Task Overview
 

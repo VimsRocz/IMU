@@ -79,7 +79,15 @@ run_all_datasets_matlab('TRIAD')
 ```
 The function accepts the initialisation method as an optional argument. It scans `Data/` (or the repository root if that folder is missing) for matching IMU and GNSS logs, executes `Task_1` through `Task_5` for each pair and saves the results as `IMU_<id>_GNSS_<id>_<METHOD>_kf_output.mat` in `results/`. `plot_results` is invoked automatically to export the standard PDF figures.
 
-Prerequisites: MATLAB R2023a or newer with the Signal Processing and Navigation Toolboxes.
+Prerequisites: MATLAB R2023a or newer. The **Signal Processing Toolbox** is strongly
+recommended for the MATLAB pipeline. If the toolbox is missing, Task&nbsp;2 falls back to
+a moving-average filter and manual variance computation, which may reduce accuracy and
+increase runtime. Install the toolbox via the MATLAB **Add-On Manager**
+(Home &rarr; Add-Ons &rarr; Get Add-Ons) and verify the installation with
+```matlab
+ver('signal')
+```
+The Navigation Toolbox remains optional but is helpful for some helper scripts.
 
 ### MATLAB+Python hybrid pipeline
 ```matlab
