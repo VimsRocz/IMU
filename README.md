@@ -297,6 +297,10 @@ python src/run_all_methods.py --task 7
   `<tag>_task7_4_attitude_angles_euler.pdf`
 * The helper script `src/task7_plot_error_fused_vs_truth.py` produces
   `task7_fused_vs_truth_error.pdf` showing the fused minus truth velocity error.
+* The script `task7_ecef_residuals_plot.py` plots ECEF frame residuals and
+  writes figures to ``results/task7/<tag>/``:
+  `python task7_ecef_residuals_plot.py --est-file <fused.npz> --imu-file <IMU.dat> \
+  --gnss-file <GNSS.csv> --truth-file <STATE_X.txt> --dataset <tag>`
 * Subtask 7.5 generates `<tag>_task7_5_diff_truth_fused_over_time.pdf` with the
   component-wise difference between truth and fused trajectories.
 

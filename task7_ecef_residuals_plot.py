@@ -1,12 +1,15 @@
 """Task 7 – Plot position and velocity residuals in the ECEF frame.
 
 Usage:
-    python task7_ecef_residuals_plot.py --est-file <fused.npz> --truth-file <STATE_X.txt> --output-dir results
+    python task7_ecef_residuals_plot.py --est-file <fused.npz> \
+        --imu-file <IMU.dat> --gnss-file <GNSS.csv> \
+        --truth-file <STATE_X.txt> --output-dir results
 
 This script loads a fused estimator output file and a ground truth
 trajectory, interpolates the truth to the estimator time vector and
 plots position, velocity and acceleration residuals. Figures are saved
-as PDF and PNG in the specified output directory.
+as PDF and PNG under ``results/task7/<dataset>/`` within the chosen
+output directory.
 """
 
 from __future__ import annotations
@@ -97,22 +100,27 @@ def plot_residuals(
 def main() -> None:
     ap = argparse.ArgumentParser(description="Plot ECEF residuals for Task 7")
     ap.add_argument("--est-file", required=True, help="fused estimator .npz")
+    ap.add_argument("--imu-file", required=True, help="raw IMU file used for the estimate")
+    ap.add_argument("--gnss-file", required=True, help="raw GNSS file used for the estimate")
     ap.add_argument("--truth-file", required=True, help="ground truth STATE_X file")
     ap.add_argument("--dataset", required=True, help="dataset identifier")
     ap.add_argument("--output-dir", default="results", help="directory for plots")
     args = ap.parse_args()
 
     est = load_estimate(args.est_file)
-    frames = assemble_frames(est, args.est_file, args.est_file, args.truth_file)
+    frames = assemble_frames(est, args.imu_file, args.gnss_file, args.truth_file)
     try:
         t_est, pos_est, vel_est, _ = frames["ECEF"]["fused"]
         _, pos_truth, vel_truth, _ = frames["ECEF"]["truth"]
     except KeyError as exc:
         raise ValueError("Truth data required for ECEF residuals") from exc
 
-    res_pos, res_vel, res_acc = compute_residuals(t_est, pos_est, vel_est, pos_truth, vel_truth)
+    res_pos, res_vel, res_acc = compute_residuals(
+        t_est, pos_est, vel_est, pos_truth, vel_truth
+    )
 
-    plot_residuals(t_est, res_pos, res_vel, res_acc, args.dataset, Path(args.output_dir))
+    out_dir = Path(args.output_dir) / "task7" / args.dataset
+    plot_residuals(t_est, res_pos, res_vel, res_acc, args.dataset, out_dir)
 
 
 if __name__ == "__main__":
