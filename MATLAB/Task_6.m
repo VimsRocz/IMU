@@ -4,10 +4,12 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 %   Task 5 results MAT file along with the raw IMU, GNSS and ground truth
 %   trajectories.  All series are interpolated to the estimator time
 %   vector and ``plot_overlay`` is called for the NED, ECEF and body
-%   frames.  The resulting ``*_overlay_truth.pdf`` files are stored under
-%   ``results/``.  This function expects the initialization output from
-%   Task 1 and the filter output from Task 5 to be present in the
-%   ``results`` directory.
+%   frames.  Truth data in the ECEF frame is first converted to the
+%   estimator's local NED coordinates using ``compute_C_ECEF_to_NED`` so
+%   that residuals are expressed in a consistent frame.  The resulting
+%   ``*_overlay_truth.pdf`` files are stored under ``results/``.  This
+%   function expects the initialization output from Task 1 and the filter
+%   output from Task 5 to be present in the ``results`` directory.
 
 if nargin < 4
     error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');
@@ -77,9 +79,6 @@ t_truth = truth(:,2);
 pos_truth_ecef = truth(:,3:5);
 vel_truth_ecef = truth(:,6:8);
 acc_truth_ecef = [zeros(1,3); diff(vel_truth_ecef)./diff(t_truth)];
-pos_truth_ned = (C*(pos_truth_ecef' - ref_r0(:)))';
-vel_truth_ned = (C*vel_truth_ecef')';
-acc_truth_ned = (C*acc_truth_ecef')';
 
 % Time vector from estimator
 if isfield(S,'time_residuals') && ~isempty(S.time_residuals)
@@ -103,14 +102,14 @@ if ~isfield(S,'vel_ned')
     S.vel_ned = S.x_log(4:6,:)';
 end
 
-% Interpolate truth and GNSS to estimator time
-% Interpolate and extrapolate so the entire estimator time range is covered
-pos_truth_ned_i  = interp1(t_truth, pos_truth_ned,  t_est, 'linear', 'extrap');
-vel_truth_ned_i  = interp1(t_truth, vel_truth_ned,  t_est, 'linear', 'extrap');
-acc_truth_ned_i  = interp1(t_truth, acc_truth_ned,  t_est, 'linear', 'extrap');
+% Interpolate truth data to estimator time
+% Then convert ECEF truth to the estimator NED frame for residuals
 pos_truth_ecef_i = interp1(t_truth, pos_truth_ecef, t_est, 'linear', 'extrap');
 vel_truth_ecef_i = interp1(t_truth, vel_truth_ecef, t_est, 'linear', 'extrap');
 acc_truth_ecef_i = interp1(t_truth, acc_truth_ecef, t_est, 'linear', 'extrap');
+pos_truth_ned_i  = (C*(pos_truth_ecef_i - ref_r0')).';
+vel_truth_ned_i  = (C*vel_truth_ecef_i.').';
+acc_truth_ned_i  = (C*acc_truth_ecef_i.').';
 
 pos_gnss_ned_i  = interp1(S.gnss_time, S.gnss_pos_ned,  t_est, 'linear', 'extrap');
 vel_gnss_ned_i  = interp1(S.gnss_time, S.gnss_vel_ned,  t_est, 'linear', 'extrap');
