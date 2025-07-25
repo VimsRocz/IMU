@@ -1,5 +1,10 @@
 function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 %TASK_5  Run 15-state EKF using IMU & GNSS NED positions
+%
+% This step expects gravity to have been estimated in Task_1.  The
+% resulting vector `g_NED` is loaded from the file
+%   /results/Task1_init_<imu>_<gnss>.mat
+% If the file is missing the nominal gravity constant is used.
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
@@ -152,8 +157,15 @@ H = [eye(6), zeros(6,9)];
 % --- Attitude Initialization ---
 q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
 
-% Gravity vector in NED frame
-g_NED = [0; 0; constants.GRAVITY];
+% Gravity vector in NED frame loaded from Task 1
+task1_file = fullfile(results_dir, ['Task1_init_' pair_tag '.mat']);
+if isfile(task1_file)
+    init = load(task1_file);
+    g_NED = init.g_NED;
+else
+    warning('Task_5:MissingTask1','Task 1 output missing. Using constants.GRAVITY.');
+    g_NED = [0;0;constants.GRAVITY];
+end
 
     % -- Compute Wahba Errors using all Task 3 rotation matrices --
     methods_all = fieldnames(task3_results);
