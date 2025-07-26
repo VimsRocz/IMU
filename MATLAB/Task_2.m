@@ -238,6 +238,17 @@ fprintf('Static interval found: samples %d to %d (length %d samples)\n', start_i
 fprintf('  Accel variance: [%.4g %.4g %.4g]\n', acc_var);
 fprintf('  Gyro  variance: [%.4g %.4g %.4g]\n', gyro_var);
 
+% Compute duration of the static portion and compare with total dataset length
+static_duration = N_static * dt_imu;
+total_duration  = size(acc_filt, 1) * dt_imu;
+ratio_static = static_duration / total_duration;
+fprintf('Static interval duration: %.2f s of %.2f s total (%.1f%%)\n', ...
+        static_duration, total_duration, ratio_static*100);
+if ratio_static > 0.90
+    warning(['Static interval covers %.1f%% of the dataset. Verify motion data ' ...
+            'or adjust detection thresholds.'], ratio_static*100);
+end
+
 g_norm = norm(static_acc_row);
 fprintf('Estimated gravity magnitude from IMU: %.4f m/s^2 (expected ~%.2f)\n', ...
         g_norm, norm(g_NED));
