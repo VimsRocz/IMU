@@ -18,7 +18,7 @@ else
     method_list = method;
 end
 
-here = fileparts(mfilename('fullpath')); 
+here = fileparts(mfilename('fullpath'));
 root = fileparts(here);
 % Ensure this file's folder is on the MATLAB path so Task_* functions are
 % found even after changing directories. This mirrors the behaviour of the
