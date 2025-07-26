@@ -475,9 +475,13 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
     'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
 if isfile(perf_file)
-    save(perf_file, '-append', 'output_matlab');
+    S = load(perf_file);
+    S.(method) = results;
+    save(perf_file, '-struct', 'S');
 else
-    save(perf_file, 'output_matlab');
+    S = struct();
+    S.(method) = results;
+    save(perf_file, '-struct', 'S');
 end
 
 summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt');
