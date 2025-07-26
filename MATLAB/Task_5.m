@@ -164,16 +164,31 @@ H = [eye(6), zeros(6,9)];
 % --- Attitude Initialization ---
 q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
 
-% Gravity vector in NED frame from Task 1 initialization if available
-task1_file = fullfile(results_dir, ['Task1_init_' pair_tag '.mat']);
-if isfile(task1_file)
-    init_data = load(task1_file);
-    g_NED = init_data.g_NED;
-else
-    warning('Task_5:MissingTask1', ...
-        'Task 1 output not found; using constants.GRAVITY.');
-    g_NED = [0; 0; constants.GRAVITY];
-end
+    % Gravity vector in NED frame from Task 1 initialization if available
+    % Prefer the method-specific filename but fall back to a generic one
+    task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
+    if ~isfile(task1_file)
+        alt_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
+        if isfile(alt_file)
+            task1_file = alt_file;
+        end
+    end
+
+    if isfile(task1_file)
+        init_data = load(task1_file);
+        if isfield(init_data, 'g_NED')
+            g_NED = init_data.g_NED;
+            fprintf('Loaded gravity from %s\n', task1_file);
+        else
+            warning('Task_5:MissingField', ...
+                'File %s does not contain g_NED. Using default gravity.', task1_file);
+            g_NED = [0; 0; constants.GRAVITY];
+        end
+    else
+        warning('Task_5:MissingTask1', ...
+            'Task 1 output not found; using constants.GRAVITY.');
+        g_NED = [0; 0; constants.GRAVITY];
+    end
 
     % -- Compute Wahba Errors using all Task 3 rotation matrices --
     methods_all = fieldnames(task3_results);
