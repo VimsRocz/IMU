@@ -13,7 +13,7 @@ function debug_fusion_pipeline(fused_file, truth_file, imu_file, out_dir)
 %   This is a placeholder for future MATLAB parity.
 
 if nargin < 4 || isempty(out_dir)
-    out_dir = 'results';
+    out_dir = 'output_matlab';
 end
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 

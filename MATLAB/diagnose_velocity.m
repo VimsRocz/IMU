@@ -14,7 +14,7 @@ function diagnose_velocity(est_file, truth_file, imu_file, gnss_file, frame, out
 %See also: DIAGNOSE_VELOCITY.PY
 
 if nargin < 6
-    output_dir = 'results';
+    output_dir = 'output_matlab';
 end
 
 warning('diagnose_velocity:NotImplemented', ...

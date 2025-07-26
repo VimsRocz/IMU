@@ -8,7 +8,7 @@ function pdf_path = task6_overlay_plot(est_file, truth_file, method, frame, data
 %   ground truth respectively. ``frame`` is either ``'ECEF'`` or ``'NED'``.
 %   The interpolated truth is overlaid on the estimate for position,
 %   velocity and acceleration and the figure saved under
-%   ``results/task6/<run_id>/`` as ``<run_id>_task6_overlay_state_<frame>.pdf``.
+%   ``output_matlab/task6/<run_id>/`` as ``<run_id>_task6_overlay_state_<frame>.pdf``.
 %   ``run_id`` combines the dataset and method, e.g.,
 %   ``IMU_X003_GNSS_X002_TRIAD``.
 
@@ -19,7 +19,7 @@ if nargin < 5
     dataset = 'DATASET';
 end
 if nargin < 6 || isempty(output_dir)
-    output_dir = 'results';
+    output_dir = 'output_matlab';
 end
 if nargin < 7
     debug = false;
