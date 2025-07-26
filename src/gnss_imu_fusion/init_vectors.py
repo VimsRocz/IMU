@@ -79,6 +79,13 @@ def butter_lowpass_filter(
     return filtfilt(b, a, data, axis=0)
 
 
+def basic_butterworth_filter(
+    data: np.ndarray, cutoff: float = 5.0, fs: float = 400.0, order: int = 4
+) -> np.ndarray:
+    """Placeholder for MATLAB parity. Not implemented."""
+    raise NotImplementedError("basic_butterworth_filter is MATLAB-only")
+
+
 def angle_between(a: np.ndarray, b: np.ndarray) -> float:
     """Return the angle in degrees between two vectors."""
     a = np.asarray(a)
