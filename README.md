@@ -6,6 +6,7 @@ IMU data processing and initialization tools (Python)
 ### Table of Contents
 - [Installation](#installation)
 - [MATLAB Requirements](#matlab-requirements)
+- [Usage](#usage)
 - [Running the Pipeline](#running-the-pipeline)
   - [run_all_datasets.py](#run_all_datasetspy)
   - [run_triad_only.py](#run_triad_onlypy)
@@ -119,6 +120,18 @@ ver('signal')
 ```
 
 If the command prints an entry for the toolbox, it is available for use.
+
+### Usage
+
+Run the MATLAB batch runner from the repository root so all data paths resolve
+correctly:
+
+```matlab
+addpath('MATLAB');         % from repository root
+run_all_datasets_matlab;   % all methods
+% or
+run_all_datasets_matlab('TRIAD');
+```
 
 ### Per-Task Overview
 
