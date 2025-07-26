@@ -29,7 +29,7 @@ end
 
 methods = {'TRIAD','Davenport','SVD'};
 colors  = {'r','g','b'};
-resultsDir = 'output_matlab';
+
 if ~exist(resultsDir,'dir'); mkdir(resultsDir); end
 
 % Always reference the common STATE\_X001.txt trajectory for Tasks 6 and 7
@@ -162,10 +162,23 @@ close(fig);
 end
 
 function save_pva_grid(t, pos_ned, vel_ned, acc_ned, outfile)
+%SAVE_PVA_GRID Plot position, velocity and acceleration in a 3x3 grid.
+%   SAVE_PVA_GRID(T, POS, VEL, ACC, OUTFILE) plots the NED position, velocity
+%   and acceleration arrays against time vector T and saves the figure to
+%   OUTFILE.  Missing or malformed arrays are padded with NaNs so that the
+%   function never errors when data is unavailable.
+
     fig = figure('Visible','off','Units','pixels','Position',[0 0 1200 900]);
     tl = tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
     labels = {'North [m]','East [m]','Down [m]'};
     rowTitle = {'Position','Velocity','Acceleration'};
+
+    n = numel(t);
+    filler = @(x) (isempty(x) || size(x,2) < 3 || size(x,1) ~= n);
+    if filler(pos_ned); pos_ned = nan(n,3); end
+    if filler(vel_ned); vel_ned = nan(n,3); end
+    if filler(acc_ned); acc_ned = nan(n,3); end
+
     data = {pos_ned, vel_ned, acc_ned};
     for row = 1:3
         for col = 1:3
