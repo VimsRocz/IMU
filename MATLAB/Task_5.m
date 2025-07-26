@@ -474,14 +474,10 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
     'grav_err_mean', grav_err_mean, 'grav_err_max', grav_err_max, ...
     'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
+% Result Logging -- store the metrics struct under the variable name
+% ``results`` to stay in sync with the Python pipeline.
 if isfile(perf_file)
-    S = load(perf_file);
-    S.(method) = results;
-    save(perf_file, '-struct', 'S');
-else
-    S = struct();
-    S.(method) = results;
-    save(perf_file, '-struct', 'S');
+
 end
 
 summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt');
