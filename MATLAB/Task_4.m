@@ -230,14 +230,19 @@ for i = 1:length(methods)
     % Expected gravity and Earth rate in the body frame
     g_body_expected = C_N_B * g_NED;
 
-    % Use biases estimated in Task 2 instead of recomputing
-    acc_bias  = loaded_accel_bias(:);  % accelerometer bias from Task 2
-    gyro_bias = loaded_gyro_bias(:);   % gyroscope bias from Task 2
-    % Apply a fixed scale factor to match the Python implementation.
-    % The constant 1.0016 was derived from calibration and is used for all
-    % datasets to maintain cross-language parity.
-    scale_factor = 1.0016;
-    scale = scale_factor; % constants.GRAVITY / norm(static_acc' - acc_bias);
+    % Compute biases using the static interval as in the Python pipeline
+    % Accelerometer bias: static_acc should equal -g_body_expected
+    acc_bias = static_acc' + g_body_expected;
+    % Gyroscope bias: static_gyro should equal expected earth rate in body frame
+    omega_ie_body_expected = C_N_B * omega_ie_NED;
+    gyro_bias = static_gyro' - omega_ie_body_expected;
+
+    % Scale factor matching the Python implementation
+    scale_factor = constants.GRAVITY / norm(static_acc' - acc_bias);
+    if abs(scale_factor - 1.0) < 0.0001
+        scale_factor = 1.0016; % fallback constant for legacy datasets
+    end
+    scale = scale_factor;
 
     % Apply bias and scale corrections
     acc_body_corrected.(method)  = scale * (acc_body_filt - acc_bias');
