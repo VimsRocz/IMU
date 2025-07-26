@@ -7,6 +7,7 @@ from .init_vectors import (
     triad_svd,
     davenport_q_method,
     butter_lowpass_filter,
+    basic_butterworth_filter,
     angle_between,
     compute_wahba_errors,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "triad_svd",
     "davenport_q_method",
     "butter_lowpass_filter",
+    "basic_butterworth_filter",
     "angle_between",
     "compute_wahba_errors",
     "compute_reference_vectors",

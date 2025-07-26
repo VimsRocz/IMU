@@ -154,7 +154,11 @@ if has_signal_toolbox
     acc_filt = filtfilt(b, a, acc);
     gyro_filt = filtfilt(b, a, gyro);
 else
-    if has_movmean
+    if exist('basic_butterworth_filter','file') == 2
+        warning('Butter/filtfilt unavailable. Using basic\_butterworth\_filter.');
+        acc_filt = basic_butterworth_filter(acc, cutoff, fs, order);
+        gyro_filt = basic_butterworth_filter(gyro, cutoff, fs, order);
+    elseif has_movmean
         warning('Butter/filtfilt unavailable. Using movmean for low-pass filtering.');
         win = max(1, round(fs * 0.05));
         acc_filt = movmean(acc, win, 1, 'Endpoints','shrink');
