@@ -30,10 +30,13 @@ if ~isfile(task5_file)
 end
 S = load(task5_file);
 
-% Determine method from filename or structure
-tok = regexp(task5_file, '_(\w+)_task5_results\.mat$', 'tokens');
+% Determine method from filename or structure.  The Task 5 results are
+% named either ``<IMU>_<GNSS>_<METHOD>_task5_results.mat`` or
+% ``<tag>_task5_results_<METHOD>.mat``.  Extract the method name without
+% picking up dataset substrings like ``X001``.
+tok = regexp(task5_file, '(TRIAD|Davenport|SVD)', 'match', 'once');
 if ~isempty(tok)
-    method = tok{1}{1};
+    method = tok;
 elseif isfield(S,'method')
     method = S.method;
 else
@@ -41,11 +44,14 @@ else
 end
 
 % Load gravity vector from Task 1 initialisation
+% Use explicit components to avoid any ambiguity in the filename
 pair_tag = [imu_name '_' gnss_name];
-task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', [pair_tag '_' method]));
+task1_file = fullfile(results_dir, sprintf('Task1_init_%s_%s_%s.mat', ...
+    imu_name, gnss_name, method));
 if ~isfile(task1_file)
     % Fallback to methodless file for backward compatibility
-    alt_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
+    alt_file = fullfile(results_dir, sprintf('Task1_init_%s_%s.mat', ...
+        imu_name, gnss_name));
     if isfile(alt_file)
         task1_file = alt_file;
     end
