@@ -406,9 +406,8 @@ require Python. **Make sure your current working directory is the repository
 root** so the scripts can locate the bundled data files. Both scripts
 generate the same output as running
 `python src/run_all_datasets.py --method TRIAD` and validate the fused
-trajectory against the common `STATE_X001.txt` file. The extended
-summary is written to `results/summary_truth.csv` and includes
-acceleration RMSE, final and maximum errors.
+trajectory against the common `STATE_X001.txt` file. A short summary
+table for all datasets is printed and saved as `results/summary.csv`.
 
 #### run_method_only.py
 
