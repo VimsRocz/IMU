@@ -401,7 +401,7 @@ python src/run_triad_only.py
 ```matlab
 run_triad_only
 ```
-The MATLAB version now calls `run_all_datasets_matlab` so it does not
+The MATLAB version now calls `MATLAB/run_all_datasets_matlab.m` so it does not
 require Python. **Make sure your current working directory is the repository
 root** so the scripts can locate the bundled data files. Both scripts
 generate the same output as running
@@ -414,7 +414,7 @@ table for all datasets is printed and saved as `results/summary.csv`.
 `run_method_only.py` extends the helper above with a selectable method and
 prints the same summary table as `run_triad_only.py`.  The MATLAB function
 `run_method_only` now mirrors this behaviour purely within MATLAB by calling
-`run_all_datasets_matlab` with the chosen method.  No Python interpreter is
+`MATLAB/run_all_datasets_matlab.m` with the chosen method.  No Python interpreter is
 required for the MATLAB workflow:
 
 ```bash
