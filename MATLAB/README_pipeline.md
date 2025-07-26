@@ -2,6 +2,18 @@
 
 This folder contains a MATLAB translation of the Python pipeline.
 
+## Usage
+
+Run the batch script from the repository root so all data paths resolve
+correctly:
+
+```matlab
+addpath('MATLAB');         % from repository root
+run_all_datasets_matlab;   % all methods
+% or
+run_all_datasets_matlab('TRIAD');
+```
+
 ## Structure
 
 ```
