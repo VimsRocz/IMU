@@ -1,4 +1,3 @@
-
 function run_all_datasets_matlab(method)
 %RUN_ALL_DATASETS_MATLAB  Pure MATLAB batch runner for all datasets
 %   RUN_ALL_DATASETS_MATLAB(METHOD) enumerates the IMU/GNSS pairs in the
