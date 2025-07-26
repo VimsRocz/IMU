@@ -24,6 +24,8 @@ start_time = tic;
 here = fileparts(mfilename('fullpath'));
 root = fileparts(here);
 results_dir = fullfile(root, 'results');
+out_dir = fullfile(results_dir, 'task6', run_id);
+if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
 if ~isfile(task5_file)
     error('Task_6:FileNotFound', 'Task 5 result not found: %s', task5_file);
@@ -120,27 +122,39 @@ end
 pos_truth_ecef_i = interp1(t_truth, pos_truth_ecef, t_est, 'linear', 'extrap');
 vel_truth_ecef_i = interp1(t_truth, vel_truth_ecef, t_est, 'linear', 'extrap');
 acc_truth_ecef_i = interp1(t_truth, acc_truth_ecef, t_est, 'linear', 'extrap');
-pos_truth_ned_i  = (C * (pos_truth_ecef_i' - ref_r0)).';
-vel_truth_ned_i  = (C*vel_truth_ecef_i.').';
-acc_truth_ned_i  = (C*acc_truth_ecef_i.').';
+pos_truth_ned_i_raw  = (C * (pos_truth_ecef_i' - ref_r0)).';
+vel_truth_ned_i_raw  = (C*vel_truth_ecef_i.').';
+acc_truth_ned_i_raw  = (C*acc_truth_ecef_i.').';
 
-pos_gnss_ned_i  = interp1(S.gnss_time, S.gnss_pos_ned,  t_est, 'linear', 'extrap');
-vel_gnss_ned_i  = interp1(S.gnss_time, S.gnss_vel_ned,  t_est, 'linear', 'extrap');
-acc_gnss_ned_i  = interp1(S.gnss_time, S.gnss_accel_ned, t_est, 'linear', 'extrap');
+pos_truth_ned_i = centre(pos_truth_ned_i_raw .* sign_ned);
+vel_truth_ned_i = vel_truth_ned_i_raw .* sign_ned;
+acc_truth_ned_i = acc_truth_ned_i_raw .* sign_ned;
+
+pos_gnss_ned_i_raw  = interp1(S.gnss_time, S.gnss_pos_ned,  t_est, 'linear', 'extrap');
+vel_gnss_ned_i_raw  = interp1(S.gnss_time, S.gnss_vel_ned,  t_est, 'linear', 'extrap');
+acc_gnss_ned_i_raw  = interp1(S.gnss_time, S.gnss_accel_ned, t_est, 'linear', 'extrap');
+
+pos_gnss_ned_i = centre(pos_gnss_ned_i_raw .* sign_ned);
+vel_gnss_ned_i = vel_gnss_ned_i_raw .* sign_ned;
+acc_gnss_ned_i = acc_gnss_ned_i_raw .* sign_ned;
 
 pos_gnss_ecef_i = interp1(S.gnss_time, S.gnss_pos_ecef,  t_est, 'linear', 'extrap');
 vel_gnss_ecef_i = interp1(S.gnss_time, S.gnss_vel_ecef,  t_est, 'linear', 'extrap');
 acc_gnss_ecef_i = interp1(S.gnss_time, S.gnss_accel_ecef, t_est, 'linear', 'extrap');
 
 % Fused IMU results and derived acceleration
-pos_ned = S.pos_ned;
-vel_ned = S.vel_ned;
+pos_ned_raw = S.pos_ned;
+vel_ned_raw = S.vel_ned;
+acc_ned_raw = [zeros(1,3); diff(vel_ned_raw)./diff(t_est)];
+
+pos_ned = centre(pos_ned_raw .* sign_ned);
+vel_ned = vel_ned_raw .* sign_ned;
 acc_ned = [zeros(1,3); diff(vel_ned)./diff(t_est)];
 
 C_N_E = C';
-pos_ecef = (C_N_E*pos_ned')' + ref_r0';
-vel_ecef = (C_N_E*vel_ned')';
-acc_ecef = (C_N_E*acc_ned')';
+pos_ecef = (C_N_E*pos_ned_raw')' + ref_r0';
+vel_ecef = (C_N_E*vel_ned_raw')';
+acc_ecef = (C_N_E*acc_ned_raw')';
 
 % Body frame conversion
 if ~exist('g_NED','var')
@@ -152,37 +166,37 @@ pos_gnss_body = zeros(N,3); vel_gnss_body = zeros(N,3); acc_gnss_body = zeros(N,
 pos_truth_body = zeros(N,3); vel_truth_body = zeros(N,3); acc_truth_body = zeros(N,3);
 for k = 1:N
     C_B_N = euler_to_rot(S.euler_log(:,k));
-    pos_body(k,:) = (C_B_N'*pos_ned(k,:)')';
-    vel_body(k,:) = (C_B_N'*vel_ned(k,:)')';
-    acc_body(k,:) = (C_B_N'*(acc_ned(k,:)' - g_NED))';
-    pos_gnss_body(k,:) = (C_B_N'*pos_gnss_ned_i(k,:)')';
-    vel_gnss_body(k,:) = (C_B_N'*vel_gnss_ned_i(k,:)')';
-    acc_gnss_body(k,:) = (C_B_N'*(acc_gnss_ned_i(k,:)' - g_NED))';
-    pos_truth_body(k,:) = (C_B_N'*pos_truth_ned_i(k,:)')';
-    vel_truth_body(k,:) = (C_B_N'*vel_truth_ned_i(k,:)')';
-    acc_truth_body(k,:) = (C_B_N'*(acc_truth_ned_i(k,:)' - g_NED))';
+    pos_body(k,:) = (C_B_N'*pos_ned_raw(k,:)')';
+    vel_body(k,:) = (C_B_N'*vel_ned_raw(k,:)')';
+    acc_body(k,:) = (C_B_N'*(acc_ned_raw(k,:)' - g_NED))';
+    pos_gnss_body(k,:) = (C_B_N'*pos_gnss_ned_i_raw(k,:)')';
+    vel_gnss_body(k,:) = (C_B_N'*vel_gnss_ned_i_raw(k,:)')';
+    acc_gnss_body(k,:) = (C_B_N'*(acc_gnss_ned_i_raw(k,:)' - g_NED))';
+    pos_truth_body(k,:) = (C_B_N'*pos_truth_ned_i_raw(k,:)')';
+    vel_truth_body(k,:) = (C_B_N'*vel_truth_ned_i_raw(k,:)')';
+    acc_truth_body(k,:) = (C_B_N'*(acc_truth_ned_i_raw(k,:)' - g_NED))';
 end
 
-plot_overlay('NED', method, t_est, pos_ned, vel_ned, acc_ned, ...
+plot_overlay('NED', run_id, t_est, pos_ned, vel_ned, acc_ned, ...
     t_est, pos_gnss_ned_i, vel_gnss_ned_i, acc_gnss_ned_i, ...
-    t_est, pos_ned, vel_ned, acc_ned, results_dir, ...
+    t_est, pos_ned, vel_ned, acc_ned, out_dir, ...
     't_truth', t_est, 'pos_truth', pos_truth_ned_i, ...
     'vel_truth', vel_truth_ned_i, 'acc_truth', acc_truth_ned_i, ...
-    'suffix', '_overlay_truth.pdf');
+    'filename', sprintf('%s_task6_overlay_state_NED', run_id));
 
-plot_overlay('ECEF', method, t_est, pos_ecef, vel_ecef, acc_ecef, ...
+plot_overlay('ECEF', run_id, t_est, pos_ecef, vel_ecef, acc_ecef, ...
     t_est, pos_gnss_ecef_i, vel_gnss_ecef_i, acc_gnss_ecef_i, ...
-    t_est, pos_ecef, vel_ecef, acc_ecef, results_dir, ...
+    t_est, pos_ecef, vel_ecef, acc_ecef, out_dir, ...
     't_truth', t_est, 'pos_truth', pos_truth_ecef_i, ...
     'vel_truth', vel_truth_ecef_i, 'acc_truth', acc_truth_ecef_i, ...
-    'suffix', '_overlay_truth.pdf');
+    'filename', sprintf('%s_task6_overlay_state_ECEF', run_id));
 
-plot_overlay('Body', method, t_est, pos_body, vel_body, acc_body, ...
+plot_overlay('Body', run_id, t_est, pos_body, vel_body, acc_body, ...
     t_est, pos_gnss_body, vel_gnss_body, acc_gnss_body, ...
-    t_est, pos_body, vel_body, acc_body, results_dir, ...
+    t_est, pos_body, vel_body, acc_body, out_dir, ...
     't_truth', t_est, 'pos_truth', pos_truth_body, ...
     'vel_truth', vel_truth_body, 'acc_truth', acc_truth_body, ...
-    'suffix', '_overlay_truth.pdf');
+    'filename', sprintf('%s_task6_overlay_state_Body', run_id));
 
 % ------------------------------------------------------------------
 % Compute overlay metrics for summary tables
@@ -191,8 +205,7 @@ plot_overlay('Body', method, t_est, pos_body, vel_body, acc_body, ...
 [mECEF, ~] = compute_overlay_metrics(t_est, pos_ecef, vel_ecef, pos_truth_ecef_i, vel_truth_ecef_i);
 [mBody, ~] = compute_overlay_metrics(t_est, pos_body, vel_body, pos_truth_body,  vel_truth_body);
 metrics = struct('NED', mNED, 'ECEF', mECEF, 'Body', mBody);
-metrics_file = fullfile(results_dir, sprintf('%s_%s_%s_task6_metrics.mat', ...
-    imu_name, gnss_name, method));
+metrics_file = fullfile(out_dir, sprintf('%s_task6_metrics.mat', run_id));
 save(metrics_file, 'metrics');
 rows = {
     'NED',  mNED.rmse_pos,  mNED.final_pos,  mNED.rmse_vel,  mNED.final_vel,  mNED.rmse_acc,  mNED.final_acc;

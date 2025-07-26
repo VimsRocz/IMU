@@ -23,16 +23,18 @@ addParameter(p, 'pos_truth', []);
 addParameter(p, 'vel_truth', []);
 addParameter(p, 'acc_truth', []);
 addParameter(p, 'suffix', '');
+addParameter(p, 'filename', '');
 parse(p, varargin{:});
 Ttruth = p.Results.t_truth;
 ptruth = p.Results.pos_truth;
 vtruth = p.Results.vel_truth;
 atruth = p.Results.acc_truth;
 suffix = p.Results.suffix;
+custom_name = p.Results.filename;
 
-if isempty(suffix)
+if isempty(suffix) && isempty(custom_name)
     if ~isempty(Ttruth)
-        suffix = '_overlay_truth.pdf';
+        suffix = '_overlay_state.pdf';
     else
         suffix = '_overlay.pdf';
     end
@@ -82,7 +84,21 @@ axis equal;
 
 sgtitle([method ' - ' frame ' frame comparison']);
 set(h,'PaperPositionMode','auto');
-out_file = fullfile(out_dir, [method '_' frame suffix]);
-print(h, out_file, '-dpdf', '-bestfit');
+if ~isempty(custom_name)
+    [~,~,ext] = fileparts(custom_name);
+    if isempty(ext)
+        pdf_file = fullfile(out_dir, [custom_name '.pdf']);
+        png_file = fullfile(out_dir, [custom_name '.png']);
+    else
+        pdf_file = fullfile(out_dir, custom_name);
+        png_file = strrep(pdf_file, '.pdf', '.png');
+    end
+else
+    pdf_file = fullfile(out_dir, [method '_' frame suffix]);
+    png_file = strrep(pdf_file, '.pdf', '.png');
+end
+print(h, pdf_file, '-dpdf', '-bestfit');
+print(h, png_file, '-dpng');
 close(h);
+fprintf('Saved overlay figure to %s\n', pdf_file);
 end
