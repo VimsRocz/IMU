@@ -15,6 +15,7 @@ if nargin < 3 || isempty(out_dir)
     out_dir = 'results';
 end
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
+start_time = tic;
 
 [t_est, pos_est_ecef, vel_est_ecef, acc_est_ecef, lat, lon, r0] = load_est(est_file);
 [t_tru, pos_tru_ecef, vel_tru_ecef, acc_tru_ecef] = load_est(truth_file);
@@ -60,7 +61,7 @@ fprintf('Velocity residual std  [m/s]: %s\n', mat2str(std_vel,3));
 fprintf('Acceleration residual mean [m/s^2]: %s\n', mat2str(mean_acc,3));
 fprintf('Acceleration residual std  [m/s^2]: %s\n', mat2str(std_acc,3));
 
-plot_residuals(t_est, res_pos, res_vel, res_acc, out_dir);
+plot_residuals(t_est, res_pos, res_vel, out_dir);
 plot_norms(t_est, res_pos, res_vel, res_acc, out_dir);
 
 summary.rmse_pos = sqrt(mean(vecnorm(res_pos,2,2).^2));
@@ -94,8 +95,9 @@ end
 [~, tag] = fileparts(out_dir);
 parts = strsplit(tag,'_');
 method = parts{end};
-fprintf('[SUMMARY] method=%s rmse_pos=%.3f m final_pos=%.3f m rmse_vel=%.3f m/s final_vel=%.3f m/s\n', ...
-    method, summary.rmse_pos, summary.final_pos, summary.rmse_vel, summary.final_vel);
+runtime = toc(start_time);
+fprintf('[SUMMARY] method=%s rmse_pos=%.3fm final_pos=%.3fm rmse_vel=%.3fm/s final_vel=%.3fm/s runtime=%.2fs\n', ...
+    method, summary.rmse_pos, summary.final_pos, summary.rmse_vel, summary.final_vel, runtime);
 
 end
 
@@ -178,28 +180,19 @@ function [t, pos, vel, acc, lat, lon, r0] = load_est(file)
 end
 
 % -------------------------------------------------------------------------
-function plot_residuals(t, res_pos, res_vel, res_acc, out_dir)
-%PLOT_RESIDUALS Plot residual components in NED.
+function plot_residuals(t, res_pos, res_vel, out_dir)
+%PLOT_RESIDUALS Plot position and velocity residuals in NED.
     labels = {'North','East','Down'};
-    f = figure('Visible','off','Position',[100 100 900 700]);
-    for i = 1:3
-        for j = 1:3
-            ax = subplot(3,3,(i-1)*3+j); hold on;
-            switch i
-                case 1; arr = res_pos; ylab = 'Position Residual [m]';
-                case 2; arr = res_vel; ylab = 'Velocity Residual [m/s]';
-                otherwise; arr = res_acc; ylab = 'Acceleration Residual [m/s^2]';
-            end
-            plot(t, arr(:,j));
-            if i==1; title(labels{j}); end
-            if j==1; ylabel(ylab); end
-            if i==3; xlabel('Time [s]'); end
-            grid on;
-        end
+    f = figure('Visible','off','Position',[100 100 900 450]);
+    for j = 1:3
+        subplot(2,3,j); plot(t, res_pos(:,j));
+        title(labels{j}); ylabel('Pos Residual [m]'); grid on;
+        subplot(2,3,3+j); plot(t, res_vel(:,j));
+        xlabel('Time [s]'); ylabel('Vel Residual [m/s]'); grid on;
     end
-    sgtitle('Task 7 Residuals');
+    sgtitle('Task 7 \x2013 GNSS - Predicted Residuals');
     set(f,'PaperPositionMode','auto');
-    pdf = fullfile(out_dir,'task7_residuals.pdf');
+    pdf = fullfile(out_dir,'task7_3_residuals_position_velocity.pdf');
     print(f,pdf,'-dpdf');
     close(f);
 end
@@ -208,12 +201,12 @@ end
 function plot_norms(t, res_pos, res_vel, res_acc, out_dir)
 %PLOT_NORMS Plot norms of the residual vectors.
     f = figure('Visible','off');
-    plot(t, vecnorm(res_pos,2,2), 'DisplayName','|pos|'); hold on;
-    plot(t, vecnorm(res_vel,2,2), 'DisplayName','|vel|');
-    plot(t, vecnorm(res_acc,2,2), 'DisplayName','|acc|');
-    xlabel('Time [s]'); ylabel('Residual Norm'); legend; grid on;
+    plot(t, vecnorm(res_pos,2,2), 'DisplayName','|pos error|'); hold on;
+    plot(t, vecnorm(res_vel,2,2), 'DisplayName','|vel error|');
+    plot(t, vecnorm(res_acc,2,2), 'DisplayName','|acc error|');
+    xlabel('Time [s]'); ylabel('Error Norm'); legend; grid on;
     set(f,'PaperPositionMode','auto');
-    pdf = fullfile(out_dir,'task7_residual_norms.pdf');
+    pdf = fullfile(out_dir,'task7_3_error_norms.pdf');
     print(f,pdf,'-dpdf');
     close(f);
 end
