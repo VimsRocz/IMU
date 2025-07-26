@@ -7,7 +7,7 @@
 %   run_method_only                % defaults to 'TRIAD'
 %   run_method_only('SVD')
 %
-% All results are written to the 'results' folder.
+% All results are written to the 'output_matlab' folder.
 
 function run_method_only(method)
 if nargin < 1 || isempty(method)

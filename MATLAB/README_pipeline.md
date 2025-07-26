@@ -13,7 +13,7 @@ MATLAB/
     Task_4.m
     Task_5.m
     data/
-results/
+output_matlab/
 ```
 
 ### Installing FilterPy (Ubuntu)
@@ -34,7 +34,7 @@ pip install filterpy --no-binary :all:
 
 Place your `.dat` and `.csv` data files inside the `data/` folder. If the folder is
 missing, the scripts will also look for the files in the repository root. The
-scripts save outputs and plots in `results/`.
+scripts save outputs and plots in `output_matlab/`.
 
 Run the entire pipeline from MATLAB by executing `main.m`. The script now
 accepts optional file names **and** a list of methods so you can run:
@@ -53,11 +53,11 @@ method (TRIAD, Davenport and SVD by default). Output files include the
 method name so results are preserved for every run.
 
 `Task_4` expects the rotation matrices produced by `Task_3` to be saved as
-`results/task3_results.mat`. Make sure `Task_3` completes before running
+`output_matlab/task3_results.mat`. Make sure `Task_3` completes before running
 `Task_4` separately.
 
 `Task_4` also saves the NED-converted GNSS position array `gnss_pos_ned` to
-`results/task4_results.mat`.
+`output_matlab/task4_results.mat`.
 `Task_5` looks for this file when started or you can pass `gnss_pos_ned`
 directly as an argument.
 
@@ -70,7 +70,7 @@ Task_2('IMU_X001.dat','GNSS_X001.csv','TRIAD')
 
 
 ### Batch processing
-The helper script `run_all_datasets.m` iterates over every `IMU_X*.dat` and `GNSS_X*.csv` pair and runs all three methods. After each run the Task 5 results are loaded into workspace variables such as `result_IMU_X001_GNSS_X001_TRIAD` and saved in `results/` as `.mat` files.
+The helper script `run_all_datasets.m` iterates over every `IMU_X*.dat` and `GNSS_X*.csv` pair and runs all three methods. After each run the Task 5 results are loaded into workspace variables such as `result_IMU_X001_GNSS_X001_TRIAD` and saved in `output_matlab/` as `.mat` files.
 
 ```matlab
 run_all_datasets
@@ -92,7 +92,7 @@ results = TRIAD_batch();
 `TRIAD_batch` resolves file names with `get_data_file`, so the bundled logs are
 found even if you run the command from another folder.  When more than one
 pair is processed the function returns a cell array of result structs, each
-matching the corresponding `results/Result_<IMU>_<GNSS>_TRIAD.mat` file.
+matching the corresponding `output_matlab/Result_<IMU>_<GNSS>_TRIAD.mat` file.
 
 Dedicated wrappers `run_triad_only.m`, `run_svd_only.m` and
 `run_davenport_only.m` behave like the Python helpers of the same name and
@@ -108,7 +108,7 @@ run_davenport_only  % Davenport method
 
 Use `GNSS_IMU_Fusion_single` when you only need to process one IMU/GNSS pair.
 The function mirrors `run_triad_only.py` and generates the same location map,
-Task 3/4/5 results, residuals and attitude plots in the `results/` folder.
+Task 3/4/5 results, residuals and attitude plots in the `output_matlab/` folder.
 After saving the results, `plot_task5_results_all_methods` produces a
 summary of the fused GNSS/IMU trajectory for Task 5.
 
@@ -131,7 +131,7 @@ python src/validate_with_truth.py --est-file <kf.mat> --truth-file STATE_X001.tx
 ```
 
 The comparison figures `<method>_<frame>_overlay_truth.pdf` are stored in the
-`results/` directory next to the Kalman filter output.
+`output_matlab/` directory next to the Kalman filter output.
 
 ### Task 6 – Truth Overlay
 
@@ -139,7 +139,7 @@ The comparison figures `<method>_<frame>_overlay_truth.pdf` are stored in the
 Task 5 result file and the associated data paths:
 
 ```matlab
-task5 = fullfile('results','IMU_X001_GNSS_X001_TRIAD_task5_results.mat');
+task5 = fullfile('output_matlab','IMU_X001_GNSS_X001_TRIAD_task5_results.mat');
 Task_6(task5,'IMU_X001.dat','GNSS_X001.csv','STATE_X001.txt');
 ```
 
@@ -147,7 +147,7 @@ The function loads `<IMU>_<GNSS>_<METHOD>_kf_output.mat`, reads the matching
 `STATE_*.txt` file and interpolates all series to a common time vector. It
 then calls `plot_overlay` for the NED, ECEF and body frames, saving the
 figures `<METHOD>_NED_overlay_truth.pdf`, `<METHOD>_ECEF_overlay_truth.pdf`
-and `<METHOD>_Body_overlay_truth.pdf` in `results/`.
+and `<METHOD>_Body_overlay_truth.pdf` in `output_matlab/`.
 
 ### Compatibility notes
 
@@ -188,8 +188,8 @@ modifying or extending the code so both implementations stay aligned:
    position/velocity RMSE and the final position error. Save these in a struct
    called `results` along with the biases.
 5. **Result Logging** – Write the struct to
-   `results/IMU_GNSS_bias_and_performance.mat` and optionally append the printed
-   summary to `results/IMU_GNSS_summary.txt`.
+   `output_matlab/IMU_GNSS_bias_and_performance.mat` and optionally append the printed
+   summary to `output_matlab/IMU_GNSS_summary.txt`.
 
 Add comments in the code where each step occurs (e.g. `% Task 2.3: Gravity and
 Bias`) to help future maintainers keep the MATLAB and Python versions

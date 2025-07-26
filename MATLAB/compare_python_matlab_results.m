@@ -19,7 +19,7 @@ if nargin < 3 || isempty(method);    method    = 'TRIAD';        end
 
 imu_stem  = erase(imu_file, '.dat');
 gnss_stem = erase(gnss_file, '.csv');
-res_dir   = 'results';
+res_dir   = 'output_matlab';
 py_file   = fullfile(res_dir, sprintf('%s_%s_%s_kf_output.mat', ...
     imu_stem, gnss_stem, method));
 mat_file  = fullfile(res_dir, sprintf('%s_%s_%s_task5_results.mat', ...

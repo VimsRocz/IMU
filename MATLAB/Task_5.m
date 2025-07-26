@@ -15,7 +15,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     % Store all outputs under the repository "results" directory
     here = fileparts(mfilename('fullpath'));
     root = fileparts(here);
-    results_dir = fullfile(root, 'results');
+    results_dir = fullfile(root, 'output_matlab');
     if ~exist(results_dir,'dir')
         mkdir(results_dir);
     end
@@ -475,9 +475,9 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
     'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
 if isfile(perf_file)
-    save(perf_file, '-append', 'results');
+    save(perf_file, '-append', 'output_matlab');
 else
-    save(perf_file, 'results');
+    save(perf_file, 'output_matlab');
 end
 
 summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt');

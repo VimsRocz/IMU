@@ -2,12 +2,12 @@
 % This helper mirrors the behaviour of ``src/run_triad_only.py``.
 % It first executes the full MATLAB pipeline for the TRIAD method via
 % ``run_all_datasets_matlab`` and then aggregates the Task 5 summaries into a
-% concise ``results/summary.csv``.
+% concise ``output_matlab/summary.csv``.
 %
 % Usage:
 %   run_triad_only
 %
-% The routine parses ``results/IMU_GNSS_summary.txt`` for lines beginning with
+% The routine parses ``output_matlab/IMU_GNSS_summary.txt`` for lines beginning with
 % ``[SUMMARY]`` and extracts the metrics for the TRIAD runs.  It also
 % approximates the runtime from the time vector saved in
 % ``<IMU>_<GNSS>_TRIAD_task5_results.mat``.
@@ -17,7 +17,7 @@
 function run_triad_only
     here = fileparts(mfilename('fullpath'));
     root = fileparts(here);
-    results_dir = fullfile(root, 'results');
+    results_dir = fullfile(root, 'output_matlab');
     if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 
     % Run the complete pipeline for the TRIAD method

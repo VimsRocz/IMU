@@ -46,8 +46,8 @@ end
 fprintf('TASK 2%s: Measure the vectors in the body frame\n', log_tag);
 
 % --- Configuration ---
-if ~exist('results','dir')
-    mkdir('results');
+if ~exist('output_matlab','dir')
+    mkdir('output_matlab');
 end
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
@@ -61,10 +61,10 @@ end
 % ------------------------------------------------------------------
 % Attempt to load gravity vector produced by Task 1 for this IMU/GNSS pair
 % ------------------------------------------------------------------
-task1_file = fullfile('results', ['Task1_init_' tag '.mat']);
+task1_file = fullfile('output_matlab', ['Task1_init_' tag '.mat']);
 if ~isfile(task1_file)
     % Fallback to method-agnostic filename for backwards compatibility
-    alt_file = fullfile('results', ['Task1_init_' pair_tag '.mat']);
+    alt_file = fullfile('output_matlab', ['Task1_init_' pair_tag '.mat']);
     if isfile(alt_file)
         task1_file = alt_file;
     end
@@ -359,8 +359,8 @@ fprintf('From accelerometer (assuming static IMU): a_measured = -g_body \n');
 fprintf('From gyroscope (assuming static IMU):     w_measured = omega_ie_body \n');
 
 % Save results for later tasks
-save(fullfile('results', ['Task2_body_' tag '.mat']), 'dt_imu', 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
-fprintf('Body-frame vectors and biases saved to %s\n', fullfile('results', ['Task2_body_' tag '.mat']));
+save(fullfile('output_matlab', ['Task2_body_' tag '.mat']), 'dt_imu', 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
+fprintf('Body-frame vectors and biases saved to %s\n', fullfile('output_matlab', ['Task2_body_' tag '.mat']));
 
 % Return results and store in base workspace
 result = struct('dt_imu', dt_imu, 'g_body', g_body, 'g_body_scaled', g_body_scaled, ...

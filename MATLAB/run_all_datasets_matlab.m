@@ -8,7 +8,7 @@ function run_all_datasets_matlab(method)
 %   <IMU>_<GNSS>_<METHOD>_kf_output.mat in the results directory. plot_results
 %   is called on each file to recreate the standard figures. A summary table
 %   mirroring ``src/run_all_datasets.py`` is printed and saved as
-%   results/summary.csv.
+%   output_matlab/summary.csv.
 
 if nargin < 1 || isempty(method)
     method_list = {'TRIAD','Davenport','SVD'};
@@ -42,7 +42,7 @@ pairs = {
     'IMU_X003.dat', 'GNSS_X002.csv';
 };
 
-resultsDir = fullfile(root, 'results');
+resultsDir = fullfile(root, 'output_matlab');
 if ~exist(resultsDir, 'dir')
     mkdir(resultsDir);
 end
