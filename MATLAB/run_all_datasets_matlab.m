@@ -127,9 +127,9 @@ end
 
 
 function metrics = parse_summary_file(file)
-    metrics = struct('rmse_pos',NaN,'final_pos',NaN,'rms_resid_pos',NaN,'max_resid_pos',NaN,
-        'rms_resid_vel',NaN,'max_resid_vel',NaN,'accel_bias',NaN,'gyro_bias',NaN,
-        'grav_err_mean',NaN,'grav_err_max',NaN,'omega_err_mean',NaN,'omega_err_max',NaN,
+    metrics = struct('rmse_pos',NaN,'final_pos',NaN,'rms_resid_pos',NaN,'max_resid_pos',NaN,...
+        'rms_resid_vel',NaN,'max_resid_vel',NaN,'accel_bias',NaN,'gyro_bias',NaN,...
+        'grav_err_mean',NaN,'grav_err_max',NaN,'omega_err_mean',NaN,'omega_err_max',NaN,...
         'ZUPT_count',NaN);
     if exist(file,'file')
         txt = strtrim(fileread(file));
