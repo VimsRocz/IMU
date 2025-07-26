@@ -55,7 +55,7 @@ The results and validation plots appear inside the newly created `results/` fold
    % or
    run_all_datasets_matlab('TRIAD')
    ```
-   MATLAB saves the figures to the `results/` folder as well.
+   MATLAB saves the figures to the `results/` folder as well. The batch runner lives in `MATLAB/run_all_datasets_matlab.m`.
 
 ## 5. Validate the output
 
