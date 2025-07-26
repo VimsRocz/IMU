@@ -82,6 +82,9 @@ end
 % -------------------------------------------------------------------------
 function [t, pos, vel, acc] = load_estimate(path, frame)
 %LOAD_ESTIMATE Load fused estimator result from NPZ or MAT.
+%   Covariance matrices (P or P_hist) may be absent in the files. In
+%   line with the Python implementation, missing covariance is silently
+%   ignored here.
 
 ppath = string(path);
 if endsWith(ppath,'.npz')
