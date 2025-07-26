@@ -2,6 +2,7 @@ import argparse
 import logging
 import sys
 import os
+import io
 from pathlib import Path
 
 if __package__ is None:
@@ -70,11 +71,13 @@ COLORS = {
 }
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
+utf8_stdout = io.TextIOWrapper(
+    sys.stdout.buffer,
+    encoding="utf-8",
+    errors="replace",
 )
+handler = logging.StreamHandler(utf8_stdout)
+logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[handler])
 
 # Minimum number of samples required from a static interval for bias estimation
 MIN_STATIC_SAMPLES = 500
