@@ -24,8 +24,6 @@ start_time = tic;
 here = fileparts(mfilename('fullpath'));
 root = fileparts(here);
 results_dir = fullfile(root, 'results');
-out_dir = fullfile(results_dir, 'task6', run_id);
-if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
 if ~isfile(task5_file)
     error('Task_6:FileNotFound', 'Task 5 result not found: %s', task5_file);
@@ -44,6 +42,11 @@ elseif isfield(S,'method')
 else
     method = 'TRIAD';
 end
+
+% Build output directory using method and dataset identifiers
+run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
+out_dir = fullfile(results_dir, 'task6', run_id);
+if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
 % Load gravity vector from Task 1 initialisation
 % Use explicit components to avoid any ambiguity in the filename

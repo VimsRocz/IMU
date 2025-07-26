@@ -29,7 +29,11 @@ end
 
 methods = {'TRIAD','Davenport','SVD'};
 colors  = {'r','g','b'};
-resultsDir = 'results';
+% Resolve repository root so results directory is consistent regardless of
+% the current working directory.
+here = fileparts(mfilename('fullpath'));
+root = fileparts(here);
+resultsDir = fullfile(root, 'results');
 if ~exist(resultsDir,'dir'); mkdir(resultsDir); end
 
 % Always reference the common STATE\_X001.txt trajectory for Tasks 6 and 7
