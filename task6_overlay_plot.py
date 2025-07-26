@@ -8,8 +8,10 @@ Usage:
 
 This script synchronizes the time bases of the estimator output and ground
 truth, then generates a single figure with position, velocity and acceleration
-components overlaid. Only the fused estimate and truth are shown. The figure is
-saved to ``results/{DATASET}_{METHOD}_Task6_{FRAME}_Overlay.pdf`` and ``.png``.
+components overlaid. Only the fused estimate and truth are shown. Figures are
+written under ``results/task6/<run_id>/`` using the filename pattern
+``<run_id>_task6_overlay_state_<frame>.pdf`` where ``run_id`` combines the
+dataset and method, e.g. ``IMU_X003_GNSS_X002_TRIAD``.
 With ``--debug`` the script prints diagnostic information about the input
 datasets before plotting.
 """
@@ -151,13 +153,58 @@ def plot_overlay(
         ax.legend().set_visible(False)
 
     fig.tight_layout()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    pdf_path = out_dir / f"{dataset}_{method}_Task6_{frame}_Overlay.pdf"
-    png_path = out_dir / f"{dataset}_{method}_Task6_{frame}_Overlay.png"
+    run_id = f"{dataset}_{method}"
+    task_dir = out_dir / "task6" / run_id
+    task_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = task_dir / f"{run_id}_task6_overlay_state_{frame}.pdf"
+    png_path = task_dir / f"{run_id}_task6_overlay_state_{frame}.png"
     fig.savefig(pdf_path)
     fig.savefig(png_path)
     plt.close(fig)
     print(f"Saved overlay figure to {pdf_path}")
+    return pdf_path
+
+
+def plot_rmse(
+    t: np.ndarray,
+    pos_est: np.ndarray,
+    vel_est: np.ndarray,
+    acc_est: np.ndarray,
+    pos_truth: np.ndarray,
+    vel_truth: np.ndarray,
+    acc_truth: np.ndarray,
+    frame: str,
+    method: str,
+    dataset: str,
+    out_dir: Path,
+) -> Path:
+    """Plot total error magnitude and annotate RMSE values."""
+    pos_err = np.linalg.norm(pos_est - pos_truth, axis=1)
+    vel_err = np.linalg.norm(vel_est - vel_truth, axis=1)
+    acc_err = np.linalg.norm(acc_est - acc_truth, axis=1)
+
+    rmse_pos = float(np.sqrt(np.mean(pos_err**2)))
+    rmse_vel = float(np.sqrt(np.mean(vel_err**2)))
+    rmse_acc = float(np.sqrt(np.mean(acc_err**2)))
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(t, pos_err, label=f"Pos RMSE {rmse_pos:.3f} m")
+    ax.plot(t, vel_err, label=f"Vel RMSE {rmse_vel:.3f} m/s")
+    ax.plot(t, acc_err, label=f"Acc RMSE {rmse_acc:.3f} m/s$^2$")
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Error magnitude")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    ax.set_title(f"{dataset} Task 6 RMSE — {method} ({frame} frame)")
+    fig.tight_layout()
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = out_dir / f"{dataset}_{method}_Task6_{frame}_RMSE.pdf"
+    png_path = out_dir / f"{dataset}_{method}_Task6_{frame}_RMSE.png"
+    fig.savefig(pdf_path)
+    fig.savefig(png_path)
+    plt.close(fig)
+    print(f"Saved RMSE figure to {pdf_path}")
     return pdf_path
 
 
@@ -201,6 +248,20 @@ def main() -> None:
         vel_est,
         acc_est,
         t_est,
+        pos_truth_i,
+        vel_truth_i,
+        acc_truth_i,
+        args.frame,
+        args.method,
+        args.dataset,
+        out_dir,
+    )
+
+    plot_rmse(
+        t_est,
+        pos_est,
+        vel_est,
+        acc_est,
         pos_truth_i,
         vel_truth_i,
         acc_truth_i,

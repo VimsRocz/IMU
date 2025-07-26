@@ -37,6 +37,33 @@ Optional comparison plots
 - Plot the quaternion components together with Davenport and SVD for comparison.
 - Save the figure as `results/<tag>_task3_quaternions_comparison.pdf`.
 
+### 3.6 Validate Attitude Determination and Compare Methods
+- Rotate the body-frame gravity and Earth‑rate vectors with each method’s rotation matrix.
+- Report the angle errors in degrees and warn if the Earth‑rate errors differ by less than `1\u00d710\u22125\u00b0`.
+- The MATLAB console output resembles:
+
+```text
+Attitude errors using reference vectors (Case 1):
+TRIAD      -> Gravity error (deg): 0.000000
+TRIAD      -> Earth rate error (deg):  0.000001
+Davenport  -> Gravity error (deg): 0.000000
+Davenport  -> Earth rate error (deg):  0.000001
+SVD        -> Gravity error (deg): 0.000000
+SVD        -> Earth rate error (deg):  0.000000
+
+Detailed Earth-Rate Errors:
+  TRIAD     : 0.000001°
+  Davenport : 0.000001°
+  SVD       : 0.000000°
+
+Earth-rate errors by method:
+  TRIAD     : 0.000000854°
+  Davenport : 0.000000854°
+  SVD       : 0.000000000°
+  Δ = 8.54e-07° (tolerance = 1.0e-05)
+Warning: All Earth-rate errors are very close; differences are within 1.0e-05°
+```
+
 ## Result
 
 Task 3 produces the initial attitude as a rotation matrix and quaternion ready for the IMU integration step in **Task 4**.

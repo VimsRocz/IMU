@@ -46,15 +46,43 @@ end
 fprintf('TASK 2%s: Measure the vectors in the body frame\n', log_tag);
 
 % --- Configuration ---
-if ~exist('results','dir')
-    mkdir('results');
+if ~exist('output_matlab','dir')
+    mkdir('output_matlab');
 end
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
+pair_tag = [imu_name '_' gnss_name];
 if isempty(method)
-    tag = [imu_name '_' gnss_name];
+    tag = pair_tag;
 else
-    tag = [imu_name '_' gnss_name '_' method];
+    tag = [pair_tag '_' method];
+end
+
+% ------------------------------------------------------------------
+% Attempt to load gravity vector produced by Task 1 for this IMU/GNSS pair
+% ------------------------------------------------------------------
+task1_file = fullfile('output_matlab', ['Task1_init_' tag '.mat']);
+if ~isfile(task1_file)
+    % Fallback to method-agnostic filename for backwards compatibility
+    alt_file = fullfile('output_matlab', ['Task1_init_' pair_tag '.mat']);
+    if isfile(alt_file)
+        task1_file = alt_file;
+    end
+end
+
+if isfile(task1_file)
+    task1_data = load(task1_file);
+    if isfield(task1_data, 'g_NED')
+        g_NED = task1_data.g_NED;
+    else
+        warning('Task_2:MissingField', ...
+            'File %s does not contain g_NED. Using default gravity.', task1_file);
+        g_NED = [0; 0; constants.GRAVITY];
+    end
+else
+    warning('Task_2:MissingTask1', ...
+        'Task 1 file not found: %s. Using default gravity.', task1_file);
+    g_NED = [0; 0; constants.GRAVITY];
 end
 
 imu_file = imu_path;
@@ -115,22 +143,37 @@ order = 4;
 nyquist_freq = 0.5 * fs;
 normal_cutoff = cutoff / nyquist_freq;
 
-if exist('filtfilt', 'file') == 2 && exist('butter', 'file') == 2 && license('test','Signal_Processing_Toolbox')
+% Refresh toolbox cache and check for Signal Processing Toolbox license
+rehash toolboxcache
+has_signal_toolbox = license('test', 'Signal_Toolbox') && ...
+                      exist('filtfilt','file') == 2 && exist('butter','file') == 2;
+has_movmean = exist('movmean','file') == 2;
+
+if has_signal_toolbox
     [b, a] = butter(order, normal_cutoff, 'low');
     acc_filt = filtfilt(b, a, acc);
     gyro_filt = filtfilt(b, a, gyro);
 else
-    warning('Signal Processing Toolbox not found. Using simple moving average filter.');
-    win = max(1, round(fs * 0.05));
-    kernel = ones(win,1) / win;
-    % Apply the moving average filter to each axis separately to avoid
-    % the "A and B must be vectors" error when using conv on a matrix.
-    [numSamples, numAxes] = size(acc);
-    acc_filt = zeros(size(acc));
-    gyro_filt = zeros(size(gyro));
-    for ax = 1:numAxes
-        acc_filt(:,ax) = conv(acc(:,ax), kernel, 'same');
-        gyro_filt(:,ax) = conv(gyro(:,ax), kernel, 'same');
+    if exist('basic_butterworth_filter','file') == 2
+        warning('Butter/filtfilt unavailable. Using basic\_butterworth\_filter.');
+        acc_filt = basic_butterworth_filter(acc, cutoff, fs, order);
+        gyro_filt = basic_butterworth_filter(gyro, cutoff, fs, order);
+    elseif has_movmean
+        warning('Butter/filtfilt unavailable. Using movmean for low-pass filtering.');
+        win = max(1, round(fs * 0.05));
+        acc_filt = movmean(acc, win, 1, 'Endpoints','shrink');
+        gyro_filt = movmean(gyro, win, 1, 'Endpoints','shrink');
+    else
+        warning('Butter/filtfilt unavailable. Using manual moving average filter.');
+        win = max(1, round(fs * 0.05));
+        kernel = ones(win,1) / win;
+        [~, numAxes] = size(acc);
+        acc_filt = zeros(size(acc));
+        gyro_filt = zeros(size(gyro));
+        for ax = 1:numAxes
+            acc_filt(:,ax) = conv(acc(:,ax), kernel, 'same');
+            gyro_filt(:,ax) = conv(gyro(:,ax), kernel, 'same');
+        end
     end
 end
 
@@ -141,12 +184,12 @@ accel_var_thresh = 0.01;    % match Python implementation
 gyro_var_thresh  = 1e-6;    % match Python implementation
 min_length = 80;
 
-% Use movvar from Signal Processing Toolbox if available, otherwise use a loop
-if license('test', 'Signal_Processing_Toolbox') && exist('movvar', 'file')
+% Use movvar if available, otherwise fall back to manual variance loop
+if exist('movvar','file') == 2
     accel_var = movvar(acc_filt, window_size, 0, 'Endpoints', 'discard');
-    gyro_var = movvar(gyro_filt, window_size, 0, 'Endpoints', 'discard');
+    gyro_var  = movvar(gyro_filt, window_size, 0, 'Endpoints', 'discard');
 else
-    warning('Signal Processing Toolbox not found. Using manual (slower) moving variance calculation.');
+    warning('movvar unavailable. Using manual (slower) moving variance calculation.');
     num_windows = size(acc_filt, 1) - window_size + 1;
     accel_var = zeros(num_windows, size(acc_filt, 2));
     gyro_var = zeros(num_windows, size(gyro_filt, 2));
@@ -199,12 +242,26 @@ fprintf('Static interval found: samples %d to %d (length %d samples)\n', start_i
 fprintf('  Accel variance: [%.4g %.4g %.4g]\n', acc_var);
 fprintf('  Gyro  variance: [%.4g %.4g %.4g]\n', gyro_var);
 
+% Compute duration of the static portion and compare with total dataset length
+static_duration = N_static * dt_imu;
+total_duration  = size(acc_filt, 1) * dt_imu;
+ratio_static = static_duration / total_duration;
+fprintf('Static interval duration: %.2f s of %.2f s total (%.1f%%)\n', ...
+        static_duration, total_duration, ratio_static*100);
+if ratio_static > 0.90
+    warning(['Static interval covers %.1f%% of the dataset. Verify motion data ' ...
+            'or adjust detection thresholds.'], ratio_static*100);
+end
+
 g_norm = norm(static_acc_row);
-fprintf('Estimated gravity magnitude from IMU: %.4f m/s^2 (expected ~%.2f)\n', g_norm, constants.GRAVITY);
+fprintf('Estimated gravity magnitude from IMU: %.4f m/s^2 (expected ~%.2f)\n', ...
+        g_norm, norm(g_NED));
 
 % --- Simple accelerometer scale calibration ---
 scale_factor = 1.0;
-if g_norm > 1.0, scale_factor = constants.GRAVITY / g_norm; end
+if g_norm > 1.0
+    scale_factor = norm(g_NED) / g_norm;
+end
 
 if abs(scale_factor - 1.0) > 0.05
     fprintf('Applying accelerometer scale factor: %.4f\n', scale_factor);
@@ -213,14 +270,14 @@ end
 
 %% ================================
 % Subtask 2.3: Define Gravity and Earth Rate in Body Frame
-% (Gravity vector scaled to exactly 9.81 m/s^2)
+% (Gravity vector scaled to match g_NED magnitude)
 % ================================
 fprintf('\nSubtask 2.3: Defining gravity and Earth rotation rate in the body frame.\n');
 
 % By convention, vectors are column vectors. mean() returns a row, so we transpose it.
 g_body_raw = -static_acc_row';
 g_mag = norm(g_body_raw);
-g_body = (g_body_raw / g_mag) * constants.GRAVITY;   % Normalize then scale to GRAVITY
+g_body = (g_body_raw / g_mag) * norm(g_NED);   % Normalize then scale to measured gravity
 g_body_scaled = g_body;                  % explicitly store scaled gravity
 %% Compute Earth rotation in body frame using initial latitude
 % Load a GNSS sample to estimate the latitude so the expected
@@ -247,7 +304,6 @@ omega_ie_NED = omega_E * [cos(lat_rad); 0; -sin(lat_rad)];
 % the expected Earth rotation in the body frame can be determined.
 v1_B = -static_acc_row'/norm(static_acc_row);   % accelerometer measures -g
 v2_B = static_gyro_row'/norm(static_gyro_row);
-g_NED = [0;0;constants.GRAVITY];
 v1_N = g_NED/norm(g_NED);
 v2_N = omega_ie_NED/norm(omega_ie_NED);
 M_body = triad_basis(v1_B, v2_B);
@@ -284,14 +340,15 @@ expected_omega_mag = constants.EARTH_RATE; % rad/s
 assert(isequal(size(g_body), [3, 1]), 'g_body must be a 3x1 column vector.');
 assert(isequal(size(omega_ie_body), [3, 1]), 'omega_ie_body must be a 3x1 column vector.');
 
-if norm(g_body) < 0.1 * constants.GRAVITY
+if norm(g_body) < 0.1 * norm(g_NED)
     warning('Gravity magnitude is very low; check accelerometer or static assumption.');
 end
 if norm(omega_ie_body) < 0.5 * expected_omega_mag
     warning('Earth rotation rate is low; check gyroscope or static assumption.');
 end
 
-fprintf('Magnitude of g_body:         %.6f m/s^2 (expected ~%.2f m/s^2)\n', norm(g_body), constants.GRAVITY);
+fprintf('Magnitude of g_body:         %.6f m/s^2 (expected ~%.2f m/s^2)\n', ...
+        norm(g_body), norm(g_NED));
 fprintf('Magnitude of omega_ie_body:  %.6e rad/s (expected ~%.2e rad/s)\n', norm(omega_ie_body), constants.EARTH_RATE);
 
 fprintf('\n==== Measured Vectors in the Body Frame ====\n');
@@ -302,8 +359,8 @@ fprintf('From accelerometer (assuming static IMU): a_measured = -g_body \n');
 fprintf('From gyroscope (assuming static IMU):     w_measured = omega_ie_body \n');
 
 % Save results for later tasks
-save(fullfile('results', ['Task2_body_' tag '.mat']), 'dt_imu', 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
-fprintf('Body-frame vectors and biases saved to %s\n', fullfile('results', ['Task2_body_' tag '.mat']));
+save(fullfile('output_matlab', ['Task2_body_' tag '.mat']), 'dt_imu', 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
+fprintf('Body-frame vectors and biases saved to %s\n', fullfile('output_matlab', ['Task2_body_' tag '.mat']));
 
 % Return results and store in base workspace
 result = struct('dt_imu', dt_imu, 'g_body', g_body, 'g_body_scaled', g_body_scaled, ...

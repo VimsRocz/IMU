@@ -454,7 +454,7 @@ def load_estimate(path, times=None):
         match ``times``.
     """
 
-    def pick_key(keys, container, n_cols=None, default=None):
+    def pick_key(keys, container, n_cols=None, default=None, quiet=False):
         """Return the first matching value or any array with *n_cols* columns."""
         for k in keys:
             if k in container:
@@ -465,9 +465,15 @@ def load_estimate(path, times=None):
                     continue
                 arr = np.asarray(v)
                 if arr.ndim == 2 and arr.shape[1] == n_cols:
-                    print(f"Using '{k}' for '{keys[0] if keys else '?'}'")
+                    if not quiet:
+                        logging.debug("Using '%s' for '%s'", k, keys[0] if keys else "?")
                     return v
-        print(f"Could not find any of {keys}. Available keys: {list(container.keys())}")
+        if not quiet:
+            logging.debug(
+                "Could not find any of %s. Available keys: %s",
+                keys,
+                list(container.keys()),
+            )
         return default
 
     if path.endswith(".npz"):
@@ -497,7 +503,7 @@ def load_estimate(path, times=None):
             "pos": pos,
             "vel": vel,
             "quat": quat,
-            "P": pick_key(["P", "P_hist"], data) if pos_found else None,
+            "P": pick_key(["P", "P_hist"], data, quiet=True) if pos_found else None,
             "ref_lat": data.get("ref_lat")
             if data.get("ref_lat") is not None
             else data.get("ref_lat_rad")
@@ -541,7 +547,7 @@ def load_estimate(path, times=None):
             "pos": pos,
             "vel": vel,
             "quat": quat,
-            "P": pick_key(["P", "P_hist"], m) if pos_found else None,
+            "P": pick_key(["P", "P_hist"], m, quiet=True) if pos_found else None,
             "ref_lat": m.get("ref_lat")
             if m.get("ref_lat") is not None
             else m.get("ref_lat_rad")

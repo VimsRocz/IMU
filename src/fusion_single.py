@@ -1,3 +1,15 @@
+"""Standalone IMU/GNSS fusion routine used for early experimentation.
+
+Usage:
+    python fusion_single.py --imu-file IMU.dat --gnss-file GNSS.csv [options]
+
+The script implements attitude initialisation, a simple Kalman filter and an
+optional RTS smoother in a single file. Command&ndash;line flags allow tuning of
+process and measurement noise, bias dynamics and GNSS weighting.  Results and
+diagnostic figures are saved to ``results/``.  This mirrors the MATLAB function
+``GNSS_IMU_Fusion_single.m`` for cross-language parity.
+"""
+
 import argparse
 import os
 import logging

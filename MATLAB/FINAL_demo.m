@@ -1,7 +1,7 @@
 %% FINAL.m - IMU/GNSS alignment and fusion demonstration
 % This script performs IMU/GNSS alignment, dead-reckoning and fusion
 % using the TRIAD method and two alternative Wahba solutions. Results and
-% plots are stored under the 'results/' directory.
+% plots are stored under the 'output_matlab/' directory.
 %
 % The dataset filenames can be changed below. Each logical block is
 % annotated with "Subtask X.Y" comments for clarity.
@@ -11,7 +11,7 @@ imu_file  = 'IMU_X001.dat';
 gnss_file = 'GNSS_X001.csv';
 
 % Create results directory
-results_dir = 'results';
+results_dir = 'output_matlab';
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 addpath('MATLAB');
 

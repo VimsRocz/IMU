@@ -12,11 +12,13 @@ def generate_colors(num_points: int, colormap: str = "hsv"):
 
 def chaos_game(num_points: int = 50000):
     """Generate points using the chaos game to create a Sierpinski triangle."""
-    vertices = np.array([
-        [0.0, 0.0],
-        [1.0, 0.0],
-        [0.5, np.sqrt(3) / 2],
-    ])
+    vertices = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.5, np.sqrt(3) / 2],
+        ]
+    )
     p = np.random.rand(2)
     points = np.zeros((num_points, 2))
     for i in range(num_points):
@@ -43,8 +45,10 @@ def plot_fractal(num_points: int = 50000, outfile: Optional[str] = None) -> None
 
     if outfile:
         plt.savefig(outfile, dpi=300)
+        plt.close()
     else:
         plt.show()
+        plt.close()
 
 
 if __name__ == "__main__":

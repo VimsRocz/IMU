@@ -2,6 +2,7 @@ import argparse
 import logging
 import sys
 import os
+import io
 from pathlib import Path
 
 if __package__ is None:
@@ -70,11 +71,13 @@ COLORS = {
 }
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
+utf8_stdout = io.TextIOWrapper(
+    sys.stdout.buffer,
+    encoding="utf-8",
+    errors="replace",
 )
+handler = logging.StreamHandler(utf8_stdout)
+logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[handler])
 
 # Minimum number of samples required from a static interval for bias estimation
 MIN_STATIC_SAMPLES = 500
@@ -220,7 +223,10 @@ def main():
             ax.plot(lon_deg, lat_deg, "ro", markersize=10, transform=ccrs.PlateCarree())
             ax.text(lon_deg + 1, lat_deg, f"Lat: {lat_deg:.4f}°, Lon: {lon_deg:.4f}°", transform=ccrs.PlateCarree())
             plt.title("Initial Location on Earth Map")
-            plt.savefig(f"results/{tag}_location_map.pdf")
+            pdf = f"results/{tag}_location_map.pdf"
+            png = f"results/{tag}_location_map.png"
+            plt.savefig(pdf, bbox_inches="tight")
+            plt.savefig(png, dpi=150, bbox_inches="tight")
             plt.close()
             logging.info("Location map saved")
     else:

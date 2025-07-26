@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Run all datasets using a selectable attitude initialisation method.
 
-This script generalises ``run_triad_only.py``. It forwards the chosen method to
-``run_all_datasets.py`` and validates the resulting trajectory against the
-bundled ground truth when available. The printed summary table matches the one
-produced by ``run_triad_only.py``.
+This script generalises ``run_triad_only.py``. It forwards the chosen
+method to ``run_all_datasets.py`` and validates the resulting trajectory
+against the bundled ground truth when available. Task 6 overlay plots and
+Task 7 residual evaluation are executed automatically when the truth data
+is present. The printed summary table matches the one produced by
+``run_triad_only.py``.
 
 Usage
 -----
@@ -25,6 +27,7 @@ from tabulate import tabulate
 from scipy.spatial.transform import Rotation as R
 from plot_overlay import plot_overlay
 from validate_with_truth import load_estimate, assemble_frames
+from evaluate_filter_results import run_evaluation_npz
 from utils import ensure_dependencies
 from pyproj import Transformer
 
@@ -34,7 +37,9 @@ ROOT = HERE.parent
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-TRUTH_PATH = HERE / "STATE_X001.txt"
+# Use the project root for locating the common truth file so the script works
+# regardless of the current working directory.
+TRUTH_PATH = ROOT / "STATE_X001.txt"
 EXPECTED_LAT = -32.026554
 
 
@@ -206,7 +211,7 @@ def main(argv=None):
 
         est_interp = load_estimate(str(mat), times=trimmed_time)
         est_eul = (
-            R.from_quat(np.asarray(est_interp["quat"])[[:, 1, 2, 3, 0]]).as_euler("xyz", degrees=True)
+            R.from_quat(np.asarray(est_interp["quat"])[:, [1, 2, 3, 0]]).as_euler("xyz", degrees=True)
             if est_interp.get("quat") is not None
             else np.zeros_like(est_interp["pos"])
         )
@@ -262,6 +267,15 @@ def main(argv=None):
                         P0 = np.diagonal(npz['P_hist'][0])[:3]
                 except Exception:
                     pass
+
+                # -------- Task 7: Residual evaluation --------
+                tag = f"{m2.group(1)}_{m2.group(2)}_{args.method}"
+                task7_dir = results / "task7" / tag
+                print("Running Task 7 evaluation ...")
+                try:
+                    run_evaluation_npz(str(npz_path), str(task7_dir), tag)
+                except Exception as e:
+                    print(f"Task 7 failed: {e}")
 
                 summary.append({
                     'dataset': m.group(1),

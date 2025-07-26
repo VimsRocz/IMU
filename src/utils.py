@@ -13,10 +13,15 @@ import logging
 
 
 def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
-    """Install packages from ``requirements.txt`` if key deps are missing."""
+    """Install packages from ``requirements.txt`` if key deps are missing.
+
+    Checks for :mod:`tabulate`, :mod:`tqdm` and :mod:`pandas` and installs
+    everything listed in the requirements file if any of them are not found.
+    """
     try:
         import tabulate  # noqa: F401
         import tqdm  # noqa: F401
+        import pandas  # noqa: F401
     except ModuleNotFoundError:
         if requirements is None:
             requirements = (
@@ -189,6 +194,33 @@ def ecef_to_ned(pos_ecef: np.ndarray, ref_lat: float, ref_lon: float,
     if pos_ecef.ndim == 1:
         return C @ (pos_ecef - ref_ecef)
     return np.array([C @ (p - ref_ecef) for p in pos_ecef])
+
+
+def euler_to_rot(eul: np.ndarray) -> np.ndarray:
+    """Convert XYZ Euler angles to a rotation matrix.
+
+    Parameters
+    ----------
+    eul : array-like, shape (3,)
+        ``[roll, pitch, yaw]`` in **radians**.
+
+    Returns
+    -------
+    ndarray of shape (3, 3)
+        Rotation matrix from Body to NED using the XYZ convention.
+    """
+
+    eul = np.asarray(eul).reshape(3)
+    cr, sr = np.cos(eul[0]), np.sin(eul[0])
+    cp, sp = np.cos(eul[1]), np.sin(eul[1])
+    cy, sy = np.cos(eul[2]), np.sin(eul[2])
+    return np.array(
+        [
+            [cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
+            [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
+            [-sp, cp * sr, cp * cr],
+        ]
+    )
 
 
 def ecef_to_geodetic(x: float, y: float, z: float) -> Tuple[float, float, float]:

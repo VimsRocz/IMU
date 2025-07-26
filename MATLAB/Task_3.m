@@ -16,8 +16,8 @@ if nargin < 3
     method = ''; %#ok<NASGU>  % unused but kept for API compatibility
 end
 
-if ~exist('results','dir')
-    mkdir('results');
+if ~exist('output_matlab','dir')
+    mkdir('output_matlab');
 end
 if ~isfile(gnss_path)
     error('Task_3:GNSSFileNotFound', ...
@@ -39,7 +39,7 @@ else
     tag = [pair_tag '_' method];
     method_tag = method;
 end
-results_dir = 'results';
+results_dir = 'output_matlab';
 
 % Load vectors produced by Task 1 and Task 2
 task1_file = fullfile(results_dir, ['Task1_init_' tag '.mat']);
@@ -204,6 +204,21 @@ for i = 1:length(methods)
     omega_errors(i) = o_err;
     fprintf('%-10s -> Gravity error (deg): %.6f\n', methods{i}, g_err);
     fprintf('%-10s -> Earth rate error (deg):  %.6f\n', methods{i}, o_err);
+end
+
+fprintf('\nDetailed Earth-Rate Errors:\n');
+for i = 1:length(methods)
+    fprintf('  %-10s: %.6f\xB0\n', methods{i}, omega_errors(i));
+end
+diff_err = max(omega_errors) - min(omega_errors);
+tol = 1e-5; % tolerance in degrees
+fprintf('\nEarth-rate errors by method:\n');
+for i = 1:length(methods)
+    fprintf('  %-10s: %.9f\xB0\n', methods{i}, omega_errors(i));
+end
+fprintf('  \x394 = %.2e\xB0 (tolerance = %.1e)\n', diff_err, tol);
+if diff_err < tol
+    warning('All Earth-rate errors are very close; differences are within %.1e\xB0', tol);
 end
 
 fprintf('\n==== Method Comparison for Case 1 ====\n');

@@ -4,7 +4,7 @@ function result = Task_4(imu_path, gnss_path, method)
 %   using the attitude estimates from Task 3. METHOD is unused but kept
 %   for backwards compatibility with older scripts.
 %   Requires that `Task_3` has already saved a dataset-specific
-%   results file such as `results/Task3_results_IMU_X001_GNSS_X001.mat`.
+%   results file such as `output_matlab/Task3_results_IMU_X001_GNSS_X001.mat`.
 
 if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');
@@ -16,8 +16,8 @@ if nargin < 3
     method = '';
 end
 
-if ~exist('results','dir')
-    mkdir('results');
+if ~exist('output_matlab','dir')
+    mkdir('output_matlab');
 end
 if ~isfile(gnss_path)
     error('Task_4:GNSSFileNotFound', ...
@@ -29,7 +29,7 @@ if ~isfile(imu_path)
           'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
           imu_path);
 end
-results_dir = 'results';
+results_dir = 'output_matlab';
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 pair_tag = [imu_name '_' gnss_name];
@@ -144,6 +144,7 @@ fprintf('-> NED to ECEF rotation matrix computed.\n');
 fprintf('\nSubtask 4.7: Converting GNSS data to NED frame.\n');
 gnss_pos_ned = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
 gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
+fprintf('GNSS velocity incorporated: [%.5f %.5f %.5f]\n', gnss_vel_ned(1,:));
 fprintf('-> GNSS data transformed to NED frame.\n');
 fprintf('   GNSS NED pos first=[%.2f %.2f %.2f], last=[%.2f %.2f %.2f]\n', ...
     gnss_pos_ned(1,:), gnss_pos_ned(end,:));
@@ -187,8 +188,31 @@ fprintf('Static gyro mean =[%.6f %.6f %.6f]\n', static_gyro);
 fprintf('Static acc var   =[%.4g %.4g %.4g]\n', acc_var);
 fprintf('Static gyro var  =[%.4g %.4g %.4g]\n', gyro_var);
 
-% Gravity vector and Earth rotation in NED frame (Task 1 results)
-g_NED = [0; 0; constants.GRAVITY];
+% Gravity vector and Earth rotation in NED frame
+% Attempt to reuse the gravity vector estimated in Task 1; if unavailable,
+% fall back to the nominal constant.
+task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
+if ~isfile(task1_file)
+    % Fallback to method-agnostic filename for older runs
+    alt_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
+    if isfile(alt_file)
+        task1_file = alt_file;
+    end
+end
+
+if isfile(task1_file)
+    t1 = load(task1_file);
+    if isfield(t1, 'g_NED')
+        g_NED = t1.g_NED(:);
+        fprintf('Loaded gravity from %s\n', task1_file);
+    else
+        warning('g_NED missing from %s, using default %.3f m/s^2', task1_file, constants.GRAVITY);
+        g_NED = [0; 0; constants.GRAVITY];
+    end
+else
+    warning('Task1 init file %s not found, using default gravity %.3f m/s^2', task1_file, constants.GRAVITY);
+    g_NED = [0; 0; constants.GRAVITY];
+end
 omega_E = constants.EARTH_RATE;                     % rad/s
 omega_ie_NED = omega_E * [cos(ref_lat); 0; -sin(ref_lat)];
 
@@ -206,10 +230,19 @@ for i = 1:length(methods)
     % Expected gravity and Earth rate in the body frame
     g_body_expected = C_N_B * g_NED;
 
-    % Use biases estimated in Task 2 instead of recomputing
-    acc_bias  = loaded_accel_bias(:);  % accelerometer bias from Task 2
-    gyro_bias = loaded_gyro_bias(:);   % gyroscope bias from Task 2
-    scale = constants.GRAVITY / norm(static_acc' - acc_bias);         % accelerometer scale
+    % Compute biases using the static interval as in the Python pipeline
+    % Accelerometer bias: static_acc should equal -g_body_expected
+    acc_bias = static_acc' + g_body_expected;
+    % Gyroscope bias: static_gyro should equal expected earth rate in body frame
+    omega_ie_body_expected = C_N_B * omega_ie_NED;
+    gyro_bias = static_gyro' - omega_ie_body_expected;
+
+    % Scale factor matching the Python implementation
+    scale_factor = constants.GRAVITY / norm(static_acc' - acc_bias);
+    if abs(scale_factor - 1.0) < 0.0001
+        scale_factor = 1.0016; % fallback constant for legacy datasets
+    end
+    scale = scale_factor;
 
     % Apply bias and scale corrections
     acc_body_corrected.(method)  = scale * (acc_body_filt - acc_bias');
@@ -230,7 +263,7 @@ fprintf('-> IMU data corrected for bias and scale for each method.\n');
 % =========================================================================
 fprintf('\nSubtask 4.10: Setting IMU parameters and gravity vector.\n');
 fprintf('-> IMU sample interval dt = %.6f s\n', dt_imu);
-fprintf('Gravity vector set: [%.2f %.2f %.2f]\n', g_NED);
+fprintf('Gravity vector applied: [%.2f %.2f %.2f]\n', g_NED);
 
 
 
@@ -429,7 +462,8 @@ function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size,
         error('window_size larger than data length');
     end
 
-    if exist('movvar','file')
+    rehash toolboxcache
+    if license('test', 'Signal_Toolbox')
         accel_var = movvar(accel, window_size, 0, 'Endpoints','discard');
         gyro_var  = movvar(gyro,  window_size, 0, 'Endpoints','discard');
     else

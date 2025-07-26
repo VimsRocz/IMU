@@ -20,8 +20,8 @@ end
 
 % Remove command-line side effects to behave like a normal function
 
-if ~exist('results','dir')
-    mkdir('results');
+if ~exist('output_matlab','dir')
+    mkdir('output_matlab');
 end
 
 % Print dataset and method like the Python script
@@ -34,7 +34,7 @@ else
 end
 
 fprintf('\u25B6 %s\n', tag); % \u25B6 is the triangle symbol
-fprintf('Ensured ''results/'' directory exists.\n');
+fprintf('Ensured ''output_matlab/'' directory exists.\n');
 if ~isempty(method)
     fprintf('Running attitude-estimation method: %s\n', method);
 end
@@ -47,7 +47,7 @@ end
 fprintf('TASK 1%s: Define reference vectors in NED frame\n', log_tag);
 
 % --- Configuration ---
-results_dir = 'results';
+results_dir = 'output_matlab';
 
 
 % ================================
@@ -160,10 +160,12 @@ if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
     % Set plot title
     title('Initial Location on Earth Map');
 
-    % Save the plot
-    output_filename = fullfile(results_dir, sprintf('%s_location_map.pdf', tag));
-    saveas(gcf, output_filename);
-    fprintf('Location map saved\n');
+    % Save the plot as both PDF and PNG using a reasonable page size
+    set(gcf, 'PaperPositionMode', 'auto');
+    base = fullfile(results_dir, sprintf('%s_location_map', tag));
+    print(gcf, [base '.pdf'], '-dpdf', '-bestfit');
+    print(gcf, [base '.png'], '-dpng');
+    fprintf('Location map saved to %s.[pdf|png]\n', base);
 else
     warning('Mapping Toolbox not found. Skipping geographic plot.');
 end

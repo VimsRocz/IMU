@@ -167,6 +167,16 @@ def plot_pva_grid(
     }
     cols = axis_labels.get(frame, ["X", "Y", "Z"])
 
+    def ensure_array(arr: np.ndarray) -> np.ndarray:
+        n = len(time)
+        if arr is None or arr.size == 0 or arr.ndim != 2 or arr.shape[1] < 3 or arr.shape[0] != n:
+            return np.full((n, 3), np.nan)
+        return arr
+
+    pos = ensure_array(pos)
+    vel = ensure_array(vel)
+    acc = ensure_array(acc)
+
     fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
     datasets = [
         (pos, "Position [m]"),

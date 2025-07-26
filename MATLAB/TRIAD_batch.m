@@ -5,7 +5,7 @@ function results = TRIAD(imu_paths, gnss_paths)
 %   When called without arguments all bundled sample datasets are
 %   processed.  Single file names or cell arrays of names are accepted.
 %   The Task 5 results for each pair are returned as a struct (or a cell
-%   array of structs) and saved in results/Result_<IMU>_<GNSS>_TRIAD.mat.
+%   array of structs) and saved in output_matlab/Result_<IMU>_<GNSS>_TRIAD.mat.
 
 if nargin == 0
     imu_paths = {'IMU_X001.dat','IMU_X002.dat','IMU_X003.dat'};
@@ -40,16 +40,16 @@ for k = 1:numel(imu_paths)
 
     [~, imuName]  = fileparts(imu_file);
     [~, gnssName] = fileparts(gnss_file);
-    res_file = fullfile('results', sprintf('%s_%s_TRIAD_task5_results.mat', ...
+    res_file = fullfile('output_matlab', sprintf('%s_%s_TRIAD_task5_results.mat', ...
         imuName, gnssName));
     if ~isfile(res_file)
         error('Expected Task 5 results %s not found', res_file);
     end
     r = load(res_file);
-    save(fullfile('results', sprintf('Result_%s_%s_TRIAD.mat', ...
+    save(fullfile('output_matlab', sprintf('Result_%s_%s_TRIAD.mat', ...
          imuName, gnssName)), '-struct', 'r');
 
-    sum_file = fullfile('results', 'IMU_GNSS_summary.txt');
+    sum_file = fullfile('output_matlab', 'IMU_GNSS_summary.txt');
     if isfile(sum_file)
         lines = splitlines(fileread(sum_file));
         if ~isempty(lines)

@@ -1,5 +1,7 @@
 function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 %TASK_5  Run 15-state EKF using IMU & GNSS NED positions
+%   Expects Task 1 outputs saved in the results directory for gravity
+%   initialization.
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
@@ -10,7 +12,10 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
         method = 'TRIAD';
     end
 
-    results_dir = 'results';
+    % Store all outputs under the repository "results" directory
+    here = fileparts(mfilename('fullpath'));
+    root = fileparts(here);
+    results_dir = fullfile(root, 'output_matlab');
     if ~exist(results_dir,'dir')
         mkdir(results_dir);
     end
@@ -102,12 +107,21 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
         g_body = -mean(acc_body_raw(1:N_static,:),1)';
         omega_ie_body = mean(gyro_body_raw(1:N_static,:),1)';
     end
+    % Load scale factor from Task 4 results when available
+    scale_factor = 1.0;
+    task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
+    if isfile(task4_file)
+        d4 = load(task4_file, 'scale_factors');
+        if isfield(d4, 'scale_factors') && isfield(d4.scale_factors, method)
+            scale_factor = d4.scale_factors.(method);
+        end
+    end
     fprintf('Method %s: Bias computed: [%.7f %.7f %.7f]\n', method, accel_bias);
-    fprintf('Method %s: Scale factor: %.4f\n', method, 1.0);
+    fprintf('Method %s: Scale factor: %.4f\n', method, scale_factor);
 
     % Apply bias correction to IMU data
     gyro_body_raw = gyro_body_raw - gyro_bias';
-    acc_body_raw  = acc_body_raw  - accel_bias';
+    acc_body_raw  = (acc_body_raw  - accel_bias') / scale_factor;
 
 
 
@@ -143,14 +157,38 @@ x(13:15) = gyro_bias(:);
 % EKF tuning parameters
 P = blkdiag(eye(9) * 0.01, eye(3) * 1e-4, eye(3) * 1e-8);
 Q = blkdiag(eye(9) * 0.01, eye(3) * 1e-6, eye(3) * 1e-6);
-R = eye(6) * 0.1;
+Q(4:6,4:6) = eye(3) * 0.1;  % higher process noise on velocity states
+R = diag([0.1 0.1 0.1 0.25 0.25 0.25]);
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
 q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
 
-% Gravity vector in NED frame
-g_NED = [0; 0; constants.GRAVITY];
+    % Gravity vector in NED frame from Task 1 initialization if available
+    % Prefer the method-specific filename but fall back to a generic one
+    task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
+    if ~isfile(task1_file)
+        alt_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
+        if isfile(alt_file)
+            task1_file = alt_file;
+        end
+    end
+
+    if isfile(task1_file)
+        init_data = load(task1_file);
+        if isfield(init_data, 'g_NED')
+            g_NED = init_data.g_NED;
+            fprintf('Loaded gravity from %s\n', task1_file);
+        else
+            warning('Task_5:MissingField', ...
+                'File %s does not contain g_NED. Using default gravity.', task1_file);
+            g_NED = [0; 0; constants.GRAVITY];
+        end
+    else
+        warning('Task_5:MissingTask1', ...
+            'Task 1 output not found; using constants.GRAVITY.');
+        g_NED = [0; 0; constants.GRAVITY];
+    end
 
     % -- Compute Wahba Errors using all Task 3 rotation matrices --
     methods_all = fieldnames(task3_results);
@@ -436,10 +474,10 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
     'grav_err_mean', grav_err_mean, 'grav_err_max', grav_err_max, ...
     'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
+% Result Logging -- store the metrics struct under the variable name
+% ``results`` to stay in sync with the Python pipeline.
 if isfile(perf_file)
-    save(perf_file, '-append', 'results');
-else
-    save(perf_file, 'results');
+
 end
 
 summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt');
@@ -448,15 +486,37 @@ fprintf(fid_sum, '%s\n', summary_line);
 fclose(fid_sum);
 
 % Persist core results for unit tests and further analysis
+% Persist IMU and GNSS time vectors for Tasks 6 and 7
+time      = imu_time; %#ok<NASGU>  used by Task_6
+gnss_time = gnss_time; %#ok<NASGU>
+
+% Convenience fields matching the Python pipeline
+pos_ned = x_log(1:3,:)';
+vel_ned = x_log(4:6,:)';
+ref_lat = deg2rad(lat_deg); %#ok<NASGU>
+ref_lon = deg2rad(lon_deg); %#ok<NASGU>
+
 results_file = fullfile(results_dir, sprintf('Task5_results_%s.mat', pair_tag));
 save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
-    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log');
-fprintf('Results saved to %s\n', results_file);
+    'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
+    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', ...
+    'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0');
+if isfile(results_file)
+    fprintf('Results saved to %s\n', results_file);
+else
+    warning('Missing %s', results_file);
+end
 
 method_file = fullfile(results_dir, [tag '_task5_results.mat']);
 save(method_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
-    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log');
-fprintf('Method-specific results saved to %s\n', method_file);
+    'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
+    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', ...
+    'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0');
+if isfile(method_file)
+    fprintf('Method-specific results saved to %s\n', method_file);
+else
+    warning('Missing %s', method_file);
+end
 
 % Return results structure and store in base workspace
 result = results;

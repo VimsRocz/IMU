@@ -2,10 +2,10 @@ function run_all_methods(imu_file, gnss_file)
 %RUN_ALL_METHODS Process one dataset with TRIAD, Davenport and SVD.
 %   RUN_ALL_METHODS(IMU_FILE, GNSS_FILE) executes Tasks 1--5 for the
 %   specified IMU/GNSS pair using all three initialisation methods.
-%   Per-method Task 5 plots are saved as results/<tag>_task5_results_<method>.pdf
+%   Per-method Task 5 plots are saved as output_matlab/<tag>_task5_results_<method>.pdf
 %   where <tag> is the dataset identifier extracted from the filenames
 %   (e.g. X002).  An overlay comparing all methods is saved as
-%   results/<tag>_task5_results_all_methods.pdf.
+%   output_matlab/<tag>_task5_results_all_methods.pdf.
 %
 %   When IMU_FILE or GNSS_FILE are omitted the X002 sample data is used.
 
@@ -29,17 +29,14 @@ end
 
 methods = {'TRIAD','Davenport','SVD'};
 colors  = {'r','g','b'};
-resultsDir = 'results';
+
 if ~exist(resultsDir,'dir'); mkdir(resultsDir); end
 
-% Check if ground truth file is available for optional Task 6 overlay
-stateName = [strrep(imu_name,'IMU','STATE') '.txt'];
-try
-    get_data_file(stateName); % throws if not found
-    haveTruth = true;
-catch
-    haveTruth = false;
-end
+% Always reference the common STATE\_X001.txt trajectory for Tasks 6 and 7
+% so that evaluation runs for any dataset regardless of its filename.
+stateName = 'STATE_X001.txt';
+cand = fullfile(fileparts(mfilename('fullpath')), '..', stateName);
+haveTruth = isfile(cand);
 
 % Load GNSS data and derive NED trajectory
 Tgnss = readtable(gnss_path);
@@ -97,11 +94,27 @@ for m = 1:numel(methods)
     outfile = fullfile(resultsDir, sprintf('%s_task5_results_%s.pdf', tag, method));
     save_pva_grid(t_imu, fused_pos{m}, fused_vel{m}, fused_acc{m}, outfile);
 
+    out_kf = fullfile(resultsDir, sprintf('%s_%s_%s_kf_output.mat', ...
+        imu_name, gnss_name, method));
+    if isfile(method_file)
+        save(out_kf, '-struct', 'data');
+    end
+
     if haveTruth
+        fprintf('Starting Task 6 for %s + %s ...\n', imu_name, gnss_name);
         try
-            Task_6(imu_path, gnss_path, method);
+            Task_6(method_file, imu_path, gnss_path, cand);
         catch ME
-            fprintf('Task_6 skipped for %s: %s\n', method, ME.message);
+            warning('Task 6 failed for %s: %s', method, ME.message);
+        end
+        fprintf('Starting Task 7 for %s + %s ...\n', imu_name, gnss_name);
+        try
+            tag_m = sprintf('%s_%s_%s', imu_name, gnss_name, method);
+            outDir = fullfile(resultsDir, 'task7', tag_m);
+            summary = task7_fused_truth_error_analysis(out_kf, cand, outDir);
+            save(fullfile(outDir,'task7_summary.mat'), 'summary');
+        catch ME
+            warning('Task 7 failed for %s: %s', method, ME.message);
         end
     end
 end
@@ -149,10 +162,23 @@ close(fig);
 end
 
 function save_pva_grid(t, pos_ned, vel_ned, acc_ned, outfile)
+%SAVE_PVA_GRID Plot position, velocity and acceleration in a 3x3 grid.
+%   SAVE_PVA_GRID(T, POS, VEL, ACC, OUTFILE) plots the NED position, velocity
+%   and acceleration arrays against time vector T and saves the figure to
+%   OUTFILE.  Missing or malformed arrays are padded with NaNs so that the
+%   function never errors when data is unavailable.
+
     fig = figure('Visible','off','Units','pixels','Position',[0 0 1200 900]);
     tl = tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
     labels = {'North [m]','East [m]','Down [m]'};
     rowTitle = {'Position','Velocity','Acceleration'};
+
+    n = numel(t);
+    filler = @(x) (isempty(x) || size(x,2) < 3 || size(x,1) ~= n);
+    if filler(pos_ned); pos_ned = nan(n,3); end
+    if filler(vel_ned); vel_ned = nan(n,3); end
+    if filler(acc_ned); acc_ned = nan(n,3); end
+
     data = {pos_ned, vel_ned, acc_ned};
     for row = 1:3
         for col = 1:3

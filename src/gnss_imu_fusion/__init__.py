@@ -3,8 +3,11 @@
 from .init_vectors import (
     average_rotation_matrices,
     svd_alignment,
+    triad_basis,
     triad_svd,
+    davenport_q_method,
     butter_lowpass_filter,
+    basic_butterworth_filter,
     angle_between,
     compute_wahba_errors,
 )
@@ -20,8 +23,11 @@ from .plots import (
 __all__ = [
     "average_rotation_matrices",
     "svd_alignment",
+    "triad_basis",
     "triad_svd",
+    "davenport_q_method",
     "butter_lowpass_filter",
+    "basic_butterworth_filter",
     "angle_between",
     "compute_wahba_errors",
     "compute_reference_vectors",
