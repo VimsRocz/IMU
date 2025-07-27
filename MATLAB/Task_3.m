@@ -288,9 +288,9 @@ all_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
 save(all_file, 'task3_results');
 fprintf('-> Task 3 results (all methods) saved to %s\n', all_file);
 
-% Also save a method-specific copy for later tasks
+% Also save a method-specific copy for later tasks using helper
 method_results = task3_results.(method_tag);
-save(fullfile(results_dir, sprintf('Task3_results_%s.mat', tag)), 'method_results');
+save_task_results(method_results, imu_name, gnss_name, method_tag, 3);
 
 % Return and store in base workspace
 assignin('base', 'task3_results', task3_results);

@@ -348,6 +348,11 @@ else
     save(task4_file, 'gnss_pos_ned', 'acc_biases', 'gyro_biases', 'scale_factors');
 end
 fprintf('GNSS NED positions saved to %s\n', task4_file);
+
+% Save method-specific results using helper
+result_struct = struct('gnss_pos_ned', gnss_pos_ned, 'acc_biases', acc_biases, ...
+                'gyro_biases', gyro_biases, 'scale_factors', scale_factors);
+save_task_results(result_struct, imu_name, gnss_name, method_tag, 4);
 % Task 5 loads these positions when initialising the Kalman filter
 
 % Return results structure and store in base workspace
