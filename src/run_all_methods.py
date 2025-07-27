@@ -138,11 +138,13 @@ def main(argv=None):
     if args.task == 7:
         from evaluate_filter_results import run_evaluation
 
+        # Task 7 results must be stored directly in ``results/``
+        # according to the updated project requirements.
         run_evaluation(
             prediction_file="outputs/predicted_states.csv",
             gnss_file="outputs/gnss_measurements.csv",
             attitude_file="outputs/estimated_attitude.csv",
-            save_path="results/task7/",
+            save_path="results",
         )
         return
 
@@ -382,7 +384,8 @@ def main(argv=None):
             # ----------------------------
             # Task 7: Evaluation
             # ----------------------------
-            task7_dir = pathlib.Path("results") / "task7" / tag
+            # Updated: Task 7 outputs are saved directly in ``results/``
+            task7_dir = pathlib.Path("results")
             with open(log_path, "a") as log:
                 log.write("\nTASK 7: Evaluate residuals\n")
                 msg = "Running Task 7 evaluation ..."

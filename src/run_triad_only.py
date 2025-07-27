@@ -89,11 +89,12 @@ def main(argv: Iterable[str] | None = None) -> None:
     if args.task == 7:
         from evaluate_filter_results import run_evaluation
 
+        # Save Task 7 output directly under ``results/``
         run_evaluation(
             prediction_file="outputs/predicted_states.csv",
             gnss_file="outputs/gnss_measurements.csv",
             attitude_file="outputs/estimated_attitude.csv",
-            save_path="results/task7/",
+            save_path="results",
         )
         return
 
@@ -335,7 +336,9 @@ def main(argv: Iterable[str] | None = None) -> None:
     # ----------------------------
     # Task 7: Evaluation
     # ----------------------------
-    task7_dir = results_dir / "task7" / tag
+    % Task 7 plots are now saved directly under the ``results``
+    % directory without subfolders for easier navigation.
+    task7_dir = results_dir
     with open(log_path, "a") as log:
         log.write("\nTASK 7: Evaluate residuals\n")
         msg = "Running Task 7 evaluation ..."

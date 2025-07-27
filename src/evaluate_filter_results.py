@@ -50,6 +50,8 @@ def run_evaluation(
         Optional dataset tag added as a prefix to the plot filenames.
     """
     out_dir = Path(save_path)
+    # All Task 7 plots are written directly into ``results/``
+    # unless a different directory is provided.
     out_dir.mkdir(parents=True, exist_ok=True)
 
     pred = pd.read_csv(prediction_file)
@@ -397,7 +399,8 @@ if __name__ == "__main__":
     ap.add_argument("--gnss")
     ap.add_argument("--attitude")
     ap.add_argument("--npz", help="NPZ file produced by GNSS_IMU_Fusion.py")
-    ap.add_argument("--output", default="results/task7/")
+    # Task 7 plots now default to the top-level ``results`` directory
+    ap.add_argument("--output", default="results")
     ap.add_argument("--tag", help="Dataset tag used as filename prefix")
     args = ap.parse_args()
     if args.npz:
