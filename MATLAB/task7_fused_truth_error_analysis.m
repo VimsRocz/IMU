@@ -215,7 +215,7 @@ function plot_residuals(t, res_pos, res_vel, out_dir)
         subplot(2,3,3+j); plot(t, res_vel(:,j));
         xlabel('Time [s]'); ylabel('Vel Residual [m/s]'); grid on;
     end
-    sgtitle('Task 7 \x2013 GNSS - Predicted Residuals');
+    sgtitle('Task 7 - GNSS - Predicted Residuals');
     set(f,'PaperPositionMode','auto');
     pdf = fullfile(out_dir,'task7_3_residuals_position_velocity.pdf');
     print(f,pdf,'-dpdf');
