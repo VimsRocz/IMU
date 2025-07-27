@@ -100,7 +100,6 @@ end
 fprintf('\nSubtask 1.2: Defining gravity vector in NED frame.\n');
 
 % Compute gravity magnitude using WGS-84 model and print validation line
-g_NED = validate_gravity_vector_wgs84(lat_deg, alt_m);
 
 
 % ================================

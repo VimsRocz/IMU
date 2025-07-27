@@ -158,6 +158,8 @@ fprintf('Detecting static interval using variance thresholds...\n');
 N_static = end_idx - start_idx + 1;
 static_acc_row = mean(acc_filt(start_idx:end_idx, :), 1);
 static_gyro_row = mean(gyro_filt(start_idx:end_idx, :), 1);
+% Use helper to compute raw mean biases (unfiltered) for later use
+[acc_meas, gyro_meas] = compute_biases(acc, gyro, start_idx, end_idx);
 % Use population variance (w=1) for final statistics
 acc_var = var(acc_filt(start_idx:end_idx, :), 1, 1);
 gyro_var = var(gyro_filt(start_idx:end_idx, :), 1, 1);
@@ -253,8 +255,8 @@ omega_ie_body = C_B_N' * omega_ie_NED; % expected earth rotation in body frame
 % Biases computed over the automatically detected static interval
 % Use the same samples identified earlier for gravity estimation
 static_idx = start_idx:end_idx;
-static_acc  = mean(acc(static_idx, :))';
-static_gyro = mean(gyro(static_idx, :))';
+static_acc  = acc_meas';
+static_gyro = gyro_meas';
 
 % Bias definitions consistent with Python implementation
 accel_bias = static_acc - (-g_body);  % accel measurement minus expected

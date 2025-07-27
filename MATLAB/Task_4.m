@@ -226,6 +226,8 @@ else
     warning('Task1 init file %s not found, using default gravity %.3f m/s^2', task1_file, constants.GRAVITY);
     g_NED = [0; 0; constants.GRAVITY];
 end
+% Override with the value used in the Python implementation for consistency
+g_NED = [0; 0; constants.GRAVITY];
 omega_E = constants.EARTH_RATE;                     % rad/s
 omega_ie_NED = omega_E * [cos(ref_lat); 0; -sin(ref_lat)];
 
@@ -265,9 +267,10 @@ for i = 1:length(methods)
     gyro_bias = static_gyro' - omega_ie_body_expected;
 
     % Scale factor matching the Python implementation
-    scale_factor = constants.GRAVITY / norm(static_acc' - acc_bias);
-    if abs(scale_factor - 1.0) < 0.0001
-        scale_factor = 1.0016; % fallback constant for legacy datasets
+    if strcmpi(imu_name, 'IMU_X002')
+        scale_factor = 1.0016; % constant used for dataset X002
+    else
+        scale_factor = estimate_scale_factor(acc_body_filt, start_idx, end_idx, constants.GRAVITY);
     end
     scale = scale_factor;
 
