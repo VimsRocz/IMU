@@ -25,7 +25,7 @@ The script loads residual and attitude data, computes basic statistics and write
 
 ### 7.5 Truth – Fused Difference
 - When both trajectories exist, plot their difference over time.
-- Write `<tag>_task7_5_diff_truth_fused_over_time.pdf`.
+- Write `<tag>_task7_5_diff_truth_fused_over_time.pdf` (NED frame).
 
 ## Result
 
