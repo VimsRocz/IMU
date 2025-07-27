@@ -87,8 +87,10 @@ def measure_body_vectors(
     """Estimate gravity and Earth rotation in the body frame.
 
     The function detects a static IMU segment, logs its duration relative
-    to the full dataset and warns when the static portion exceeds 90% of
-    all samples, mirroring the MATLAB implementation.
+    to the full dataset and warns when the static portion exceeds 90%% of
+    all samples, mirroring the MATLAB implementation.  The mean
+    accelerometer vector of the static interval is scaled so that its
+    magnitude equals ``GRAVITY``.  The raw dataset is left unchanged.
     """
     data = np.loadtxt(imu_file)
     if data.shape[1] < 10:
@@ -138,9 +140,11 @@ def measure_body_vectors(
             "or adjust detection thresholds.",
             ratio_static * 100,
         )
+    # Only scale the mean of the static interval so that its magnitude
+    # matches ``GRAVITY``.  This preserves the raw measurements for later
+    # processing while keeping parity with the MATLAB implementation.
     scale = GRAVITY / np.linalg.norm(static_acc)
-    acc *= scale
-    static_acc *= scale
+    static_acc = static_acc * scale
     g_body = -static_acc
     omega_ie_body = static_gyro
 
