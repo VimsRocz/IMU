@@ -1,5 +1,8 @@
 %% RUN_TRIAD_ONLY  Process all datasets using the TRIAD method only
 % This helper mirrors the behaviour of ``src/run_triad_only.py``.
+% NOTE: The Python version currently processes only IMU\_X001 with GNSS\_X001.
+% TODO: Update this MATLAB wrapper for parity if single-dataset runs are
+%       required in MATLAB as well.
 % It first executes the full MATLAB pipeline for the TRIAD method via
 % ``run_all_datasets_matlab`` and then aggregates the Task 5 summaries into a
 % concise ``results/summary.csv`` within the directory returned by
