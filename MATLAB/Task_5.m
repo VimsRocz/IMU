@@ -241,7 +241,12 @@ for i = 1:num_imu_samples
     w_b = corrected_gyro - current_omega_ie_b;
     q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
     C_B_N = quat_to_rot(q_b_n);
-    a_ned = C_B_N * corrected_accel + g_NED;
+    % The accelerometer measures specific force which already includes
+    % gravity.  To obtain inertial acceleration we must subtract the
+    % gravity vector expressed in the navigation frame.  This mirrors the
+    % Python implementation in ``integration.py`` and ensures both
+    % pipelines stay in sync.
+    a_ned = C_B_N * corrected_accel - g_NED;
     if i > 1
         vel_new = prev_vel + 0.5 * (a_ned + prev_a_ned) * dt_imu;
         pos_new = x(1:3) + 0.5 * (vel_new + prev_vel) * dt_imu;
