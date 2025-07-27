@@ -4,7 +4,7 @@
 %   (Tasks 1--5) for the methods TRIAD, Davenport and SVD. After each run
 %   the Task 5 results structure is loaded into the base workspace under
 %   a variable named result_IMU_Xxxx_GNSS_Xxxx_METHOD and also written to
-%   output_matlab/<variable>.mat.
+%   ``results/<variable>.mat`` within the directory returned by ``get_results_dir()``.
 
 imu_files = dir('IMU_X*.dat');
 gnss_files = dir('GNSS_X*.csv');

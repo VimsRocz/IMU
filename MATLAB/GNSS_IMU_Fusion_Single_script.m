@@ -2,7 +2,8 @@
 % Mirror of the Python script GNSS_IMU_Fusion_Single_script.py
 % This script performs IMU/GNSS alignment, dead-reckoning and fusion
 % using the TRIAD method and two alternative Wahba solutions. Results and
-% plots are stored under the 'output_matlab/' directory.
+% plots are stored in the `results/` directory returned by
+% `get_results_dir()`.
 % If you run the Python helper scripts, install filterpy with:
 %   pip install filterpy --no-binary :all:
 % and install build tools if required:

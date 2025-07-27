@@ -8,7 +8,7 @@ function task7_ned_residuals_plot(est_file, truth_file, dataset, output_dir)
 %
 %   Usage:
 %       task7_ned_residuals_plot('fused_results.mat', 'STATE_X001.txt', ...
-%           'IMU_X001_GNSS_X001', 'output_matlab')
+%           'IMU_X001_GNSS_X001', get_results_dir())
 %
 %   This MATLAB function mirrors the intended behaviour of the Python
 %   counterpart ``task7_ned_residuals_plot.py``.

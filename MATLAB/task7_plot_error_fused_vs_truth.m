@@ -11,7 +11,7 @@ function task7_plot_error_fused_vs_truth(fused_file, truth_file, output_dir)
 %
 %   Usage:
 %       task7_plot_error_fused_vs_truth('fused_results.mat', ...
-%           'truth_results.mat', 'output_matlab');
+%           'truth_results.mat', get_results_dir());
 
 if nargin < 3 || isempty(output_dir)
     output_dir = 'output_matlab';
