@@ -20,6 +20,7 @@ from scipy.spatial.transform import Rotation as R
 from tabulate import tabulate
 import time
 from velocity_utils import derive_velocity
+from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
 
 
 def _find_cols(df: pd.DataFrame, options: Sequence[Sequence[str]]) -> Sequence[str]:
@@ -287,20 +288,38 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     print(f"Saved {norm_path}")
     plt.close(fig)
 
-    # Subtask 7.5: difference Truth - Fused
+    # Subtask 7.5: difference Truth - Fused in multiple frames
     if fused_time is not None and fused_pos is not None and fused_vel is not None:
         run_id = tag.replace(os.sep, "_") if tag else "run"
+
+        ref_lat = data.get("ref_lat_rad")
+        if ref_lat is None:
+            v = data.get("ref_lat")
+            if v is not None:
+                ref_lat = float(np.asarray(v).squeeze())
+        ref_lon = data.get("ref_lon_rad")
+        if ref_lon is None:
+            v = data.get("ref_lon")
+            if v is not None:
+                ref_lon = float(np.asarray(v).squeeze())
+        if (ref_lat is None or ref_lon is None) and data.get("pos_ecef_m") is not None:
+            lat_deg, lon_deg, _ = ecef_to_geodetic(*data["pos_ecef_m"][0])
+            if ref_lat is None:
+                ref_lat = np.deg2rad(lat_deg)
+            if ref_lon is None:
+                ref_lon = np.deg2rad(lon_deg)
+
         subtask7_5_diff_plot(
             t,
             pos_interp,
             truth_pos,
             vel_interp,
             truth_vel,
+            quat,
+            ref_lat,
+            ref_lon,
             run_id,
             out_dir,
-        )
-        print(
-            f"Saved {plot_path(out_dir, run_id, 7, '5', 'diff_truth_fused_over_time')}"
         )
     else:
         print("Subtask 7.5 skipped: missing fused or truth data")
@@ -333,62 +352,84 @@ def subtask7_5_diff_plot(
     truth_pos_ned: np.ndarray,
     fused_vel_ned: np.ndarray,
     truth_vel_ned: np.ndarray,
+    quat_bn: np.ndarray,
+    ref_lat: float | None,
+    ref_lon: float | None,
     run_id: str,
     out_dir: str,
 ) -> None:
-    """Plot ``truth - fused`` position and velocity differences in the NED frame."""
+    """Plot ``truth - fused`` differences in NED, ECEF and Body frames."""
 
     diff_pos_ned = truth_pos_ned - fused_pos_ned
     diff_vel_ned = truth_vel_ned - fused_vel_ned
 
-    labels = ["North", "East", "Down"]
-    fig, axes = plt.subplots(2, 3, figsize=(9, 4), sharex=True)
-    for i in range(3):
-        axes[0, i].plot(time, diff_pos_ned[:, i])
-        axes[0, i].set_title(labels[i])
-        axes[0, i].set_ylabel("Difference [m]")
-        axes[0, i].grid(True)
-
-        axes[1, i].plot(time, diff_vel_ned[:, i])
-        axes[1, i].set_xlabel("Time [s]")
-        axes[1, i].set_ylabel("Difference [m/s]")
-        axes[1, i].grid(True)
-
-    fig.suptitle("Truth - Fused Differences (NED Frame)")
-    fig.tight_layout(rect=[0, 0, 1, 0.95])
-
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    pdf = plot_path(out_dir, run_id, 7, "5", "diff_truth_fused_over_time")
-    png = pdf.with_suffix(".png")
-    fig.savefig(pdf)
-    fig.savefig(png)
-    plt.close(fig)
 
-    pos_thr = 1.0
-    vel_thr = 1.0
-    for i, lab in enumerate(labels):
-        dp = diff_pos_ned[:, i]
-        dv = diff_vel_ned[:, i]
-        print(
-            f"{lab} position difference range: {dp.min():.2f} m to {dp.max():.2f} m.",
-            end=" ",
-        )
-        idx_p = np.where(np.abs(dp) > pos_thr)[0]
-        if idx_p.size:
-            print(f"{idx_p.size} samples exceed {pos_thr:.1f} m")
-        else:
-            print(f"No samples exceed {pos_thr:.1f} m")
+    def _plot(arr_p: np.ndarray, arr_v: np.ndarray, labels: list[str], frame: str) -> None:
+        fig, axes = plt.subplots(2, 3, figsize=(9, 4), sharex=True)
+        for i in range(3):
+            axes[0, i].plot(time, arr_p[:, i])
+            axes[0, i].set_title(labels[i])
+            axes[0, i].set_ylabel("Difference [m]")
+            axes[0, i].grid(True)
 
-        print(
-            f"{lab} velocity difference range: {dv.min():.2f} m/s to {dv.max():.2f} m/s.",
-            end=" ",
-        )
-        idx_v = np.where(np.abs(dv) > vel_thr)[0]
-        if idx_v.size:
-            print(f"{idx_v.size} samples exceed {vel_thr:.1f} m/s")
-        else:
-            print(f"No samples exceed {vel_thr:.1f} m/s")
+            axes[1, i].plot(time, arr_v[:, i])
+            axes[1, i].set_xlabel("Time [s]")
+            axes[1, i].set_ylabel("Difference [m/s]")
+            axes[1, i].grid(True)
+
+        fig.suptitle(f"Truth - Fused Differences ({frame} Frame)")
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        base = plot_path(out_dir, run_id, 7, "5", "diff_truth_fused_over_time")
+        pdf = base.with_name(base.stem + f"_{frame}.pdf")
+        png = pdf.with_suffix(".png")
+        fig.savefig(pdf)
+        fig.savefig(png)
+        plt.close(fig)
+
+        pos_thr = 1.0
+        vel_thr = 1.0
+        for i, lab in enumerate(labels):
+            dp = arr_p[:, i]
+            dv = arr_v[:, i]
+            print(
+                f"{frame} {lab} position diff range: {dp.min():.2f} m to {dp.max():.2f} m.",
+                end=" ",
+            )
+            idx_p = np.where(np.abs(dp) > pos_thr)[0]
+            if idx_p.size:
+                print(f"{idx_p.size} samples exceed {pos_thr:.1f} m")
+            else:
+                print(f"No samples exceed {pos_thr:.1f} m")
+
+            print(
+                f"{frame} {lab} velocity diff range: {dv.min():.2f} m/s to {dv.max():.2f} m/s.",
+                end=" ",
+            )
+            idx_v = np.where(np.abs(dv) > vel_thr)[0]
+            if idx_v.size:
+                print(f"{idx_v.size} samples exceed {vel_thr:.1f} m/s")
+            else:
+                print(f"No samples exceed {vel_thr:.1f} m/s")
+
+    # NED frame
+    _plot(diff_pos_ned, diff_vel_ned, ["North", "East", "Down"], "NED")
+
+    # ECEF frame
+    if ref_lat is not None and ref_lon is not None:
+        C = compute_C_ECEF_to_NED(ref_lat, ref_lon).T
+    else:
+        C = np.eye(3)
+    diff_pos_ecef = (C @ diff_pos_ned.T).T
+    diff_vel_ecef = (C @ diff_vel_ned.T).T
+    _plot(diff_pos_ecef, diff_vel_ecef, ["X", "Y", "Z"], "ECEF")
+
+    # Body frame
+    rot = R.from_quat(quat_bn[:, [1, 2, 3, 0]])
+    diff_pos_body = rot.apply(diff_pos_ned, inverse=True)
+    diff_vel_body = rot.apply(diff_vel_ned, inverse=True)
+    _plot(diff_pos_body, diff_vel_body, ["X", "Y", "Z"], "Body")
 
 
 if __name__ == "__main__":

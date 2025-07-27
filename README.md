@@ -289,7 +289,7 @@ Typical result PDFs:
   Example: ``IMU_X002_GNSS_X002_Davenport_task7_3_residuals_position_velocity.pdf``
 - `task7_4_attitude_angles_euler.pdf` – Task 7 Euler angle plots
 - `task7_fused_vs_truth_error.pdf` – Task 7 fused minus truth velocity error
-- `<tag>_task7_5_diff_truth_fused_over_time.pdf` – Task 7 truth minus fused difference (NED frame)
+ - `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf` – Task 7 truth minus fused difference for NED, ECEF and Body frames
   plot
 
 ## Task 6: State Overlay
@@ -349,8 +349,8 @@ python src/run_all_methods.py --task 7
   writes figures to ``results/``:
   `python task7_ecef_residuals_plot.py --est-file <fused.npz> --imu-file <IMU.dat> \
   --gnss-file <GNSS.csv> --truth-file <STATE_X.txt> --dataset <tag>`
-* Subtask 7.5 generates `<tag>_task7_5_diff_truth_fused_over_time.pdf` (NED frame) with the
-  component-wise difference between truth and fused trajectories.
+* Subtask 7.5 generates `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf` for
+  NED, ECEF and Body frames with the component-wise difference between truth and fused trajectories.
 
 ### Notes
 

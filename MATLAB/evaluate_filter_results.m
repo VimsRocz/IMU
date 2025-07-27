@@ -26,6 +26,26 @@ res_pos = double(data{'residual_pos'});
 res_vel = double(data{'residual_vel'});
 t = double(data{'time_residuals'});
 quat = double(data{'attitude_q'});
+if isKey(data, 'ref_lat_rad');
+    ref_lat = double(data{'ref_lat_rad'});
+elseif isKey(data, 'ref_lat');
+    ref_lat = double(data{'ref_lat'});
+else
+    ref_lat = NaN;
+end
+if isKey(data, 'ref_lon_rad');
+    ref_lon = double(data{'ref_lon_rad'});
+elseif isKey(data, 'ref_lon');
+    ref_lon = double(data{'ref_lon'});
+else
+    ref_lon = NaN;
+end
+if (isnan(ref_lat) || isnan(ref_lon)) && isKey(data, 'pos_ecef_m')
+    first_ecef = double(data{'pos_ecef_m'}(1,:));
+    [lat_deg, lon_deg, ~] = ecef_to_geodetic(first_ecef(1), first_ecef(2), first_ecef(3));
+    if isnan(ref_lat); ref_lat = deg2rad(lat_deg); end
+    if isnan(ref_lon); ref_lon = deg2rad(lon_deg); end
+end
 
 n = min([size(res_pos,1), size(res_vel,1), numel(t), size(quat,1)]);
 res_pos = res_pos(1:n,:);
@@ -111,7 +131,7 @@ if ~any(isnan(truth_pos(:))) && ~any(isnan(pos_interp(:)))
     if isempty(run_id); run_id = 'run'; end
     out_dir = fullfile(get_results_dir(), 'task7', run_id);
     if ~exist(out_dir, 'dir'); mkdir(out_dir); end
-    subtask7_5_diff_plot(t, pos_interp, truth_pos, vel_interp, truth_vel, run_id, out_dir);
+    subtask7_5_diff_plot(t, pos_interp, truth_pos, vel_interp, truth_vel, quat, ref_lat, ref_lon, run_id, out_dir);
 else
     fprintf('Truth or fused data missing, skipping Subtask 7.5.\n');
 end
@@ -129,50 +149,73 @@ fprintf('[SUMMARY] rmse_pos=%.3f m final_pos=%.3f m rmse_vel=%.3f m/s final_vel=
 end
 
 
-function [diff_pos_ned, diff_vel_ned] = subtask7_5_diff_plot(time, fused_pos_ned, truth_pos_ned, fused_vel_ned, truth_vel_ned, run_id, out_dir)
+function [diff_pos_ned, diff_vel_ned] = subtask7_5_diff_plot(time, fused_pos_ned, truth_pos_ned, fused_vel_ned, truth_vel_ned, quat, ref_lat, ref_lon, run_id, out_dir)
 %SUBTASK7_5_DIFF_PLOT Plot and analyse Truth minus Fused differences in NED frame.
 %   [diff_pos_ned, diff_vel_ned] = SUBTASK7_5_DIFF_PLOT(time, fused_pos_ned,
-%   truth_pos_ned, fused_vel_ned, truth_vel_ned, run_id, out_dir) computes
-%   truth_pos_ned - fused_pos_ned and truth_vel_ned - fused_vel_ned at each
-%   time step and plots the results in the NED frame.
+%   truth_pos_ned, fused_vel_ned, truth_vel_ned, quat, ref_lat, ref_lon, run_id, out_dir)
+%   computes truth_pos_ned - fused_pos_ned and truth_vel_ned - fused_vel_ned
+%   and plots the results in NED, ECEF and Body frames.
 
 diff_pos_ned = truth_pos_ned - fused_pos_ned;
 diff_vel_ned = truth_vel_ned - fused_vel_ned;
 
-labels = {'North','East','Down'};
-f = figure('Visible','off','Position',[100 100 900 450]);
-for i = 1:3
-    subplot(2,3,i); plot(time, diff_pos_ned(:,i));
-    title(labels{i}); ylabel('Difference [m]'); grid on;
-end
-for i = 1:3
-    subplot(2,3,3+i); plot(time, diff_vel_ned(:,i));
-    xlabel('Time [s]'); ylabel('Difference [m/s]'); grid on;
-end
-sgtitle('Truth - Fused Differences (NED Frame)');
-set(f,'PaperPositionMode','auto');
-out_file_pdf = fullfile(out_dir, [run_id '_task7_5_diff_truth_fused_over_time.pdf']);
-out_file_png = strrep(out_file_pdf, '.pdf', '.png');
-print(f, out_file_pdf, '-dpdf', '-bestfit');
-print(f, out_file_png, '-dpng');
-close(f); fprintf('Saved %s\n', out_file_pdf);
+% helper function to plot and report
+    function do_plot(dp, dv, labs, frame)
+        f = figure('Visible','off','Position',[100 100 900 450]);
+        for j = 1:3
+            subplot(2,3,j); plot(time, dp(:,j));
+            title(labs{j}); ylabel('Difference [m]'); grid on;
+            subplot(2,3,3+j); plot(time, dv(:,j));
+            xlabel('Time [s]'); ylabel('Difference [m/s]'); grid on;
+        end
+        sgtitle(['Truth - Fused Differences (' frame ' Frame)']);
+        set(f,'PaperPositionMode','auto');
+        base = fullfile(out_dir, [run_id '_task7_5_diff_truth_fused_over_time_' frame]);
+        print(f, [base '.pdf'], '-dpdf', '-bestfit');
+        print(f, [base '.png'], '-dpng');
+        close(f); fprintf('Saved %s.pdf\n', base);
 
-pos_thr = 1.0; vel_thr = 1.0;
-for i = 1:3
-    dp = diff_pos_ned(:,i); dv = diff_vel_ned(:,i);
-    fprintf('%s position difference range: %.2f m to %.2f m. ', labels{i}, min(dp), max(dp));
-    idx_p = find(abs(dp) > pos_thr);
-    if ~isempty(idx_p)
-        fprintf('Outliers (>%.1fm) at samples: %s\n', pos_thr, mat2str(idx_p'));
-    else
-        fprintf('No outliers (>%.1fm).\n', pos_thr);
+        pos_thr = 1.0; vel_thr = 1.0;
+        for j = 1:3
+            dpp = dp(:,j); dvv = dv(:,j);
+            fprintf('%s %s position diff range: %.2f m to %.2f m. ', frame, labs{j}, min(dpp), max(dpp));
+            idx_p = find(abs(dpp) > pos_thr);
+            if ~isempty(idx_p)
+                fprintf('%d samples exceed %.1fm\n', numel(idx_p), pos_thr);
+            else
+                fprintf('No samples exceed %.1fm\n', pos_thr);
+            end
+            fprintf('%s %s velocity diff range: %.2f m/s to %.2f m/s. ', frame, labs{j}, min(dvv), max(dvv));
+            idx_v = find(abs(dvv) > vel_thr);
+            if ~isempty(idx_v)
+                fprintf('%d samples exceed %.1fm/s\n', numel(idx_v), vel_thr);
+            else
+                fprintf('No samples exceed %.1fm/s.\n', vel_thr);
+            end
+        end
     end
-    fprintf('%s velocity difference range: %.2f m/s to %.2f m/s. ', labels{i}, min(dv), max(dv));
-    idx_v = find(abs(dv) > vel_thr);
-    if ~isempty(idx_v)
-        fprintf('Outliers (>%.1fm/s) at samples: %s\n', vel_thr, mat2str(idx_v'));
-    else
-        fprintf('No outliers (>%.1fm/s).\n', vel_thr);
-    end
+
+% NED
+do_plot(diff_pos_ned, diff_vel_ned, {'North','East','Down'}, 'NED');
+
+% ECEF
+if ~isnan(ref_lat) && ~isnan(ref_lon)
+    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)';
+else
+    C = eye(3);
 end
+diff_pos_ecef = (C * diff_pos_ned')';
+diff_vel_ecef = (C * diff_vel_ned')';
+do_plot(diff_pos_ecef, diff_vel_ecef, {'X','Y','Z'}, 'ECEF');
+
+% Body
+n = size(diff_pos_ned,1);
+diff_pos_body = zeros(size(diff_pos_ned));
+diff_vel_body = zeros(size(diff_vel_ned));
+for k = 1:n
+    Rb2n = quat2dcm_custom(quat(k,:));
+    diff_pos_body(k,:) = (Rb2n' * diff_pos_ned(k,:)')';
+    diff_vel_body(k,:) = (Rb2n' * diff_vel_ned(k,:)')';
+end
+do_plot(diff_pos_body, diff_vel_body, {'X','Y','Z'}, 'Body');
 end
