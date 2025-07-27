@@ -24,6 +24,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+import warnings
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +110,54 @@ def print_debug_info(
     dv_est = np.diff(vel_est[:, 0])
     print("Max velocity jump in truth (X):", np.max(np.abs(dv_truth)))
     print("Max velocity jump in fused (X):", np.max(np.abs(dv_est)))
+
+
+# ---------------------------------------------------------------------------
+# length handling
+# ---------------------------------------------------------------------------
+
+
+def ensure_equal_length(
+    t_est: np.ndarray,
+    pos_est: np.ndarray,
+    vel_est: np.ndarray,
+    acc_est: np.ndarray,
+    pos_truth_i: np.ndarray,
+    vel_truth_i: np.ndarray,
+    acc_truth_i: np.ndarray,
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+]:
+    """Truncate arrays to the common minimum length."""
+    if len(pos_est) != len(pos_truth_i):
+        n = min(len(pos_est), len(pos_truth_i))
+        warnings.warn(
+            f"Length mismatch after interpolation (est {len(pos_est)}, truth {len(pos_truth_i)}); truncating to {n}",
+            RuntimeWarning,
+        )
+        t_est = t_est[:n]
+        pos_est = pos_est[:n]
+        vel_est = vel_est[:n]
+        acc_est = acc_est[:n]
+        pos_truth_i = pos_truth_i[:n]
+        vel_truth_i = vel_truth_i[:n]
+        acc_truth_i = acc_truth_i[:n]
+    assert len(pos_est) == len(pos_truth_i)
+    return (
+        t_est,
+        pos_est,
+        vel_est,
+        acc_est,
+        pos_truth_i,
+        vel_truth_i,
+        acc_truth_i,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +290,24 @@ def main() -> None:
     pos_truth_i = interpolate_truth(t_est, t_truth, pos_truth)
     vel_truth_i = interpolate_truth(t_est, t_truth, vel_truth)
     acc_truth_i = interpolate_truth(t_est, t_truth, acc_truth)
+
+    (
+        t_est,
+        pos_est,
+        vel_est,
+        acc_est,
+        pos_truth_i,
+        vel_truth_i,
+        acc_truth_i,
+    ) = ensure_equal_length(
+        t_est,
+        pos_est,
+        vel_est,
+        acc_est,
+        pos_truth_i,
+        vel_truth_i,
+        acc_truth_i,
+    )
 
     plot_overlay(
         t_est,
