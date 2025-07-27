@@ -3,8 +3,10 @@ function task7_ned_residuals_plot(est_file, truth_file, dataset, output_dir)
 %   TASK7_NED_RESIDUALS_PLOT(EST_FILE, TRUTH_FILE, DATASET, OUTPUT_DIR) loads
 %   a fused estimator result and the ground truth trajectory. Truth data is
 %   converted from ECEF to NED using the reference coordinates stored in
-%   EST_FILE. Position, velocity and acceleration residuals are then plotted
-%   and saved under OUTPUT_DIR using DATASET as part of the filename.
+%   EST_FILE. Position, velocity and acceleration residuals are then plotted.
+%   The time vector is shifted so the first sample occurs at t=0 to match
+%   Task 6. Figures are saved under OUTPUT_DIR using DATASET as part of the
+%   filename.
 %
 %   Usage:
 %       task7_ned_residuals_plot('fused_results.mat', 'STATE_X001.txt', ...
@@ -21,13 +23,16 @@ if ~exist(output_dir, 'dir'); mkdir(output_dir); end
 [t_est, pos_est, vel_est, acc_est, ref_lat, ref_lon, ref_r0] = load_est_ned(est_file);
 [t_truth, pos_truth, vel_truth, acc_truth] = load_truth_ned(truth_file, ref_lat, ref_lon, ref_r0);
 
+% Align time to start at zero for comparison with Task 6
+t_rel = t_est - t_est(1);
+
 pos_truth_i = interp1(t_truth, pos_truth, t_est, 'linear', 'extrap');
 vel_truth_i = interp1(t_truth, vel_truth, t_est, 'linear', 'extrap');
 acc_truth_i = interp1(t_truth, acc_truth, t_est, 'linear', 'extrap');
 
-[res_pos, res_vel, res_acc] = compute_residuals(t_est, pos_est, vel_est, pos_truth_i, vel_truth_i);
+[res_pos, res_vel, res_acc] = compute_residuals(t_rel, pos_est, vel_est, pos_truth_i, vel_truth_i);
 
-plot_residuals(t_est, res_pos, res_vel, res_acc, dataset, output_dir);
+plot_residuals(t_rel, res_pos, res_vel, res_acc, dataset, output_dir);
 
 end
 

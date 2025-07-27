@@ -4,8 +4,8 @@ function task7_plot_error_fused_vs_truth(fused_file, truth_file, output_dir)
 %   TASK7_PLOT_ERROR_FUSED_VS_TRUTH(FUSED_FILE, TRUTH_FILE, OUTPUT_DIR) loads
 %   the fused estimator output in FUSED_FILE and the reference trajectory in
 %   TRUTH_FILE. The difference ``FUSED - Truth`` is computed for each velocity
-%   component and plotted over time. The figure is saved as both PDF and PNG
-%   under OUTPUT_DIR.
+%   component and plotted over time. The time vector starts at zero so results
+%   match Task 6 plots. The figure is saved as both PDF and PNG under OUTPUT_DIR.
 %
 %   Corresponds to src/task7_plot_error_fused_vs_truth.py
 %
@@ -27,6 +27,7 @@ else
 end
 
 time = F.time_s(:);
+time = time - time(1); % align with Task 6
 if isfield(F, 'vel_ned_ms')
     vel_f = F.vel_ned_ms;
 else
