@@ -14,7 +14,7 @@ function task7_ned_residuals_plot(est_file, truth_file, dataset, output_dir)
 %   counterpart ``task7_ned_residuals_plot.py``.
 
 if nargin < 4 || isempty(output_dir)
-    output_dir = 'output_matlab';
+    output_dir = get_results_dir();
 end
 if ~exist(output_dir, 'dir'); mkdir(output_dir); end
 

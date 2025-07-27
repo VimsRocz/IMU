@@ -135,6 +135,9 @@ writetable(T, fullfile(resultsDir,'summary.csv'));
 disp(T);
 
 fprintf('All datasets processed.\n');
+files = dir(fullfile(resultsDir, '*.mat'));
+fprintf('Generated %d result files in %s:\n', numel(files), resultsDir);
+for f = files'; fprintf('  %s\n', f.name); end
 end
 
 

@@ -14,8 +14,9 @@ if numel(imu_files) ~= numel(gnss_files)
     error('Number of IMU and GNSS files must match.');
 end
 
-if ~exist('output_matlab','dir')
-    mkdir('output_matlab');
+results_dir = get_results_dir();
+if ~exist(results_dir,'dir')
+    mkdir(results_dir);
 end
 
 for i = 1:numel(imu_files)
@@ -29,7 +30,7 @@ for i = 1:numel(imu_files)
         fprintf('Running %s + %s with %s...\n', imuFile, gnssFile, method);
         main(imuFile, gnssFile, method);
 
-        result_file = fullfile('output_matlab', sprintf('%s_%s_%s_task5_results.mat',...
+        result_file = fullfile(results_dir, sprintf('%s_%s_%s_task5_results.mat',...
             imuName, gnssName, method));
         if ~isfile(result_file)
             warning('Missing expected output %s', result_file);
@@ -38,8 +39,8 @@ for i = 1:numel(imu_files)
         result = load(result_file);
         var_name = sprintf('result_%s_%s_%s', imuName, gnssName, method);
         assignin('base', var_name, result);
-        save(fullfile('output_matlab',[var_name '.mat']), '-struct', 'result');
-        fprintf('Saved %s\n', fullfile('output_matlab',[var_name '.mat']));
+        save(fullfile(results_dir,[var_name '.mat']), '-struct', 'result');
+        fprintf('Saved %s\n', fullfile(results_dir,[var_name '.mat']));
     end
 end
 

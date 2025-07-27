@@ -18,8 +18,9 @@ MySummary = nan(numel(datasets), numel(metrics));
 for k = 1:numel(datasets)
     ds = datasets{k};
     tag = sprintf('IMU_%s_GNSS_%s_TRIAD', ds, ds);
-    resFile = fullfile('output_matlab', [tag '_task5_results.mat']);
-    t2File  = fullfile('output_matlab', ['Task2_body_' tag '.mat']);
+    res_dir = get_results_dir();
+    resFile = fullfile(res_dir, [tag '_task5_results.mat']);
+    t2File  = fullfile(res_dir, ['Task2_body_' tag '.mat']);
     if ~isfile(resFile)
         error('Missing result file: %s', resFile);
     end

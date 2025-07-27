@@ -16,7 +16,7 @@ function align_and_validate_dtw_task6_task7(est_file, truth_file, output_dir, du
 %   under OUTPUT_DIR and prints summary error statistics.
 
 if nargin < 3 || isempty(output_dir)
-    output_dir = 'output_matlab';
+    output_dir = get_results_dir();
 end
 if nargin < 4 || isempty(duration)
     duration = 1250.0;

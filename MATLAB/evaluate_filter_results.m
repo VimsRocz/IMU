@@ -9,7 +9,7 @@ function evaluate_filter_results(npz_file, output_dir, tag)
 %   Subtasks 7.1-7.5 for clearer debugging output.
 
 if nargin < 2 || isempty(output_dir)
-    output_dir = 'output_matlab';
+    output_dir = get_results_dir();
 end
 if nargin < 3
     tag = '';
@@ -109,7 +109,7 @@ fprintf('--- Task 7, Subtask 7.5: Plotting Truth - Fused differences ---\n');
 if ~any(isnan(truth_pos(:))) && ~any(isnan(pos_interp(:)))
     run_id = strrep(tag, filesep, '_');
     if isempty(run_id); run_id = 'run'; end
-    out_dir = fullfile('output_matlab', 'task7', run_id);
+    out_dir = fullfile(get_results_dir(), 'task7', run_id);
     if ~exist(out_dir, 'dir'); mkdir(out_dir); end
     subtask7_5_diff_plot(t, pos_interp, truth_pos, vel_interp, truth_vel, run_id, out_dir);
 else

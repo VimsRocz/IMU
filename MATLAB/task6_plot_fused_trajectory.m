@@ -13,8 +13,9 @@ if nargin < 4 || isempty(quat_logs)
     quat_logs = struct();
 end
 
-fused_path = fullfile('output_matlab', sprintf('%s_%s_%s.mat', imu_file, gnss_file, method));
-truth_path = fullfile('output_matlab', sprintf('%s_%s_truth.mat', imu_file, gnss_file));
+res_dir   = get_results_dir();
+fused_path = fullfile(res_dir, sprintf('%s_%s_%s.mat', imu_file, gnss_file, method));
+truth_path = fullfile(res_dir, sprintf('%s_%s_truth.mat', imu_file, gnss_file));
 
 if ~isfile(fused_path)
     warning('Missing fused data %s', fused_path);
@@ -92,7 +93,7 @@ for frame_name = {'NED','ECEF'}
     end
     tightfig();
     out_name = sprintf('%s_%s_%s_task6_fused_position_%s', imu_file, gnss_file, method, lower(fr));
-    print(f1, fullfile('output_matlab',[out_name '.pdf']), '-dpdf', '-bestfit');
+    print(f1, fullfile(res_dir,[out_name '.pdf']), '-dpdf', '-bestfit');
     close(f1);
 
     f2 = figure('Visible','off','Position',[100 100 600 700]);
@@ -105,7 +106,7 @@ for frame_name = {'NED','ECEF'}
     end
     tightfig();
     out_name = sprintf('%s_%s_%s_task6_fused_velocity_%s', imu_file, gnss_file, method, lower(fr));
-    print(f2, fullfile('output_matlab',[out_name '.pdf']), '-dpdf', '-bestfit');
+    print(f2, fullfile(res_dir,[out_name '.pdf']), '-dpdf', '-bestfit');
     close(f2);
 end
 
@@ -119,7 +120,7 @@ for i = 1:3
 end
 tightfig();
 out_name = sprintf('%s_%s_%s_task6_position_error_ned', imu_file, gnss_file, method);
-print(f3, fullfile('output_matlab',[out_name '.pdf']), '-dpdf', '-bestfit');
+print(f3, fullfile(res_dir,[out_name '.pdf']), '-dpdf', '-bestfit');
 close(f3);
 
 fprintf('Task 6: %s final position error %.3f m, RMSEpos %.3f m, RMSEvel %.3f m/s\n', ...

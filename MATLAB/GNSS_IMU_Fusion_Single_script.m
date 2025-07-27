@@ -44,7 +44,7 @@ gnss_file = fullfile(root_dir, gnss_files{1});
 [~, imu_name, ~] = fileparts(imu_file);
 
 % Create results directory at repository root
-results_dir = fullfile(root_dir, 'output_matlab');
+results_dir = fullfile(root_dir, 'MATLAB', 'results');
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 
 % Ensure this script's directory is on the MATLAB path

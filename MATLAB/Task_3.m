@@ -19,9 +19,6 @@ if nargin < 3
     method = ''; %#ok<NASGU>  % unused but kept for API compatibility
 end
 
-if ~exist('output_matlab','dir')
-    mkdir('output_matlab');
-end
 if ~isfile(gnss_path)
     error('Task_3:GNSSFileNotFound', ...
           'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
