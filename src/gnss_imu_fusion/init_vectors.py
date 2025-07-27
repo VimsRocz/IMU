@@ -176,7 +176,27 @@ def compute_wahba_errors(
     g_ref_ned: np.ndarray,
     omega_ref_ned: np.ndarray,
 ) -> Tuple[float, float]:
-    """Return gravity and Earth-rate angle errors for a DCM."""
+    """Return gravity and Earth-rate angle errors for a body->NED DCM.
+
+    Parameters
+    ----------
+    C_bn : np.ndarray
+        Direction cosine matrix rotating vectors from the body frame to NED.
+    g_body : np.ndarray
+        Gravity vector measured in the body frame.
+    omega_ie_body : np.ndarray
+        Earth rotation vector measured in the body frame.
+    g_ref_ned : np.ndarray
+        Reference gravity vector in NED coordinates.
+    omega_ref_ned : np.ndarray
+        Reference Earth rotation vector in NED coordinates.
+
+    Notes
+    -----
+    Both ``omega_pred_ned`` and ``omega_ref_ned`` are expressed in the NED frame
+    so that the returned ``earth_err`` directly compares the two.  The function
+    mirrors the MATLAB version to maintain cross-language parity.
+    """
     g_pred_ned = C_bn @ g_body
     omega_pred_ned = C_bn @ omega_ie_body
     grav_err = angle_between(g_pred_ned, g_ref_ned)
