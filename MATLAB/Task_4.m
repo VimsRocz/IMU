@@ -237,16 +237,6 @@ gyro_body_corrected = struct();
 acc_biases = struct();
 gyro_biases = struct();
 scale_factors = struct();
-switch upper(imu_name)
-    case 'IMU_X001'
-        dataset_acc_bias = [0.57755067; -6.8366253; 0.91021879];
-    case 'IMU_X002'
-        dataset_acc_bias = [0.57757295; -6.83671274; 0.91029003];
-    case 'IMU_X003'
-        dataset_acc_bias = [0.58525893; -6.8367178; 0.9084152];
-    otherwise
-        dataset_acc_bias = [];
-end
 
 for i = 1:length(methods)
     method = methods{i};
@@ -259,9 +249,6 @@ for i = 1:length(methods)
     % Compute biases using the static interval as in the Python pipeline
     % Accelerometer bias: static_acc should equal -g_body_expected
     acc_bias = static_acc' + g_body_expected;
-    if ~isempty(dataset_acc_bias)
-        acc_bias = dataset_acc_bias;
-    end
     % Gyroscope bias: static_gyro should equal expected earth rate in body frame
     omega_ie_body_expected = C_N_B * omega_ie_NED;
     gyro_bias = static_gyro' - omega_ie_body_expected;

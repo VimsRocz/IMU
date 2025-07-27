@@ -99,7 +99,14 @@ end
 % ================================
 fprintf('\nSubtask 1.2: Defining gravity vector in NED frame.\n');
 
-% Compute gravity magnitude using WGS-84 model and print validation line
+% Use the same gravity magnitude as the Python implementation. This value
+% comes from the WGS-84 normal gravity formula evaluated at the initial
+% latitude and altitude of the dataset. It ensures cross-language
+% consistency when comparing results.
+g_NED = [0; 0; constants.GRAVITY];
+
+% Print validation line to mirror the Python script behaviour
+fprintf('Gravity magnitude set to %.8f m/s^2\n', constants.GRAVITY);
 
 
 % ================================
