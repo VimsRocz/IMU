@@ -139,104 +139,15 @@ fprintf('\nSubtask 2.2: Estimating static body-frame vectors using a low-motion 
 acc = acc_increments / dt_imu;  % m/s^2
 gyro = gyro_increments / dt_imu; % rad/s
 
-% --- Apply a zero-phase Butterworth low-pass filter (inlined logic) ---
+% --- Low-pass filter IMU data to match Python preprocessing ---
 fprintf('Applying low-pass filter to accelerometer and gyroscope data.\n');
 fs = 1/dt_imu;
-cutoff = 5.0;
-order = 4;
-nyquist_freq = 0.5 * fs;
-normal_cutoff = cutoff / nyquist_freq;
+acc_filt = low_pass_filter(acc, 10, fs);   % 10 Hz cut-off by default
+gyro_filt = low_pass_filter(gyro, 10, fs);
 
-% Refresh toolbox cache and check for Signal Processing Toolbox license
-rehash toolboxcache
-has_signal_toolbox = license('test', 'Signal_Toolbox') && ...
-                      exist('filtfilt','file') == 2 && exist('butter','file') == 2;
-has_movmean = exist('movmean','file') == 2;
-
-if has_signal_toolbox
-    [b, a] = butter(order, normal_cutoff, 'low');
-    acc_filt = filtfilt(b, a, acc);
-    gyro_filt = filtfilt(b, a, gyro);
-else
-    if exist('basic_butterworth_filter','file') == 2
-        warning('Butter/filtfilt unavailable. Using basic\_butterworth\_filter.');
-        acc_filt = basic_butterworth_filter(acc, cutoff, fs, order);
-        gyro_filt = basic_butterworth_filter(gyro, cutoff, fs, order);
-    elseif has_movmean
-        warning('Butter/filtfilt unavailable. Using movmean for low-pass filtering.');
-        win = max(1, round(fs * 0.05));
-        acc_filt = movmean(acc, win, 1, 'Endpoints','shrink');
-        gyro_filt = movmean(gyro, win, 1, 'Endpoints','shrink');
-    else
-        warning('Butter/filtfilt unavailable. Using manual moving average filter.');
-        win = max(1, round(fs * 0.05));
-        kernel = ones(win,1) / win;
-        [~, numAxes] = size(acc);
-        acc_filt = zeros(size(acc));
-        gyro_filt = zeros(size(gyro));
-        for ax = 1:numAxes
-            acc_filt(:,ax) = conv(acc(:,ax), kernel, 'same');
-            gyro_filt(:,ax) = conv(gyro(:,ax), kernel, 'same');
-        end
-    end
-end
-
-% --- Detect a static interval automatically (inlined logic) ---
+% --- Detect a static interval automatically ---
 fprintf('Detecting static interval using variance thresholds...\n');
-window_size = 80;
-accel_var_thresh = 0.01;    % match Python implementation
-gyro_var_thresh  = 1e-6;    % match Python implementation
-min_length = 80;
-
-% Use movvar if available, otherwise fall back to manual variance loop
-if exist('movvar','file') == 2
-    % Use population variance (w=1) for consistency with Python implementation
-    accel_var = movvar(acc_filt, window_size, 1, 'Endpoints', 'discard');
-    gyro_var  = movvar(gyro_filt, window_size, 1, 'Endpoints', 'discard');
-else
-    warning('movvar unavailable. Using manual (slower) moving variance calculation.');
-
-    if size(acc_filt,1) < window_size
-        warning('window_size (%d) larger than data length (%d). Adjusting window size.', ...
-            window_size, size(acc_filt,1));
-        window_size = size(acc_filt,1);
-    end
-    num_windows = size(acc_filt, 1) - window_size + 1;
-    accel_var = zeros(num_windows, size(acc_filt, 2));
-    gyro_var = zeros(num_windows, size(gyro_filt, 2));
-    for i = 1:num_windows
-        % Population variance to mirror Python's np.var default (ddof=0)
-        accel_var(i,:) = var(acc_filt(i:i+window_size-1, :), 1, 1);
-        gyro_var(i,:) = var(gyro_filt(i:i+window_size-1, :), 1, 1);
-    end
-end
-
-is_acc_static = all(accel_var < accel_var_thresh, 2);
-is_gyro_static = all(gyro_var < gyro_var_thresh, 2);
-is_static_window = is_acc_static & is_gyro_static;
-
-% Find the first contiguous block of static windows of at least min_length
-start_idx = -1;
-is_static_window_ext = [0; is_static_window; 0];
-diff_static = diff(is_static_window_ext);
-block_starts = find(diff_static == 1);
-block_ends = find(diff_static == -1) - 1;
-
-for k = 1:length(block_starts)
-    if (block_ends(k) - block_starts(k) + 1) >= min_length
-        start_idx = block_starts(k);
-        end_idx = block_ends(k) + window_size - 1;
-        break; % Use the first valid block
-    end
-end
-
-% Fallback if no suitable interval is found
-if start_idx == -1
-    warning('Could not find a suitable static interval. Using first samples as a fallback.');
-    start_idx = 1;
-    end_idx = 4000;
-    if size(acc_filt, 1) < end_idx, end_idx = size(acc_filt, 1); end
-end
+[start_idx, end_idx] = detect_static_interval(acc_filt, gyro_filt);
 
 % Use the automatically detected static interval
 % The Python reference implementation selects a short early segment
@@ -280,6 +191,10 @@ end
 g_norm = norm(static_acc_row);
 fprintf('Estimated gravity magnitude from IMU: %.4f m/s^2 (expected ~%.2f)\n', ...
         g_norm, norm(g_NED));
+is_grav_ok = validate_gravity_vector(acc_filt, start_idx, end_idx);
+if ~is_grav_ok
+    warning('Measured gravity magnitude deviates from expected value.');
+end
 
 % --- Simple accelerometer scale calibration ---
 scale_factor = 1.0;
