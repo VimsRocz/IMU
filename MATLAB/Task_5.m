@@ -215,11 +215,23 @@ q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
 
     % Gravity vector in NED frame from Task 1 initialization if available
     % Prefer the method-specific filename but fall back to a generic one
+    % Task 1 results may be saved under two naming schemes. First check the
+    % legacy ``Task1_init_*`` file, then fall back to the unified
+    % ``*_task1_results`` produced by ``save_task_results``.
     task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
     if ~isfile(task1_file)
         alt_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
         if isfile(alt_file)
             task1_file = alt_file;
+        else
+            % Look for the newer naming convention
+            alt_file = fullfile(results_dir, sprintf('%s_task1_results.mat', tag));
+            if ~isfile(alt_file)
+                alt_file = fullfile(results_dir, sprintf('%s_task1_results.mat', pair_tag));
+            end
+            if isfile(alt_file)
+                task1_file = alt_file;
+            end
         end
     end
 
@@ -227,12 +239,14 @@ q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
         init_data = load(task1_file);
         if isfield(init_data, 'g_NED')
             g_NED = init_data.g_NED;
-            fprintf('Loaded gravity from %s\n', task1_file);
+        elseif isfield(init_data, 'results') && isfield(init_data.results, 'g_NED')
+            g_NED = init_data.results.g_NED;
         else
             warning('Task_5:MissingField', ...
                 'File %s does not contain g_NED. Using default gravity.', task1_file);
             g_NED = [0; 0; constants.GRAVITY];
         end
+        fprintf('Loaded gravity from %s\n', task1_file);
     else
         warning('Task_5:MissingTask1', ...
             'Task 1 output not found; using constants.GRAVITY.');
