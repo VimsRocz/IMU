@@ -27,6 +27,7 @@ from velocity_utils import derive_velocity
 # helper functions
 # ---------------------------------------------------------------------------
 
+
 def ned_to_ecef(
     pos_ned: np.ndarray,
     vel_ned: np.ndarray,
@@ -49,11 +50,10 @@ def ned_to_ecef(
     return pos_ecef, vel_ecef
 
 
-
-
 # ---------------------------------------------------------------------------
 # plotting
 # ---------------------------------------------------------------------------
+
 
 def plot_task6_fused_trajectory(
     method: str,
@@ -98,7 +98,10 @@ def plot_task6_fused_trajectory(
         truth_vel_ned = truth_data["vel_ned_ms"]
         if len(truth_vel_ned) != len(fused_time):
             truth_vel_ned = np.vstack(
-                [np.interp(fused_time, truth_time, truth_vel_ned[:, i]) for i in range(3)]
+                [
+                    np.interp(fused_time, truth_time, truth_vel_ned[:, i])
+                    for i in range(3)
+                ]
             ).T
     else:
         print("Warning: deriving truth velocity from position")
@@ -124,53 +127,71 @@ def plot_task6_fused_trajectory(
         "NED": (fused_pos_ned, fused_vel_ned, truth_pos_ned, truth_vel_ned),
         "ECEF": (fused_pos_ecef, fused_vel_ecef, truth_pos_ecef, truth_vel_ecef),
     }.items():
-        plt.figure(figsize=(10, 8))
-        for i, lbl in enumerate(["X", "Y", "Z"] if frame_name == "ECEF" else ["North", "East", "Down"]):
-            plt.subplot(3, 1, i + 1)
-            plt.plot(fused_time, p_f[:, i], label=f"{method} Fused", color="blue")
-            plt.plot(fused_time, p_t[:, i], label="Truth", color="red", linestyle="--")
-            plt.title(f"{method} Position {lbl} ({frame_name}, m)")
-            plt.xlabel("Time (s)")
-            plt.ylabel("Position (m)")
-            plt.legend()
-            plt.grid(True)
-        plt.tight_layout()
+        fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+        axis_labels = (
+            ["X", "Y", "Z"] if frame_name == "ECEF" else ["North", "East", "Down"]
+        )
+        for i, lbl in enumerate(axis_labels):
+            ax = axes[i]
+            ax.plot(fused_time, p_f[:, i], label=f"{method} Fused", color="blue")
+            ax.plot(
+                fused_time,
+                p_t[:, i],
+                label="Truth",
+                color="red",
+                linestyle="--",
+            )
+            ax.set_ylabel(f"{lbl} [m]")
+            ax.grid(True)
+            if i == 0:
+                ax.legend()
+        axes[-1].set_xlabel("Time [s]")
+        fig.suptitle(f"Task 6: {method} Position ({frame_name} Frame)")
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
         out_name = (
             f"{imu_file}_{gnss_file}_{method}_task6_fused_position_{frame_name.lower()}"
         )
-        plt.savefig(Path("results") / f"{out_name}.pdf")
-        plt.close()
+        fig.savefig(Path("results") / f"{out_name}.pdf")
+        plt.close(fig)
 
-        plt.figure(figsize=(10, 8))
-        for i, lbl in enumerate(["X", "Y", "Z"] if frame_name == "ECEF" else ["North", "East", "Down"]):
-            plt.subplot(3, 1, i + 1)
-            plt.plot(fused_time, v_f[:, i], label=f"{method} Fused", color="blue")
-            plt.plot(fused_time, v_t[:, i], label="Truth", color="red", linestyle="--")
-            plt.title(f"{method} Velocity {lbl} ({frame_name}, m/s)")
-            plt.xlabel("Time (s)")
-            plt.ylabel("Velocity (m/s)")
-            plt.legend()
-            plt.grid(True)
-        plt.tight_layout()
+        fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+        for i, lbl in enumerate(axis_labels):
+            ax = axes[i]
+            ax.plot(fused_time, v_f[:, i], label=f"{method} Fused", color="blue")
+            ax.plot(
+                fused_time,
+                v_t[:, i],
+                label="Truth",
+                color="red",
+                linestyle="--",
+            )
+            ax.set_ylabel(f"{lbl} [m/s]")
+            ax.grid(True)
+            if i == 0:
+                ax.legend()
+        axes[-1].set_xlabel("Time [s]")
+        fig.suptitle(f"Task 6: {method} Velocity ({frame_name} Frame)")
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
         out_name = (
             f"{imu_file}_{gnss_file}_{method}_task6_fused_velocity_{frame_name.lower()}"
         )
-        plt.savefig(Path("results") / f"{out_name}.pdf")
-        plt.close()
+        fig.savefig(Path("results") / f"{out_name}.pdf")
+        plt.close(fig)
 
-    plt.figure(figsize=(10, 8))
+    fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
     for i, lbl in enumerate(["North", "East", "Down"]):
-        plt.subplot(3, 1, i + 1)
-        plt.plot(fused_time, error_pos[:, i], label=f"{method} Error", color="green")
-        plt.title(f"{method} Position Error {lbl} (NED, m)")
-        plt.xlabel("Time (s)")
-        plt.ylabel("Error (m)")
-        plt.legend()
-        plt.grid(True)
-    plt.tight_layout()
+        ax = axes[i]
+        ax.plot(fused_time, error_pos[:, i], label=f"{method} Error", color="green")
+        ax.set_ylabel(f"{lbl} Error [m]")
+        ax.grid(True)
+        if i == 0:
+            ax.legend()
+    axes[-1].set_xlabel("Time [s]")
+    fig.suptitle(f"Task 6: {method} Position Error (NED Frame)")
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
     out_name = f"{imu_file}_{gnss_file}_{method}_task6_position_error_ned"
-    plt.savefig(Path("results") / f"{out_name}.pdf")
-    plt.close()
+    fig.savefig(Path("results") / f"{out_name}.pdf")
+    plt.close(fig)
 
     print(
         f"Task 6: {method} final position error {final_err:.3f} m, "
@@ -186,25 +207,28 @@ def plot_quaternion_comparison(
     if not quat_logs:
         print("No quaternion logs available for comparison")
         return
-    plt.figure(figsize=(10, 8))
+    fig, axes = plt.subplots(4, 1, figsize=(10, 8), sharex=True)
     labels = ["qw", "qx", "qy", "qz"]
     colors = ["blue", "red", "green", "purple"]
     for i, (lbl, col) in enumerate(zip(labels, colors)):
-        plt.subplot(4, 1, i + 1)
+        ax = axes[i]
         for method, q in quat_logs.items():
             time_s = sio.loadmat(
                 Path("results") / f"{imu_file}_{gnss_file}_{method}.mat"
             )["time_s"].squeeze()
-            plt.plot(time_s, q[:, i], label=method)
-        plt.title(f"Quaternion Component {lbl}")
-        plt.xlabel("Time (s)")
-        plt.ylabel(lbl)
-        plt.legend()
-        plt.grid(True)
-    plt.tight_layout()
-    out_path = Path("results") / f"{imu_file}_{gnss_file}_task6_quaternion_comparison.pdf"
-    plt.savefig(out_path)
-    plt.close()
+            ax.plot(time_s, q[:, i], label=method)
+        ax.set_ylabel(lbl)
+        ax.grid(True)
+        if i == 0:
+            ax.legend()
+    axes[-1].set_xlabel("Time [s]")
+    fig.suptitle("Task 6: Quaternion Components")
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    out_path = (
+        Path("results") / f"{imu_file}_{gnss_file}_task6_quaternion_comparison.pdf"
+    )
+    fig.savefig(out_path)
+    plt.close(fig)
     print(f"Saved quaternion comparison to {out_path}")
 
 
@@ -220,7 +244,9 @@ def main() -> None:
         quat_logs: Dict[str, np.ndarray] = {}
         for method in methods:
             print(f"Processing {imu_file}_{gnss_file}_{method}")
-            quat_logs = plot_task6_fused_trajectory(method, imu_file, gnss_file, quat_logs)
+            quat_logs = plot_task6_fused_trajectory(
+                method, imu_file, gnss_file, quat_logs
+            )
         plot_quaternion_comparison(imu_file, gnss_file, quat_logs)
 
 
