@@ -161,7 +161,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
         results.append(
             {
-                "dataset": pathlib.Path(imu).stem,
+                "dataset": pathlib.Path(imu_file).stem,
                 "method": kv.get("method", method),
                 "rmse_pos": float(kv.get("rmse_pos", "nan").replace("m", "")),
                 "final_pos": float(kv.get("final_pos", "nan").replace("m", "")),
