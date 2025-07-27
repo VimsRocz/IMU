@@ -172,7 +172,17 @@ function [t, pos, vel, acc, lat, lon, r0] = load_est(file)
             elseif isfield(S,'imu_time')
                 t = S.imu_time(:);
             else
-                t = (0:size(S.pos_ecef,1)-1)';
+                % Derive the time vector from any available position field
+                if isfield(S,'pos_ecef_m')
+                    len = size(S.pos_ecef_m,1);
+                elseif isfield(S,'pos_ecef')
+                    len = size(S.pos_ecef,1);
+                elseif isfield(S,'pos_ned')
+                    len = size(S.pos_ned,1);
+                else
+                    error('Task7:BadData','Estimate lacks position data');
+                end
+                t = (0:len-1)';
             end
             if isfield(S,'pos_ecef_m')
                 pos = S.pos_ecef_m;
