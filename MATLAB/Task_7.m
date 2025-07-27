@@ -46,7 +46,12 @@ function summary = Task_7(task5_file, truth_file)
     if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
     fprintf('--- Running Task 7 residual analysis for %s ---\n', run_id);
-    summary = task7_fused_truth_error_analysis(task5_file, truth_file, out_dir);
+    try
+        summary = task7_fused_truth_error_analysis(task5_file, truth_file, out_dir);
+    catch ME
+        fprintf('Task 7 error: %s\n', ME.message);
+        summary = struct();
+    end
     if ~isempty(fieldnames(summary))
         save_task_results(summary, imu_name, gnss_name, method, 7);
     end

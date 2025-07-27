@@ -230,6 +230,7 @@ function plot_residuals(t, res_pos, res_vel, out_dir)
     pdf = fullfile(out_dir,'task7_3_residuals_position_velocity.pdf');
     print(f,pdf,'-dpdf','-bestfit');
     close(f);
+    fprintf('Saved %s\n', pdf);
 end
 
 % -------------------------------------------------------------------------
@@ -244,4 +245,5 @@ function plot_norms(t, res_pos, res_vel, res_acc, out_dir)
     pdf = fullfile(out_dir,'task7_3_error_norms.pdf');
     print(f,pdf,'-dpdf','-bestfit');
     close(f);
+    fprintf('Saved %s\n', pdf);
 end

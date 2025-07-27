@@ -283,6 +283,11 @@ for i = 1:length(methods)
     fprintf('Method %s: Accelerometer scale factor: %.4f\n', method, scale);
 end
 fprintf('-> IMU data corrected for bias and scale for each method.\n');
+for i = 1:length(methods)
+    m = methods{i};
+    fprintf('Task 4: applied accelerometer scale factor = %.4f, bias = [% .4f % .4f % .4f]\n', ...
+        scale_factors.(m), acc_biases.(m));
+end
 
 %% ========================================================================
 % Subtask 4.10: Set IMU Parameters and Gravity Vector

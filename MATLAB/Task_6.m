@@ -49,6 +49,7 @@ if ~isfield(S, 'x_log')
     catch ME
         warning('Task_6:ReconstructFailed', ...
             'Failed to reconstruct x_log: %s. Overlay skipped.', ME.message);
+        fprintf('Task 6 overlay skipped: %s\n', ME.message);
         return
     end
 end
@@ -223,6 +224,12 @@ plot_overlay('Body', run_id, t_est, pos_body, vel_body, acc_body, ...
     't_truth', t_est, 'pos_truth', pos_truth_body, ...
     'vel_truth', vel_truth_body, 'acc_truth', acc_truth_body, ...
     'filename', sprintf('%s_task6_overlay_state_Body', run_id));
+
+files = dir(fullfile(out_dir, sprintf('%s_task6_overlay_state_*.pdf', run_id)));
+fprintf('Task 6 overlay plots saved under: %s\n', out_dir);
+for k = 1:numel(files)
+    fprintf('  - %s\n', files(k).name);
+end
 
 % ------------------------------------------------------------------
 % Compute overlay metrics for summary tables
