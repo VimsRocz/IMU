@@ -1,7 +1,9 @@
 
 %
-%   The script assumes the dataset files ``IMU_X001.dat`` and
-%   ``GNSS_X001.csv`` are located in the current working directory.
+%   The script assumes the dataset files ``IMU_X002.dat`` and
+%   ``GNSS_X002.csv`` are located in the ``Data/`` directory relative to the
+%   repository root. The helper ``check_files`` verifies the paths before
+%   loading.
 %
 % Sections:
 %   1. DATA LOADING
@@ -13,10 +15,11 @@
 % plots, logs and results match between MATLAB and Python.
 
 %% DATA LOADING
-imu_file  = 'IMU_X001.dat';
-gnss_file = 'GNSS_X001.csv';
+imu_file  = 'IMU_X002.dat';
+gnss_file = 'GNSS_X002.csv';
 
-imu_data = readmatrix(imu_file);
+[imu_path, gnss_path] = check_files(imu_file, gnss_file);
+imu_data = readmatrix(imu_path);
 time_s   = imu_data(:,2);
 gyro_inc = imu_data(:,3:5);
 acc_inc  = imu_data(:,6:8);
@@ -36,7 +39,7 @@ static_gyro = mean(gyro(1:N,:),1)';
 fprintf('Using first %d IMU samples for static interval.\n', N);
 
 %% REFERENCE VECTORS
-Tgnss = readtable(gnss_file);
+Tgnss = readtable(gnss_path);
 idx = find(Tgnss.X_ECEF_m ~= 0 | Tgnss.Y_ECEF_m ~= 0 | Tgnss.Z_ECEF_m ~= 0, 1, 'first');
 [x_ecef,y_ecef,z_ecef] = deal(Tgnss.X_ECEF_m(idx), Tgnss.Y_ECEF_m(idx), Tgnss.Z_ECEF_m(idx));
 [lat_deg, lon_deg, h_m] = ecef2geodetic(x_ecef, y_ecef, z_ecef);
@@ -63,7 +66,7 @@ fprintf('Euler angles [deg]: roll=%.2f pitch=%.2f yaw=%.2f\n', ...
     eul_deg(1), eul_deg(2), eul_deg(3));
 
 %% OUTPUT
-out_dir = fullfile('output_matlab', 'IMU_X001_GNSS_X001_TRIAD');
+out_dir = fullfile('output_matlab', 'IMU_X002_GNSS_X002_TRIAD');
 if ~exist(out_dir,'dir'); mkdir(out_dir); end
 
 save(fullfile(out_dir,'initial_attitude.mat'), 'C_B_N', 'q_bn', 'eul_deg', ...
@@ -118,4 +121,23 @@ function R = quat_to_rot(q)
     R = [1-2*(qy^2+qz^2), 2*(qx*qy - qw*qz), 2*(qx*qz + qw*qy);
          2*(qx*qy + qw*qz), 1-2*(qx^2 + qz^2), 2*(qy*qz - qw*qx);
          2*(qx*qz - qw*qy), 2*(qy*qz + qw*qx), 1-2*(qx^2 + qy^2)];
+end
+
+function [imu_path, gnss_path] = check_files(imu_file, gnss_file)
+%CHECK_FILES  Return validated paths for IMU and GNSS data files.
+    data_dir = 'Data';
+    imu_path = fullfile(data_dir, imu_file);
+    gnss_path = fullfile(data_dir, gnss_file);
+    if ~exist(imu_path, 'file')
+        imu_path = imu_file;
+    end
+    if ~exist(gnss_path, 'file')
+        gnss_path = gnss_file;
+    end
+    if ~exist(imu_path, 'file')
+        error('File not found: %s', imu_path);
+    end
+    if ~exist(gnss_path, 'file')
+        error('File not found: %s', gnss_path);
+    end
 end
