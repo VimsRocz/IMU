@@ -4,7 +4,7 @@
 
 ## Overview
 
-The script loads residual and attitude data, computes basic statistics and writes figures under ``results/task7/<TAG>/``.
+The script loads residual and attitude data, computes basic statistics and writes figures under ``results/<TAG>/``.
 
 ## Subtasks
 

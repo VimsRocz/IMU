@@ -6,7 +6,7 @@ Usage:
         --output-dir results
 
 This implements the functionality of ``task7_ned_residuals_plot.m`` from the
-MATLAB code base. Figures are written under ``results/task7/<dataset>/``.
+MATLAB code base. Figures are written under ``results/<dataset>/``.
 """
 
 from __future__ import annotations
@@ -188,7 +188,7 @@ def main() -> None:
         t_est, pos_est, vel_est, pos_truth_i, vel_truth_i
     )
 
-    out_dir = args.output_dir / "task7" / args.dataset
+    out_dir = args.output_dir / args.dataset
     plot_residuals(t_est, res_pos, res_vel, res_acc, args.dataset, out_dir)
 
 

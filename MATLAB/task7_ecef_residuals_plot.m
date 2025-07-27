@@ -11,7 +11,7 @@ function task7_ecef_residuals_plot(est_file, imu_file, gnss_file, truth_file, da
 if nargin < 6 || isempty(output_dir)
     output_dir = 'output_matlab';
 end
-out_dir = fullfile(output_dir, 'task7', dataset);
+out_dir = fullfile(output_dir, dataset);
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
 [t_est, pos_est, vel_est, ~] = load_est(est_file);

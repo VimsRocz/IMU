@@ -8,8 +8,8 @@ Usage:
 This script loads a fused estimator output file and a ground truth
 trajectory, interpolates the truth to the estimator time vector and
 plots position, velocity and acceleration residuals. Figures are saved
-as PDF and PNG under ``results/task7/<dataset>/`` within the chosen
-output directory.
+as PDF and PNG under ``results/<tag>/`` within the chosen output
+directory, where ``tag`` combines the dataset, GNSS file and method.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from validate_with_truth import load_estimate, assemble_frames
+from naming import make_tag, plot_filename
 
 
 def compute_residuals(
@@ -129,7 +130,8 @@ def main() -> None:
         t_est, pos_est, vel_est, pos_truth, vel_truth
     )
 
-    out_dir = output_dir(7, args.dataset, args.gnss, args.method, args.output_dir)
+    tag = make_tag(args.dataset, args.gnss, args.method)
+    out_dir = Path(args.output_dir) / tag
     plot_residuals(
         t_est,
         res_pos,
