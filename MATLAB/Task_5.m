@@ -550,6 +550,10 @@ end % End of main function
 %  LOCAL HELPER FUNCTIONS
 % =========================================================================
     function q_new = propagate_quaternion(q_old, w, dt)
+        %PROPAGATE_QUATERNION Propagate quaternion using angular rate.
+        %   Q_NEW = PROPAGATE_QUATERNION(Q_OLD, W, DT) integrates the rate
+        %   vector W over DT and multiplies the result with Q_OLD.  The output
+        %   quaternion is not normalised.
         w_norm = norm(w);
         if w_norm > 1e-9
             axis = w / w_norm;
@@ -562,6 +566,9 @@ end % End of main function
     end
 
     function q_out = quat_multiply(q1, q2)
+        %QUAT_MULTIPLY Hamilton product of two quaternions.
+        %   Q_OUT = QUAT_MULTIPLY(Q1, Q2) multiplies Q1 by Q2 using the
+        %   [w x y z] convention.
         w1 = q1(1); x1 = q1(2); y1 = q1(3); z1 = q1(4);
         w2 = q2(1); x2 = q2(2); y2 = q2(3); z2 = q2(4);
         q_out = [w1*w2 - x1*x2 - y1*y2 - z1*z2;
@@ -571,6 +578,9 @@ end % End of main function
     end
 
     function euler = quat_to_euler(q)
+        %QUAT_TO_EULER Convert quaternion to XYZ Euler angles.
+        %   EULER = QUAT_TO_EULER(Q) returns [roll; pitch; yaw] in radians for
+        %   the quaternion Q = [w x y z].
         w = q(1); x = q(2); y = q(3); z = q(4);
         sinr_cosp = 2 * (w * x + y * z);
         cosr_cosp = 1 - 2 * (x * x + y * y);
@@ -590,6 +600,8 @@ end % End of main function
     end
 
     function R = quat_to_rot(q)
+        %QUAT_TO_ROT Convert quaternion to rotation matrix.
+        %   R = QUAT_TO_ROT(Q) converts Q = [w x y z] into a 3×3 rotation matrix.
         qw = q(1); qx = q(2); qy = q(3); qz = q(4);
         R = [1 - 2 * (qy^2 + qz^2), 2 * (qx*qy - qw*qz), 2 * (qx*qz + qw*qy);
              2 * (qx*qy + qw*qz), 1 - 2 * (qx^2 + qz^2), 2 * (qy*qz - qw*qx);
@@ -597,6 +609,9 @@ end % End of main function
     end
 
     function q = rot_to_quaternion(R)
+        %ROT_TO_QUATERNION Convert rotation matrix to quaternion.
+        %   Q = ROT_TO_QUATERNION(R) converts R to a [w x y z] quaternion and
+        %   normalises the result with positive scalar part.
         tr = trace(R);
         if tr > 0
             S = sqrt(tr + 1.0) * 2;
@@ -629,17 +644,28 @@ end % End of main function
     end
 
     function is_stat = is_static(acc, gyro)
+        %IS_STATIC True if IMU window variance is below thresholds.
+        %   IS_STATIC = IS_STATIC(ACC, GYRO) returns true when the maximum
+        %   variance of the accelerometer and gyroscope windows are below the
+        %   hard-coded thresholds (0.01 and 1e-6).  Mirrors ``utils.is_static``.
         acc_thresh = 0.01; gyro_thresh = 1e-6;
         is_stat = all(var(acc,0,1) < acc_thresh) && ...
                    all(var(gyro,0,1) < gyro_thresh);
     end
 
     function deg = angle_between(v1, v2)
+        %ANGLE_BETWEEN Angle between two 3-D vectors in degrees.
+        %   DEG = ANGLE_BETWEEN(V1, V2) mirrors ``init_vectors.angle_between``.
         cos_theta = max(min(dot(v1, v2) / (norm(v1) * norm(v2)), 1.0), -1.0);
         deg = acosd(cos_theta);
     end
 
     function [grav_err, earth_err] = compute_wahba_errors(C_bn, g_b, omega_b, g_ref, omega_ref)
+        %COMPUTE_WAHBA_ERRORS Angular errors for gravity and Earth rate.
+        %   [EG, EO] = COMPUTE_WAHBA_ERRORS(C_BN, G_B, OMEGA_B, G_REF, OMEGA_REF)
+        %   returns the angle between measured and reference gravity vectors and
+        %   between Earth rotation vectors, matching the Python helper of the
+        %   same name.
         g_pred = C_bn * g_b;
         omega_pred = C_bn * omega_b;
         grav_err = angle_between(g_pred, g_ref);
@@ -647,6 +673,9 @@ end % End of main function
     end
 
     function R = euler_to_rot(eul)
+        %EULER_TO_ROT Convert XYZ Euler angles to Body->NED DCM.
+        %   R = EULER_TO_ROT(EUL) mirrors ``utils.euler_to_rot``. EUL is a
+        %   three-element vector ``[roll pitch yaw]`` in radians.
         cr = cos(eul(1)); sr = sin(eul(1));
         cp = cos(eul(2)); sp = sin(eul(2));
         cy = cos(eul(3)); sy = sin(eul(3));
@@ -656,6 +685,8 @@ end % End of main function
     end
 
     function plot_task5_mixed_frame(t, pos_ned, vel_ned, acc_ned, eul_log, C_E_N, r0, g_N, tag, method, results_dir, all_file)
+        %PLOT_TASK5_MIXED_FRAME Plot ECEF position/velocity and body accel.
+        %   Saves a multi-panel figure using the given METHOD and TAG.
         pos_ecef = (C_E_N' * pos_ned) + r0;
         vel_ecef = C_E_N' * vel_ned;
         N = size(acc_ned,2);
@@ -684,6 +715,7 @@ end % End of main function
     end
 
     function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_gnss, vel_gnss, acc_gnss, method)
+        %PLOT_TASK5_NED_FRAME Plot fused vs GNSS data in the NED frame.
         labels = {'North','East','Down'};
         figure('Name','Task5 NED Frame','Position',[100 100 1200 900]);
         for k = 1:3
@@ -706,6 +738,7 @@ end % End of main function
     end
 
     function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_ecef, vel_ecef, acc_ecef, C_E_N, r0, method)
+        %PLOT_TASK5_ECEF_FRAME Plot fused vs GNSS data in the ECEF frame.
         labels = {'X','Y','Z'};
         pos_fused = (C_E_N' * pos_ned) + r0;
         vel_fused = C_E_N' * vel_ned;
@@ -731,6 +764,7 @@ end % End of main function
     end
 
     function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, eul_log, t_gnss, pos_gnss_ned, vel_gnss_ned, acc_gnss_ned, method, g_N)
+        %PLOT_TASK5_BODY_FRAME Plot fused results in body frame coordinates.
         labels = {'X','Y','Z'};
         N = size(pos_ned,2);
         pos_body = zeros(3,N); vel_body = zeros(3,N); acc_body = zeros(3,N);
@@ -770,6 +804,7 @@ end % End of main function
     end
 
     function plot_task5_ecef_truth(t, pos_ned, vel_ned, acc_ned, state_file, C_E_N, r0, method)
+        %PLOT_TASK5_ECEF_TRUTH Overlay fused output with provided truth data.
         if ~exist(state_file,'file'); return; end
         truth = readmatrix(state_file);
         t_truth = truth(:,2);
