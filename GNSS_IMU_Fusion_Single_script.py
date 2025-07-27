@@ -5,6 +5,7 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import os
 import argparse
+from pathlib import Path
 
 # --- plotting output configuration ----------------------------------------
 os.makedirs("results", exist_ok=True)
@@ -167,12 +168,13 @@ ax.text(
 
 # Set plot title and save
 plt.title("Initial Location on Earth Map")
-plt.savefig(f"results/{TAG}_location_map.pdf")
+loc_pdf = Path("results") / f"{TAG}_task1_location_map.pdf"
+plt.savefig(loc_pdf)
 if INTERACTIVE:
     plt.show()
 plt.close()
 
-logging.info(f"Location map saved as 'results/{TAG}_location_map.pdf'")
+logging.info(f"Location map saved as '{loc_pdf}'")
 
 
 # ================================

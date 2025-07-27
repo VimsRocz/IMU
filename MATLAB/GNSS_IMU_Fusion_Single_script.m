@@ -91,7 +91,7 @@ plot(coastlon, coastlat, 'k.'); hold on; grid on;
 plot(lon0, lat0, 'ro','MarkerSize',8,'LineWidth',2);
 title('Initial Location'); xlabel('Longitude'); ylabel('Latitude');
 set(gcf,'PaperPositionMode','auto');
-loc_file = fullfile(results_dir, 'Task1_location_map.pdf');
+loc_file = fullfile(results_dir, 'task1_location_map.pdf');
 saveas(fig, loc_file);
 close(fig);
 

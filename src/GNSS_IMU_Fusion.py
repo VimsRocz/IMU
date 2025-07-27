@@ -239,8 +239,8 @@ def main():
             )
             fig.suptitle("Task 1: Initial Location on Earth Map")
             fig.tight_layout()
-            pdf = f"results/{tag}_location_map.pdf"
-            png = f"results/{tag}_location_map.png"
+            pdf = Path("results") / f"{tag}_task1_location_map.pdf"
+            png = pdf.with_suffix(".png")
             fig.savefig(pdf, bbox_inches="tight")
             fig.savefig(png, dpi=150, bbox_inches="tight")
             plt.close(fig)
@@ -1891,7 +1891,10 @@ def main():
         plt.ylabel("Angle (deg)")
         plt.legend(loc="best")
         plt.title(f"Task 6: {tag} Attitude Angles")
-        plt.savefig(f"results/{tag}_{method}_attitude_angles.png")
+        png = Path("results") / f"{tag}_task6_attitude_angles.png"
+        pdf = png.with_suffix(".pdf")
+        plt.savefig(png)
+        plt.savefig(pdf)
         plt.close()
 
     C_NED_to_ECEF = C_ECEF_to_NED.T
