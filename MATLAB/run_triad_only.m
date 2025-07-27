@@ -1,23 +1,19 @@
+%RUN_TRIAD_ONLY  Process dataset X002 using the TRIAD method.
+%   This wrapper mirrors ``src/run_triad_only.py``. It resolves the
+%   dataset files via ``check_files`` and forwards them to
+%   ``GNSS_IMU_Fusion_single`` which performs Tasks 1--7 including
+%   static-interval detection and Kalman filtering. All results are moved
+%   to ``results/IMU_X002_GNSS_X002_TRIAD`` so the output layout matches
+%   the Python helper.
+%
+%   Usage:
+%       run_triad_only
+%
+%   The printed rotation matrix should match the Python value
+%   [0.2336 -0.0454 0.9713; 0.0106 0.9990 0.0441; -0.9723 0.0000 0.2339]
+%   up to numerical precision.
 
-%
-%   The script assumes the dataset files ``IMU_X002.dat`` and
-%   ``GNSS_X002.csv`` reside either in the repository root or in a ``Data/``
-%   subdirectory.  The helper ``check_files`` resolves these paths
-%   relative to the script location so that the example works regardless of
-%   the current working directory.
-%
-% Sections:
-%   1. DATA LOADING
-%   2. REFERENCE VECTORS
-%   3. TRIAD METHOD
-%   4. OUTPUT
-%
-% Project structure and naming follow the repository guidelines so that
-% plots, logs and results match between MATLAB and Python.
-
-% Ensure helper functions in this folder are available even when the script is
-% executed via ``run`` from another directory. ``mfilename`` returns an empty
-% string for scripts, so use the call stack to recover the full path.
+%% Resolve helper path
 st = dbstack('-completenames');
 if ~isempty(st)
     script_dir = fileparts(st(1).file);
@@ -26,94 +22,37 @@ else
 end
 addpath(script_dir);
 
-%% DATA LOADING
 imu_file  = 'IMU_X002.dat';
 gnss_file = 'GNSS_X002.csv';
-
 [imu_path, gnss_path] = check_files(imu_file, gnss_file);
 
-% ------------------------------------------------------------------
-% Load reference vectors from GNSS (Task 1 in Python)
-% ------------------------------------------------------------------
-[lat_deg, lon_deg, h_m, g_NED, omega_ie_NED, ~, ~, ~] = compute_reference_vectors(gnss_path);
 
-% ------------------------------------------------------------------
-% Measure body vectors from IMU (Task 2 in Python)
-% ------------------------------------------------------------------
-[dt_imu, g_body, omega_ie_body] = measure_body_vectors(imu_path);
+out_dir = fullfile(get_results_dir(), 'IMU_X002_GNSS_X002_TRIAD');
+if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
-%% REFERENCE VECTORS (already computed above)
+GNSS_IMU_Fusion_single(imu_path, gnss_path, 'TRIAD');
 
-%% TRIAD METHOD
-M_body = triad_basis(g_body, omega_ie_body);
-M_ned  = triad_basis(g_NED,  omega_ie_NED);
-C_B_N  = M_ned * M_body';
-q_bn   = rot_to_quaternion(C_B_N);
-eul_rad = quat_to_euler(q_bn);
-eul_deg = rad2deg(eul_rad);
+%% Move generated files into the dedicated folder
+results_dir = get_results_dir();
+tag = 'IMU_X002_GNSS_X002_TRIAD';
+files = dir(fullfile(results_dir, [tag '*']));
+for k = 1:numel(files)
+    movefile(fullfile(results_dir, files(k).name), fullfile(out_dir, files(k).name), 'f');
+end
 
-fprintf('\nRotation matrix C_{B}^{N}:\n');
-disp(C_B_N);
-fprintf('Euler angles [deg]: roll=%.2f pitch=%.2f yaw=%.2f\n', ...
-    eul_deg(1), eul_deg(2), eul_deg(3));
-
-%% OUTPUT
-out_dir = fullfile('output_matlab', 'IMU_X002_GNSS_X002_TRIAD');
-if ~exist(out_dir,'dir'); mkdir(out_dir); end
-
-save(fullfile(out_dir,'initial_attitude.mat'), 'C_B_N', 'q_bn', 'eul_deg', ...
-    'lat_deg', 'lon_deg', 'h_m');
-writematrix(C_B_N, fullfile(out_dir,'C_B_N.csv'));
-writematrix(eul_deg, fullfile(out_dir,'euler_angles_deg.csv'));
-
+%% Load and display rotation matrix from Task 3 results
+task3_file = fullfile(out_dir, 'Task3_results_IMU_X002_GNSS_X002.mat');
+if exist(task3_file, 'file')
+    data = load(task3_file);
+    if isfield(data, 'task3_results') && isfield(data.task3_results, 'TRIAD')
+        C_B_N = data.task3_results.TRIAD.R;
+        fprintf('\nRotation matrix C_{B}^{N}:\n');
+        disp(C_B_N);
+    end
+end
 fprintf('Results saved to %s\n', out_dir);
 
 %% -------------------------------------------------------------------------
-% Helper functions
-% -------------------------------------------------------------------------
-function M = triad_basis(v1, v2)
-    t1 = v1 / norm(v1);
-    t2_temp = cross(t1, v2);
-    if norm(t2_temp) < 1e-10
-        if abs(t1(1)) < abs(t1(2)), tmp = [1;0;0]; else, tmp = [0;1;0]; end
-        t2_temp = cross(t1, tmp);
-    end
-    t2 = t2_temp / norm(t2_temp);
-    t3 = cross(t1, t2);
-    M = [t1, t2, t3];
-end
-
-function q = rot_to_quaternion(R)
-    tr = trace(R);
-    if tr > 0
-        S = sqrt(tr + 1.0) * 2; qw = 0.25 * S; qx = (R(3,2) - R(2,3)) / S; qy = (R(1,3) - R(3,1)) / S; qz = (R(2,1) - R(1,2)) / S;
-    elseif (R(1,1) > R(2,2)) && (R(1,1) > R(3,3))
-        S = sqrt(1.0 + R(1,1) - R(2,2) - R(3,3)) * 2; qw = (R(3,2) - R(2,3)) / S; qx = 0.25 * S; qy = (R(1,2) + R(2,1)) / S; qz = (R(1,3) + R(3,1)) / S;
-    elseif R(2,2) > R(3,3)
-        S = sqrt(1.0 + R(2,2) - R(1,1) - R(3,3)) * 2; qw = (R(1,3) - R(3,1)) / S; qx = (R(1,2) + R(2,1)) / S; qy = 0.25 * S; qz = (R(2,3) + R(3,2)) / S;
-    else
-        S = sqrt(1.0 + R(3,3) - R(1,1) - R(2,2)) * 2; qw = (R(2,1) - R(1,2)) / S; qx = (R(1,3) + R(3,1)) / S; qy = (R(2,3) + R(3,2)) / S; qz = 0.25 * S;
-    end
-    q = [qw; qx; qy; qz];
-    if q(1) < 0, q = -q; end
-    q = q / norm(q);
-end
-
-function eul = quat_to_euler(q)
-    R = quat_to_rot(q);
-    phi = atan2(R(3,2), R(3,3));
-    theta = -asin(R(3,1));
-    psi = atan2(R(2,1), R(1,1));
-    eul = [phi; theta; psi];
-end
-
-function R = quat_to_rot(q)
-    qw = q(1); qx = q(2); qy = q(3); qz = q(4);
-    R = [1-2*(qy^2+qz^2), 2*(qx*qy - qw*qz), 2*(qx*qz + qw*qy);
-         2*(qx*qy + qw*qz), 1-2*(qx^2 + qz^2), 2*(qy*qz - qw*qx);
-         2*(qx*qz - qw*qy), 2*(qy*qz + qw*qx), 1-2*(qx^2 + qy^2)];
-end
-
 function [imu_path, gnss_path] = check_files(imu_file, gnss_file)
 %CHECK_FILES  Return validated paths for IMU and GNSS data files.
 %   The helper searches for each file in the following locations:

@@ -1,10 +1,13 @@
-function S = GNSS_IMU_Fusion_single(imu_file, gnss_file, vel_q_scale, vel_r, zupt_acc_var, zupt_gyro_var)
-%GNSS_IMU_FUSION_SINGLE  Run the five-task pipeline for one dataset.
-%   S = GNSS_IMU_FUSION_SINGLE(IMU_FILE, GNSS_FILE, VEL_Q_SCALE, VEL_R, ...
-%       ZUPT_ACC_VAR, ZUPT_GYRO_VAR) resolves the dataset
-%   paths using GET_DATA_FILE and sequentially executes Task_1 through
-%   Task_5 using the TRIAD method.  The Task 5 result structure is loaded
-%   from <IMU>_<GNSS>_TRIAD_task5_results.mat and returned.
+function S = GNSS_IMU_Fusion_single(imu_file, gnss_file, method, vel_q_scale, vel_r, zupt_acc_var, zupt_gyro_var)
+%GNSS_IMU_FUSION_SINGLE  Run the GNSS/IMU pipeline for one dataset.
+%   S = GNSS_IMU_FUSION_SINGLE(IMU_FILE, GNSS_FILE, METHOD, VEL_Q_SCALE, ...
+%       VEL_R, ZUPT_ACC_VAR, ZUPT_GYRO_VAR) resolves the dataset paths using
+%   GET_DATA_FILE and sequentially executes Tasks 1--5 using the selected
+%   initialisation METHOD ('TRIAD', 'Davenport' or 'SVD').  The Task 5
+%   result structure is loaded from <IMU>_<GNSS>_<METHOD>_task5_results.mat
+%   and returned.  Additional parameters allow tuning of the velocity
+%   process/measurement noise and ZUPT detection thresholds.  When METHOD
+%   is omitted it defaults to 'TRIAD'.
 %
 %   Default files IMU_X001.dat and GNSS_X001.csv are used when the
 %   arguments are omitted. Additional parameters allow tuning of the
@@ -17,22 +20,24 @@ end
 if nargin < 2 || isempty(gnss_file)
     gnss_file = 'GNSS_X001.csv';
 end
-if nargin < 3 || isempty(vel_q_scale)
+if nargin < 3 || isempty(method)
+    method = 'TRIAD';
+end
+if nargin < 4 || isempty(vel_q_scale)
     vel_q_scale = 10;
 end
-if nargin < 4 || isempty(vel_r)
+if nargin < 5 || isempty(vel_r)
     vel_r = 0.25;
 end
-if nargin < 5 || isempty(zupt_acc_var)
+if nargin < 6 || isempty(zupt_acc_var)
     zupt_acc_var = 0.01;
 end
-if nargin < 6 || isempty(zupt_gyro_var)
+if nargin < 7 || isempty(zupt_gyro_var)
     zupt_gyro_var = 1e-6;
 end
 
 imu_path  = get_data_file(imu_file);
 gnss_path = get_data_file(gnss_file);
-method = 'TRIAD';
 
 %% =======================================================================
 %  Task 1: Define Reference Vectors in NED Frame
