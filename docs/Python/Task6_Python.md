@@ -28,7 +28,7 @@ Use :func:`assemble_frames` to align IMU, GNSS and truth data in NED, ECEF and b
 Call :func:`plot_overlay` for each frame to produce overlay figures. The ``--show-measurements`` flag adds the raw IMU and GNSS curves.
 
 ### 6.4 Save Overlay Figures
-Overlay PDFs are stored in ``results/task6/<dataset>/`` as ``<dataset>_<method>_task6_4_overlay_state_<frame>.pdf``.
+Overlay PDFs are stored in ``results/task6/<dataset>/`` as ``<dataset>_<method>_task6_overlay_state_<frame>.pdf``.
 
 ## Result
 
