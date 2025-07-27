@@ -255,6 +255,12 @@ if exist('movvar','file') == 2
     gyro_var  = movvar(gyro_filt, window_size, 0, 'Endpoints', 'discard');
 else
     warning('movvar unavailable. Using manual (slower) moving variance calculation.');
+
+    if size(acc_filt,1) < window_size
+        warning('window_size (%d) larger than data length (%d). Adjusting window size.', ...
+            window_size, size(acc_filt,1));
+        window_size = size(acc_filt,1);
+    end
     num_windows = size(acc_filt, 1) - window_size + 1;
     accel_var = zeros(num_windows, size(acc_filt, 2));
     gyro_var = zeros(num_windows, size(gyro_filt, 2));
