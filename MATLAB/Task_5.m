@@ -144,19 +144,9 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
             scale_factor = d4.scale_factors.(method);
         end
     end
-    switch upper(imu_name)
-        case 'IMU_X001'
-            dataset_accel_bias = [0.57755067; -6.8366253; 0.91021879];
-        case 'IMU_X002'
-            dataset_accel_bias = [0.57757295; -6.83671274; 0.91029003];
-        case 'IMU_X003'
-            dataset_accel_bias = [0.58525893; -6.8367178; 0.9084152];
-        otherwise
-            dataset_accel_bias = [];
-    end
-    if ~isempty(dataset_accel_bias)
-        accel_bias = dataset_accel_bias;
-    end
+    % Biases are provided by Task 2. Do not override them with
+    % dataset-specific constants so that both MATLAB and Python remain
+    % consistent.
     fprintf('Method %s: Bias computed: [%.7f %.7f %.7f]\n', method, accel_bias);
     fprintf('Method %s: Scale factor: %.4f\n', method, scale_factor);
 
