@@ -25,7 +25,19 @@ def output_dir(task: int, dataset: str, gnss: str, method: str, base_dir: Union[
     base = Path(base_dir)
     return base / f"task{task}" / tag
 
-def plot_filename(dataset: str, gnss: str, method: str, task: int, subtask: str, out_type: str, ext: str = "pdf") -> str:
+def plot_filename(
+    dataset: str, gnss: str, method: str, task: int, subtask: str, out_type: str, ext: str = "pdf"
+) -> str:
     """Return a plot filename following the standard convention."""
     tag = make_tag(dataset, gnss, method)
     return f"{tag}_task{task}_{subtask}_{out_type}.{ext}"
+
+
+def plot_path(dir: Union[str, Path], tag: str, task: int, subtask: str, out_type: str, ext: str = "pdf") -> Path:
+    """Return absolute path for a plot within ``dir``.
+
+    This mirrors ``naming('plot_path', ...)`` from the MATLAB utilities.
+    """
+    dir_path = Path(dir)
+    filename = f"{tag}_task{task}_{subtask}_{out_type}.{ext}"
+    return dir_path / filename
