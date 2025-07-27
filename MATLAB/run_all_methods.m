@@ -26,7 +26,12 @@ function run_all_methods()
 
     res_file = fullfile(get_results_dir(), sprintf('IMU_X002_GNSS_X002_%s_task5_results.mat', method));
     if isfile(res_file)
-        S = load(res_file);
+        try
+            S = load(res_file);
+        catch ME
+            warning('Failed to load %s: %s', res_file, ME.message);
+            return;
+        end
         if isfield(S,'pos_ned') && isfield(S,'gnss_pos_ned')
             Task_6(res_file, imu_path, gnss_path, 'STATE_X001.txt');
             Task_7(S.pos_ned, S.gnss_pos_ned, method);

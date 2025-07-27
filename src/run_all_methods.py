@@ -28,6 +28,7 @@ from typing import Iterable, Tuple
 import logging
 import re
 import time
+import zipfile
 import pandas as pd
 from tabulate import tabulate
 import numpy as np
@@ -223,7 +224,11 @@ def main(argv=None):
         # ------------------------------------------------------------------
         npz_path = pathlib.Path("results") / f"{tag}_kf_output.npz"
         if npz_path.exists():
-            data = np.load(npz_path, allow_pickle=True)
+            try:
+                data = np.load(npz_path, allow_pickle=True)
+            except (OSError, zipfile.BadZipFile) as exc:
+                logger.error("Failed to load %s: %s", npz_path, exc)
+                continue
             logger.debug(f"Loaded output {npz_path} with keys: {list(data.keys())}")
             time_s = data.get("time_s")
             if time_s is None:
