@@ -382,7 +382,14 @@ end % End of main function: run_task4
 % =========================================================================
 
 function plot_comparison_in_frame(frame_name, t_gnss, t_imu, methods, C_B_N_methods, p_gnss, v_gnss, a_gnss, p_imu, v_imu, a_imu, f_b_corr, filename, r0_ecef, C_e2n)
-    % Helper function to generate all comparison plots.
+    %PLOT_COMPARISON_IN_FRAME Visualise GNSS and IMU data in multiple frames.
+    %   PLOT_COMPARISON_IN_FRAME(FRAME_NAME, T_GNSS, T_IMU, METHODS, C_B_N_METHODS,
+    %   P_GNSS, V_GNSS, A_GNSS, P_IMU, V_IMU, A_IMU, F_B_CORR, FILENAME, R0_ECEF,
+    %   C_E2N) generates comparison plots for the given attitude
+    %   determination METHODS.  GNSS data are provided in NED and the IMU
+    %   derived position, velocity and acceleration are passed in the same
+    %   frame.  Results are saved to FILENAME.  R0_ECEF and C_E2N are used to
+    %   convert data to the ECEF frame for additional plots.
     fig = figure('Name', ['Comparison Plots in ' frame_name], 'Position', [100 100 1200 900], 'Visible', 'off');
     
     dims_ned = {'North', 'East', 'Down'};
@@ -467,6 +474,10 @@ end
 
 function data_filt = butter_lowpass_filter(data, cutoff, fs, order)
     %BUTTER_LOWPASS_FILTER Apply a zero-phase Butterworth low-pass filter.
+    %   DATA_FILT = BUTTER_LOWPASS_FILTER(DATA, CUTOFF, FS, ORDER) filters DATA
+    %   along its first dimension using a low-pass Butterworth design.  CUTOFF
+    %   is the cut-off frequency in Hz, FS the sample rate in Hz and ORDER the
+    %   filter order.  Defaults are 5&nbsp;Hz, 400&nbsp;Hz and order 4.
     if nargin < 4 || isempty(order);   order = 4;   end
     if nargin < 3 || isempty(fs);      fs = 400;   end
     if nargin < 2 || isempty(cutoff);  cutoff = 5.0; end
@@ -479,6 +490,11 @@ end
 
 function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size, accel_var_thresh, gyro_var_thresh, min_length)
     %DETECT_STATIC_INTERVAL Find longest initial static interval in IMU data.
+    %   [I0, I1] = DETECT_STATIC_INTERVAL(ACCEL, GYRO, WINDOW_SIZE,
+    %   ACCEL_VAR_THRESH, GYRO_VAR_THRESH, MIN_LENGTH) returns the start and end
+    %   indices of the longest segment where the variance of ACCEL and GYRO are
+    %   below the given thresholds.  Parameters mirror the Python helper
+    %   ``detect_static_interval`` found in ``utils.py``.
     if nargin < 3 || isempty(window_size);      window_size = 200;   end
     if nargin < 4 || isempty(accel_var_thresh); accel_var_thresh = 0.01; end
     if nargin < 5 || isempty(gyro_var_thresh);  gyro_var_thresh = 1e-6; end
@@ -528,7 +544,12 @@ function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size,
 end
 
 function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned, p_imu, v_imu, a_imu, acc_body_corr, base, r0_ecef, C_e2n)
-    % Generate per-method comparison plots in various frames.
+    %PLOT_SINGLE_METHOD Helper to produce per-method comparison figures.
+    %   PLOT_SINGLE_METHOD(METHOD, T_GNSS, T_IMU, C_B_N, P_GNSS_NED, V_GNSS_NED,
+    %   A_GNSS_NED, P_IMU, V_IMU, A_IMU, ACC_BODY_CORR, BASE, R0_ECEF, C_E2N)
+    %   generates plots comparing the IMU integration against GNSS in NED,
+    %   ECEF, body and mixed frames.  BASE is used as the filename prefix for
+    %   the saved PDF figures.
 
     dims = {'North','East','Down'};
     % ----- NED frame -----
@@ -627,6 +648,9 @@ end
 
 function q_new = propagate_quaternion(q_old, w, dt)
     %PROPAGATE_QUATERNION Propagate quaternion using body angular rate.
+    %   Q_NEW = PROPAGATE_QUATERNION(Q_OLD, W, DT) integrates the angular rate
+    %   vector W over the timestep DT and multiplies it with the previous
+    %   quaternion Q_OLD.  The returned quaternion is normalised.
     w_norm = norm(w);
     if w_norm > 1e-9
         axis = w / w_norm;
@@ -641,6 +665,8 @@ end
 
 function q_out = quat_multiply(q1, q2)
     %QUAT_MULTIPLY Hamilton product of two quaternions.
+    %   Q_OUT = QUAT_MULTIPLY(Q1, Q2) returns the quaternion product using the
+    %   convention [w x y z].
     w1=q1(1); x1=q1(2); y1=q1(3); z1=q1(4);
     w2=q2(1); x2=q2(2); y2=q2(3); z2=q2(4);
     q_out = [w1*w2 - x1*x2 - y1*y2 - z1*z2;
@@ -651,6 +677,8 @@ end
 
 function R = quat_to_rot(q)
     %QUAT_TO_ROT Convert quaternion to rotation matrix.
+    %   R = QUAT_TO_ROT(Q) returns the 3×3 rotation matrix corresponding to the
+    %   quaternion Q = [w x y z].
     qw=q(1); qx=q(2); qy=q(3); qz=q(4);
     R=[1-2*(qy^2+qz^2), 2*(qx*qy-qw*qz), 2*(qx*qz+qw*qy);
        2*(qx*qy+qw*qz), 1-2*(qx^2+qz^2), 2*(qy*qz-qw*qx);
@@ -659,6 +687,9 @@ end
 
 function q = rot_to_quaternion(R)
     %ROT_TO_QUATERNION Convert rotation matrix to quaternion.
+    %   Q = ROT_TO_QUATERNION(R) converts the 3×3 rotation matrix R into a
+    %   quaternion Q = [w x y z].  The output is normalised and the scalar part
+    %   is kept positive.
     tr = trace(R);
     if tr > 0
         S = sqrt(tr + 1.0) * 2;
