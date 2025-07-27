@@ -233,11 +233,11 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
     validate_main()
 
     expected = {
-        "TRIAD_NED_overlay_state.pdf",
-        "TRIAD_ECEF_overlay_state.pdf",
-        "TRIAD_Body_overlay_state.pdf",
+        "IMU_X001_small_GNSS_X001_small_TRIAD_task6_overlay_state_NED.pdf",
+        "IMU_X001_small_GNSS_X001_small_TRIAD_task6_overlay_state_ECEF.pdf",
+        "IMU_X001_small_GNSS_X001_small_TRIAD_task6_overlay_state_Body.pdf",
     }
-    produced = {p.name for p in Path("results").glob("*_overlay_state.pdf")}
+    produced = {p.name for p in Path("results").glob("*_task6_overlay_state_*.pdf")}
     assert expected.issubset(produced), f"Missing overlays: {expected - produced}"
 
     # verify raw STATE overlay generation via task6_plot_truth.py
@@ -260,8 +260,11 @@ def test_overlay_truth_generation(tmp_path, monkeypatch):
         ],
     )
     task6_main()
-    state_dir = Path("results") / "IMU_X001_small_GNSS_X001_small_TRIAD"
-    state_files = {p.name for p in state_dir.glob("*_task6_overlay_state_*.pdf")}
+    state_files = {
+        p.name for p in Path("results").glob(
+            "IMU_X001_small_GNSS_X001_small_TRIAD_task6_overlay_state_*.pdf"
+        )
+    }
     assert state_files, "Missing state overlay plots"
 
 

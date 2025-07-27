@@ -83,6 +83,12 @@ def main() -> None:
         out_dir,
     )
 
+    saved = sorted(out_dir.glob(f"{dataset}_{method}_task6_*.pdf"))
+    if saved:
+        print("Files saved in", out_dir)
+        for f in saved:
+            print(" -", f.name)
+
 
 if __name__ == "__main__":
     main()
