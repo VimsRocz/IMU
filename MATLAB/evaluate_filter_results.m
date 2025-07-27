@@ -24,7 +24,30 @@ fprintf('--- Task 7, Subtask 7.1: Loading data and checking dimensions ---\n');
 data = py.numpy.load(string(npz_file));
 res_pos = double(data{'residual_pos'});
 res_vel = double(data{'residual_vel'});
-t = double(data{'time_residuals'});
+% time_residuals historically corresponded to GNSS update times.  To
+% analyse the complete trajectory we interpolate these residuals to the
+% estimator time vector when available.
+t_res = double(data{'time_residuals'});
+if isKey(data, 'time')
+    t_full = double(data{'time'});
+elseif isKey(data, 'imu_time')
+    t_full = double(data{'imu_time'});
+elseif isKey(data, 'time_s')
+    t_full = double(data{'time_s'});
+else
+    t_full = t_res;
+end
+% Ensure column vectors
+t_full = t_full(:);
+t_res = t_res(:);
+% Interpolate residuals to the full time vector when lengths differ
+if numel(t_res) ~= numel(t_full)
+    res_pos = interp1(t_res, res_pos, t_full, 'linear', 'extrap');
+    res_vel = interp1(t_res, res_vel, t_full, 'linear', 'extrap');
+    t = t_full;
+else
+    t = t_res;
+end
 quat = double(data{'attitude_q'});
 if isKey(data, 'ref_lat_rad');
     ref_lat = double(data{'ref_lat_rad'});
