@@ -1,6 +1,6 @@
 %RUN_TRIAD_ONLY  Process dataset X002 using the TRIAD method.
 %   This wrapper mirrors ``src/run_triad_only.py``. It resolves the
-%   dataset files via ``check_files`` and forwards them to
+%   dataset files via ``get_data_file`` and forwards them to
 %   ``GNSS_IMU_Fusion_single`` which performs Tasks 1--7 including
 %   static-interval detection and Kalman filtering. All results are moved
 %   to ``results/IMU_X002_GNSS_X002_TRIAD`` so the output layout matches
@@ -24,7 +24,8 @@ addpath(script_dir);
 
 imu_file  = 'IMU_X002.dat';
 gnss_file = 'GNSS_X002.csv';
-[imu_path, gnss_path] = check_files(imu_file, gnss_file);
+imu_path  = get_data_file(imu_file);
+gnss_path = get_data_file(gnss_file);
 
 
 out_dir = fullfile(get_results_dir(), 'IMU_X002_GNSS_X002_TRIAD');
@@ -51,35 +52,3 @@ if exist(task3_file, 'file')
     end
 end
 fprintf('Results saved to %s\n', out_dir);
-
-%% -------------------------------------------------------------------------
-function [imu_path, gnss_path] = check_files(imu_file, gnss_file)
-%CHECK_FILES  Return validated paths for IMU and GNSS data files.
-%   The helper searches for each file in the following locations:
-%     1. ``Data/`` under the repository root
-%     2. Repository root
-%     3. Current working directory
-
-    script_dir = fileparts(mfilename('fullpath'));
-    repo_root  = fileparts(script_dir);
-
-    search_dirs = {fullfile(repo_root, 'Data'), repo_root, pwd};
-
-    imu_path = '';
-    gnss_path = '';
-    for i = 1:numel(search_dirs)
-        cand = fullfile(search_dirs{i}, imu_file);
-        if isempty(imu_path) && exist(cand, 'file')
-            imu_path = cand; end
-        cand = fullfile(search_dirs{i}, gnss_file);
-        if isempty(gnss_path) && exist(cand, 'file')
-            gnss_path = cand; end
-    end
-
-    if isempty(imu_path)
-        error('File not found: %s', imu_file);
-    end
-    if isempty(gnss_path)
-        error('File not found: %s', gnss_file);
-    end
-end
