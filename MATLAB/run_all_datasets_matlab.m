@@ -88,6 +88,15 @@ for k = 1:size(pairs,1)
             if exist('plot_results.m','file')
                 plot_results(outFile);
             end
+            % After saving the standard MAT output, compare with the
+            % corresponding Python NPZ file when available. The helper
+            % script prints RMSE statistics to highlight any parity
+            % issues between implementations.
+            try
+                check_latest_python_matlab;
+            catch ME
+                warning('Parity check failed: %s', ME.message);
+            end
             cand = fullfile(root, 'STATE_X001.txt');
             if isfile(cand)
                 fprintf('Starting Task 6 for %s + %s ...\n', imuStem, gnssStem);
