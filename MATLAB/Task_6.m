@@ -16,6 +16,10 @@ if nargin < 4
     error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');
 end
 
+% Sign convention for NED -> NEU conversion
+% (mirrors ``task6_plot_truth.py`` in the Python code)
+sign_ned = [1; 1; -1];
+
 fprintf('Starting Task 6 overlay ...\n');
 start_time = tic;
 

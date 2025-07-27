@@ -43,7 +43,7 @@ python src/run_triad_only.py        # quick demo
 # or
 python src/run_all_datasets.py      # full pipeline
 ```
-The results and validation plots appear inside the newly created `results/` folder.
+The results and validation plots appear inside the newly created `results/run_triad_only/` or `results/run_all_datasets/` folder depending on the script.
 
 ### MATLAB
 
@@ -55,10 +55,10 @@ The results and validation plots appear inside the newly created `results/` fold
    % or
    run_all_datasets_matlab('TRIAD')
    ```
-   MATLAB saves the figures to the `results/` folder as well. The batch runner lives in `MATLAB/run_all_datasets_matlab.m`.
+   MATLAB saves the figures to the `MATLAB/results/` folder as well. The batch runner lives in `MATLAB/run_all_datasets_matlab.m`.
 
 ## 5. Validate the output
 
-Each script automatically checks its results against the reference data when available. Look for a summary message in the terminal or view the figures inside `results/` to confirm everything worked.
+Each script automatically checks its results against the reference data when available. Look for a summary message in the terminal or view the figures inside the appropriate results folder to confirm everything worked.
 
 That's it! Once you see the plots you know the pipeline ran correctly.

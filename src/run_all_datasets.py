@@ -95,8 +95,9 @@ def run_one(imu, gnss, method, verbose=False):
 
 
 def main():
-    os.makedirs('results', exist_ok=True)
-    logging.info("Ensured 'results/' directory exists.")
+    results_dir = pathlib.Path('results/run_all_datasets')
+    results_dir.mkdir(parents=True, exist_ok=True)
+    logging.info("Ensured '%s' directory exists.", results_dir)
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", action="store_true", help="Print detailed debug info")
     parser.add_argument("--datasets", default="ALL",
@@ -130,8 +131,6 @@ def main():
         method_list = [args.method]
     cases = [(imu, gnss, m) for (imu, gnss) in datasets for m in method_list]
     fusion_results = []
-
-    results_dir = pathlib.Path.cwd() / "results"
 
     for imu, gnss, method in tqdm(cases, desc="All cases"):
         if args.verbose:
