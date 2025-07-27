@@ -306,6 +306,9 @@ figures are written as ``results/task6/<tag>/<tag>_task6_overlay_state_<frame>.p
 ## Task 7: Evaluation of Filter Results
 
 This task analyzes the filter's prediction accuracy.
+Detailed instructions are available in
+[docs/Python/Task7_Python.md](docs/Python/Task7_Python.md) and
+[docs/MATLAB/Task7_MATLAB.md](docs/MATLAB/Task7_MATLAB.md).
 
 ### Includes:
 - Position and velocity residuals (GNSS - filter prediction)
@@ -629,6 +632,8 @@ See [docs/AdvancedTopics.md](docs/AdvancedTopics.md) for GitHub Codespaces instr
 - [docs/TRIAD_Task4_Wiki.md](docs/TRIAD_Task4_Wiki.md) – GNSS/IMU integration
 - [docs/TRIAD_Task5_Wiki.md](docs/TRIAD_Task5_Wiki.md) – Kalman filter fusion
 - [docs/TRIAD_Task6_Wiki.md](docs/TRIAD_Task6_Wiki.md) – truth overlay plots
+- [docs/Python/Task7_Python.md](docs/Python/Task7_Python.md) – evaluation pipeline (Python)
+- [docs/MATLAB/Task7_MATLAB.md](docs/MATLAB/Task7_MATLAB.md) – evaluation pipeline (MATLAB)
 
 - [Report/](Report/index.md) – summary of a typical run
 See [docs/CHANGELOG.md](docs/CHANGELOG.md) for a list of recent features.
