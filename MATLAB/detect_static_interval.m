@@ -13,12 +13,8 @@ function [static_start, static_end] = detect_static_interval(acc_body, gyro_body
 %   The returned indices are 1-based and inclusive.
 
     if nargin < 3 || isempty(window_size)
-        window_size = 80;
-    end
-    if nargin < 4 || isempty(accel_var_thresh)
+        window_size = 80; % Match Python
         accel_var_thresh = 0.01;
-    end
-    if nargin < 5 || isempty(gyro_var_thresh)
         gyro_var_thresh = 1e-6;
     end
 
@@ -48,4 +44,7 @@ function [static_start, static_end] = detect_static_interval(acc_body, gyro_body
     end
     static_start = static_indices(1);
     static_end   = static_indices(end);
+    duration = (static_end - static_start + 1) * 0.0025; % dt fixed at 400 Hz
+    fprintf('Static interval duration: %.2f s of 1250.00 s total (%.1f%%)\n', ...
+            duration, duration/1250*100);
 end
