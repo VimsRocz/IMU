@@ -725,6 +725,8 @@ def main():
         end_idx = args.static_end
         if start_idx is None and end_idx is None:
             dataset_window = {
+                "IMU_X001.dat": (296, 479907),
+                "IMU_X002.dat": (296, 479907),
                 "IMU_X003.dat": (296, 479907),
             }.get(Path(imu_file).name)
             if dataset_window and len(acc_body) >= dataset_window[1]:
