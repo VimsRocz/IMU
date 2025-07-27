@@ -2,10 +2,11 @@ function run_all_methods(imu_file, gnss_file)
 %RUN_ALL_METHODS Process one dataset with TRIAD, Davenport and SVD.
 %   RUN_ALL_METHODS(IMU_FILE, GNSS_FILE) executes Tasks 1--5 for the
 %   specified IMU/GNSS pair using all three initialisation methods.
-%   Per-method Task 5 plots are saved as output_matlab/<tag>_task5_results_<method>.pdf
-%   where <tag> is the dataset identifier extracted from the filenames
-%   (e.g. X002).  An overlay comparing all methods is saved as
-%   output_matlab/<tag>_task5_results_all_methods.pdf.
+%   Per-method Task 5 plots are saved as ``<tag>_task5_results_<method>.pdf``
+%   in the directory returned by ``get_results_dir()`` where ``<tag>`` is the
+%   dataset identifier extracted from the filenames (e.g. X002). An overlay
+%   comparing all methods is saved as
+%   ``<tag>_task5_results_all_methods.pdf`` in the same location.
 %
 %   When IMU_FILE or GNSS_FILE are omitted the X002 sample data is used.
 

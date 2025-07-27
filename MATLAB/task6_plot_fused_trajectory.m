@@ -4,8 +4,9 @@ function quat_logs = task6_plot_fused_trajectory(method, imu_file, gnss_file, qu
 %   quat_logs = TASK6_PLOT_FUSED_TRAJECTORY(method, imu_file, gnss_file, quat_logs)
 %   replicates ``plot_task6_fused_trajectory`` from the Python code. The fused
 %   estimate ``<imu_file>_<gnss_file>_<method>.mat`` and corresponding truth
-%   ``<imu_file>_<gnss_file>_truth.mat`` must exist under ``output_matlab/``. Overlay
-%   plots in NED and ECEF are produced together with a position error plot. The
+%   ``<imu_file>_<gnss_file>_truth.mat`` must exist in the directory returned by
+%   ``get_results_dir()``. Overlay plots in NED and ECEF are produced together
+%   with a position error plot. The
 %   quaternion history for the method is returned in ``quat_logs``.
 
 if nargin < 4 || isempty(quat_logs)
