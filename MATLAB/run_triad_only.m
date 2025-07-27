@@ -15,6 +15,11 @@
 % Project structure and naming follow the repository guidelines so that
 % plots, logs and results match between MATLAB and Python.
 
+% Ensure helper functions in this folder are available even when the script is
+% executed via an absolute path.
+script_dir = fileparts(mfilename('fullpath'));
+addpath(script_dir);
+
 %% DATA LOADING
 imu_file  = 'IMU_X002.dat';
 gnss_file = 'GNSS_X002.csv';
