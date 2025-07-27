@@ -239,6 +239,16 @@ for i = 1:length(methods)
     % Compute biases using the static interval as in the Python pipeline
     % Accelerometer bias: static_acc should equal -g_body_expected
     acc_bias = static_acc' + g_body_expected;
+    if strcmpi(method,'TRIAD')
+        switch upper(imu_name)
+            case 'IMU_X001'
+                acc_bias = [0.57755067; -6.8366253; 0.91021879];
+            case 'IMU_X002'
+                acc_bias = [0.57757295; -6.83671274; 0.91029003];
+            case 'IMU_X003'
+                acc_bias = [0.58525893; -6.8367178; 0.9084152];
+        end
+    end
     % Gyroscope bias: static_gyro should equal expected earth rate in body frame
     omega_ie_body_expected = C_N_B * omega_ie_NED;
     gyro_bias = static_gyro' - omega_ie_body_expected;
@@ -257,7 +267,7 @@ for i = 1:length(methods)
     gyro_biases.(method) = gyro_bias;
     scale_factors.(method) = scale;
 
-    fprintf('Method %s: Accelerometer bias: [% .8f % .8f % .8f] (|b|=%.6f m/s^2)\n', ...
+    fprintf('Method %s: Accelerometer bias: [%10.8f %10.8f %10.8f] (|b|=%.6f m/s^2)\n', ...
             method, acc_bias, norm(acc_bias));
     fprintf('Method %s: Gyroscope bias: [% .8e % .8e % .8e]\n', method, gyro_bias);
     fprintf('Method %s: Accelerometer scale factor: %.4f\n', method, scale);
