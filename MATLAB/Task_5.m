@@ -115,6 +115,15 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     gyro_body_raw = imu_raw(:,3:5) / dt_imu;
     acc_body_raw = imu_raw(:,6:8) / dt_imu;
 
+    % Detect a static interval for ZUPT handling using the same helper as
+    % Python. The raw measurements are low-pass filtered prior to
+    % variance-based detection to avoid spurious motion being classified as
+    % static.
+    fs = 1/dt_imu;
+    gyro_filt = low_pass_filter(gyro_body_raw, 10, fs);
+    acc_filt  = low_pass_filter(acc_body_raw, 10, fs);
+    [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt, 80, 0.01, 1e-6);
+
     % Load biases estimated in Task 2
     task2_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
     if isfile(task2_file)
@@ -314,8 +323,6 @@ for i = 1:num_imu_samples
     prev_a_ned = a_ned;
     % --- 4. Zero-Velocity Update (ZUPT) ---
     win_size = 80;
-    static_start = 297;
-    static_end   = min(479907, num_imu_samples);
 
     if i >= static_start && i <= static_end
         zupt_count = zupt_count + 1;
@@ -490,6 +497,11 @@ max_resid_pos = max(vecnorm(res_pos,2,2));
 min_resid_pos = min(vecnorm(res_pos,2,2));
 max_resid_vel = max(vecnorm(res_vel,2,2));
 min_resid_vel = min(vecnorm(res_vel,2,2));
+
+% Print a concise summary matching the Python pipeline
+fprintf('Position: North=%.4f, East=%.4f, Down=%.4f\n', ...
+        x_log(1,end), x_log(2,end), x_log(3,end));
+fprintf('RMSE_pos: %.4f\n', rmse_pos);
 
 % --- Plot: Position Residuals ---
 figure('Name', 'KF Results: Position Residuals', 'Position', [150 150 1200 600]);

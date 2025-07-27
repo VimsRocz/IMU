@@ -11,12 +11,6 @@ function run_triad_method(imu_file, gnss_file)
     data_dir = 'Data';
     imu_path = fullfile(data_dir, imu_file);
     gnss_path = fullfile(data_dir, gnss_file);
-    if ~exist(imu_path, 'file')
-        imu_path = imu_file;
-    end
-    if ~exist(gnss_path, 'file')
-        gnss_path = gnss_file;
-    end
     if ~exist(imu_path, 'file') || ~exist(gnss_path, 'file')
         error('File not found: %s or %s', imu_path, gnss_path);
     end
