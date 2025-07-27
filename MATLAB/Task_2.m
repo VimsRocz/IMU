@@ -65,6 +65,7 @@ function body_data = Task_2(imu_path, gnss_path, method)
     static_gyro = mean(gyro_filt(static_start:static_end, :), 1); % 1x3
     g_body_raw = -static_acc';
     g_body = (g_body_raw / norm(g_body_raw)) * constants.GRAVITY;
+    g_body_scaled = g_body; % legacy variable for compatibility with old scripts
     omega_ie_body = static_gyro';
 
     % Use consistent variable names across all MATLAB tasks
