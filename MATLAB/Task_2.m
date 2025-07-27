@@ -10,16 +10,16 @@ function body_data = Task_2(imu_path, gnss_path, method)
 %   The function saves two MAT-files in the results directory:
 %       Task2_body_<tag>.mat                     (legacy name)
 %       <IMU>_<GNSS>_<METHOD>_task2_results.mat  (generic name)
-%   Both files contain a struct named ``body_data`` with these fields:
+%   Each file stores the variables:
 %       g_body        - gravity vector in the body frame (3x1, m/s^2)
-%       g_body_scaled - same as g_body for compatibility
+%       g_body_scaled - duplicate of g_body for backwards compatibility
 %       omega_ie_body - Earth rotation in the body frame (3x1, rad/s)
 %       accel_bias    - accelerometer bias estimate (3x1, m/s^2)
-%       acc_bias      - alias of accel_bias for older code
 %       gyro_bias     - gyroscope bias estimate (3x1, rad/s)
 %       static_start  - index of first static sample
 %       static_end    - index of last static sample
-%   The struct is returned and also stored in the workspace variable
+%   For convenience a struct ``body_data`` containing the same fields is
+%   returned and stored in the workspace variable
 %   ``task2_results`` for interactive use.
 %
 %   Example:
@@ -67,15 +67,18 @@ function body_data = Task_2(imu_path, gnss_path, method)
     g_body = (g_body_raw / norm(g_body_raw)) * constants.GRAVITY;
     omega_ie_body = static_gyro';
 
+    % Use consistent variable names across all MATLAB tasks
+    accel_bias = acc_bias';     % 3x1 accelerometer bias in m/s^2
+    gyro_bias  = gyro_bias';    % 3x1 gyroscope bias in rad/s
+
     body_data = struct();
-    body_data.g_body       = g_body;
-    body_data.g_body_scaled= g_body; % kept for compatibility
-    body_data.omega_ie_body= omega_ie_body;
-    body_data.accel_bias   = acc_bias';
-    body_data.acc_bias     = acc_bias';
-    body_data.gyro_bias    = gyro_bias';
-    body_data.static_start = static_start;
-    body_data.static_end   = static_end;
+    body_data.g_body        = g_body;
+    body_data.g_body_scaled = g_body; % retained for backwards compatibility
+    body_data.omega_ie_body = omega_ie_body;
+    body_data.accel_bias    = accel_bias;
+    body_data.gyro_bias     = gyro_bias;
+    body_data.static_start  = static_start;
+    body_data.static_end    = static_end;
 
     [~, imu_name, ~] = fileparts(imu_path);
     if ~isempty(gnss_path)
@@ -98,8 +101,16 @@ function body_data = Task_2(imu_path, gnss_path, method)
     legacy_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
     generic_file = fullfile(results_dir, ...
         sprintf('%s_%s_%s_task2_results.mat', imu_name, gnss_name, method_tag));
-    save(legacy_file, 'body_data');
-    save(generic_file, 'body_data');
+
+    % Save individual variables for easy loading in later tasks
+    save(legacy_file, 'g_body', 'g_body_scaled', 'omega_ie_body', ...
+        'accel_bias', 'gyro_bias', 'static_start', 'static_end');
+    save(generic_file, 'g_body', 'g_body_scaled', 'omega_ie_body', ...
+        'accel_bias', 'gyro_bias', 'static_start', 'static_end');
+
+    % Also store a struct for interactive use
+    save(legacy_file, '-append', 'body_data');
+    save(generic_file, '-append', 'body_data');
 
     assignin('base','task2_results', body_data);
     fprintf('Task 2 results saved to %s\n', legacy_file);
