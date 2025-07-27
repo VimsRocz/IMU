@@ -6,6 +6,10 @@ function result = Task_4(imu_path, gnss_path, method)
 %   Requires that `Task_3` has already saved a dataset-specific
 %   results file under `results/` such as
 %   `Task3_results_IMU_X001_GNSS_X001.mat`.
+%   Task 4 expects the bias estimates from Task 2. These must be stored
+%   with the variable names ``accel_bias`` and ``gyro_bias`` within
+%   ``Task2_body_<tag>.mat``. Legacy fields like ``acc_bias`` are
+%   supported but discouraged.
 %
 % Usage:
 %   Task_4(imu_path, gnss_path, method)
@@ -48,9 +52,23 @@ end
 % Load accelerometer and gyroscope biases estimated in Task 2
 task2_file = fullfile(results_dir, sprintf('Task2_body_%s.mat', tag));
 if isfile(task2_file)
-    t2 = load(task2_file);
-    if isfield(t2, 'accel_bias'); loaded_accel_bias = t2.accel_bias; else; error('Task_4:MissingField', 'accel_bias missing from %s', task2_file); end
-    if isfield(t2, 'gyro_bias');  loaded_gyro_bias  = t2.gyro_bias;  else; error('Task_4:MissingField', 'gyro_bias missing from %s', task2_file);  end
+    data = load(task2_file);
+    if isfield(data, 'body_data')
+        data = data.body_data;
+    end
+    if isfield(data, 'accel_bias')
+        loaded_accel_bias = data.accel_bias;
+    elseif isfield(data, 'acc_bias')
+        warning('Legacy field acc_bias found. Using as accel_bias.');
+        loaded_accel_bias = data.acc_bias;
+    else
+        error('accel_bias missing from %s', task2_file);
+    end
+    if isfield(data, 'gyro_bias')
+        loaded_gyro_bias  = data.gyro_bias;
+    else
+        error('gyro_bias missing from %s', task2_file);
+    end
 else
     error('Task_4:MissingTask2', 'Missing Task 2 output: %s. Run Task_2 first.', task2_file);
 end
