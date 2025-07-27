@@ -1,16 +1,17 @@
 function run_all_methods()
 %RUN_ALL_METHODS Execute Tasks 1--7 for the X002 dataset using TRIAD.
 %   This helper mirrors ``src/run_triad_only.py`` but runs the MATLAB
-%   pipeline.  Dataset files are resolved via ``get_data_file`` so the
-%   script can be launched from any directory. All outputs are stored
-%   under ``results/`` with the standard naming convention.
+%   pipeline.  Dataset files are referenced directly from the repository
+%   root. All outputs are stored under ``results/`` with the standard
+%   naming convention.
 
     dataset.imu  = 'IMU_X002.dat';
     dataset.gnss = 'GNSS_X002.csv';
     method = 'TRIAD';
 
-    imu_path  = get_data_file(dataset.imu);
-    gnss_path = get_data_file(dataset.gnss);
+    root_dir  = fileparts(fileparts(mfilename('fullpath')));
+    imu_path  = fullfile(root_dir, dataset.imu);
+    gnss_path = fullfile(root_dir, dataset.gnss);
 
     if ~isfile(imu_path) || ~isfile(gnss_path)
         error('File not found: %s or %s', imu_path, gnss_path);

@@ -13,9 +13,7 @@ def test_matlab_accuracy(tmp_path):
     if not matlab:
         pytest.skip("MATLAB not available")
     cmd = (
-        "imu=get_data_file('IMU_X001.dat');"
-        "gnss=get_data_file('GNSS_X001.csv');"
-        "FINAL(imu, gnss, 'TRIAD');"
+        "FINAL('IMU_X001.dat', 'GNSS_X001.csv', 'TRIAD');"
     )
     subprocess.run([matlab, "-batch", cmd], check=True)
 

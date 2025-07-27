@@ -28,10 +28,11 @@ if numel(imu_paths) ~= numel(gnss_paths)
 end
 
 results = cell(1, numel(imu_paths));
+root_dir = fileparts(fileparts(mfilename('fullpath')));
 
 for k = 1:numel(imu_paths)
-    imu_file  = get_data_file(imu_paths{k});
-    gnss_file = get_data_file(gnss_paths{k});
+    imu_file  = fullfile(root_dir, imu_paths{k});
+    gnss_file = fullfile(root_dir, gnss_paths{k});
 
     Task_1(imu_file, gnss_file, 'TRIAD');
     Task_2(imu_file, gnss_file, 'TRIAD');

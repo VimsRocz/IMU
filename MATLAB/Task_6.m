@@ -88,9 +88,9 @@ end
 if nargin < 4 || isempty(truth_file)
     % Default to the common STATE_X001.txt trajectory
     state_name = 'STATE_X001.txt';
-    try
-        truth_file = get_data_file(state_name);
-    catch
+    root_dir = fileparts(fileparts(mfilename('fullpath')));
+    truth_file = fullfile(root_dir, state_name);
+    if ~isfile(truth_file)
         error('Task_6:TruthMissing', 'State file not found: %s', state_name);
     end
 end

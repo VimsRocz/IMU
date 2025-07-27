@@ -161,8 +161,8 @@ def main(argv=None):
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
         log_path = pathlib.Path("results") / f"{tag}.log"
         print(f"\u25b6 {tag}")
-        imu_path = get_data_file(imu)
-        gnss_path = get_data_file(gnss)
+        imu_path = pathlib.Path(imu)
+        gnss_path = pathlib.Path(gnss)
 
         if logger.isEnabledFor(logging.DEBUG):
             try:

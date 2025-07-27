@@ -22,7 +22,6 @@ from utils import (
     is_static,
     compute_C_ECEF_to_NED,
     ecef_to_geodetic,
-    get_data_file,
 )
 from constants import GRAVITY, EARTH_RATE
 from scripts.validate_filter import compute_residuals, plot_residuals
@@ -86,8 +85,8 @@ MIN_STATIC_SAMPLES = 500
 
 def check_files(imu_file: str, gnss_file: str) -> tuple[str, str]:
     """Return validated dataset paths."""
-    imu_path = get_data_file(imu_file)
-    gnss_path = get_data_file(gnss_file)
+    imu_path = Path(imu_file)
+    gnss_path = Path(gnss_file)
     return str(imu_path), str(gnss_path)
 
 

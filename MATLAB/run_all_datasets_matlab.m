@@ -58,11 +58,8 @@ fusion_results = struct('dataset',{},'method',{},'rmse_pos',{},'final_pos',{},..
     'omega_err_mean',{},'omega_err_max',{},'ZUPT_count',{},'runtime',{});
 
 for k = 1:size(pairs,1)
-    imu  = fullfile(dataDir, pairs{k,1});
-    gnss = fullfile(dataDir, pairs{k,2});
-
-    if ~isfile(imu);  imu  = get_data_file(pairs{k,1});  end
-    if ~isfile(gnss); gnss = get_data_file(pairs{k,2}); end
+    imu  = fullfile(root, pairs{k,1});
+    gnss = fullfile(root, pairs{k,2});
 
     for m = 1:numel(method_list)
         method = method_list{m};

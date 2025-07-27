@@ -12,9 +12,7 @@ def test_pipeline_smoke(tmp_path):
         pytest.skip("MATLAB not available")
     # Run MATLAB pipeline from repo root using full paths
     cmd = (
-        "imu_path=get_data_file('IMU_X001.dat');"
-        "gnss_path=get_data_file('GNSS_X001.csv');"
-        "main(imu_path, gnss_path);"
+        "main('IMU_X001.dat', 'GNSS_X001.csv');"
     )
     subprocess.run([matlab, "-batch", cmd], check=True)
     out4 = Path("results/task4_results.mat")

@@ -13,9 +13,7 @@ def test_matlab_single(tmp_path):
     if not matlab:
         pytest.skip("MATLAB not available")
     cmd = (
-        "imu=get_data_file('IMU_X001_small.dat');"
-        "gnss=get_data_file('GNSS_X001_small.csv');"
-        "GNSS_IMU_Fusion_single(imu, gnss);"
+        "GNSS_IMU_Fusion_single('IMU_X001_small.dat', 'GNSS_X001_small.csv');"
     )
     subprocess.run([matlab, "-batch", cmd], check=True)
 

@@ -33,7 +33,7 @@ from tabulate import tabulate
 
 from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
-from utils import save_mat, get_data_file
+from utils import save_mat
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -49,8 +49,8 @@ def check_files(
 ) -> tuple[pathlib.Path, pathlib.Path]:
     """Return validated paths for the IMU and GNSS files."""
 
-    imu_path = get_data_file(imu_file)
-    gnss_path = get_data_file(gnss_file)
+    imu_path = pathlib.Path(imu_file)
+    gnss_path = pathlib.Path(gnss_file)
     return imu_path, gnss_path
 
 
