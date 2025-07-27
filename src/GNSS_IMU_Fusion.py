@@ -836,6 +836,11 @@ def main():
             logging.debug(f"Method {m}: Gyroscope bias: {gyro_bias}")
 
         logging.info("IMU data corrected for bias for each method.")
+        if methods:
+            logging.info(
+                "Accelerometer scale factor applied: %.4f",
+                scale,
+            )
     except Exception as e:
         logging.error(f"Failed to load IMU data or compute corrections: {e}")
         raise

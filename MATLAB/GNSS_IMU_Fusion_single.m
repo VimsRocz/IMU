@@ -384,6 +384,7 @@ fprintf('Measured Earth rotation (omega_ie_body): [%.4e, %.4e, %.4e]'' rad/s\n',
 
 save(fullfile(results_dir, ['Task2_body_' tag '.mat']), 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
 fprintf('Body-frame vectors and biases saved to %s\n', fullfile(results_dir, ['Task2_body_' tag '.mat']));
+fprintf('Task 2 g_body = [%.4f %.4f %.4f]'', omega_ie_body = [%.4e %.4e %.4e]''\n', g_body, omega_ie_body);
 
 task2_results = struct('g_body', g_body, 'g_body_scaled', g_body_scaled, ...
                 'omega_ie_body', omega_ie_body, 'accel_bias', accel_bias, ...
@@ -725,6 +726,7 @@ if isfile(task4_file)
 else
     save(task4_file, 'gnss_pos_ned', 'acc_biases', 'gyro_biases', 'scale_factors');
 end
+fprintf('Accelerometer scale factor applied: %.4f\n', scale_factors.(method));
 
 task4_results = struct('gnss_pos_ned', gnss_pos_ned, 'acc_biases', acc_biases, ...
                 'gyro_biases', gyro_biases, 'scale_factors', scale_factors);

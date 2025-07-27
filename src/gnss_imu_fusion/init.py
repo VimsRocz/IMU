@@ -120,6 +120,12 @@ def measure_body_vectors(
     else:
         static_start = max(0, static_start)
         static_end = min(static_end or len(acc), len(acc))
+    logging.info(
+        "Static interval indices: %d to %d (%d samples)",
+        static_start,
+        static_end,
+        static_end - static_start,
+    )
     static_acc = np.mean(acc[static_start:static_end], axis=0)
     static_gyro = np.mean(gyro[static_start:static_end], axis=0)
 
@@ -147,6 +153,11 @@ def measure_body_vectors(
     static_acc = static_acc * scale
     g_body = -static_acc
     omega_ie_body = static_gyro
+    logging.info(
+        "Task 2 vectors: g_body=%s, omega_ie_body=%s",
+        np.array2string(g_body, precision=4),
+        np.array2string(omega_ie_body, precision=4),
+    )
 
     mag_body = None
     if mag_file:
