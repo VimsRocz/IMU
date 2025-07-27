@@ -33,7 +33,7 @@ from tabulate import tabulate
 
 from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
-from utils import save_mat
+from utils import save_mat, get_data_file
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -44,19 +44,13 @@ ROOT = HERE.parent
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
 
-def check_files(imu_file: str, gnss_file: str) -> tuple[pathlib.Path, pathlib.Path]:
+def check_files(
+    imu_file: str, gnss_file: str
+) -> tuple[pathlib.Path, pathlib.Path]:
     """Return validated paths for the IMU and GNSS files."""
-    data_dir = pathlib.Path("data")
-    imu_path = data_dir / imu_file
-    gnss_path = data_dir / gnss_file
-    if not imu_path.is_file():
-        imu_path = pathlib.Path(imu_file)
-    if not gnss_path.is_file():
-        gnss_path = pathlib.Path(gnss_file)
-    if not imu_path.is_file():
-        raise FileNotFoundError(f"{imu_path} not found")
-    if not gnss_path.is_file():
-        raise FileNotFoundError(f"{gnss_path} not found")
+
+    imu_path = get_data_file(imu_file)
+    gnss_path = get_data_file(gnss_file)
     return imu_path, gnss_path
 
 

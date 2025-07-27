@@ -156,21 +156,13 @@ def main(argv=None):
     logger.debug(f"Datasets: {cases}")
     logger.debug(f"Methods: {methods}")
 
-    data_dir = ROOT / "Data"
-    if not data_dir.is_dir():
-        data_dir = ROOT
-
     results = []
     for (imu, gnss), m in itertools.product(cases, methods):
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
         log_path = pathlib.Path("results") / f"{tag}.log"
         print(f"\u25b6 {tag}")
-        imu_path = data_dir / imu
-        gnss_path = data_dir / gnss
-        if not imu_path.is_file():
-            imu_path = ROOT / imu
-        if not gnss_path.is_file():
-            gnss_path = ROOT / gnss
+        imu_path = get_data_file(imu)
+        gnss_path = get_data_file(gnss)
 
         if logger.isEnabledFor(logging.DEBUG):
             try:
