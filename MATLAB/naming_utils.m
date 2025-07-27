@@ -31,8 +31,20 @@ function name = script_name(dataset, method, task, ext)
 end
 
 function dir = output_dir(task, dataset, gnss, method)
-    tag = make_tag(dataset, gnss, method);
-    dir = fullfile('results', sprintf('task%d', task), tag);
+    %OUTPUT_DIR  Return the base results directory.
+    %   Historically the pipeline used results/taskN/<tag> but all outputs are
+    %   now written directly inside ``results`` with the task number embedded in
+    %   the filename. This function therefore just returns ``'results'`` so
+    %   existing code continues to work.
+
+    %#ok<INUSD> -- parameters retained for compatibility
+    dir = 'results';
+end
+
+function p = results_path(filename)
+    %RESULTS_PATH  Return path to FILENAME inside the results folder.
+    if nargin < 1, filename = ''; end
+    p = fullfile('results', filename);
 end
 
 function fname = plot_filename(dataset, gnss, method, task, subtask, out_type, ext)

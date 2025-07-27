@@ -95,7 +95,7 @@ def run_one(imu, gnss, method, verbose=False):
 
 
 def main():
-    results_dir = pathlib.Path('results/run_all_datasets')
+    results_dir = pathlib.Path("results")
     results_dir.mkdir(parents=True, exist_ok=True)
     logging.info("Ensured '%s' directory exists.", results_dir)
     parser = argparse.ArgumentParser()

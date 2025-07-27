@@ -14,7 +14,7 @@ def test_script_name():
 
 def test_output_dir(tmp_path):
     d = output_dir(5, "IMU_X001.dat", "GNSS_X001.csv", "TRIAD", tmp_path)
-    assert d == tmp_path / "task5" / "IMU_X001_GNSS_X001_TRIAD"
+    assert d == tmp_path
 
 
 def test_plot_filename():
