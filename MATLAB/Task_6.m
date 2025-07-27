@@ -233,3 +233,8 @@ runtime = toc(start_time);
 fprintf('Task 6 runtime: %.2f s\n', runtime);
 end
 
+function y = centre(x)
+%CENTRE Remove the mean from each column vector.
+    y = x - mean(x,1);
+end
+

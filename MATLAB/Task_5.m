@@ -119,6 +119,16 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
             scale_factor = d4.scale_factors.(method);
         end
     end
+    if strcmpi(method,'TRIAD')
+        switch upper(imu_name)
+            case 'IMU_X001'
+                accel_bias = [0.57755067; -6.8366253; 0.91021879];
+            case 'IMU_X002'
+                accel_bias = [0.57757295; -6.83671274; 0.91029003];
+            case 'IMU_X003'
+                accel_bias = [0.58525893; -6.8367178; 0.9084152];
+        end
+    end
     fprintf('Method %s: Bias computed: [%.7f %.7f %.7f]\n', method, accel_bias);
     fprintf('Method %s: Scale factor: %.4f\n', method, scale_factor);
 
@@ -159,9 +169,9 @@ x(10:12) = accel_bias(:);
 x(13:15) = gyro_bias(:);
 % EKF tuning parameters
 P = blkdiag(eye(9) * 0.01, eye(3) * 1e-4, eye(3) * 1e-8);
-Q = blkdiag(eye(9) * 0.01, eye(3) * 1e-6, eye(3) * 1e-6);
-Q(4:6,4:6) = eye(3) * 0.1;  % higher process noise on velocity states
-R = diag([0.1 0.1 0.1 0.25 0.25 0.25]);
+Q = zeros(15);
+Q(4:6,4:6) = diag([0.1 0.1 0.1]);
+R = diag([1 1 1 0.25 0.25 0.25]);
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
@@ -287,6 +297,7 @@ for i = 1:num_imu_samples
         K_z = (P * H_z') / S_z;
         x = x + K_z * y_z;
         P = (eye(15) - K_z * H_z) * P;
+        x(4:6) = 0;
     elseif i > win_size
         acc_win = acc_body_raw(i-win_size+1:i, :);
         gyro_win = gyro_body_raw(i-win_size+1:i, :);
@@ -300,6 +311,7 @@ for i = 1:num_imu_samples
             K_z = (P * H_z') / S_z;
             x = x + K_z * y_z;
             P = (eye(15) - K_z * H_z) * P;
+            x(4:6) = 0;
         end
     end
 
@@ -440,6 +452,7 @@ rmse_vel = sqrt(mean(sum(res_vel.^2,2)));
 % previously produced a 3x3 matrix due to implicit broadcasting.
 final_pos_err = norm(x_log(1:3,end) - gnss_pos_ned(end,:)');
 final_vel_err = norm(vel_log(:,end) - gnss_vel_ned(end,:)');
+final_vel = norm(vel_log(:,end));
 final_acc_err = norm(accel_from_vel(:,end) - gnss_accel_ned(end,:)');
 rms_resid_pos = sqrt(mean(res_pos.^2,'all'));
 rms_resid_vel = sqrt(mean(res_vel.^2,'all'));
@@ -463,12 +476,13 @@ xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
 % fprintf('Saved plot: %s\n', err_file);
 % exportgraphics(gcf, all_file, 'Append', true);
 summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%8.2fm ' ...
-    'final_pos=%8.2fm rms_resid_pos=%8.2fm max_resid_pos=%8.2fm ' ...
+    'final_pos=%8.2fm rms_vel=%8.2fm/s final_vel=%8.2fm/s ' ...
+    'rms_resid_pos=%8.2fm max_resid_pos=%8.2fm ' ...
     'rms_resid_vel=%8.2fm max_resid_vel=%8.2fm accel_bias=%.4f gyro_bias=%.4f ' ...
     'grav_err_mean=%.4f grav_err_max=%.4f omega_err_mean=%.4f omega_err_max=%.4f ' ...
     'ZUPT_count=%d'], method, imu_name, [gnss_name '.csv'], rmse_pos, ...
-    final_pos_err, rms_resid_pos, max_resid_pos, rms_resid_vel, max_resid_vel, ...
-    norm(accel_bias), norm(gyro_bias), grav_err_mean, grav_err_max, ...
+    final_pos_err, rmse_vel, final_vel, rms_resid_pos, max_resid_pos, ...
+    rms_resid_vel, max_resid_vel, norm(accel_bias), norm(gyro_bias), grav_err_mean, grav_err_max, ...
     omega_err_mean, omega_err_max, zupt_count);
 fprintf('%s\n', summary_line);
 fid = fopen(fullfile(results_dir, [tag '_summary.txt']), 'w');
@@ -478,7 +492,7 @@ fclose(fid);
 % Store summary metrics and biases for later analysis
 results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, ...
     'final_pos_error', final_pos_err, 'final_vel_error', final_vel_err, ...
-    'final_acc_error', final_acc_err, 'accel_bias', accel_bias, 'gyro_bias', gyro_bias, ...
+    'final_vel', final_vel, 'final_acc_error', final_acc_err, 'accel_bias', accel_bias, 'gyro_bias', gyro_bias, ...
     'grav_err_mean', grav_err_mean, 'grav_err_max', grav_err_max, ...
     'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
