@@ -6,6 +6,11 @@
 
 The script loads residual and attitude data, computes basic statistics and writes figures under ``results/<TAG>/``.
 
+As of *October 2023* the evaluation aligns all residuals to the fused IMU time
+vector. Earlier versions used the GNSS update times which produced shortened
+plots compared to Task 6. Residuals and truth are now interpolated so that the
+Task 7 timeline matches the Task 6 overlays.
+
 ## Subtasks
 
 ### 7.1 Load Data
