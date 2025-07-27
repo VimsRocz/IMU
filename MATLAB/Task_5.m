@@ -22,6 +22,11 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     if ~exist(results_dir,'dir')
         mkdir(results_dir);
     end
+    % Store Task 5 figures under a dedicated subfolder for easier cleanup
+    task5_dir = fullfile(results_dir, 'task5');
+    if ~exist(task5_dir, 'dir')
+        mkdir(task5_dir);
+    end
     if ~isfile(gnss_path)
         error('Task_5:GNSSFileNotFound', ...
               'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
@@ -409,10 +414,11 @@ for i = 1:3
     grid on; ylabel('[deg]'); title([euler_labels{i} ' Angle']);
 end
 xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
-% att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
-% set(gcf,'PaperPositionMode','auto');
-% print(gcf, att_file, '-dpdf', '-bestfit');
-% fprintf('Saved plot: %s\n', att_file);
+att_base = fullfile(task5_dir, sprintf('%s_Task5_Attitude', tag));
+set(gcf,'PaperPositionMode','auto');
+print(gcf, [att_base '.pdf'], '-dpdf', '-bestfit');
+print(gcf, [att_base '.png'], '-dpng');
+fprintf('Saved plot: %s.[pdf|png]\n', att_base);
 plot_task5_mixed_frame(imu_time, x_log(1:3,:), x_log(4:6,:), ...
     acc_log, euler_log, C_ECEF_to_NED, ref_r0, g_NED, tag, method, results_dir, all_file);
 fprintf('Fused mixed frames plot saved\n');
@@ -470,11 +476,11 @@ for i = 1:3
     grid on; ylabel('[m]'); title(['Residual ' err_labels{i}]);
 end
 xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
-% err_file = fullfile(results_dir, sprintf('%s_Task5_ErrorAnalysis.pdf', tag));
-% set(gcf,'PaperPositionMode','auto');
-% print(gcf, err_file, '-dpdf', '-bestfit');
-% fprintf('Saved plot: %s\n', err_file);
-% exportgraphics(gcf, all_file, 'Append', true);
+err_base = fullfile(task5_dir, sprintf('%s_Task5_ErrorAnalysis', tag));
+set(gcf,'PaperPositionMode','auto');
+print(gcf, [err_base '.pdf'], '-dpdf', '-bestfit');
+print(gcf, [err_base '.png'], '-dpng');
+fprintf('Saved plot: %s.[pdf|png]\n', err_base);
 summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%8.2fm ' ...
     'final_pos=%8.2fm rms_vel=%8.2fm/s final_vel=%8.2fm/s ' ...
     'rms_resid_pos=%8.2fm max_resid_pos=%8.2fm ' ...
