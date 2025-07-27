@@ -101,6 +101,8 @@ fprintf('\nSubtask 1.2: Defining gravity vector in NED frame.\n');
 
 % Compute gravity magnitude using WGS-84 model and print validation line
 g_NED = validate_gravity_vector(lat_deg, alt_m);
+% Override with the gravity magnitude used in the Python pipeline
+g_NED = [0; 0; constants.GRAVITY];
 
 
 % ================================
