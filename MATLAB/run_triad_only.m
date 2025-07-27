@@ -31,38 +31,18 @@ imu_file  = 'IMU_X002.dat';
 gnss_file = 'GNSS_X002.csv';
 
 [imu_path, gnss_path] = check_files(imu_file, gnss_file);
-imu_data = readmatrix(imu_path);
-time_s   = imu_data(:,2);
-gyro_inc = imu_data(:,3:5);
-acc_inc  = imu_data(:,6:8);
 
-if numel(time_s) > 1
-    dt_imu = mean(diff(time_s(1:min(100,end))));
-else
-    dt_imu = 1/400; % default 400 Hz
-end
+% ------------------------------------------------------------------
+% Load reference vectors from GNSS (Task 1 in Python)
+% ------------------------------------------------------------------
+[lat_deg, lon_deg, h_m, g_NED, omega_ie_NED, ~, ~, ~] = compute_reference_vectors(gnss_path);
 
-gyro = gyro_inc / dt_imu; % rad/s
-acc  = acc_inc  / dt_imu; % m/s^2
+% ------------------------------------------------------------------
+% Measure body vectors from IMU (Task 2 in Python)
+% ------------------------------------------------------------------
+[dt_imu, g_body, omega_ie_body] = measure_body_vectors(imu_path);
 
-N = min(300, size(acc,1));
-static_acc  = mean(acc(1:N,:), 1)';
-static_gyro = mean(gyro(1:N,:),1)';
-fprintf('Using first %d IMU samples for static interval.\n', N);
-
-%% REFERENCE VECTORS
-Tgnss = readtable(gnss_path);
-idx = find(Tgnss.X_ECEF_m ~= 0 | Tgnss.Y_ECEF_m ~= 0 | Tgnss.Z_ECEF_m ~= 0, 1, 'first');
-[x_ecef,y_ecef,z_ecef] = deal(Tgnss.X_ECEF_m(idx), Tgnss.Y_ECEF_m(idx), Tgnss.Z_ECEF_m(idx));
-[lat_deg, lon_deg, h_m] = ecef_to_geodetic(x_ecef, y_ecef, z_ecef);
-lat_rad = deg2rad(lat_deg);
-
-g_NED = [0;0;constants.GRAVITY];
-omega_ie_NED = constants.EARTH_RATE * [cos(lat_rad); 0; -sin(lat_rad)];
-
-g_body_raw = -static_acc;
-g_body = constants.GRAVITY * g_body_raw / norm(g_body_raw);
-omega_ie_body = static_gyro;
+%% REFERENCE VECTORS (already computed above)
 
 %% TRIAD METHOD
 M_body = triad_basis(g_body, omega_ie_body);
