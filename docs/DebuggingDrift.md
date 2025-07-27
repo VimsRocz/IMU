@@ -7,7 +7,7 @@ This guide explains how to track down extremely large position errors (tens of k
 1. **Plot the NED position error** over time. Compare the IMU-derived trajectory against GNSS ground truth to see when the drift begins and whether it grows linearly or quadratically.
 
    ```matlab
-   load('results/Task5_results_IMU_X001_GNSS_X001.mat', ...
+   load('MATLAB/results/Task5_results_IMU_X001_GNSS_X001.mat', ...
         'pos_ned', 'pos_gnss', 't_imu');
    figure;
    plot(t_imu, pos_ned - pos_gnss);
