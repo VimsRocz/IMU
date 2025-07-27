@@ -2012,8 +2012,7 @@ def main():
             gnss_pos_ned,
             vel_f,
             gnss_vel_ned,
-            dataset_id,
-            method,
+            tag,
         )
 
         save_attitude_over_time(imu_time, euler_deg, dataset_id, method)

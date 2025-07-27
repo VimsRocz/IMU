@@ -3,6 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from typing import Optional, List, Dict
+from naming import plot_path
 
 
 def save_zupt_variance(
@@ -80,8 +81,7 @@ def save_residual_plots(
     pos_gnss: np.ndarray,
     vel_filter: np.ndarray,
     vel_gnss: np.ndarray,
-    dataset_id: str,
-    method: str,
+    tag: str,
 ) -> None:
     """Plot aggregated position and velocity residuals.
 
@@ -97,10 +97,8 @@ def save_residual_plots(
         Filtered velocity in NED frame.
     vel_gnss : np.ndarray
         GNSS derived velocity in NED frame.
-    dataset_id : str
-        Identifier of the processed dataset.
-    method : str
-        Name of the attitude initialisation method.
+    tag : str
+        Dataset/method tag used as filename prefix.
     """
     residual_pos = pos_filter - pos_gnss
     residual_vel = vel_filter - vel_gnss
@@ -114,7 +112,7 @@ def save_residual_plots(
     plt.title("Position Residuals vs. Time")
     plt.legend(loc="best")
     plt.tight_layout()
-    filename = f"results/{dataset_id}_{method}_position_residuals.pdf"
+    filename = plot_path("results", tag, 5, "residuals", "position_residuals")
     plt.savefig(filename)
     plt.close()
 
@@ -126,7 +124,7 @@ def save_residual_plots(
     plt.title("Velocity Residuals vs. Time")
     plt.legend(loc="best")
     plt.tight_layout()
-    filename = f"results/{dataset_id}_{method}_velocity_residuals.pdf"
+    filename = plot_path("results", tag, 5, "residuals", "velocity_residuals")
     plt.savefig(filename)
     plt.close()
 
