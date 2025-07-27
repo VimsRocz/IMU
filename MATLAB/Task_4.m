@@ -5,6 +5,9 @@ function result = Task_4(imu_path, gnss_path, method)
 %   for backwards compatibility with older scripts.
 %   Requires that `Task_3` has already saved a dataset-specific
 %   results file such as `output_matlab/Task3_results_IMU_X001_GNSS_X001.mat`.
+%
+% Usage:
+%   Task_4(imu_path, gnss_path, method)
 
 if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');

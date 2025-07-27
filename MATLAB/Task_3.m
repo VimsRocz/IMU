@@ -5,6 +5,9 @@ function task3_results = Task_3(imu_path, gnss_path, method)
 % approaches (TRIAD, Davenport, SVD). It loads the reference and measured
 % vectors saved by Tasks 1 and 2 and stores the resulting rotation
 % matrices for later tasks.
+%
+% Usage:
+%   Task_3(imu_path, gnss_path, method)
 
 if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');

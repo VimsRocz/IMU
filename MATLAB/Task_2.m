@@ -5,6 +5,9 @@ function result = Task_2(imu_path, gnss_path, method)
 %
 % This function translates Task 2 from the Python file GNSS_IMU_Fusion.py
 % into MATLAB.
+%
+% Usage:
+%   Task_2(imu_path, gnss_path, method)
 % =========================================================================
 
 if nargin < 3 || isempty(method)
