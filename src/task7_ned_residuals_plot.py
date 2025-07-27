@@ -163,6 +163,12 @@ def plot_residuals(
     fig.savefig(norm_png)
     plt.close(fig)
 
+    saved = sorted(out_dir.glob(f"{dataset}_task7_ned_residual*.pdf"))
+    if saved:
+        print("Files saved in", out_dir)
+        for f in saved:
+            print(" -", f.name)
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Plot NED residuals for Task 7")
@@ -188,8 +194,13 @@ def main() -> None:
         t_est, pos_est, vel_est, pos_truth_i, vel_truth_i
     )
 
-    out_dir = args.output_dir / args.dataset
+    out_dir = args.output_dir
     plot_residuals(t_est, res_pos, res_vel, res_acc, args.dataset, out_dir)
+    saved = sorted(out_dir.glob(f"{args.dataset}_task7_ned_residual*.pdf"))
+    if saved:
+        print("Files saved in", out_dir)
+        for f in saved:
+            print(" -", f.name)
 
 
 if __name__ == "__main__":

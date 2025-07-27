@@ -9,9 +9,9 @@ function task7_ecef_residuals_plot(est_file, imu_file, gnss_file, truth_file, da
 %   ``output_dir`` using ``dataset`` as part of the filename.
 
 if nargin < 6 || isempty(output_dir)
-    output_dir = 'output_matlab';
+    output_dir = 'MATLAB/results';
 end
-out_dir = fullfile(output_dir, dataset);
+out_dir = output_dir;
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
 [t_est, pos_est, vel_est, ~] = load_est(est_file);
@@ -111,5 +111,12 @@ pngn = fullfile(out_dir, sprintf('%s_task7_ecef_residual_norms.png', dataset));
 print(f, pdfn, '-dpdf', '-bestfit');
 print(f, pngn, '-dpng', '-bestfit');
 close(f);
+files = dir(fullfile(out_dir, sprintf('%s_task7_ecef_residual*.pdf', dataset)));
+if ~isempty(files)
+    fprintf('Files saved in %s\n', out_dir);
+    for k=1:numel(files)
+        fprintf(' - %s\n', files(k).name);
+    end
+end
 end
 

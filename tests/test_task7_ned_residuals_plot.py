@@ -15,7 +15,7 @@ def test_plot_residuals(tmp_path: Path):
     res_pos, res_vel, res_acc = compute_residuals(
         t, pos_est, vel_est, pos_truth, vel_truth
     )
-    out_dir = tmp_path / "TEST"
+    out_dir = tmp_path
     plot_residuals(t, res_pos, res_vel, res_acc, "TEST", out_dir)
     assert (out_dir / "TEST_task7_ned_residuals.pdf").exists()
     assert (out_dir / "TEST_task7_ned_residual_norms.pdf").exists()

@@ -98,7 +98,7 @@ def main() -> None:
     tag = args.tag or f"{m.group(1)}_{m.group(2)}_{method}"
 
     # output directory for overlay figures
-    out_dir = Path(args.output) / tag
+    out_dir = Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Remove any old Task 6 truth overlay PDFs in this directory
@@ -295,6 +295,11 @@ def main() -> None:
             "FinalAcc",
         ]
         print(tabulate(summary_rows, headers=headers, floatfmt=".3f"))
+    saved = sorted(out_dir.glob(f"{tag}_task6_*.pdf"))
+    if saved:
+        print("Files saved in", out_dir)
+        for f in saved:
+            print(" -", f.name)
     runtime = time.time() - start_time
     print(f"Task 6 runtime: {runtime:.2f} s")
 

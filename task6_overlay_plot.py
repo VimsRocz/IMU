@@ -203,10 +203,9 @@ def plot_overlay(
 
     fig.tight_layout()
     run_id = f"{dataset}_{method}"
-    task_dir = out_dir / run_id
-    task_dir.mkdir(parents=True, exist_ok=True)
-    pdf_path = task_dir / f"{run_id}_task6_overlay_state_{frame}.pdf"
-    png_path = task_dir / f"{run_id}_task6_overlay_state_{frame}.png"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = out_dir / f"{run_id}_task6_overlay_state_{frame}.pdf"
+    png_path = out_dir / f"{run_id}_task6_overlay_state_{frame}.png"
     fig.savefig(pdf_path)
     fig.savefig(png_path)
     plt.close(fig)
@@ -337,6 +336,13 @@ def main() -> None:
         args.dataset,
         out_dir,
     )
+
+    run_id = f"{args.dataset}_{args.method}"
+    saved = sorted(out_dir.glob(f"{run_id}_task6_*.pdf"))
+    if saved:
+        print("Saved files under", out_dir)
+        for f in saved:
+            print(" -", f.name)
 
 
 if __name__ == "__main__":
