@@ -108,7 +108,7 @@ for k = 1:size(pairs,1)
                 fprintf('Starting Task 7 for %s + %s ...\n', imuStem, gnssStem);
                 try
                     tag = sprintf('%s_%s_%s', imuStem, gnssStem, method);
-                    outDir = fullfile(resultsDir, 'task7', tag);
+                    outDir = fullfile(resultsDir);
                     summary = task7_fused_truth_error_analysis(outFile, cand, outDir);
                     save(fullfile(outDir,'task7_summary.mat'), 'summary');
                 catch ME

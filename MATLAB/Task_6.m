@@ -57,7 +57,7 @@ end
 
 % Build output directory using method and dataset identifiers
 run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
-out_dir = fullfile(results_dir, 'task6', run_id);
+out_dir = fullfile(results_dir);
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
 % Load gravity vector from Task 1 initialisation

@@ -136,7 +136,7 @@ function process_dataset(imu_file, gnss_file)
             fprintf('Starting Task 7 for %s + %s ...\n', imu_name, gnss_name);
             try
                 tag_m = sprintf('%s_%s_%s', imu_name, gnss_name, method);
-                outDir = fullfile(resultsDir, 'task7', tag_m);
+                outDir = fullfile(resultsDir);
                 summary = task7_fused_truth_error_analysis(out_kf, cand, outDir);
                 save(fullfile(outDir,'task7_summary.mat'), 'summary');
             catch ME

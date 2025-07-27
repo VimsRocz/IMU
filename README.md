@@ -277,7 +277,7 @@ Typical result PDFs:
 - `<method>_attitude_angles.pdf` – attitude angles over time
 - `<tag>_<frame>_overlay_truth.pdf` – fused output vs reference. Here `<tag>` is
   the dataset pair and method concatenated, e.g. `IMU_X002_GNSS_X002_Davenport`.
-- ``results/task6/<tag>/<tag>_task6_overlay_state_<frame>.pdf`` – Task 6 overlay with GNSS, IMU and raw state (PDF/PNG)
+- ``results/<tag>_task6_overlay_state_<frame>.pdf`` – Task 6 overlay with GNSS, IMU and raw state (PDF/PNG)
   Example: ``IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.pdf``
 - `<tag>_task7_3_residuals_position_velocity.pdf` – Task 7 position/velocity residuals
   Example: ``IMU_X002_GNSS_X002_Davenport_task7_3_residuals_position_velocity.pdf``
@@ -300,14 +300,14 @@ python src/task6_plot_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_ou
 ```
 
 Passing `--show-measurements` adds the raw IMU and GNSS curves.  The resulting
-figures are written as ``results/task6/<tag>/<tag>_task6_overlay_state_<frame>.pdf`` and ``.png`` files (both formats are saved).
+figures are written as ``results/<tag>_task6_overlay_state_<frame>.pdf`` and ``.png`` files (both formats are saved).
 Here `<tag>` concatenates the IMU dataset, the GNSS dataset and the method,
 for example `IMU_X002_GNSS_X002_Davenport` yielding
 ``IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.pdf``.
 
 ### Output
 
-* ``results/task6/<tag>/<tag>_task6_overlay_state_<frame>.pdf`` – fused output vs raw state file (PDF/PNG)
+* ``results/<tag>_task6_overlay_state_<frame>.pdf`` – fused output vs raw state file (PDF/PNG)
   Example: ``IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.pdf``
 
 ## Task 7: Evaluation of Filter Results
@@ -331,7 +331,7 @@ python src/run_all_methods.py --task 7
 ### Output:
 
 * When running `run_all_methods.py`, plots are stored in
-  `results/task7/<tag>/` as
+  `results/` as
   `<tag>_task7_3_residuals_position_velocity.pdf` and
   `<tag>_task7_4_attitude_angles_euler.pdf` (PDF/PNG). Here `<tag>` is the
   concatenation of the IMU dataset, GNSS dataset and method name, e.g.
@@ -340,7 +340,7 @@ python src/run_all_methods.py --task 7
 * The helper script `src/task7_plot_error_fused_vs_truth.py` produces
   `task7_fused_vs_truth_error.pdf` showing the fused minus truth velocity error.
 * The script `task7_ecef_residuals_plot.py` plots ECEF frame residuals and
-  writes figures to ``results/task7/<tag>/``:
+  writes figures to ``results/``:
   `python task7_ecef_residuals_plot.py --est-file <fused.npz> --imu-file <IMU.dat> \
   --gnss-file <GNSS.csv> --truth-file <STATE_X.txt> --dataset <tag>`
 * Subtask 7.5 generates `<tag>_task7_5_diff_truth_fused_over_time.pdf` (NED frame) with the
@@ -388,9 +388,9 @@ Running the script without `--config` processes all bundled data sets
 (`IMU_X001`–`IMU_X003`).
 Provide a YAML configuration to process additional logs.
 Task 6 (truth overlay) and Task 7 (evaluation) are performed automatically for
-each run.  The additional figures are written to `results/` with the evaluation
-plots placed inside `results/task7/<tag>/`. Task 7 uses the dataset tag as a
-prefix where `<tag>` concatenates the IMU file, GNSS file and method. Example:
+each run.  The additional figures are written to `results/` with filenames
+starting with the dataset tag `<tag>` that concatenates the IMU file, GNSS file
+and method. Example:
 `IMU_X002_GNSS_X002_Davenport_task7_3_residuals_position_velocity.pdf`
 will appear in that folder.
 The helper module `src/naming.py` provides :func:`build_tag` and

@@ -8,7 +8,7 @@ Usage:
 This script loads a fused estimator output file and a ground truth
 trajectory, interpolates the truth to the estimator time vector and
 plots position, velocity and acceleration residuals. Figures are saved
-as PDF and PNG under ``results/task7/<dataset>/`` within the chosen
+as PDF and PNG in the ``results`` directory within the chosen
 output directory.
 """
 
@@ -129,7 +129,7 @@ def main() -> None:
         t_est, pos_est, vel_est, pos_truth, vel_truth
     )
 
-    out_dir = output_dir(7, args.dataset, args.gnss, args.method, args.output_dir)
+    out_dir = Path(args.output_dir)
     plot_residuals(
         t_est,
         res_pos,
