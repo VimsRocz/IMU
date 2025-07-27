@@ -84,7 +84,14 @@ def measure_body_vectors(
     static_end: Optional[int] = None,
     mag_file: Optional[str] = None,
 ) -> Tuple[float, np.ndarray, np.ndarray, Optional[np.ndarray]]:
-    """Estimate gravity and Earth rotation in the body frame."""
+    """Estimate gravity and Earth rotation in the body frame.
+
+    The function detects a static IMU segment, logs its duration relative
+    to the full dataset and warns when the static portion exceeds 90%% of
+    all samples, mirroring the MATLAB implementation.  The mean
+    accelerometer vector of the static interval is scaled so that its
+    magnitude equals ``GRAVITY``.  The raw dataset is left unchanged.
+    """
     data = np.loadtxt(imu_file)
     if data.shape[1] < 10:
         raise ValueError("Unexpected IMU data format")
@@ -115,9 +122,29 @@ def measure_body_vectors(
         static_end = min(static_end or len(acc), len(acc))
     static_acc = np.mean(acc[static_start:static_end], axis=0)
     static_gyro = np.mean(gyro[static_start:static_end], axis=0)
+
+    # --- Compute ratio of static to total samples and log duration
+    n_static = static_end - static_start
+    static_duration = n_static * dt
+    total_duration = len(acc) * dt
+    ratio_static = static_duration / total_duration
+    logging.info(
+        "Static interval duration: %.2f s of %.2f s total (%.1f%%)",
+        static_duration,
+        total_duration,
+        ratio_static * 100,
+    )
+    if ratio_static > 0.90:
+        logging.warning(
+            "Static interval covers %.1f%% of the dataset. Verify motion data "
+            "or adjust detection thresholds.",
+            ratio_static * 100,
+        )
+    # Only scale the mean of the static interval so that its magnitude
+    # matches ``GRAVITY``.  This preserves the raw measurements for later
+    # processing while keeping parity with the MATLAB implementation.
     scale = GRAVITY / np.linalg.norm(static_acc)
-    acc *= scale
-    static_acc *= scale
+    static_acc = static_acc * scale
     g_body = -static_acc
     omega_ie_body = static_gyro
 

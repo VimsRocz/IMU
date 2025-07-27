@@ -21,17 +21,42 @@ start_time = tic;
 [t_tru, pos_tru_ecef, vel_tru_ecef, acc_tru_ecef] = load_est(truth_file);
 
 % ------------------------------------------------------------------
+% The estimator may use absolute UNIX time stamps while the truth data
+% typically starts from zero.  To ensure consistent interpolation we
+% normalise both time vectors so that ``t=0`` corresponds to the first
+% sample.  This mirrors ``load_estimate(..., times=t_truth)`` in the
+% Python implementation.
+% ------------------------------------------------------------------
+t_est = t_est - t_est(1);
+t_tru = t_tru - t_tru(1);
+
+% ------------------------------------------------------------------
 % Convert both trajectories to a common NED frame using the estimator
 % reference parameters.  When the estimator file lacks reference
 % information, fall back to the first truth sample.
 % ------------------------------------------------------------------
 if isnan(lat) || isnan(lon) || any(isnan(r0))
+    % Use the first truth sample as the shared origin when the estimator
+    % does not provide reference parameters. ``ecef_to_geodetic`` returns
+    % degrees so convert to radians for ``compute_C_ECEF_to_NED``.
     r0 = pos_tru_ecef(1,:);
     [lat_deg, lon_deg, ~] = ecef_to_geodetic(r0(1), r0(2), r0(3));
     lat = deg2rad(lat_deg);
     lon = deg2rad(lon_deg);
+else
+    % Some log files store reference lat/lon in degrees.  Detect this and
+    % convert to radians so both MATLAB and Python interpret them identically.
+    if abs(lat) > pi
+        lat = deg2rad(lat);
+    end
+    if abs(lon) > pi
+        lon = deg2rad(lon);
+    end
 end
 C = compute_C_ECEF_to_NED(lat, lon);
+% Rotate both trajectories into the same NED frame using the **shared**
+% origin ``r0`` so that residuals are computed consistently.  This
+% matches the behaviour of ``validate_with_truth.py`` in Python.
 pos_est = (C * (pos_est_ecef' - r0)).';
 vel_est = (C*vel_est_ecef.').';
 acc_est = (C*acc_est_ecef.').';
@@ -190,10 +215,10 @@ function plot_residuals(t, res_pos, res_vel, out_dir)
         subplot(2,3,3+j); plot(t, res_vel(:,j));
         xlabel('Time [s]'); ylabel('Vel Residual [m/s]'); grid on;
     end
-    sgtitle('Task 7 \x2013 GNSS - Predicted Residuals');
+    sgtitle('Task 7 - GNSS - Predicted Residuals');
     set(f,'PaperPositionMode','auto');
     pdf = fullfile(out_dir,'task7_3_residuals_position_velocity.pdf');
-    print(f,pdf,'-dpdf');
+    print(f,pdf,'-dpdf','-bestfit');
     close(f);
 end
 
@@ -207,6 +232,6 @@ function plot_norms(t, res_pos, res_vel, res_acc, out_dir)
     xlabel('Time [s]'); ylabel('Error Norm'); legend; grid on;
     set(f,'PaperPositionMode','auto');
     pdf = fullfile(out_dir,'task7_3_error_norms.pdf');
-    print(f,pdf,'-dpdf');
+    print(f,pdf,'-dpdf','-bestfit');
     close(f);
 end

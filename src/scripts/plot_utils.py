@@ -21,7 +21,7 @@ def plot_attitude(time, quats, outpath):
         axs[i].plot(time, euler[:, i])
         axs[i].set_ylabel(f"{labels[i]} (°)")
     axs[-1].set_xlabel("Time (s)")
-    fig.suptitle("Attitude Angles Over Time")
+    fig.suptitle("Task 6: Attitude Angles Over Time")
     fig.tight_layout(rect=[0, 0, 1, 0.96])
     fig.savefig(outpath)
     plt.close(fig)

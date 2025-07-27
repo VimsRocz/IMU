@@ -4,8 +4,9 @@ function quat_logs = task6_plot_fused_trajectory(method, imu_file, gnss_file, qu
 %   quat_logs = TASK6_PLOT_FUSED_TRAJECTORY(method, imu_file, gnss_file, quat_logs)
 %   replicates ``plot_task6_fused_trajectory`` from the Python code. The fused
 %   estimate ``<imu_file>_<gnss_file>_<method>.mat`` and corresponding truth
-%   ``<imu_file>_<gnss_file>_truth.mat`` must exist under ``output_matlab/``. Overlay
-%   plots in NED and ECEF are produced together with a position error plot. The
+%   ``<imu_file>_<gnss_file>_truth.mat`` must exist in the directory returned by
+%   ``get_results_dir()``. Overlay plots in NED and ECEF are produced together
+%   with a position error plot. The
 %   quaternion history for the method is returned in ``quat_logs``.
 
 if nargin < 4 || isempty(quat_logs)
@@ -91,7 +92,7 @@ for frame_name = {'NED','ECEF'}
     end
     tightfig();
     out_name = sprintf('%s_%s_%s_task6_fused_position_%s', imu_file, gnss_file, method, lower(fr));
-    print(f1, fullfile('output_matlab',[out_name '.pdf']), '-dpdf');
+    print(f1, fullfile('output_matlab',[out_name '.pdf']), '-dpdf', '-bestfit');
     close(f1);
 
     f2 = figure('Visible','off','Position',[100 100 600 700]);
@@ -104,7 +105,7 @@ for frame_name = {'NED','ECEF'}
     end
     tightfig();
     out_name = sprintf('%s_%s_%s_task6_fused_velocity_%s', imu_file, gnss_file, method, lower(fr));
-    print(f2, fullfile('output_matlab',[out_name '.pdf']), '-dpdf');
+    print(f2, fullfile('output_matlab',[out_name '.pdf']), '-dpdf', '-bestfit');
     close(f2);
 end
 
@@ -118,7 +119,7 @@ for i = 1:3
 end
 tightfig();
 out_name = sprintf('%s_%s_%s_task6_position_error_ned', imu_file, gnss_file, method);
-print(f3, fullfile('output_matlab',[out_name '.pdf']), '-dpdf');
+print(f3, fullfile('output_matlab',[out_name '.pdf']), '-dpdf', '-bestfit');
 close(f3);
 
 fprintf('Task 6: %s final position error %.3f m, RMSEpos %.3f m, RMSEvel %.3f m/s\n', ...

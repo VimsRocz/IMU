@@ -14,5 +14,7 @@ These constants mirror those defined in ``MATLAB/constants.m`` so that the
 Python and MATLAB implementations remain in sync.
 """
 
-GRAVITY = 9.81
+# Gravity magnitude used throughout the Python pipeline (m/s^2)
+# Mirrors MATLAB/constants.m for cross-language parity
+GRAVITY = 9.79424753
 EARTH_RATE = 7.2921e-5

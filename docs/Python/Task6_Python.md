@@ -18,13 +18,17 @@ Task 5 output
 
 ## Subtasks
 
-1. **Load Estimator Result** – parse the Task 5 output file and obtain fused
-   position, velocity and acceleration.
-2. **Assemble Frames** – use :func:`assemble_frames` to align IMU, GNSS and truth
-   data in NED, ECEF and body frames.
-3. **Generate Plots** – call :func:`plot_overlay` for each frame to save PDFs
-   under ``results/task6/<TAG>/`` as `<TAG>_task6_overlay_state_<FRAME>.pdf`. The
-   ``--show-measurements`` flag adds the raw IMU and GNSS curves.
+### 6.1 Load Estimator Result
+Parse the Task 5 output file and obtain fused position, velocity and acceleration.
+
+### 6.2 Assemble Frames
+Use :func:`assemble_frames` to align IMU, GNSS and truth data in NED, ECEF and body frames.
+
+### 6.3 Generate Plots
+Call :func:`plot_overlay` for each frame to produce overlay figures. The ``--show-measurements`` flag adds the raw IMU and GNSS curves.
+
+### 6.4 Save Overlay Figures
+Overlay PDFs are stored in ``results/task6/<dataset>/`` as ``<dataset>_<method>_task6_overlay_state_<frame>.pdf``.
 
 ## Result
 
