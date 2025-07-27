@@ -8,7 +8,7 @@ function pdf_path = task6_overlay_plot(est_file, truth_file, method, frame, data
 %   ground truth respectively. ``frame`` is either ``'ECEF'`` or ``'NED'``.
 %   The interpolated truth is overlaid on the estimate for position,
 %   velocity and acceleration and the figure saved under
-%   ``results/task6/<run_id>/`` as ``<run_id>_task6_overlay_state_<frame>.pdf`` 
+%   ``results/<run_id>/`` as ``<run_id>_task6_overlay_state_<frame>.pdf``
 %   within the directory returned by ``get_results_dir()``.
 %   ``run_id`` combines the dataset and method, e.g.,
 %   ``IMU_X003_GNSS_X002_TRIAD``.
@@ -206,7 +206,7 @@ for ax = 1:3
 end
 set(f,'PaperPositionMode','auto');
 run_id = sprintf('%s_%s', dataset, method);
-task_dir = fullfile(out_dir, 'task6', run_id);
+task_dir = fullfile(out_dir, run_id);
 if ~exist(task_dir,'dir'); mkdir(task_dir); end
 pdf_path = fullfile(task_dir, sprintf('%s_task6_overlay_state_%s.pdf', run_id, frame));
 png_path = fullfile(task_dir, sprintf('%s_task6_overlay_state_%s.png', run_id, frame));

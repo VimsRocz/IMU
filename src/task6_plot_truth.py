@@ -98,7 +98,7 @@ def main() -> None:
     tag = args.tag or f"{m.group(1)}_{m.group(2)}_{method}"
 
     # output directory for overlay figures
-    out_dir = Path(args.output) / "task6" / tag
+    out_dir = Path(args.output) / tag
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Remove any old Task 6 truth overlay PDFs in this directory

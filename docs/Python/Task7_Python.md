@@ -1,6 +1,6 @@
 # Python Pipeline – Task 7 Filter Evaluation
 
-Task 7 analyses the filter residuals and attitude history. The Python scripts load the residual arrays produced in Task 5 and create diagnostic figures in ``results/task7/<TAG>/``.
+Task 7 analyses the filter residuals and attitude history. The Python scripts load the residual arrays produced in Task 5 and create diagnostic figures in ``results/<TAG>/``.
 
 ## Overview
 
