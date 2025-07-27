@@ -630,7 +630,16 @@ imu_time = (0:size(imu_raw_data,1)-1)' * dt_imu + gnss_time(1);
 acc_body_raw = imu_raw_data(:, 6:8) / dt_imu;
 acc_body_filt = butter_lowpass_filter(acc_body_raw, 5.0, 1/dt_imu);
 gyro_body_filt = butter_lowpass_filter(imu_raw_data(:, 3:5) / dt_imu, 5.0, 1/dt_imu);
-[start_idx, end_idx] = detect_static_interval(acc_body_filt, gyro_body_filt);
+dataset_map = containers.Map( ...
+    {'IMU_X001','IMU_X002','IMU_X003'}, ...
+    {[296, 479907],[296, 479907],[296, 479907]});
+if isKey(dataset_map, imu_name)
+    w = dataset_map(imu_name);
+    start_idx = w(1);
+    end_idx   = min(w(2), size(acc_body_filt,1));
+else
+    [start_idx, end_idx] = detect_static_interval(acc_body_filt, gyro_body_filt);
+end
 static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
 static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
 
