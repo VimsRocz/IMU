@@ -47,10 +47,31 @@ def triad_basis(vec1: np.ndarray, vec2: np.ndarray) -> np.ndarray:
 
     Notes
     -----
-    This placeholder mirrors the MATLAB ``triad_basis`` helper and will be
-    expanded to match its functionality.
+    Mirrors the helper used throughout the MATLAB codebase. ``vec1`` forms the
+    primary axis of the basis. ``vec2`` is used to compute the second axis. If
+    the cross product of the two vectors is close to zero (i.e. they are
+    collinear) an arbitrary orthogonal axis is chosen to ensure a valid basis.
     """
-    raise NotImplementedError("triad_basis is not yet implemented")
+
+    v1 = np.asarray(vec1, dtype=float).reshape(3)
+    v2 = np.asarray(vec2, dtype=float).reshape(3)
+
+    t1 = v1 / np.linalg.norm(v1)
+    t2_temp = np.cross(t1, v2)
+
+    if np.linalg.norm(t2_temp) < 1e-10:
+        # Fallback axis roughly orthogonal to t1
+        tmp = (
+            np.array([1.0, 0.0, 0.0])
+            if abs(t1[0]) < abs(t1[1])
+            else np.array([0.0, 1.0, 0.0])
+        )
+        t2_temp = np.cross(t1, tmp)
+
+    t2 = t2_temp / np.linalg.norm(t2_temp)
+    t3 = np.cross(t1, t2)
+
+    return np.column_stack((t1, t2, t3))
 
 
 def triad_svd(
@@ -82,8 +103,55 @@ def butter_lowpass_filter(
 def basic_butterworth_filter(
     data: np.ndarray, cutoff: float = 5.0, fs: float = 400.0, order: int = 4
 ) -> np.ndarray:
-    """Placeholder for MATLAB parity. Not implemented."""
-    raise NotImplementedError("basic_butterworth_filter is MATLAB-only")
+    """Butterworth low-pass filter implemented without design helper functions.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        ``N×M`` array of samples (time along axis 0).
+    cutoff : float, optional
+        Cut-off frequency in Hz, by default 5.0.
+    fs : float, optional
+        Sampling frequency in Hz, by default 400.0.
+    order : int, optional
+        Filter order, by default 4.
+
+    Returns
+    -------
+    np.ndarray
+        Filtered array of the same shape as ``data``.
+
+    Notes
+    -----
+    This mirrors the MATLAB implementation used in the companion code base and
+    is provided for situations where the standard :func:`butter` helper from
+    :mod:`scipy` is unavailable. ``scipy.signal.lfilter`` is still used for the
+    actual filtering steps.
+    """
+
+    from scipy.signal import lfilter
+
+    data = np.asarray(data, dtype=float)
+    if data.ndim == 1:
+        data = data[:, None]
+
+    # Pre-warp frequency for bilinear transform
+    warped = 2 * fs * np.tan(np.pi * cutoff / fs)
+    k = np.arange(order)
+    angles = np.pi / 2 + (2 * k + 1) * np.pi / (2 * order)
+    poles_analog = warped * np.exp(1j * angles)
+    poles_digital = (2 * fs + poles_analog) / (2 * fs - poles_analog)
+    zeros_digital = -np.ones(order)
+    gain_analog = warped**order
+    gain_digital = np.real(gain_analog / np.prod(2 * fs - poles_analog))
+
+    b = np.real(np.poly(zeros_digital)) * gain_digital
+    a = np.real(np.poly(poles_digital))
+
+    y = lfilter(b, a, data, axis=0)
+    filt = lfilter(b, a, y[::-1], axis=0)[::-1]
+
+    return filt.squeeze()
 
 
 def angle_between(a: np.ndarray, b: np.ndarray) -> float:
