@@ -130,11 +130,11 @@ end
 
 
 function [diff_pos_ned, diff_vel_ned] = subtask7_5_diff_plot(time, fused_pos_ned, truth_pos_ned, fused_vel_ned, truth_vel_ned, run_id, out_dir)
-%SUBTASK7_5_DIFF_PLOT Plot and analyse Truth minus Fused differences.
+%SUBTASK7_5_DIFF_PLOT Plot and analyse Truth minus Fused differences in NED frame.
 %   [diff_pos_ned, diff_vel_ned] = SUBTASK7_5_DIFF_PLOT(time, fused_pos_ned,
 %   truth_pos_ned, fused_vel_ned, truth_vel_ned, run_id, out_dir) computes
 %   truth_pos_ned - fused_pos_ned and truth_vel_ned - fused_vel_ned at each
-%   time step and plots the results.
+%   time step and plots the results in the NED frame.
 
 diff_pos_ned = truth_pos_ned - fused_pos_ned;
 diff_vel_ned = truth_vel_ned - fused_vel_ned;
@@ -149,7 +149,7 @@ for i = 1:3
     subplot(2,3,3+i); plot(time, diff_vel_ned(:,i));
     xlabel('Time [s]'); ylabel('Difference [m/s]'); grid on;
 end
-sgtitle('Truth - Fused Differences');
+sgtitle('Truth - Fused Differences (NED Frame)');
 set(f,'PaperPositionMode','auto');
 out_file_pdf = fullfile(out_dir, [run_id '_task7_5_diff_truth_fused_over_time.pdf']);
 out_file_png = strrep(out_file_pdf, '.pdf', '.png');

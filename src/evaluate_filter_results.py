@@ -334,7 +334,7 @@ def subtask7_5_diff_plot(
     run_id: str,
     out_dir: str,
 ) -> None:
-    """Plot ``truth - fused`` position and velocity differences."""
+    """Plot ``truth - fused`` position and velocity differences in the NED frame."""
 
     diff_pos_ned = truth_pos_ned - fused_pos_ned
     diff_vel_ned = truth_vel_ned - fused_vel_ned
@@ -352,7 +352,7 @@ def subtask7_5_diff_plot(
         axes[1, i].set_ylabel("Difference [m/s]")
         axes[1, i].grid(True)
 
-    fig.suptitle("Truth - Fused Differences")
+    fig.suptitle("Truth - Fused Differences (NED Frame)")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
 
     out_dir = Path(out_dir)
