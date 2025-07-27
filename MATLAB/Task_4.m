@@ -181,16 +181,7 @@ acc_rms  = sqrt(mean(acc_body_raw(:).^2));
 gyro_rms = sqrt(mean((imu_raw_data(:,3:5)/dt_imu).^2,'all'));
 fprintf('   Acc raw RMS=%.4f, Gyro raw RMS=%.6f\n', acc_rms, gyro_rms);
 
-dataset_map = containers.Map( ...
-    {'IMU_X001','IMU_X002','IMU_X003'}, ...
-    {[296, 479907],[296, 479907],[296, 479907]});
-if isKey(dataset_map, imu_name)
-    w = dataset_map(imu_name);
-    start_idx = w(1);
-    end_idx   = min(w(2), size(acc_body_filt,1));
-else
-    [start_idx, end_idx] = detect_static_interval(acc_body_filt, gyro_body_filt);
-end
+[start_idx, end_idx] = detect_static_interval(acc_body_filt, gyro_body_filt);
 static_acc  = mean(acc_body_filt(start_idx:end_idx, :), 1);
 static_gyro = mean(gyro_body_filt(start_idx:end_idx, :), 1);
 acc_var = var(acc_body_filt(start_idx:end_idx, :), 0, 1);
