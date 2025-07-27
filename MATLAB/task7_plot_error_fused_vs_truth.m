@@ -55,7 +55,7 @@ set(f,'PaperPositionMode','auto');
 
 pdf = fullfile(output_dir, 'task7_fused_vs_truth_error.pdf');
 png = fullfile(output_dir, 'task7_fused_vs_truth_error.png');
-print(f, pdf, '-dpdf');
-print(f, png, '-dpng');
+print(f, pdf, '-dpdf', '-bestfit');
+print(f, png, '-dpng', '-bestfit');
 close(f);
 end

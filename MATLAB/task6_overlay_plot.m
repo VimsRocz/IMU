@@ -209,8 +209,8 @@ task_dir = fullfile(out_dir, 'task6', run_id);
 if ~exist(task_dir,'dir'); mkdir(task_dir); end
 pdf_path = fullfile(task_dir, sprintf('%s_task6_overlay_state_%s.pdf', run_id, frame));
 png_path = fullfile(task_dir, sprintf('%s_task6_overlay_state_%s.png', run_id, frame));
-print(f, pdf_path, '-dpdf');
-print(f, png_path, '-dpng');
+print(f, pdf_path, '-dpdf', '-bestfit');
+print(f, png_path, '-dpng', '-bestfit');
 close(f);
 fprintf('Saved overlay figure to %s\n', pdf_path);
 end
@@ -240,8 +240,8 @@ set(f,'PaperPositionMode','auto');
 if ~exist(out_dir,'dir'); mkdir(out_dir); end
 pdf_path = fullfile(out_dir, sprintf('%s_%s_Task6_%s_RMSE.pdf', dataset, method, upper(frame)));
 png_path = fullfile(out_dir, sprintf('%s_%s_Task6_%s_RMSE.png', dataset, method, upper(frame)));
-print(f, pdf_path, '-dpdf');
-print(f, png_path, '-dpng');
+print(f, pdf_path, '-dpdf', '-bestfit');
+print(f, png_path, '-dpng', '-bestfit');
 close(f);
 fprintf('Saved RMSE figure to %s\n', pdf_path);
 end
