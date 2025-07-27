@@ -61,7 +61,12 @@ else
     if ~isfile(task2_file)
         error('Task_3:MissingFile', 'Missing Task 2 output: %s', task2_file);
     end
-    body_data = load(task2_file);
+    S = load(task2_file);
+    if isfield(S, 'body_data')
+        body_data = S.body_data;
+    else
+        body_data = S; % fallback for legacy files
+    end
 end
 
 g_NED = init_data.g_NED;
