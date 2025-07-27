@@ -29,3 +29,13 @@ def plot_filename(dataset: str, gnss: str, method: str, task: int, subtask: str,
     """Return a plot filename following the standard convention."""
     tag = make_tag(dataset, gnss, method)
     return f"{tag}_task{task}_{subtask}_{out_type}.{ext}"
+
+
+def plot_path(base_dir: Union[str, Path], tag: str, task: int, subtask: str, out_type: str, ext: str = "pdf") -> Path:
+    """Return full path to a plot file.
+
+    Mirrors the MATLAB ``naming('plot_path', ...)`` helper so tests expecting
+    ``naming.plot_path`` work in both languages.
+    """
+    fname = f"{tag}_task{task}_{subtask}_{out_type}.{ext}"
+    return Path(base_dir) / fname

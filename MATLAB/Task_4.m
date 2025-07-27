@@ -253,12 +253,10 @@ for i = 1:length(methods)
     omega_ie_body_expected = C_N_B * omega_ie_NED;
     gyro_bias = static_gyro' - omega_ie_body_expected;
 
-    % Scale factor matching the Python implementation
-    scale_factor = constants.GRAVITY / norm(static_acc' - acc_bias);
-    if abs(scale_factor - 1.0) < 0.0001
-        scale_factor = 1.0016; % fallback constant for legacy datasets
-    end
-    scale = scale_factor;
+    % Scale factor matching the Python implementation exactly
+    % Python computes: scale = GRAVITY / norm(static_acc - acc_bias)
+    % static_acc is a row vector, so transpose for column math
+    scale = constants.GRAVITY / norm(static_acc' - acc_bias);
 
     % Apply bias and scale corrections
     acc_body_corrected.(method)  = scale * (acc_body_filt - acc_bias');
