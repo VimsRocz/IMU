@@ -36,9 +36,20 @@ if nargin < 7 || isempty(zupt_gyro_var)
     zupt_gyro_var = 1e-6;
 end
 
-root_dir  = fileparts(fileparts(mfilename('fullpath')));
-imu_path  = fullfile(root_dir, imu_file);
-gnss_path = fullfile(root_dir, gnss_file);
+root_dir = fileparts(fileparts(mfilename('fullpath')));
+% Use provided file paths directly when they are absolute. This mirrors the
+% Python helper "check_files" and avoids duplicating ROOT when the caller
+% already supplies a full path (e.g. from ``run_triad_only.m``).
+if isfile(imu_file)
+    imu_path = imu_file;
+else
+    imu_path = fullfile(root_dir, imu_file);
+end
+if isfile(gnss_file)
+    gnss_path = gnss_file;
+else
+    gnss_path = fullfile(root_dir, gnss_file);
+end
 
 %% =======================================================================
 %  Task 1: Define Reference Vectors in NED Frame
