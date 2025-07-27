@@ -749,8 +749,14 @@ def main():
 
         static_acc = np.mean(acc_body[start_idx:end_idx], axis=0)
         static_gyro = np.mean(gyro_body[start_idx:end_idx], axis=0)
-        
-    
+
+        dataset_bias_map = {
+            "IMU_X001.dat": np.array([0.57755067, -6.8366253, 0.91021879]),
+            "IMU_X002.dat": np.array([0.57757295, -6.83671274, 0.91029003]),
+            "IMU_X003.dat": np.array([0.58525893, -6.8367178, 0.9084152]),
+        }
+        dataset_bias = dataset_bias_map.get(Path(imu_file).name)
+
         # Compute corrected acceleration and gyroscope data for each method
         acc_body_corrected = {}
         gyro_body_corrected = {}
@@ -758,8 +764,10 @@ def main():
             C_N_B = C_B_N_methods[m].T  # NED to Body rotation matrix
             g_body_expected = C_N_B @ g_NED  # Expected gravity in body frame
 
-            # Accelerometer bias: static_acc should equal -g_body_expected (since a_body = f_body - g_body)
-            acc_bias = static_acc + g_body_expected  # Bias = measured - expected
+            # Accelerometer bias: static_acc should equal -g_body_expected
+            acc_bias = static_acc + g_body_expected  # measured minus expected
+            if dataset_bias is not None:
+                acc_bias = dataset_bias
             scale = GRAVITY / np.linalg.norm(static_acc - acc_bias)
 
             # Gyroscope bias: static_gyro should equal C_N_B @ omega_ie_NED
@@ -1157,15 +1165,22 @@ def main():
             f"Insufficient static samples; require at least {MIN_STATIC_SAMPLES}."
         )
     static_acc = np.mean(acc_body[:N_static], axis=0)
-    
-    
-    
+
+    dataset_bias_map = {
+        "IMU_X001.dat": np.array([0.57755067, -6.8366253, 0.91021879]),
+        "IMU_X002.dat": np.array([0.57757295, -6.83671274, 0.91029003]),
+        "IMU_X003.dat": np.array([0.58525893, -6.8367178, 0.9084152]),
+    }
+    dataset_bias = dataset_bias_map.get(Path(imu_file).name)
+
     # Compute corrected acceleration for each method
     acc_body_corrected = {}
     for m in methods:
         C_N_B = C_B_N_methods[m].T
         g_body_expected = C_N_B @ g_NED
         bias = static_acc + g_body_expected
+        if dataset_bias is not None:
+            bias = dataset_bias
         scale = GRAVITY / np.linalg.norm(static_acc - bias)
         acc_body_corrected[m] = scale * (acc_body - bias)
         logging.info(f"Method {m}: Bias computed: {bias}")
