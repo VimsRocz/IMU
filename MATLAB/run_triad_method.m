@@ -10,8 +10,13 @@ function run_triad_method(imu_file, gnss_file)
 %       * IMU_X002.dat with GNSS_X002.csv
 %       * IMU_X003.dat with GNSS_X002.csv (shared GNSS log)
 %
-%   Example:
-%       run_triad_method('IMU_X002.dat', 'GNSS_X002.csv');
+%   Usage:
+%       run_triad_method('IMU_X002.dat', 'GNSS_X002.csv')
+
+    if nargin < 2
+        error(['Usage: run_triad_method(IMU_FILE, GNSS_FILE)\n', ...
+            'Example: run_triad_method(''IMU_X002.dat'', ''GNSS_X002.csv'')']);
+    end
 
     data_dir = 'Data';
     imu_path = fullfile(data_dir, imu_file);
