@@ -24,13 +24,21 @@ addpath(script_dir);
 
 imu_file  = 'IMU_X002.dat';
 gnss_file = 'GNSS_X002.csv';
-[imu_path, gnss_path] = check_files(imu_file, gnss_file);
+% Validate that the dataset files exist before invoking the pipeline. The
+% return values are discarded so ``GNSS_IMU_Fusion_single`` resolves the
+% paths itself via ``get_data_file`` just like the Python helper. Passing
+% absolute paths here would fail because ``GNSS_IMU_Fusion_single`` expects
+% simple filenames.
+check_files(imu_file, gnss_file);
 
 
 out_dir = fullfile(get_results_dir(), 'IMU_X002_GNSS_X002_TRIAD');
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
-GNSS_IMU_Fusion_single(imu_path, gnss_path, 'TRIAD');
+% ``GNSS_IMU_Fusion_single`` internally looks up ``imu_file`` and
+% ``gnss_file`` using ``get_data_file`` so only the filenames are passed
+% here. This keeps the behaviour consistent with ``src/run_triad_only.py``.
+GNSS_IMU_Fusion_single(imu_file, gnss_file, 'TRIAD');
 
 %% Move generated files into the dedicated folder
 results_dir = get_results_dir();
