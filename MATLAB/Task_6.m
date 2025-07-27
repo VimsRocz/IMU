@@ -41,6 +41,11 @@ if ~isfile(task5_file)
     error('Task_6:FileNotFound', 'Task 5 result not found: %s', task5_file);
 end
 S = load(task5_file);
+if ~isfield(S, 'x_log')
+    warning('Task_6:MissingData', ...
+        'x_log field missing in %s. Overlay skipped.', task5_file);
+    return
+end
 
 % Determine method from filename or structure.  The Task 5 results are
 % named either ``<IMU>_<GNSS>_<METHOD>_task5_results.mat`` or
