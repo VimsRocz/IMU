@@ -231,7 +231,7 @@ def main():
             ax.set_extent([lon_deg - 5, lon_deg + 5, lat_deg - 5, lat_deg + 5], crs=ccrs.PlateCarree())
             ax.plot(lon_deg, lat_deg, "ro", markersize=10, transform=ccrs.PlateCarree())
             ax.text(lon_deg + 1, lat_deg, f"Lat: {lat_deg:.4f}°, Lon: {lon_deg:.4f}°", transform=ccrs.PlateCarree())
-            plt.title("Initial Location on Earth Map")
+            plt.title("Task 1: Initial Location on Earth Map")
             pdf = f"results/{tag}_location_map.pdf"
             png = f"results/{tag}_location_map.png"
             plt.savefig(pdf, bbox_inches="tight")
@@ -573,6 +573,7 @@ def main():
     axes[1].set_title('Earth Rate Error')
     axes[1].set_ylabel('Error (degrees)')
     
+    fig.suptitle("Task 3: Attitude Error Comparison")
     plt.tight_layout()
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task3_errors_comparison.pdf")
@@ -601,6 +602,7 @@ def main():
     ax.set_xticklabels(labels, rotation=45, ha='right')
     ax.set_ylabel('Quaternion Component Value')
     ax.set_title('Quaternion Components for Each Method and Case')
+    fig.suptitle('Task 3: Quaternion Components by Method')
     ax.legend(loc="best")
     
     plt.tight_layout()
@@ -947,7 +949,7 @@ def main():
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Acceleration (m/s²)')
         ax.legend(loc="best")
-    fig_comp.suptitle(f"{method} – NED Frame (IMU-derived vs. Measured GNSS)")
+    fig_comp.suptitle(f"Task 4 – {method} – NED Frame (IMU-derived vs. Measured GNSS)")
     fig_comp.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_comparison_ned.pdf")
@@ -983,7 +985,7 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    fig_mixed.suptitle(f"{method} – Mixed Frames (IMU-derived vs. Measured GNSS)")
+    fig_mixed.suptitle(f"Task 4 – {method} – Mixed Frames (IMU-derived vs. Measured GNSS)")
     fig_mixed.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_mixed_frames.pdf")
@@ -1018,7 +1020,7 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    fig_ned.suptitle(f"{method} – NED Frame (IMU-derived vs. Measured GNSS)")
+    fig_ned.suptitle(f"Task 4 – {method} – NED Frame (IMU-derived vs. Measured GNSS)")
     fig_ned.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_all_ned.pdf")
@@ -1066,7 +1068,7 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    fig_ecef.suptitle(f"{method} – ECEF Frame (IMU-derived vs. Measured GNSS)")
+    fig_ecef.suptitle(f"Task 4 – {method} – ECEF Frame (IMU-derived vs. Measured GNSS)")
     fig_ecef.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_all_ecef.pdf")
@@ -1096,7 +1098,7 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    fig_body.suptitle(f"{method} – Body Frame (IMU-derived vs. Measured GNSS)")
+    fig_body.suptitle(f"Task 4 – {method} – Body Frame (IMU-derived vs. Measured GNSS)")
     fig_body.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_all_body.pdf")
@@ -1503,7 +1505,7 @@ def main():
     plt.tight_layout()
     out_pdf = f"results/{tag}_task5_results_{method}.pdf"
     if not args.no_plots:
-        save_plot(fig, out_pdf, f"Kalman Filter Results — {tag}")
+        save_plot(fig, out_pdf, f"Task 5: Kalman Filter Results — {tag}")
     logging.info(f"Subtask 5.8.2: {method} plot saved as '{out_pdf}'")
     logging.debug(f"# Subtask 5.8.2: {method} plotting completed. Saved as '{out_pdf}'.")
 
@@ -1542,7 +1544,7 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    fig_mixed_fused.suptitle(f"{method} – Mixed Frames (Fused vs. Measured GNSS)")
+    fig_mixed_fused.suptitle(f"Task 5 – {method} – Mixed Frames (Fused vs. Measured GNSS)")
     fig_mixed_fused.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_mixed_frames.pdf")
@@ -1579,7 +1581,7 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    fig_ned_all.suptitle(f"{method} – NED Frame (Fused vs. Measured GNSS)")
+    fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused vs. Measured GNSS)")
     fig_ned_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_all_ned.pdf")
@@ -1628,7 +1630,7 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    fig_ecef_all.suptitle(f"{method} – ECEF Frame (Fused vs. Measured GNSS)")
+    fig_ecef_all.suptitle(f"Task 5 – {method} – ECEF Frame (Fused vs. Measured GNSS)")
     fig_ecef_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_all_ecef.pdf")
@@ -1673,7 +1675,7 @@ def main():
             ax.set_xlabel('Time (s)')
             ax.set_ylabel('Value')
             ax.legend(loc="best")
-    fig_body_all.suptitle(f"{method} – Body Frame (Fused vs. Measured GNSS)")
+    fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused vs. Measured GNSS)")
     fig_body_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_all_body.pdf")
@@ -1692,7 +1694,7 @@ def main():
         ax_innov[i].grid(True)
     ax_innov[0].legend(loc='best')
     ax_innov[-1].set_xlabel('GNSS update index')
-    fig_innov.suptitle('Pre-fit Innovations (Fused vs. Measured GNSS)')
+    fig_innov.suptitle('Task 5 – Pre-fit Innovations (Fused vs. Measured GNSS)')
     fig_innov.tight_layout()
     innov_pdf = f"results/{tag}_{method.lower()}_innovations.pdf"
     if not args.no_plots:
@@ -1763,7 +1765,7 @@ def main():
         plt.xlabel('Time (s)')
         plt.ylabel('Angle (deg)')
         plt.legend(loc='best')
-        plt.title(f'{tag} Attitude Angles')
+        plt.title(f'Task 6: {tag} Attitude Angles')
         plt.savefig(f'results/{tag}_{method}_attitude_angles.png')
         plt.close()
 
