@@ -392,6 +392,8 @@ plots placed inside `results/task7/<tag>/`. Task 7 uses the dataset tag as a
 prefix where `<tag>` concatenates the IMU file, GNSS file and method. Example:
 `IMU_X002_GNSS_X002_Davenport_task7_3_residuals_position_velocity.pdf`
 will appear in that folder.
+The helper module `src/naming.py` provides :func:`build_tag` and
+:func:`plot_path` utilities to create such filenames programmatically.
 
 
 #### run_all_datasets.py

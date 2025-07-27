@@ -11,6 +11,8 @@ from pathlib import Path
 import os
 from typing import Sequence
 
+from naming import plot_path
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -49,7 +51,6 @@ def run_evaluation(
     """
     out_dir = Path(save_path)
     out_dir.mkdir(parents=True, exist_ok=True)
-    prefix = f"{tag}_" if tag else ""
 
     pred = pd.read_csv(prediction_file)
     gnss = pd.read_csv(gnss_file)
@@ -122,7 +123,7 @@ def run_evaluation(
         axes[1, i].grid(True)
     fig.suptitle("Task 7 – GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out_path = out_dir / f"{prefix}task7_3_residuals_position_velocity.pdf"
+    out_path = plot_path(out_dir, tag or "", 7, "3", "residuals_position_velocity")
     fig.savefig(out_path)
     print(f"Saved {out_path}")
     plt.close(fig)
@@ -137,7 +138,7 @@ def run_evaluation(
             axes[i].grid(True)
         fig.suptitle(f"Task 7 – Histogram of {name} residuals")
         fig.tight_layout(rect=[0, 0, 1, 0.95])
-        hist_path = out_dir / f"{prefix}task7_hist_{name}_residuals.pdf"
+        hist_path = plot_path(out_dir, tag or "", 7, f"hist_{name}", "residuals")
         fig.savefig(hist_path)
         print(f"Saved {hist_path}")
         plt.close(fig)
@@ -156,7 +157,8 @@ def run_evaluation(
     axs[2].set_xlabel("Time [s]")
     fig.suptitle("Task 7 – Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(out_dir / f"{prefix}task7_4_attitude_angles_euler.pdf")
+    att_out = plot_path(out_dir, tag or "", 7, "4", "attitude_angles_euler")
+    fig.savefig(att_out)
     plt.close(fig)
 
 
@@ -175,7 +177,6 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     start_time = time.time()
     out_dir = Path(save_path)
     out_dir.mkdir(parents=True, exist_ok=True)
-    prefix = f"{tag}_" if tag else ""
 
     data = np.load(npz_file)
     res_pos = data.get("residual_pos")
@@ -242,7 +243,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         axes[1, i].grid(True)
     fig.suptitle("Task 7 – GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out_path = out_dir / f"{prefix}task7_3_residuals_position_velocity.pdf"
+    out_path = plot_path(out_dir, tag or "", 7, "3", "residuals_position_velocity")
     fig.savefig(out_path)
     print(f"Saved {out_path}")
     plt.close(fig)
@@ -259,7 +260,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     axs[2].set_xlabel("Time [s]")
     fig.suptitle("Task 7 – Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    att_path = out_dir / f"{prefix}task7_4_attitude_angles_euler.pdf"
+    att_path = plot_path(out_dir, tag or "", 7, "4", "attitude_angles_euler")
     fig.savefig(att_path)
     print(f"Saved {att_path}")
     plt.close(fig)
@@ -279,7 +280,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     ax.legend()
     ax.grid(True)
     fig.tight_layout()
-    norm_path = out_dir / f"{prefix}task7_3_error_norms.pdf"
+    norm_path = plot_path(out_dir, tag or "", 7, "3", "error_norms")
     fig.savefig(norm_path)
     print(f"Saved {norm_path}")
     plt.close(fig)
@@ -297,7 +298,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
             out_dir,
         )
         print(
-            f"Saved {Path(out_dir) / (run_id + '_task7_5_diff_truth_fused_over_time.pdf')}"
+            f"Saved {plot_path(out_dir, run_id, 7, '5', 'diff_truth_fused_over_time')}"
         )
     else:
         print("Subtask 7.5 skipped: missing fused or truth data")
@@ -356,7 +357,7 @@ def subtask7_5_diff_plot(
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    pdf = out_dir / f"{run_id}_task7_5_diff_truth_fused_over_time.pdf"
+    pdf = plot_path(out_dir, run_id, 7, "5", "diff_truth_fused_over_time")
     png = pdf.with_suffix(".png")
     fig.savefig(pdf)
     fig.savefig(png)
