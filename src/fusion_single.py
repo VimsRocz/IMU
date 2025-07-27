@@ -233,7 +233,7 @@ def main():
         ax[-1].set_xlabel('Time (s)')
         fig.suptitle('Attitude Angles Over Time')
         plt.tight_layout()
-        plt.savefig('results/attitude_angles.pdf')
+        plt.savefig('results/task6_attitude_angles.pdf')
         plt.close()
 
     if len(pos_res) > 0:

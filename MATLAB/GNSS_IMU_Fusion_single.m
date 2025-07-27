@@ -126,7 +126,7 @@ if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
     text(lon_deg + 0.1, lat_deg, text_str, 'Color', 'white', 'FontSize', 12, 'FontWeight', 'bold');
     hold off;
     title('Initial Location on Earth Map');
-    output_filename = fullfile(results_dir, sprintf('%s_location_map.pdf', tag));
+    output_filename = fullfile(results_dir, sprintf('%s_task1_location_map.pdf', tag));
     set(gcf, 'PaperPosition', [0 0 8 6]);
     saveas(gcf, output_filename);
     fprintf('Location map saved to %s\n', output_filename);

@@ -239,8 +239,8 @@ def main():
             )
             fig.suptitle("Task 1: Initial Location on Earth Map")
             fig.tight_layout()
-            pdf = f"results/{tag}_location_map.pdf"
-            png = f"results/{tag}_location_map.png"
+            pdf = f"results/{tag}_task1_location_map.pdf"
+            png = f"results/{tag}_task1_location_map.png"
             fig.savefig(pdf, bbox_inches="tight")
             fig.savefig(png, dpi=150, bbox_inches="tight")
             plt.close(fig)
@@ -1830,12 +1830,12 @@ def main():
         plot_attitude(
             imu_time,
             attitude_q_all[method],
-            f"results/attitude_angles_{tag}_{method}.pdf",
+            f"results/{tag}_task6_attitude_angles.pdf",
         )
 
     # Create plot summary
     summary = {
-        f"{tag}_location_map.pdf": "Initial location on Earth map",
+        f"{tag}_task1_location_map.pdf": "Initial location on Earth map",
         f"{tag}_task3_errors_comparison.pdf": "Attitude initialization error comparison",
         f"{tag}_task3_quaternions_comparison.pdf": "Quaternion components for initialization",
         f"{tag}_task4_comparison_ned.pdf": "GNSS vs IMU data in NED frame",
@@ -1850,7 +1850,7 @@ def main():
         f"{tag}_task5_all_body.pdf": "Kalman filter results in body frame",
         f"{tag}_{method.lower()}_residuals.pdf": "Position and velocity residuals",
         f"{tag}_{method.lower()}_innovations.pdf": "Pre-fit innovations",
-        f"{tag}_{method.lower()}_attitude_angles.pdf": "Attitude angles over time",
+        f"{tag}_task6_attitude_angles.pdf": "Attitude angles over time",
     }
     summary_path = os.path.join("results", f"{tag}_plot_summary.md")
     with open(summary_path, "w") as f:
@@ -1891,7 +1891,7 @@ def main():
         plt.ylabel("Angle (deg)")
         plt.legend(loc="best")
         plt.title(f"Task 6: {tag} Attitude Angles")
-        plt.savefig(f"results/{tag}_{method}_attitude_angles.png")
+        plt.savefig(f"results/{tag}_task6_attitude_angles.png")
         plt.close()
 
     C_NED_to_ECEF = C_ECEF_to_NED.T

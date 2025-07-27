@@ -171,7 +171,7 @@ if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
 
     % Save the plot as both PDF and PNG using a reasonable page size
     set(gcf, 'PaperPositionMode', 'auto');
-    base = fullfile(results_dir, sprintf('%s_location_map', tag));
+    base = fullfile(results_dir, sprintf('%s_task1_location_map', tag));
     print(gcf, [base '.pdf'], '-dpdf', '-bestfit');
     print(gcf, [base '.png'], '-dpng');
     fprintf('Location map saved to %s.[pdf|png]\n', base);

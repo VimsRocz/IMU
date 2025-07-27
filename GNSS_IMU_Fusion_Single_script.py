@@ -167,12 +167,12 @@ ax.text(
 
 # Set plot title and save
 plt.title("Initial Location on Earth Map")
-plt.savefig(f"results/{TAG}_location_map.pdf")
+plt.savefig(f"results/{TAG}_task1_location_map.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
 
-logging.info(f"Location map saved as 'results/{TAG}_location_map.pdf'")
+logging.info(f"Location map saved as 'results/{TAG}_task1_location_map.pdf'")
 
 
 # ================================
@@ -1448,5 +1448,5 @@ plt.ylabel("Angle (deg)")
 plt.title("Attitude Angles vs. Time")
 plt.legend(loc="best")
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_attitude_angles.pdf")
+plt.savefig(f"results/{TAG}_task6_attitude_angles.pdf")
 plt.close()
