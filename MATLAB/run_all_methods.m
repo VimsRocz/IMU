@@ -27,16 +27,14 @@ function run_all_methods()
     Task_5(imu_path, gnss_path, method);
 
     res_file = fullfile(get_results_dir(), sprintf('IMU_X002_GNSS_X002_%s_task5_results.mat', method));
-    if isfile(res_file)
-        try
-            S = load(res_file);
-        catch ME
-            warning('Failed to load %s: %s', res_file, ME.message);
-            return;
-        end
-        if isfield(S,'pos_ned') && isfield(S,'gnss_pos_ned')
-            Task_6(res_file, imu_path, gnss_path, 'STATE_X001.txt');
-            Task_7(S.pos_ned, S.gnss_pos_ned, method);
-        end
+    truth_file = fullfile(root_dir, 'STATE_X001.txt');
+    if isfile(res_file) && isfile(truth_file)
+        disp('--- Running Task 6: Truth Overlay/Validation ---');
+        Task_6(res_file, imu_path, gnss_path, truth_file);
+        disp('--- Running Task 7: Residuals & Summary ---');
+        Task_7(res_file, truth_file);
+        disp('Task 6 and Task 7 complete. See results directory for plots and PDF summaries.');
+    else
+        warning('Task 6 or Task 7 skipped: Missing Task 5 results or truth file.');
     end
 end

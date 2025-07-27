@@ -42,15 +42,18 @@ Task_4(imu_path, gnss_path, method);
 Task_5(imu_path, gnss_path, method);
 
 % ------------------------------------------------------------------
-% Optional Tasks 6 and 7 when Task 5 output exists
+% Tasks 6 and 7: validation and residual analysis
 % ------------------------------------------------------------------
 task5_file = fullfile(results_dir, sprintf('IMU_X002_GNSS_X002_%s_task5_results.mat', method));
-if isfile(task5_file)
-    S = load(task5_file);
-    if isfield(S,'pos_ned') && isfield(S,'gnss_pos_ned')
-        Task_6(task5_file, imu_path, gnss_path, 'STATE_X001.txt');
-        Task_7(S.pos_ned, S.gnss_pos_ned, method);
-    end
+truth_file = fullfile(root_dir, 'STATE_X001.txt');
+if isfile(task5_file) && isfile(truth_file)
+    disp('--- Running Task 6: Truth Overlay/Validation ---');
+    Task_6(task5_file, imu_path, gnss_path, truth_file);
+    disp('--- Running Task 7: Residuals & Summary ---');
+    Task_7(task5_file, truth_file);
+    disp('Task 6 and Task 7 complete. See results directory for plots and PDF summaries.');
+else
+    warning('Task 6 or Task 7 skipped: Missing Task 5 results or truth file.');
 end
 
 %% Load and display rotation matrix from Task 3 results
