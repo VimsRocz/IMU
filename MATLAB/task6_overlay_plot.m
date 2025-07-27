@@ -170,7 +170,7 @@ for ax = 1:3
     switch ax
         case 1
             ylabel('Position [m]');
-            title(sprintf('%s Task 6 Overlay \x2013 %s (%s frame)', dataset, method, upper(frame)));
+            title(sprintf('%s Task 6 Overlay - %s (%s frame)', dataset, method, upper(frame)));
         case 2
             ylabel('Velocity [m/s]');
         otherwise
@@ -214,7 +214,7 @@ xlabel('Time [s]');
 ylabel('Error magnitude');
 grid on;
 legend('Location','northeast');
-title(sprintf('%s Task 6 RMSE \x2013 %s (%s frame)', dataset, method, upper(frame)));
+title(sprintf('%s Task 6 RMSE - %s (%s frame)', dataset, method, upper(frame)));
 set(f,'PaperPositionMode','auto');
 if ~exist(out_dir,'dir'); mkdir(out_dir); end
 pdf_path = fullfile(out_dir, sprintf('%s_%s_Task6_%s_RMSE.pdf', dataset, method, upper(frame)));
