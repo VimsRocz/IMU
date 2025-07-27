@@ -34,3 +34,5 @@ Call `plot_overlay` for the three frames. Overlay PDFs are stored in ``results/<
 
 Running `Task_6` produces three comparison figures showing how well the fused
 trajectory follows the reference solution.
+If the Task 5 result lacks the `x_log` state history, the script now emits a
+warning and exits without creating overlay plots.

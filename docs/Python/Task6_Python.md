@@ -34,3 +34,6 @@ Overlay PDFs are stored directly in ``results/`` as ``<dataset>_<method>_task6_o
 
 Task 6 yields comparison plots that clearly show how well the fused trajectory
 matches the reference solution.
+When required arrays are absent from the estimator output (for example the
+state history ``x_log``), the Python script now issues a warning and skips the
+overlay step instead of failing.

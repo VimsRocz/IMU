@@ -71,9 +71,24 @@ def load_truth(path: Path, frame: str) -> tuple[np.ndarray, np.ndarray, np.ndarr
     return time, pos, vel, acc
 
 
-def load_estimate(path: Path, frame: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Load fused estimate ``.npz`` file."""
+def load_estimate(
+    path: Path, frame: str
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None:
+    """Load fused estimate ``.npz`` file.``None`` if mandatory keys missing."""
     data = np.load(path)
+    required = ["time_s"]
+    if frame == "ECEF":
+        required += ["pos_ecef_m", "vel_ecef_ms"]
+    else:
+        required += ["pos_ned_m", "vel_ned_ms"]
+    missing = [k for k in required if k not in data]
+    if missing:
+        warnings.warn(
+            f"{', '.join(missing)} missing in {path.name}; skipping overlay",
+            RuntimeWarning,
+        )
+        return None
+
     time = data["time_s"]
     if frame == "ECEF":
         pos = data["pos_ecef_m"]
@@ -278,7 +293,11 @@ def main() -> None:
     truth_path = Path(args.truth_file)
     out_dir = Path(args.output_dir)
 
-    t_est, pos_est, vel_est, acc_est = load_estimate(est_path, args.frame)
+    est = load_estimate(est_path, args.frame)
+    if est is None:
+        print(f"Missing data in {est_path.name}; overlay skipped.")
+        return
+    t_est, pos_est, vel_est, acc_est = est
     t_truth, pos_truth, vel_truth, acc_truth = load_truth(truth_path, args.frame)
 
     if args.debug:
