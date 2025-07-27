@@ -1,6 +1,6 @@
-function result = Task_2(imu_path, gnss_path, method)
+function body_data = Task_2(imu_path, gnss_path, method)
 %TASK_2 Measure body-frame vectors and estimate IMU biases.
-%   RESULT = TASK_2(IMU_PATH, GNSS_PATH, METHOD) loads the IMU log
+%   BODY_DATA = TASK_2(IMU_PATH, GNSS_PATH, METHOD) loads the IMU log
 %   IMU_PATH, converts increments to rates and detects a static
 %   interval to compute accelerometer and gyroscope biases.
 %   METHOD is the attitude initialisation method used for naming
@@ -10,8 +10,17 @@ function result = Task_2(imu_path, gnss_path, method)
 %   The function saves two MAT-files in the results directory:
 %       Task2_body_<tag>.mat                     (legacy name)
 %       <IMU>_<GNSS>_<METHOD>_task2_results.mat  (generic name)
-%   A struct with the bias estimates is returned and stored in the
-%   workspace variable ``task2_results``.
+%   Both files contain a struct named ``body_data`` with these fields:
+%       g_body        - gravity vector in the body frame (3x1, m/s^2)
+%       g_body_scaled - same as g_body for compatibility
+%       omega_ie_body - Earth rotation in the body frame (3x1, rad/s)
+%       accel_bias    - accelerometer bias estimate (3x1, m/s^2)
+%       acc_bias      - alias of accel_bias for older code
+%       gyro_bias     - gyroscope bias estimate (3x1, rad/s)
+%       static_start  - index of first static sample
+%       static_end    - index of last static sample
+%   The struct is returned and also stored in the workspace variable
+%   ``task2_results`` for interactive use.
 %
 %   Example:
 %       Task_2('IMU_X001.dat','GNSS_X001.csv','TRIAD')
@@ -51,8 +60,22 @@ function result = Task_2(imu_path, gnss_path, method)
 
     validate_gravity_vector(acc_filt, static_start, static_end);
 
-    result = struct('acc_bias', acc_bias, 'gyro_bias', gyro_bias, ...
-                    'static_start', static_start, 'static_end', static_end);
+    % Estimate gravity and Earth rotation vectors in the body frame
+    static_acc  = mean(acc_filt(static_start:static_end, :), 1); % 1x3
+    static_gyro = mean(gyro_filt(static_start:static_end, :), 1); % 1x3
+    g_body_raw = -static_acc';
+    g_body = (g_body_raw / norm(g_body_raw)) * constants.GRAVITY;
+    omega_ie_body = static_gyro';
+
+    body_data = struct();
+    body_data.g_body       = g_body;
+    body_data.g_body_scaled= g_body; % kept for compatibility
+    body_data.omega_ie_body= omega_ie_body;
+    body_data.accel_bias   = acc_bias';
+    body_data.acc_bias     = acc_bias';
+    body_data.gyro_bias    = gyro_bias';
+    body_data.static_start = static_start;
+    body_data.static_end   = static_end;
 
     [~, imu_name, ~] = fileparts(imu_path);
     if ~isempty(gnss_path)
@@ -73,10 +96,13 @@ function result = Task_2(imu_path, gnss_path, method)
     if ~exist(results_dir,'dir'); mkdir(results_dir); end
 
     legacy_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
-    save(legacy_file, '-struct', 'result');
+    generic_file = fullfile(results_dir, ...
+        sprintf('%s_%s_%s_task2_results.mat', imu_name, gnss_name, method_tag));
+    save(legacy_file, 'body_data');
+    save(generic_file, 'body_data');
 
-    save_task_results(result, imu_name, gnss_name, method_tag, 2);
-
-    assignin('base','task2_results', result);
+    assignin('base','task2_results', body_data);
     fprintf('Task 2 results saved to %s\n', legacy_file);
+    fprintf('Task 2 fields:\n');
+    disp(fieldnames(body_data));
 end
