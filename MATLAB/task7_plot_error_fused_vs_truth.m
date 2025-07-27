@@ -14,7 +14,7 @@ function task7_plot_error_fused_vs_truth(fused_file, truth_file, output_dir)
 %           'truth_results.mat', get_results_dir());
 
 if nargin < 3 || isempty(output_dir)
-    output_dir = 'output_matlab';
+    output_dir = get_results_dir();
 end
 if ~exist(output_dir, 'dir'); mkdir(output_dir); end
 

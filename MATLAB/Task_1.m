@@ -38,7 +38,7 @@ else
 end
 
 fprintf('%s %s\n', char(hex2dec('25B6')), tag); % \u25B6 is the triangle symbol
-fprintf('Ensured ''output_matlab/'' directory exists.\n');
+fprintf('Ensured results directory %s exists.\n', results_dir);
 if ~isempty(method)
     fprintf('Running attitude-estimation method: %s\n', method);
 end

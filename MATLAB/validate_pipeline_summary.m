@@ -32,7 +32,7 @@ for mi = 1:numel(methods)
     method = methods{mi};
     for di = 1:numel(datasets)
         ds = datasets{di};
-        fname = sprintf('output_matlab/IMU_%s_GNSS_%s_%s_task5_results.mat', ds, ds, method);
+        fname = sprintf('%s/IMU_%s_GNSS_%s_%s_task5_results.mat', get_results_dir(), ds, ds, method);
         if ~isfile(fname)
             error('Missing result file: %s', fname);
         end
@@ -88,7 +88,7 @@ for mi = 1:numel(methods)
     for di = 1:numel(datasets)
         ds = datasets{di};
         validate_3sigma( ...
-            sprintf('output_matlab/IMU_%s_GNSS_%s_%s_kf_output.mat', ds, ds, method), ...
+            sprintf('%s/IMU_%s_GNSS_%s_%s_kf_output.mat', get_results_dir(), ds, ds, method), ...
             'STATE_X001.txt');
     end
 end

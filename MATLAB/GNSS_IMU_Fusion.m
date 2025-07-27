@@ -22,8 +22,9 @@ end
 fprintf('GNSS\\_IMU\\_Fusion: %s + %s using %s method\n', ...
         imu_file, gnss_file, method);
 
-if ~exist('output_matlab','dir')
-    mkdir('output_matlab');
+results_dir = get_results_dir();
+if ~exist(results_dir,'dir')
+    mkdir(results_dir);
 end
 
 Task_1(imu_file, gnss_file, method);
@@ -32,5 +33,8 @@ Task_3(imu_file, gnss_file, method);
 Task_4(imu_file, gnss_file, method);
 Task_5(imu_file, gnss_file, method);
 
-fprintf('All tasks completed. Results saved to %s\n', fullfile(pwd,'output_matlab'));
+fprintf('All tasks completed. Results saved to %s\n', results_dir);
+files = dir(fullfile(results_dir,'*.mat'));
+fprintf('Generated %d result files in %s:\n', numel(files), results_dir);
+for f = files'; fprintf('  %s\n', f.name); end
 end

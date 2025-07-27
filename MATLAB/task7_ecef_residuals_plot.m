@@ -9,7 +9,7 @@ function task7_ecef_residuals_plot(est_file, imu_file, gnss_file, truth_file, da
 %   ``output_dir`` using ``dataset`` as part of the filename.
 
 if nargin < 6 || isempty(output_dir)
-    output_dir = 'MATLAB/results';
+
 end
 out_dir = output_dir;
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end

@@ -41,16 +41,17 @@ for k = 1:numel(imu_paths)
 
     [~, imuName]  = fileparts(imu_file);
     [~, gnssName] = fileparts(gnss_file);
-    res_file = fullfile('output_matlab', sprintf('%s_%s_TRIAD_task5_results.mat', ...
+    res_dir = get_results_dir();
+    res_file = fullfile(res_dir, sprintf('%s_%s_TRIAD_task5_results.mat', ...
         imuName, gnssName));
     if ~isfile(res_file)
         error('Expected Task 5 results %s not found', res_file);
     end
     r = load(res_file);
-    save(fullfile('output_matlab', sprintf('Result_%s_%s_TRIAD.mat', ...
+    save(fullfile(res_dir, sprintf('Result_%s_%s_TRIAD.mat', ...
          imuName, gnssName)), '-struct', 'r');
 
-    sum_file = fullfile('output_matlab', 'IMU_GNSS_summary.txt');
+    sum_file = fullfile(res_dir, 'IMU_GNSS_summary.txt');
     if isfile(sum_file)
         lines = splitlines(fileread(sum_file));
         if ~isempty(lines)

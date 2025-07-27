@@ -20,7 +20,7 @@ if nargin < 5
     dataset = 'DATASET';
 end
 if nargin < 6 || isempty(output_dir)
-    output_dir = 'output_matlab';
+    output_dir = get_results_dir();
 end
 if nargin < 7
     debug = false;
