@@ -270,7 +270,8 @@ def main(argv=None):
 
                 # -------- Task 7: Residual evaluation --------
                 tag = f"{m2.group(1)}_{m2.group(2)}_{args.method}"
-                task7_dir = results / "task7" / tag
+                # Store Task 7 plots directly in ``results/``
+                task7_dir = results
                 print("Running Task 7 evaluation ...")
                 try:
                     run_evaluation_npz(str(npz_path), str(task7_dir), tag)
