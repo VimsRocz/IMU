@@ -18,7 +18,8 @@ end
 
 % Sign convention for NED -> NEU conversion
 % (mirrors ``task6_plot_truth.py`` in the Python code)
-sign_ned = [1; 1; -1];
+% Use a row vector so element-wise operations broadcast correctly
+sign_ned = [1, 1, -1];
 
 fprintf('Starting Task 6 overlay ...\n');
 start_time = tic;
