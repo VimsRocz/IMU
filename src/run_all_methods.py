@@ -142,7 +142,7 @@ def main(argv=None):
             prediction_file="outputs/predicted_states.csv",
             gnss_file="outputs/gnss_measurements.csv",
             attitude_file="outputs/estimated_attitude.csv",
-            save_path="plots/task7/",
+            save_path="results/task7/",
         )
         return
 
