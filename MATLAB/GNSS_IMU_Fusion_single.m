@@ -389,6 +389,12 @@ task2_results = struct('g_body', g_body, 'g_body_scaled', g_body_scaled, ...
                 'omega_ie_body', omega_ie_body, 'accel_bias', accel_bias, ...
                 'gyro_bias', gyro_bias);
 assignin('base', 'task2_results', task2_results);
+S.static_start = start_idx;
+S.static_end   = end_idx;
+S.g_body       = g_body;
+S.omega_ie_body = omega_ie_body;
+fprintf('Task 2: static interval = [%d..%d], g_body = [%g %g %g], omega_ie_body = [%g %g %g]\n', ...
+    S.static_start, S.static_end, S.g_body, S.omega_ie_body);
 
 %% =======================================================================
 %  Task 3: Solve Wahba''s Problem
@@ -729,6 +735,8 @@ end
 task4_results = struct('gnss_pos_ned', gnss_pos_ned, 'acc_biases', acc_biases, ...
                 'gyro_biases', gyro_biases, 'scale_factors', scale_factors);
 assignin('base', 'task4_results', task4_results);
+S.scale_factor = scale_factors.(method);
+fprintf('Task 4: applied accelerometer scale factor = %g\n', S.scale_factor);
 
 %% =======================================================================
 %  Task 5: Sensor Fusion with Kalman Filter

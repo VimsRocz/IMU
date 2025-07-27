@@ -324,6 +324,9 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
             run_id,
             out_dir,
         )
+        print(
+            f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{run_id}/"
+        )
     else:
         print("Subtask 7.5 skipped: missing fused or truth data")
 

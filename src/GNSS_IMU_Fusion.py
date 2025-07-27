@@ -832,6 +832,10 @@ def main():
             )
             logging.info(f"Method {m}: Gyroscope bias: {gyro_bias}")
             logging.info(f"Method {m}: Accelerometer scale factor: {scale:.4f}")
+            scale_factor = scale
+            print(
+                f"Task 4: applied accelerometer scale factor = {scale_factor:.4f}"
+            )
             logging.debug(f"Method {m}: Accelerometer bias: {acc_bias}")
             logging.debug(f"Method {m}: Gyroscope bias: {gyro_bias}")
 

@@ -49,8 +49,13 @@ truth_file = fullfile(root_dir, 'STATE_X001.txt');
 if isfile(task5_file) && isfile(truth_file)
     disp('--- Running Task 6: Truth Overlay/Validation ---');
     Task_6(task5_file, imu_path, gnss_path, truth_file);
+    [~, imu_name, ~] = fileparts(imu_path);
+    [~, gnss_name, ~] = fileparts(gnss_path);
+    out_dir = fullfile(results_dir, sprintf('%s_%s_%s', imu_name, gnss_name, method));
+    fprintf('Task 6 overlay plots saved under: %s\n', out_dir);
     disp('--- Running Task 7: Residuals & Summary ---');
     Task_7(task5_file, truth_file);
+    fprintf('Task 7 evaluation plots saved under: %s\n', out_dir);
     disp('Task 6 and Task 7 complete. See results directory for plots and PDF summaries.');
 else
     warning('Task 6 or Task 7 skipped: Missing Task 5 results or truth file.');
