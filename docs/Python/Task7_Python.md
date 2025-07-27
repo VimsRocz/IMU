@@ -18,7 +18,7 @@ Residual position and velocity are compared with the GNSS data. When a truth tra
 
 ### 7.3 Plot Residuals
 - Save `<tag>_task7_3_residuals_position_velocity.pdf` and an error norm plot in the same folder.
-- `<tag>` combines dataset and method, e.g. `IMU_X002_GNSS_X002_Davenport`.
+- `<tag>` now includes the IMU dataset, GNSS log and method, e.g. `IMU_X002_GNSS_X002_Davenport`.
 
 ### 7.4 Plot Attitude Angles
 - Convert the quaternion history to Euler angles.

@@ -29,4 +29,4 @@ The script loads residual and attitude data, computes basic statistics and write
 
 ## Result
 
-Running `evaluate_filter_results` summarises residual statistics and attitude behaviour for each dataset and method. `<tag>` combines the dataset and initialisation method, for example `IMU_X002_GNSS_X002_Davenport`.
+Running `evaluate_filter_results` summarises residual statistics and attitude behaviour for each dataset. `<tag>` now combines the IMU dataset, GNSS log and initialisation method, for example `IMU_X002_GNSS_X002_Davenport`.
