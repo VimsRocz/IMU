@@ -43,8 +43,14 @@ end
 S = load(task5_file);
 if ~isfield(S, 'x_log')
     warning('Task_6:MissingData', ...
-        'x_log field missing in %s. Overlay skipped.', task5_file);
-    return
+        'x_log field missing in %s. Attempting reconstruction.', task5_file);
+    try
+        S = reconstruct_x_log(S);
+    catch ME
+        warning('Task_6:ReconstructFailed', ...
+            'Failed to reconstruct x_log: %s. Overlay skipped.', ME.message);
+        return
+    end
 end
 
 % Determine method from filename or structure.  The Task 5 results are
