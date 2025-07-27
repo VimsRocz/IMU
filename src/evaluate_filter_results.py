@@ -439,6 +439,11 @@ def subtask7_5_diff_plot(
     diff_vel_body = rot.apply(diff_vel_ned, inverse=True)
     _plot(diff_pos_body, diff_vel_body, ["X", "Y", "Z"], "Body")
 
+    print(
+        "Saved Task 7.5 diff-truth plots for NED/ECEF/Body frames under: "
+        f"{out_dir}/"
+    )
+
 
 if __name__ == "__main__":
     import argparse
