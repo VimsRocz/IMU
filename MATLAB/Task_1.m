@@ -1,7 +1,9 @@
 function result = Task_1(imu_path, gnss_path, method)
 % TASK 1: Define Reference Vectors in NED Frame
 % This function translates Task 1 from the Python file GNSS_IMU_Fusion.py
-% into MATLAB.
+% into MATLAB. In addition to the standard task1_results MAT-file, this
+% version also saves a ``Task1_init_*`` file containing the gravity vector
+% and Earth rotation rate for later tasks.
 %
 % Usage:
 %   Task_1(imu_path, gnss_path, method)
@@ -81,6 +83,9 @@ if ~isempty(valid_idx)
     x_ecef = initial_row.X_ECEF_m;
     y_ecef = initial_row.Y_ECEF_m;
     z_ecef = initial_row.Z_ECEF_m;
+
+    % Store the first valid ECEF position for downstream tasks
+    ref_r0 = [x_ecef; y_ecef; z_ecef];
     
     % Convert ECEF to geodetic coordinates using the shared helper
     [lat_deg, lon_deg, alt_m] = ecef2geodetic(x_ecef, y_ecef, z_ecef);
@@ -184,8 +189,21 @@ end
 lat = lat_deg; %#ok<NASGU>
 lon = lon_deg; %#ok<NASGU>
 omega_NED = omega_ie_NED; %#ok<NASGU>
+
 results = struct('lat', lat_deg, 'lon', lon_deg, 'g_NED', g_NED, 'omega_NED', omega_ie_NED);
 save_task_results(results, imu_name, gnss_name, method, 1);
+
+% --------------------------------------------------------------------
+% Also save a simple initialization file for downstream tasks
+% --------------------------------------------------------------------
+init_struct = struct('lat', lat_deg, 'lon', lon_deg, ...
+                     'g_NED', g_NED, 'omega_NED', omega_ie_NED);
+if exist('ref_r0', 'var')
+    init_struct.ref_r0 = ref_r0; %#ok<STRNU>
+end
+init_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
+save(init_file, '-struct', 'init_struct');
+fprintf('Initial data saved to %s\n', init_file);
 
 % Return results and store in base workspace for interactive use
 result = struct('lat', lat_deg, 'lon', lon_deg, ...
