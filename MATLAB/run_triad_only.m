@@ -16,8 +16,14 @@
 % plots, logs and results match between MATLAB and Python.
 
 % Ensure helper functions in this folder are available even when the script is
-% executed via an absolute path.
-script_dir = fileparts(mfilename('fullpath'));
+% executed via ``run`` from another directory. ``mfilename`` returns an empty
+% string for scripts, so use the call stack to recover the full path.
+st = dbstack('-completenames');
+if ~isempty(st)
+    script_dir = fileparts(st(1).file);
+else
+    script_dir = fileparts(mfilename('fullpath'));
+end
 addpath(script_dir);
 
 %% DATA LOADING
