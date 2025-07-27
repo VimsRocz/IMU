@@ -1,10 +1,17 @@
-function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
+function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %TASK_5  Run 15-state EKF using IMU & GNSS NED positions
 %   Expects Task 1 outputs saved in the results directory for gravity
 %   initialization.
 %
-% Usage:
-%   Task_5(imu_path, gnss_path, method, gnss_pos_ned)
+%   result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
+%   Optional name/value arguments mirror the Python Kalman filter defaults:
+%       'accel_noise'      - process noise for acceleration  [m/s^2] (0.1)
+%       'vel_proc_noise'   - extra velocity process noise    [m/s^2] (0.0)
+%       'pos_proc_noise'   - position process noise          [m]     (0.0)
+%       'pos_meas_noise'   - GNSS position measurement noise [m]     (1.0)
+%       'vel_meas_noise'   - GNSS velocity measurement noise [m/s]   (1.0)
+%       'accel_bias_noise' - accelerometer bias random walk  [m/s^2] (1e-5)
+%       'gyro_bias_noise'  - gyroscope bias random walk      [rad/s] (1e-5)
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
@@ -14,6 +21,24 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     if nargin < 3 || isempty(method)
         method = 'TRIAD';
     end
+
+    % Optional noise parameters
+    p = inputParser;
+    addParameter(p, 'accel_noise', 0.1);       % [m/s^2]
+    addParameter(p, 'vel_proc_noise', 0.0);    % [m/s^2]
+    addParameter(p, 'pos_proc_noise', 0.0);    % [m]
+    addParameter(p, 'pos_meas_noise', 1.0);    % [m]
+    addParameter(p, 'vel_meas_noise', 1.0);    % [m/s]
+    addParameter(p, 'accel_bias_noise', 1e-5); % [m/s^2]
+    addParameter(p, 'gyro_bias_noise', 1e-5);  % [rad/s]
+    parse(p, varargin{:});
+    accel_noise    = p.Results.accel_noise;
+    vel_proc_noise = p.Results.vel_proc_noise;
+    pos_proc_noise = p.Results.pos_proc_noise;
+    pos_meas_noise = p.Results.pos_meas_noise;
+    vel_meas_noise = p.Results.vel_meas_noise;
+    accel_bias_noise = p.Results.accel_bias_noise;
+    gyro_bias_noise  = p.Results.gyro_bias_noise;
 
     % Store all outputs under the repository "results" directory
     here = fileparts(mfilename('fullpath'));
@@ -170,8 +195,16 @@ x(13:15) = gyro_bias(:);
 % EKF tuning parameters
 P = blkdiag(eye(9) * 0.01, eye(3) * 1e-4, eye(3) * 1e-8);
 Q = zeros(15);
-Q(4:6,4:6) = diag([0.1 0.1 0.1]);
-R = diag([1 1 1 0.25 0.25 0.25]);
+if pos_proc_noise ~= 0
+    Q(1:3,1:3) = eye(3) * (pos_proc_noise^2);
+end
+Q(4:6,4:6) = eye(3) * (accel_noise^2);
+if vel_proc_noise ~= 0
+    Q(4:6,4:6) = Q(4:6,4:6) + eye(3) * (vel_proc_noise^2);
+end
+Q(10:12,10:12) = eye(3) * (accel_bias_noise^2);
+Q(13:15,13:15) = eye(3) * (gyro_bias_noise^2);
+R = diag([ones(1,3) * pos_meas_noise^2, ones(1,3) * vel_meas_noise^2]);
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---

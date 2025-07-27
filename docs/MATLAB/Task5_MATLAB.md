@@ -4,7 +4,19 @@
 
 ## Overview
 
-The routine loads the corrected IMU data and GNSS updates, runs a predict/update loop and outputs fused position, velocity and attitude along with innovation diagnostics.
+The routine loads the corrected IMU data and GNSS updates, runs a predict/update loop and outputs fused position, velocity and attitude along with innovation diagnostics.  Noise levels for the Kalman filter mirror the Python implementation in `src/gnss_imu_fusion/kalman.py`.
+
+Default parameters:
+
+| Parameter           | Value |
+|---------------------|------:|
+| `accel_noise`       | `0.1` |
+| `vel_proc_noise`    | `0.0` |
+| `pos_proc_noise`    | `0.0` |
+| `pos_meas_noise`    | `1.0` |
+| `vel_meas_noise`    | `1.0` |
+| `accel_bias_noise`  | `1e-5` |
+| `gyro_bias_noise`   | `1e-5` |
 
 ```text
 IMU integration (Task 4)
