@@ -40,6 +40,9 @@ pos_truth_i = interp1(t_truth, pos_truth, t_est, 'linear', 'extrap');
 vel_truth_i = interp1(t_truth, vel_truth, t_est, 'linear', 'extrap');
 acc_truth_i = interp1(t_truth, acc_truth, t_est, 'linear', 'extrap');
 
+[t_est, pos_est, vel_est, acc_est, pos_truth_i, vel_truth_i, acc_truth_i] = ...
+    ensure_equal_length(t_est, pos_est, vel_est, acc_est, pos_truth_i, vel_truth_i, acc_truth_i);
+
 pdf_path = plot_overlay(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
     vel_truth_i, acc_truth_i, frame, method, dataset, output_dir);
 
@@ -144,6 +147,24 @@ dv_truth = diff(vel_truth(:,1));
 dv_est = diff(vel_est(:,1));
 fprintf('Max velocity jump in truth (X): %.3f\n', max(abs(dv_truth)));
 fprintf('Max velocity jump in fused (X): %.3f\n', max(abs(dv_est)));
+end
+
+% -------------------------------------------------------------------------
+function [t_est, pos_est, vel_est, acc_est, pos_truth, vel_truth, acc_truth] = ...
+    ensure_equal_length(t_est, pos_est, vel_est, acc_est, pos_truth, vel_truth, acc_truth)
+%ENSURE_EQUAL_LENGTH Truncate arrays to the common minimum length.
+if size(pos_est,1) ~= size(pos_truth,1)
+    n = min(size(pos_est,1), size(pos_truth,1));
+    warning('Length mismatch after interpolation (est %d, truth %d); truncating to %d', size(pos_est,1), size(pos_truth,1), n);
+    t_est = t_est(1:n);
+    pos_est = pos_est(1:n,:);
+    vel_est = vel_est(1:n,:);
+    acc_est = acc_est(1:n,:);
+    pos_truth = pos_truth(1:n,:);
+    vel_truth = vel_truth(1:n,:);
+    acc_truth = acc_truth(1:n,:);
+end
+assert(size(pos_est,1) == size(pos_truth,1));
 end
 
 % -------------------------------------------------------------------------
