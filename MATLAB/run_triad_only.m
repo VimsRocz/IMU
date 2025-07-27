@@ -40,24 +40,33 @@ function run_triad_only
             continue
         end
 
-        tokens = regexp(line, '(\w+)=([^\s]+)', 'tokens');
+        tokens = regexp(line, '(\w+)=\s*([^\s]+)', 'tokens');
         kv = containers.Map();
         for j = 1:numel(tokens)
             kv(tokens{j}{1}) = tokens{j}{2};
         end
 
-        imu_name  = kv('imu');
-        gnss_name = kv('gnss');
-        method    = kv('method');
+        imu_name  = '';
+        gnss_name = '';
+        method    = '';
+        if isKey(kv, 'imu');   imu_name  = kv('imu');   end
+        if isKey(kv, 'gnss');  gnss_name = kv('gnss');  end
+        if isKey(kv, 'method'); method   = kv('method'); end
         [~, imu_stem, ~]  = fileparts(imu_name);
         [~, gnss_stem, ~] = fileparts(gnss_name);
 
-        rmse_pos      = str2double(erase(kv('rmse_pos'), 'm'));
-        final_pos     = str2double(erase(kv('final_pos'), 'm'));
-        rms_resid_pos = str2double(erase(kv('rms_resid_pos'), 'm'));
-        max_resid_pos = str2double(erase(kv('max_resid_pos'), 'm'));
-        rms_resid_vel = str2double(erase(kv('rms_resid_vel'), 'm'));
-        max_resid_vel = str2double(erase(kv('max_resid_vel'), 'm'));
+        rmse_pos      = NaN;
+        final_pos     = NaN;
+        rms_resid_pos = NaN;
+        max_resid_pos = NaN;
+        rms_resid_vel = NaN;
+        max_resid_vel = NaN;
+        if isKey(kv, 'rmse_pos');      rmse_pos      = str2double(erase(kv('rmse_pos'), 'm')); end
+        if isKey(kv, 'final_pos');     final_pos     = str2double(erase(kv('final_pos'), 'm')); end
+        if isKey(kv, 'rms_resid_pos'); rms_resid_pos = str2double(erase(kv('rms_resid_pos'), 'm')); end
+        if isKey(kv, 'max_resid_pos'); max_resid_pos = str2double(erase(kv('max_resid_pos'), 'm')); end
+        if isKey(kv, 'rms_resid_vel'); rms_resid_vel = str2double(erase(kv('rms_resid_vel'), 'm')); end
+        if isKey(kv, 'max_resid_vel'); max_resid_vel = str2double(erase(kv('max_resid_vel'), 'm')); end
 
         tag = sprintf('%s_%s_%s', imu_stem, gnss_stem, method);
         task5_file = fullfile(results_dir, [tag '_task5_results.mat']);
