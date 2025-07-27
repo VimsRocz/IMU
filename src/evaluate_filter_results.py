@@ -385,7 +385,9 @@ def subtask7_5_diff_plot(
         pdf = base.with_name(base.stem + f"_{frame}.pdf")
         png = pdf.with_suffix(".png")
         fig.savefig(pdf)
+        print(f"Saved {pdf}")
         fig.savefig(png)
+        print(f"Saved {png}")
         plt.close(fig)
 
         pos_thr = 1.0
