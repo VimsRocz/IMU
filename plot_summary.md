@@ -1,4 +1,4 @@
-- **X001_TRIAD_location_map.pdf**: Initial location on Earth map
+- **X001_TRIAD_task1_location_map.pdf**: Initial location on Earth map
 - **X001_TRIAD_task3_errors_comparison.pdf**: Attitude initialization error comparison
 - **X001_TRIAD_task3_quaternions_comparison.pdf**: Quaternion components for initialization
 - **X001_TRIAD_task4_comparison_ned.pdf**: GNSS vs IMU data in NED frame
@@ -12,7 +12,7 @@
 - **X001_TRIAD_task5_all_body.pdf**: Kalman filter results in body frame
 - **X001_TRIAD_task5_mixed_frames.pdf**: Kalman filter results in mixed frames
 - **X001_TRIAD_residuals.pdf**: Position and velocity residuals
-- **X001_TRIAD_attitude_angles.pdf**: Attitude angles over time
+- **X001_TRIAD_task6_attitude_angles.pdf**: Attitude angles over time
 - **<method>_<frame>_overlay_truth.pdf**: Fused results versus reference
 - **<method>_<frame>_overlay_state.pdf**: Fused results versus raw state file
 - **<tag>_task6_overlay_state_<frame>.pdf**: Task 6 overlay using raw state data

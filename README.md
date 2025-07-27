@@ -261,7 +261,7 @@ A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md).
 
 Typical result PDFs:
 
-- `location_map.pdf` – initial location map
+- `<tag>_task1_location_map.pdf` – initial location map
 - `task3_errors_comparison.pdf` – attitude initialisation error comparison
 - `task3_quaternions_comparison.pdf` – quaternion components for initialisation
 - `task4_comparison_ned.pdf` – GNSS vs IMU in NED frame
@@ -274,7 +274,7 @@ Typical result PDFs:
 - `task5_all_ecef.pdf` – Kalman filter results in ECEF frame
 - `task5_all_body.pdf` – Kalman filter results in body frame
 - `<method>_residuals.pdf` – position and velocity residuals
-- `<method>_attitude_angles.pdf` – attitude angles over time
+- `<tag>_task6_attitude_angles.pdf` – attitude angles over time
 - `<tag>_<frame>_overlay_truth.pdf` – fused output vs reference. Here `<tag>` is
   the dataset pair and method concatenated, e.g. `IMU_X002_GNSS_X002_Davenport`.
 - ``results/task6/<tag>/<tag>_task6_overlay_state_<frame>.pdf`` – Task 6 overlay with GNSS, IMU and raw state (PDF/PNG)
