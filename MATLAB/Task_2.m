@@ -47,6 +47,7 @@ function body_data = Task_2(imu_path, gnss_path, method)
     if dt <= 0 || isnan(dt)
         dt = 1/400; % fallback sampling rate
     end
+    fprintf('Task 2: IMU sample interval dt = %.6f s\n', dt);
     accel = data(:,6:8) / dt;
     gyro  = data(:,3:5) / dt;
 
@@ -55,6 +56,7 @@ function body_data = Task_2(imu_path, gnss_path, method)
     gyro_filt = low_pass_filter(gyro, 10, fs);
 
     [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt);
+    fprintf('Task 2: static interval = [%d..%d]\n', static_start, static_end);
     [acc_bias, gyro_bias] = compute_biases(acc_filt, gyro_filt, ...
                                            static_start, static_end);
 
@@ -67,6 +69,8 @@ function body_data = Task_2(imu_path, gnss_path, method)
     g_body = (g_body_raw / norm(g_body_raw)) * constants.GRAVITY;
     g_body_scaled = g_body; % legacy variable for compatibility with old scripts
     omega_ie_body = static_gyro';
+    fprintf('Task 2: g_body = [% .4f % .4f % .4f]\n', g_body);
+    fprintf('Task 2: omega_ie_body = [% .6f % .6f % .6f]\n', omega_ie_body);
 
     % Use consistent variable names across all MATLAB tasks
     accel_bias = acc_bias';     % 3x1 accelerometer bias in m/s^2
