@@ -42,7 +42,7 @@ fprintf('Using first %d IMU samples for static interval.\n', N);
 Tgnss = readtable(gnss_path);
 idx = find(Tgnss.X_ECEF_m ~= 0 | Tgnss.Y_ECEF_m ~= 0 | Tgnss.Z_ECEF_m ~= 0, 1, 'first');
 [x_ecef,y_ecef,z_ecef] = deal(Tgnss.X_ECEF_m(idx), Tgnss.Y_ECEF_m(idx), Tgnss.Z_ECEF_m(idx));
-[lat_deg, lon_deg, h_m] = ecef2geodetic(x_ecef, y_ecef, z_ecef);
+[lat_deg, lon_deg, h_m] = ecef_to_geodetic(x_ecef, y_ecef, z_ecef);
 lat_rad = deg2rad(lat_deg);
 
 g_NED = [0;0;constants.GRAVITY];
