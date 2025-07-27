@@ -91,7 +91,8 @@ def plot_residuals(
     ax.set_ylabel("Residual Norm")
     ax.legend()
     ax.grid(True)
-    fig.tight_layout()
+    fig.suptitle(f"{tag} Task 7 ECEF Residual Norms")
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
     norm_name = plot_filename(dataset, gnss, method, 7, "3", "ecef_residual_norms")
     norm_pdf = out_dir / norm_name
     norm_png = norm_pdf.with_suffix(".png")

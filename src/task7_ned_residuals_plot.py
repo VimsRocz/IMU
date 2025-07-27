@@ -155,7 +155,8 @@ def plot_residuals(
     ax.set_ylabel("Residual Norm")
     ax.legend()
     ax.grid(True)
-    fig.tight_layout()
+    fig.suptitle(f"{dataset} Task 7 NED Residual Norms")
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
     norm_pdf = out_dir / f"{dataset}_task7_ned_residual_norms.pdf"
     norm_png = out_dir / f"{dataset}_task7_ned_residual_norms.png"
     fig.savefig(norm_pdf)
