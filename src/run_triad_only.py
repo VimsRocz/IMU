@@ -4,8 +4,8 @@
 This script mirrors :mod:`run_all_methods.py` but restricts the attitude
 initialisation to the TRIAD method.  For every configured data pair the full
 GNSS/IMU fusion pipeline is executed (Tasks 1--7) and the output, plots and log
-files are written to ``results/`` with the same naming scheme used by
-``run_all_methods.py``.
+files are written under ``results/run_triad_only/`` with the same naming scheme
+used by ``run_all_methods.py``.
 
 Usage
 -----
@@ -50,8 +50,9 @@ SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
 
 def main(argv: Iterable[str] | None = None) -> None:
-    os.makedirs("results", exist_ok=True)
-    logger.info("Ensured 'results/' directory exists.")
+    results_dir = pathlib.Path("results/run_triad_only")
+    results_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Ensured '%s' directory exists.", results_dir)
 
     parser = argparse.ArgumentParser(
         description="Run GNSS_IMU_Fusion with the TRIAD method on all datasets",
@@ -100,7 +101,7 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     for imu, gnss in cases:
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}"
-        log_path = pathlib.Path("results") / f"{tag}.log"
+        log_path = results_dir / f"{tag}.log"
         print(f"\u25b6 {tag}")
 
         imu_path = data_dir / imu
@@ -165,7 +166,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         # ------------------------------------------------------------------
         # Convert NPZ output to a MATLAB file with explicit frame variables
         # ------------------------------------------------------------------
-        npz_path = pathlib.Path("results") / f"{tag}_kf_output.npz"
+        npz_path = results_dir / f"{tag}_kf_output.npz"
         if npz_path.exists():
             data = np.load(npz_path, allow_pickle=True)
             logger.debug("Loaded output %s with keys: %s", npz_path, list(data.keys()))
@@ -301,7 +302,7 @@ def main(argv: Iterable[str] | None = None) -> None:
                     "--truth-file",
                     str(truth_file.resolve()),
                     "--output",
-                    "results",
+                    str(results_dir),
                 ]
                 if args.show_measurements:
                     overlay_cmd.append("--show-measurements")
@@ -324,7 +325,7 @@ def main(argv: Iterable[str] | None = None) -> None:
             # ----------------------------
             # Task 7: Evaluation
             # ----------------------------
-            task7_dir = pathlib.Path("results") / "task7" / tag
+            task7_dir = results_dir / "task7" / tag
             with open(log_path, "a") as log:
                 log.write("\nTASK 7: Evaluate residuals\n")
                 msg = "Running Task 7 evaluation ..."
@@ -387,7 +388,7 @@ def main(argv: Iterable[str] | None = None) -> None:
                 "Runtime_s",
             ],
         )
-        df.to_csv(pathlib.Path("results") / "summary.csv", index=False)
+        df.to_csv(results_dir / "summary.csv", index=False)
 
     print("TRIAD-only run completed for all datasets. All results match run_all_methods.py (TRIAD).")
 
