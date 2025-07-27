@@ -2,6 +2,9 @@ function result = Task_1(imu_path, gnss_path, method)
 % TASK 1: Define Reference Vectors in NED Frame
 % This function translates Task 1 from the Python file GNSS_IMU_Fusion.py
 % into MATLAB.
+%
+% Usage:
+%   Task_1(imu_path, gnss_path, method)
 
 if nargin < 3 || isempty(method)
     method = '';

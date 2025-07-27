@@ -8,6 +8,9 @@ function run_all_datasets_matlab(method)
 %   is called on each file to recreate the standard figures. A summary table
 %   mirroring ``src/run_all_datasets.py`` is printed and saved as
 %   output_matlab/summary.csv.
+%
+% Usage:
+%   run_all_datasets_matlab(method)
 
 if nargin < 1 || isempty(method)
     method_list = {'TRIAD','Davenport','SVD'};

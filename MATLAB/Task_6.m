@@ -11,6 +11,9 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 %   at the repository root.  This function expects the initialization output
 %   from Task 1 and the filter output from Task 5 to reside in that same
 %   directory.
+%
+% Usage:
+%   Task_6(task5_file, imu_path, gnss_path, truth_file)
 
 if nargin < 4
     error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');

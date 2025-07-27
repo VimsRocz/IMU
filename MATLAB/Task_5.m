@@ -2,6 +2,9 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 %TASK_5  Run 15-state EKF using IMU & GNSS NED positions
 %   Expects Task 1 outputs saved in the results directory for gravity
 %   initialization.
+%
+% Usage:
+%   Task_5(imu_path, gnss_path, method, gnss_pos_ned)
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
