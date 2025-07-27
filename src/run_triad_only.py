@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Run the TRIAD initialisation on a single fixed IMU/GNSS dataset.
 
-This script mirrors :mod:`run_all_methods.py` but is simplified to process only
-``IMU_X001.dat`` together with ``GNSS_X001.csv``.  The full GNSS/IMU fusion
+This script mirrors :mod:`run_all_methods.py` but processes only
+``IMU_X002.dat`` together with ``GNSS_X002.csv``.  The full GNSS/IMU fusion
 pipeline (Tasks 1--7) is executed and all outputs are collected under
-``results/IMU_X001_GNSS_X001_TRIAD``.  Use this helper to compare the Python and
+``results/IMU_X002_GNSS_X002_TRIAD``.  Use this helper to compare the Python and
 MATLAB pipelines on a single dataset before running the full batch.
 
 Usage
@@ -44,13 +44,29 @@ ROOT = HERE.parent
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
 
+def check_files(imu_file: str, gnss_file: str) -> tuple[pathlib.Path, pathlib.Path]:
+    """Return validated paths for the IMU and GNSS files."""
+    data_dir = pathlib.Path("data")
+    imu_path = data_dir / imu_file
+    gnss_path = data_dir / gnss_file
+    if not imu_path.is_file():
+        imu_path = pathlib.Path(imu_file)
+    if not gnss_path.is_file():
+        gnss_path = pathlib.Path(gnss_file)
+    if not imu_path.is_file():
+        raise FileNotFoundError(f"{imu_path} not found")
+    if not gnss_path.is_file():
+        raise FileNotFoundError(f"{gnss_path} not found")
+    return imu_path, gnss_path
+
+
 def main(argv: Iterable[str] | None = None) -> None:
-    results_dir = pathlib.Path("results/IMU_X001_GNSS_X001_TRIAD")
+    results_dir = pathlib.Path("results/IMU_X002_GNSS_X002_TRIAD")
     results_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Ensured '%s' directory exists.", results_dir)
 
     parser = argparse.ArgumentParser(
-        description="Run GNSS_IMU_Fusion with the TRIAD method on the X001 dataset",
+        description="Run GNSS_IMU_Fusion with the TRIAD method on the X002 dataset",
     )
     parser.add_argument("--no-plots", action="store_true", help="Skip plot generation")
     parser.add_argument(
@@ -82,25 +98,17 @@ def main(argv: Iterable[str] | None = None) -> None:
         return
 
     method = "TRIAD"
-    data_dir = ROOT / "Data"
-    if not data_dir.is_dir():
-        data_dir = ROOT
 
     results: List[Dict[str, float | str]] = []
 
-    imu = "data/IMU_X001.dat"
-    gnss = "data/GNSS_X001.csv"
+    imu_file = "IMU_X002.dat"
+    gnss_file = "GNSS_X002.csv"
 
-    tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}"
+    tag = f"{pathlib.Path(imu_file).stem}_{pathlib.Path(gnss_file).stem}_{method}"
     log_path = results_dir / f"{tag}.log"
     print(f"\u25b6 {tag}")
 
-    imu_path = data_dir / imu
-    gnss_path = data_dir / gnss
-    if not imu_path.is_file():
-        imu_path = ROOT / imu
-    if not gnss_path.is_file():
-        gnss_path = ROOT / gnss
+    imu_path, gnss_path = check_files(imu_file, gnss_file)
 
     if logger.isEnabledFor(logging.DEBUG):
         try:
@@ -117,7 +125,9 @@ def main(argv: Iterable[str] | None = None) -> None:
                 imu_preview,
             )
         except Exception as e:  # pragma: no cover - best effort
-            logger.warning("Failed data preview for %s or %s: %s", imu, gnss, e)
+            logger.warning(
+                "Failed data preview for %s or %s: %s", imu_file, gnss_file, e
+            )
 
     cmd = [
         sys.executable,
@@ -390,7 +400,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         )
         df.to_csv(results_dir / "summary.csv", index=False)
 
-    print("TRIAD processing complete for X001")
+    print("TRIAD processing complete for X002")
 
 
 if __name__ == "__main__":

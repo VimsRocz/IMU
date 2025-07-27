@@ -83,6 +83,22 @@ logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[handler]
 MIN_STATIC_SAMPLES = 500
 
 
+def check_files(imu_file: str, gnss_file: str) -> tuple[str, str]:
+    """Return validated dataset paths."""
+    data_dir = Path("data")
+    imu_path = data_dir / imu_file
+    gnss_path = data_dir / gnss_file
+    if not imu_path.is_file():
+        imu_path = Path(imu_file)
+    if not gnss_path.is_file():
+        gnss_path = Path(gnss_file)
+    if not imu_path.is_file():
+        raise FileNotFoundError(f"{imu_path} not found")
+    if not gnss_path.is_file():
+        raise FileNotFoundError(f"{gnss_path} not found")
+    return str(imu_path), str(gnss_path)
+
+
 def main():
     os.makedirs('results', exist_ok=True)
     logging.info("Ensured 'results/' directory exists.")
@@ -163,25 +179,18 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
 
     method = args.method
-    gnss_file = args.gnss_file
-    imu_file = args.imu_file
+    imu_file, gnss_file = check_files(args.imu_file, args.gnss_file)
     truth_file = args.truth_file
 
     os.makedirs("results", exist_ok=True)
 
-    imu_stem = Path(args.imu_file).stem
-    gnss_stem = Path(args.gnss_file).stem
+    imu_stem = Path(imu_file).stem
+    gnss_stem = Path(gnss_file).stem
     tag = TAG(imu=imu_stem, gnss=gnss_stem, method=method)
     summary_tag = f"{imu_stem}_{gnss_stem}"
 
     logging.info(f"Running attitude-estimation method: {method}")
     
-    if not os.path.exists(gnss_file):
-        logging.error(f"GNSS file not found: {gnss_file}")
-        raise FileNotFoundError(f"{gnss_file} not found")
-    if not os.path.exists(imu_file):
-        logging.error(f"IMU file not found: {imu_file}")
-        raise FileNotFoundError(f"{imu_file} not found")
     
     
     # ================================
