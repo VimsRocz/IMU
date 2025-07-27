@@ -19,7 +19,7 @@ import os
 import logging
 from utils import save_mat
 
-from utils import ensure_dependencies, ecef_to_geodetic
+from utils import ensure_dependencies, ecef_to_geodetic, get_data_file
 from tabulate import tabulate
 from tqdm import tqdm
 # Overlay helper functions
@@ -32,9 +32,6 @@ ensure_dependencies()
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
-DATA_DIR = ROOT / "Data"
-if not DATA_DIR.is_dir():
-    DATA_DIR = ROOT
 SCRIPT = HERE / "GNSS_IMU_Fusion.py"
 LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -56,12 +53,8 @@ SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 def run_one(imu, gnss, method, verbose=False):
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
-    imu_path = DATA_DIR / imu
-    gnss_path = DATA_DIR / gnss
-    if not imu_path.is_file():
-        imu_path = ROOT / imu
-    if not gnss_path.is_file():
-        gnss_path = ROOT / gnss
+    imu_path = get_data_file(imu)
+    gnss_path = get_data_file(gnss)
 
     cmd = [
         sys.executable,
@@ -149,15 +142,8 @@ def main():
             print("GNSS Head:\n", gnss_df.head())
             print("IMU Head:\n", imu_data[:5])
             print("============================")
-        imu_path = DATA_DIR / imu
-        gnss_path = DATA_DIR / gnss
-        if not imu_path.is_file():
-            imu_path = ROOT / imu
-        if not gnss_path.is_file():
-            gnss_path = ROOT / gnss
-
-        if not imu_path.is_file() or not gnss_path.is_file():
-            raise FileNotFoundError(f"Missing {imu} or {gnss}")
+        imu_path = get_data_file(imu)
+        gnss_path = get_data_file(gnss)
 
         start = time.time()
         summaries = run_one(imu, gnss, method, verbose=args.verbose)

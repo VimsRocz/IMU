@@ -12,6 +12,33 @@ import sys
 import logging
 
 
+def get_data_file(filename: str) -> pathlib.Path:
+    """Return full path to a data file.
+
+    Searches the following locations relative to the repository root:
+
+    1. ``MATLAB/data``
+    2. ``data``
+    3. repository root
+    4. ``tests/data``
+
+    Raises ``FileNotFoundError`` if *filename* cannot be located.
+    """
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    candidates = [
+        root / "MATLAB" / "data" / filename,
+        root / "data" / filename,
+        root / filename,
+        root / "tests" / "data" / filename,
+        pathlib.Path(filename),
+    ]
+    for path in candidates:
+        if path.is_file():
+            return path
+    raise FileNotFoundError(f"Data file not found: {filename}")
+
+
 def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
     """Install packages from ``requirements.txt`` if key deps are missing.
 
