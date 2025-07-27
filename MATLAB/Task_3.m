@@ -138,6 +138,8 @@ R_tri = M_ned_1 * M_body';
 R_tri = U*V';
 fprintf('Rotation matrix (TRIAD method, Case 1):\n');
 disp(R_tri);
+fig_tri = figure; plot(R_tri(:)); title('TRIAD Rotation Matrix'); xlabel('Element'); ylabel('Value'); grid on;
+save_plot(fig_tri, imu_name, gnss_name, method, 3);
 expected_C_b_n = [0.23364698, -0.04540352, 0.971260835; ...
                    0.0106220955, 0.998968728, 0.0441435243; ...
                   -0.972263472, 2.82418914e-06, 0.233888307];

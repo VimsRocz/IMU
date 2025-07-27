@@ -231,6 +231,8 @@ T = cell2table(rows,'VariableNames',header);
 disp(T);
 runtime = toc(start_time);
 fprintf('Task 6 runtime: %.2f s\n', runtime);
+results = struct('metrics', metrics, 'runtime', runtime);
+save_task_results(results, imu_name, gnss_name, method, 6);
 end
 
 function y = centre(x)

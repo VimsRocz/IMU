@@ -18,10 +18,11 @@ function Task_7(pos_data, truth_pos, method)
     res = pos_data - truth_pos;
     fig = figure;
     plot(res);
-    title('Position Residuals');
+    title('Position Residuals: TRIAD');
     xlabel('Sample');
     ylabel('Residual (m)');
     grid on;
 
-    save_plot(fig, 'IMU_X', 'GNSS_X', method, 7);
+    save_plot(fig, 'IMU_X002', 'GNSS_X002', method, 7);
+    save_task_results(struct('residuals', res), 'IMU_X002', 'GNSS_X002', method, 7);
 end
