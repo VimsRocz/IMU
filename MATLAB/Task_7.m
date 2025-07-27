@@ -1,28 +1,54 @@
-function Task_7(pos_data, truth_pos, method)
-%TASK_7 Plot residuals between estimator output and truth.
-%   TASK_7(POS_DATA, TRUTH_POS, METHOD) computes residuals and saves a
-%   plot using the standard naming helper.
+function summary = Task_7(task5_file, truth_file)
+%TASK_7 Residual analysis and summary after Task 5.
+%   SUMMARY = TASK_7(TASK5_FILE, TRUTH_FILE) loads the fused trajectory
+%   produced in Task 5 together with the ground truth state file and runs
+%   the residual evaluation. All figures and metrics are saved to the
+%   standard results directory under a dataset specific subfolder.
 %
-%   POS_DATA and TRUTH_POS are Nx3 matrices in the same frame.
+%   This helper mirrors the Python ``run_evaluation_npz`` workflow so that
+%   the full MATLAB pipeline executes Tasks 1→7 automatically.
 %
-%   This function is a lightweight counterpart to the Python
-%   implementation so that Tasks 1--7 exist in MATLAB as well.
+%   Example:
+%       Task_7('results/IMU_X002_GNSS_X002_TRIAD_task5_results.mat', ...
+%              'STATE_X001.txt');
 
-    if nargin < 3
+    if nargin < 2
+        error('Task_7:BadArgs', 'Expected TASK5_FILE and TRUTH_FILE');
+    end
+
+    if ~isfile(task5_file)
+        warning('Task 7 skipped: missing Task 5 file %s', task5_file);
+        summary = struct();
+        return;
+    end
+    if ~isfile(truth_file)
+        warning('Task 7 skipped: missing truth file %s', truth_file);
+        summary = struct();
+        return;
+    end
+
+    [~, name, ~] = fileparts(task5_file);
+    m = regexp(name, '(IMU_[^_]+)_(GNSS_[^_]+)_([A-Za-z]+)_task5_results', ...
+                'tokens', 'once');
+    if isempty(m)
+        imu_name = 'IMU';
+        gnss_name = 'GNSS';
         method = 'TRIAD';
-    end
-    if isempty(pos_data) || isempty(truth_pos)
-        error('Position data and truth must be provided');
+    else
+        imu_name = m{1};
+        gnss_name = m{2};
+        method   = m{3};
     end
 
-    res = pos_data - truth_pos;
-    fig = figure;
-    plot(res);
-    title('Position Residuals: TRIAD');
-    xlabel('Sample');
-    ylabel('Residual (m)');
-    grid on;
+    run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
+    results_dir = get_results_dir();
+    out_dir = fullfile(results_dir, run_id);
+    if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
-    save_plot(fig, 'IMU_X002', 'GNSS_X002', method, 7);
-    save_task_results(struct('residuals', res), 'IMU_X002', 'GNSS_X002', method, 7);
+    fprintf('--- Running Task 7 residual analysis for %s ---\n', run_id);
+    summary = task7_fused_truth_error_analysis(task5_file, truth_file, out_dir);
+    if ~isempty(fieldnames(summary))
+        save_task_results(summary, imu_name, gnss_name, method, 7);
+    end
+    fprintf('Task 7 complete. See %s for plots and metrics.\n', out_dir);
 end
