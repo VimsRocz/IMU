@@ -3,7 +3,7 @@
 All reported results and plots are for the TRIAD initialization method.
 
 ## 1. Initial Location Map
-**Filename:** <tag>_location_map.pdf
+**Filename:** <tag>_task1_location_map.pdf
 **Description:** Map showing the start position derived from the GNSS file. This figure is produced in Task&nbsp;1.
 
 ## 2. ZUPT Detection and Accelerometer Variance

@@ -1,21 +1,29 @@
-function [static_start, static_end] = detect_static_interval(acc_body, gyro_body, window_size, accel_var_thresh, gyro_var_thresh)
-%DETECT_STATIC_INTERVAL Detect a static interval in IMU data.
-%   [STATIC_START, STATIC_END] = DETECT_STATIC_INTERVAL(ACC_BODY, GYRO_BODY)
-%   returns the indices of the first and last samples of a segment where both
-%   accelerometer and gyroscope variance stay below fixed thresholds.  This
-%   mirrors the Python implementation used by ``run_all_methods.py``.
+function [static_start, static_end] = detect_static_interval(acc_body, gyro_body, window_size, accel_var_thresh, gyro_var_thresh, min_length)
+%DETECT_STATIC_INTERVAL  Find a static IMU segment using variance thresholds.
+%   [START, END] = DETECT_STATIC_INTERVAL(ACC_BODY, GYRO_BODY) searches for the
+%   longest contiguous segment where both the accelerometer and gyroscope
+%   variances remain below fixed thresholds.  This mirrors the helper used in
+%   the Python pipeline.
 %
 %   Optional arguments match the Python defaults:
-%       window_size       - variance window length (default 80 samples)
-%       accel_var_thresh  - accelerometer variance threshold (default 0.01)
-%       gyro_var_thresh   - gyroscope variance threshold (default 1e-6)
+%       WINDOW_SIZE       - length of the rolling variance window (default 80)
+%       ACCEL_VAR_THRESH  - accelerometer variance threshold (default 0.01)
+%       GYRO_VAR_THRESH   - gyroscope variance threshold (default 1e-6)
+%       MIN_LENGTH        - minimum acceptable segment length (default 80)
 %
-%   The returned indices are 1-based and inclusive.
+%   Returned indices are 1-based and inclusive with respect to ACC_BODY.
 
     if nargin < 3 || isempty(window_size)
-        window_size = 80; % Match Python
+        window_size = 80; % Match Python defaults
+    end
+    if nargin < 4 || isempty(accel_var_thresh)
         accel_var_thresh = 0.01;
+    end
+    if nargin < 5 || isempty(gyro_var_thresh)
         gyro_var_thresh = 1e-6;
+    end
+    if nargin < 6 || isempty(min_length)
+        min_length = 80;
     end
 
     if size(acc_body,1) < window_size
@@ -23,28 +31,33 @@ function [static_start, static_end] = detect_static_interval(acc_body, gyro_body
               'window_size larger than data length');
     end
 
-    if exist('movvar','file') == 2
-        accel_var = movvar(acc_body, window_size, 0, 'Endpoints','discard');
-        gyro_var  = movvar(gyro_body,  window_size, 0, 'Endpoints','discard');
-    else
-        num_win = size(acc_body,1) - window_size + 1;
-        accel_var = zeros(num_win, size(acc_body,2));
-        gyro_var  = zeros(num_win, size(gyro_body,2));
-        for i = 1:num_win
-            accel_var(i,:) = var(acc_body(i:i+window_size-1,:), 0, 1);
-            gyro_var(i,:)  = var(gyro_body(i:i+window_size-1,:), 0, 1);
+    num_win = size(acc_body,1) - window_size;
+    accel_var = zeros(num_win, size(acc_body,2));
+    gyro_var  = zeros(num_win, size(gyro_body,2));
+    for i = 1:num_win
+        accel_var(i,:) = var(acc_body(i:i+window_size-1,:), 0, 1);
+        gyro_var(i,:)  = var(gyro_body(i:i+window_size-1,:), 0, 1);
+    end
+
+    max_accel_var = max(accel_var, [], 2);
+    max_gyro_var  = max(gyro_var,  [], 2);
+
+    static_mask = (max_accel_var < accel_var_thresh) & (max_gyro_var < gyro_var_thresh);
+
+    d = diff([false; static_mask(:); false]);
+    start_idx = find(d==1);
+    end_idx   = find(d==-1) - 1;
+
+    longest_len = 0;
+    static_start = 1;
+    static_end = window_size;
+    for k = 1:numel(start_idx)
+        len = end_idx(k) - start_idx(k) + 1;
+        if len >= min_length && len > longest_len
+            longest_len = len;
+            static_start = start_idx(k);
+            static_end = end_idx(k) + window_size - 1;
         end
     end
 
-    is_static = all(accel_var < accel_var_thresh, 2) & ...
-                all(gyro_var < gyro_var_thresh, 2);
-    static_indices = find(is_static);
-    if isempty(static_indices)
-        error('No static intervals detected');
-    end
-    static_start = static_indices(1);
-    static_end   = static_indices(end);
-    duration = (static_end - static_start + 1) * 0.0025; % dt fixed at 400 Hz
-    fprintf('Static interval duration: %.2f s of 1250.00 s total (%.1f%%)\n', ...
-            duration, duration/1250*100);
 end

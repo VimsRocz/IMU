@@ -26,6 +26,7 @@ imu_file  = 'IMU_X002.dat';
 gnss_file = 'GNSS_X002.csv';
 [imu_path, gnss_path] = check_files(imu_file, gnss_file);
 
+
 out_dir = fullfile(get_results_dir(), 'IMU_X002_GNSS_X002_TRIAD');
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
