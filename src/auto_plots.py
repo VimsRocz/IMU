@@ -20,7 +20,7 @@ from utils import compute_C_ECEF_to_NED
 # ---------------------------------------------------------------------------
 # Where figures and tables should be written
 # ---------------------------------------------------------------------------
-OUTPUT_DIR = "results/auto_plots"
+OUTPUT_DIR = "results"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Collect metrics for the summary table

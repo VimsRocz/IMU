@@ -10,6 +10,7 @@ import pathlib
 import re
 import os
 import logging
+from naming import results_path
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 if __name__ == "__main__":
@@ -49,7 +50,7 @@ for r in rows:
     r["best"] = "\u2713" if best_map[r["dataset"]] is r else ""
 
 # CSV -------------------------------------------------------------------------
-with open(RESULTS_DIR / "summary.csv", "w", newline="") as fh:
+with open(results_path("summary.csv"), "w", newline="") as fh:
     fieldnames = [
         "dataset",
         "method",
@@ -65,7 +66,7 @@ with open(RESULTS_DIR / "summary.csv", "w", newline="") as fh:
         writer.writerow({k: r.get(k, "") for k in fieldnames})
 
 # Markdown table --------------------------------------------------------------
-with open(RESULTS_DIR / "summary.md", "w") as fh:
+with open(results_path("summary.md"), "w") as fh:
     hdr_cols = ["dataset", "method", "imu", "gnss", "rmse_pos", "final_pos", "best"]
     hdr = " | ".join(hdr_cols)
     sep = " | ".join("---" for _ in hdr_cols)

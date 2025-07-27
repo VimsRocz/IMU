@@ -61,7 +61,7 @@ def check_files(imu_file: str, gnss_file: str) -> tuple[pathlib.Path, pathlib.Pa
 
 
 def main(argv: Iterable[str] | None = None) -> None:
-    results_dir = pathlib.Path("results/IMU_X002_GNSS_X002_TRIAD")
+    results_dir = pathlib.Path("results")
     results_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Ensured '%s' directory exists.", results_dir)
 
@@ -149,14 +149,17 @@ def main(argv: Iterable[str] | None = None) -> None:
     if ret != 0:
         raise subprocess.CalledProcessError(ret, cmd)
 
-    # Move generated result files into the dedicated directory
+    # Move generated files when a separate results directory was used in older
+    # versions. With the flat layout ``results_dir`` equals ``base_results`` so
+    # the loop becomes a no-op.
     base_results = pathlib.Path("results")
-    for file in base_results.glob(f"{tag}*"):
-        dest = results_dir / file.name
-        try:
-            file.replace(dest)
-        except Exception:
-            pass
+    if results_dir != base_results:
+        for file in base_results.glob(f"{tag}*"):
+            dest = results_dir / file.name
+            try:
+                file.replace(dest)
+            except Exception:
+                pass
 
     for summary in summaries:
         kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
