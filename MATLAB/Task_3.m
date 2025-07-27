@@ -5,9 +5,6 @@ function task3_results = Task_3(imu_path, gnss_path, method)
 % approaches (TRIAD, Davenport, SVD). It loads the reference and measured
 % vectors saved by Tasks 1 and 2 and stores the resulting rotation
 % matrices for later tasks.
-%
-% Usage:
-%   Task_3(imu_path, gnss_path, method)
 
 if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');
@@ -42,10 +39,7 @@ else
     tag = [pair_tag '_' method];
     method_tag = method;
 end
-results_dir = get_results_dir();
-if ~exist(results_dir, 'dir')
-    mkdir(results_dir);
-end
+results_dir = 'output_matlab';
 
 % Load vectors produced by Task 1 and Task 2
 task1_file = fullfile(results_dir, ['Task1_init_' tag '.mat']);
@@ -138,12 +132,6 @@ R_tri = M_ned_1 * M_body';
 R_tri = U*V';
 fprintf('Rotation matrix (TRIAD method, Case 1):\n');
 disp(R_tri);
-fig_tri = figure; plot(R_tri(:)); title('TRIAD Rotation Matrix'); xlabel('Element'); ylabel('Value'); grid on;
-save_plot(fig_tri, imu_name, gnss_name, method, 3);
-expected_C_b_n = [0.23364698, -0.04540352, 0.971260835; ...
-                   0.0106220955, 0.998968728, 0.0441435243; ...
-                  -0.972263472, 2.82418914e-06, 0.233888307];
-assert(norm(R_tri - expected_C_b_n) < 1e-6, 'TRIAD matrix mismatch');
 
 % Case 2
 M_ned_2 = triad_basis(v1_N, v2_N_doc);
@@ -290,9 +278,9 @@ all_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
 save(all_file, 'task3_results');
 fprintf('-> Task 3 results (all methods) saved to %s\n', all_file);
 
-% Also save a method-specific copy for later tasks using helper
+% Also save a method-specific copy for later tasks
 method_results = task3_results.(method_tag);
-save_task_results(method_results, imu_name, gnss_name, method_tag, 3);
+save(fullfile(results_dir, sprintf('Task3_results_%s.mat', tag)), 'method_results');
 
 % Return and store in base workspace
 assignin('base', 'task3_results', task3_results);

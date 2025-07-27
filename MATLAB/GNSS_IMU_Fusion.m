@@ -7,7 +7,7 @@ function GNSS_IMU_Fusion(imu_file, gnss_file, method)
 %
 %   When IMU_FILE or GNSS_FILE are omitted the default logs IMU_X001.dat and
 %   GNSS_X001.csv are used.  METHOD defaults to 'Davenport'.  Results are
-%   written to the directory returned by ``get_results_dir()``.
+%   written to the 'output_matlab' directory in the current folder.
 
 if nargin < 1 || isempty(imu_file)
     imu_file = 'IMU_X001.dat';

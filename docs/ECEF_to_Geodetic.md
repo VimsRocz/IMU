@@ -3,13 +3,7 @@
 This note describes the algorithm used throughout the repository to convert
 Earth‑Centred Earth‑Fixed (ECEF) coordinates to geodetic latitude,
 longitude and altitude. The implementation is shared between the Python
-code (`src/utils.py`) and the MATLAB helpers `ecef_to_geodetic.m` and
-`ecef2geodetic.m`.
-
-`ecef_to_geodetic.m` automatically delegates to MATLAB's Mapping
-Toolbox function `ecef2geodetic` when available and otherwise executes
-the lightweight `ecef2geodetic.m` implementation bundled with this
-repository. Both variants yield identical results.
+code (`src/utils.py`) and the MATLAB helper `ecef2geodetic.m`.
 
 ## Algorithm
 

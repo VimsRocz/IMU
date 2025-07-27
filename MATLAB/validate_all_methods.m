@@ -6,7 +6,7 @@ function validate_all_methods()
 
 methods = {'TRIAD','Davenport','SVD'};
 truth = load('STATE_X001.txt');
-resultsDir = get_results_dir();
+resultsDir = 'output_matlab';
 
 summary = cell(numel(methods),4);
 

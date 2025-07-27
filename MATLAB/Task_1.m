@@ -2,9 +2,6 @@ function result = Task_1(imu_path, gnss_path, method)
 % TASK 1: Define Reference Vectors in NED Frame
 % This function translates Task 1 from the Python file GNSS_IMU_Fusion.py
 % into MATLAB.
-%
-% Usage:
-%   Task_1(imu_path, gnss_path, method)
 
 if nargin < 3 || isempty(method)
     method = '';
@@ -23,9 +20,8 @@ end
 
 % Remove command-line side effects to behave like a normal function
 
-results_dir = get_results_dir();
-if ~exist(results_dir,'dir')
-    mkdir(results_dir);
+if ~exist('output_matlab','dir')
+    mkdir('output_matlab');
 end
 
 % Print dataset and method like the Python script
@@ -37,7 +33,7 @@ else
     tag = [imu_name '_' gnss_name '_' method];
 end
 
-fprintf('%s %s\n', char(hex2dec('25B6')), tag); % \u25B6 is the triangle symbol
+fprintf('\u25B6 %s\n', tag); % \u25B6 is the triangle symbol
 fprintf('Ensured ''output_matlab/'' directory exists.\n');
 if ~isempty(method)
     fprintf('Running attitude-estimation method: %s\n', method);
@@ -51,6 +47,7 @@ end
 fprintf('TASK 1%s: Define reference vectors in NED frame\n', log_tag);
 
 % --- Configuration ---
+results_dir = 'output_matlab';
 
 
 % ================================
@@ -84,11 +81,11 @@ if ~isempty(valid_idx)
     
     % Convert ECEF to geodetic coordinates using the shared helper
     [lat_deg, lon_deg, alt_m] = ecef2geodetic(x_ecef, y_ecef, z_ecef);
-    % Override with dataset constants for cross-language parity
-    lat_deg = -31.871173;
-    lon_deg = 133.455811;
+    
+    % Convert degrees to radians for calculations
     lat = deg2rad(lat_deg);
-    fprintf('Computed initial latitude: %.6f°, longitude: %.6f° from GNSS (overridden)\n', lat_deg, lon_deg);
+    
+    fprintf('Computed initial latitude: %.6f°, longitude: %.6f° from GNSS\n', lat_deg, lon_deg);
 else
     error('No valid ECEF coordinates found in GNSS data.');
 end
@@ -99,14 +96,8 @@ end
 % ================================
 fprintf('\nSubtask 1.2: Defining gravity vector in NED frame.\n');
 
-% Use the same gravity magnitude as the Python implementation. This value
-% comes from the WGS-84 normal gravity formula evaluated at the initial
-% latitude and altitude of the dataset. It ensures cross-language
-% consistency when comparing results.
-g_NED = [0; 0; constants.GRAVITY];
-
-% Print validation line to mirror the Python script behaviour
-fprintf('Gravity magnitude set to %.8f m/s^2\n', constants.GRAVITY);
+% Compute gravity magnitude using WGS-84 model and print validation line
+g_NED = validate_gravity_vector(lat_deg, alt_m);
 
 
 % ================================
@@ -171,8 +162,10 @@ if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
 
     % Save the plot as both PDF and PNG using a reasonable page size
     set(gcf, 'PaperPositionMode', 'auto');
-    base_fig = figure(gcf);
-    save_plot(base_fig, imu_name, gnss_name, method, 1);
+    base = fullfile(results_dir, sprintf('%s_location_map', tag));
+    print(gcf, [base '.pdf'], '-dpdf', '-bestfit');
+    print(gcf, [base '.png'], '-dpng');
+    fprintf('Location map saved to %s.[pdf|png]\n', base);
 else
     warning('Mapping Toolbox not found. Skipping geographic plot.');
 end
@@ -180,12 +173,11 @@ end
 
 % Save results for later tasks
 
-
 lat = lat_deg; %#ok<NASGU>
 lon = lon_deg; %#ok<NASGU>
 omega_NED = omega_ie_NED; %#ok<NASGU>
-results = struct('lat', lat_deg, 'lon', lon_deg, 'g_NED', g_NED, 'omega_NED', omega_ie_NED);
-save_task_results(results, imu_name, gnss_name, method, 1);
+save(fullfile(results_dir, ['Task1_init_' tag '.mat']), 'lat', 'lon', 'g_NED', 'omega_NED');
+fprintf('Initial data saved to %s\n', fullfile(results_dir, ['Task1_init_' tag '.mat']));
 
 % Return results and store in base workspace for interactive use
 result = struct('lat', lat_deg, 'lon', lon_deg, ...

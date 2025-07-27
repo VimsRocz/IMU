@@ -18,17 +18,14 @@ Task 5 output
 
 ## Subtasks
 
-### 6.1 Load Filter Result
-Open the saved MAT file and extract the fused position, velocity and attitude.
-
-### 6.2 Prepare Truth Data
-Convert the ECEF truth trajectory to NED using the reference latitude, longitude and origin saved in the result file.
-
-### 6.3 Interpolate
-Align IMU, GNSS and truth samples on the filter time grid.
-
-### 6.4 Plot and Save
-Call `plot_overlay` for the three frames. Overlay PDFs are stored in ``results/task6/<dataset>/`` as ``<dataset>_<method>_task6_overlay_state_<frame>.pdf``. The ``--show-measurements`` flag mirrors the Python implementation.
+1. **Load Filter Result** – open the saved MAT file and extract the fused
+   position, velocity and attitude.
+2. **Prepare Truth Data** – convert the ECEF truth trajectory to NED using the
+   reference latitude, longitude and origin saved in the result file.
+3. **Interpolate** – align IMU, GNSS and truth samples on the filter time grid.
+4. **Plot** – call `plot_overlay` for the three frames which stores PDFs under
+   ``results/task6/<METHOD>/`` as `<METHOD>_task6_overlay_state_<FRAME>.pdf`. The ``--show-measurements``
+   flag mirrors the Python implementation.
 
 ## Result
 

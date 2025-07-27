@@ -5,8 +5,7 @@ function results = TRIAD(imu_paths, gnss_paths)
 %   When called without arguments all bundled sample datasets are
 %   processed.  Single file names or cell arrays of names are accepted.
 %   The Task 5 results for each pair are returned as a struct (or a cell
-%   array of structs) and saved as `Result_<IMU>_<GNSS>_TRIAD.mat` in the
-%   directory returned by `get_results_dir()`.
+%   array of structs) and saved in output_matlab/Result_<IMU>_<GNSS>_TRIAD.mat.
 
 if nargin == 0
     imu_paths = {'IMU_X001.dat','IMU_X002.dat','IMU_X003.dat'};

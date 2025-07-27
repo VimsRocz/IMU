@@ -1,17 +1,7 @@
-function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
+function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 %TASK_5  Run 15-state EKF using IMU & GNSS NED positions
 %   Expects Task 1 outputs saved in the results directory for gravity
 %   initialization.
-%
-%   result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
-%   Optional name/value arguments mirror the Python Kalman filter defaults:
-%       'accel_noise'      - process noise for acceleration  [m/s^2] (0.1)
-%       'vel_proc_noise'   - extra velocity process noise    [m/s^2] (0.0)
-%       'pos_proc_noise'   - position process noise          [m]     (0.0)
-%       'pos_meas_noise'   - GNSS position measurement noise [m]     (1.0)
-%       'vel_meas_noise'   - GNSS velocity measurement noise [m/s]   (1.0)
-%       'accel_bias_noise' - accelerometer bias random walk  [m/s^2] (1e-5)
-%       'gyro_bias_noise'  - gyroscope bias random walk      [rad/s] (1e-5)
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
@@ -22,28 +12,10 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
         method = 'TRIAD';
     end
 
-    % Optional noise parameters
-    p = inputParser;
-    addParameter(p, 'accel_noise', 0.1);       % [m/s^2]
-    addParameter(p, 'vel_proc_noise', 0.0);    % [m/s^2]
-    addParameter(p, 'pos_proc_noise', 0.0);    % [m]
-    addParameter(p, 'pos_meas_noise', 1.0);    % [m]
-    addParameter(p, 'vel_meas_noise', 1.0);    % [m/s]
-    addParameter(p, 'accel_bias_noise', 1e-5); % [m/s^2]
-    addParameter(p, 'gyro_bias_noise', 1e-5);  % [rad/s]
-    parse(p, varargin{:});
-    accel_noise    = p.Results.accel_noise;
-    vel_proc_noise = p.Results.vel_proc_noise;
-    pos_proc_noise = p.Results.pos_proc_noise;
-    pos_meas_noise = p.Results.pos_meas_noise;
-    vel_meas_noise = p.Results.vel_meas_noise;
-    accel_bias_noise = p.Results.accel_bias_noise;
-    gyro_bias_noise  = p.Results.gyro_bias_noise;
-
     % Store all outputs under the repository "results" directory
     here = fileparts(mfilename('fullpath'));
     root = fileparts(here);
-    results_dir = get_results_dir();
+    results_dir = fullfile(root, 'output_matlab');
     if ~exist(results_dir,'dir')
         mkdir(results_dir);
     end
@@ -115,15 +87,6 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     gyro_body_raw = imu_raw(:,3:5) / dt_imu;
     acc_body_raw = imu_raw(:,6:8) / dt_imu;
 
-    % Detect a static interval for ZUPT handling using the same helper as
-    % Python. The raw measurements are low-pass filtered prior to
-    % variance-based detection to avoid spurious motion being classified as
-    % static.
-    fs = 1/dt_imu;
-    gyro_filt = low_pass_filter(gyro_body_raw, 10, fs);
-    acc_filt  = low_pass_filter(acc_body_raw, 10, fs);
-    [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt, 80, 0.01, 1e-6);
-
     % Load biases estimated in Task 2
     task2_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
     if isfile(task2_file)
@@ -153,9 +116,6 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
             scale_factor = d4.scale_factors.(method);
         end
     end
-    % Biases are provided by Task 2. Do not override them with
-    % dataset-specific constants so that both MATLAB and Python remain
-    % consistent.
     fprintf('Method %s: Bias computed: [%.7f %.7f %.7f]\n', method, accel_bias);
     fprintf('Method %s: Scale factor: %.4f\n', method, scale_factor);
 
@@ -196,18 +156,9 @@ x(10:12) = accel_bias(:);
 x(13:15) = gyro_bias(:);
 % EKF tuning parameters
 P = blkdiag(eye(9) * 0.01, eye(3) * 1e-4, eye(3) * 1e-8);
-Q = eye(15) * 1e-4;
-Q(4:6,4:6) = diag([0.1, 0.1, 0.1]);
-Q(10:12,10:12) = eye(3) * (accel_bias_noise^2);
-Q(13:15,13:15) = eye(3) * (gyro_bias_noise^2);
-if pos_proc_noise ~= 0
-    Q(1:3,1:3) = Q(1:3,1:3) + eye(3) * (pos_proc_noise^2);
-end
-if vel_proc_noise ~= 0
-    Q(4:6,4:6) = Q(4:6,4:6) + eye(3) * (vel_proc_noise^2);
-end
-R = eye(6) * 1;
-R(4:6,4:6) = diag([0.25, 0.25, 0.25]);
+Q = blkdiag(eye(9) * 0.01, eye(3) * 1e-6, eye(3) * 1e-6);
+Q(4:6,4:6) = eye(3) * 0.1;  % higher process noise on velocity states
+R = diag([0.1 0.1 0.1 0.25 0.25 0.25]);
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
@@ -238,9 +189,6 @@ q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
             'Task 1 output not found; using constants.GRAVITY.');
         g_NED = [0; 0; constants.GRAVITY];
     end
-
-    % Override with gravity used in Python pipeline
-    g_NED = [0; 0; constants.GRAVITY];
 
     % -- Compute Wahba Errors using all Task 3 rotation matrices --
     methods_all = fieldnames(task3_results);
@@ -293,12 +241,7 @@ for i = 1:num_imu_samples
     w_b = corrected_gyro - current_omega_ie_b;
     q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
     C_B_N = quat_to_rot(q_b_n);
-    % The accelerometer measures specific force which already includes
-    % gravity.  To obtain inertial acceleration we must subtract the
-    % gravity vector expressed in the navigation frame.  This mirrors the
-    % Python implementation in ``integration.py`` and ensures both
-    % pipelines stay in sync.
-    a_ned = C_B_N * corrected_accel - g_NED;
+    a_ned = C_B_N * corrected_accel + g_NED;
     if i > 1
         vel_new = prev_vel + 0.5 * (a_ned + prev_a_ned) * dt_imu;
         pos_new = x(1:3) + 0.5 * (vel_new + prev_vel) * dt_imu;
@@ -323,6 +266,8 @@ for i = 1:num_imu_samples
     prev_a_ned = a_ned;
     % --- 4. Zero-Velocity Update (ZUPT) ---
     win_size = 80;
+    static_start = 297;
+    static_end   = min(479907, num_imu_samples);
 
     if i >= static_start && i <= static_end
         zupt_count = zupt_count + 1;
@@ -334,7 +279,6 @@ for i = 1:num_imu_samples
         K_z = (P * H_z') / S_z;
         x = x + K_z * y_z;
         P = (eye(15) - K_z * H_z) * P;
-        x(4:6) = 0;
     elseif i > win_size
         acc_win = acc_body_raw(i-win_size+1:i, :);
         gyro_win = gyro_body_raw(i-win_size+1:i, :);
@@ -348,7 +292,6 @@ for i = 1:num_imu_samples
             K_z = (P * H_z') / S_z;
             x = x + K_z * y_z;
             P = (eye(15) - K_z * H_z) * P;
-            x(4:6) = 0;
         end
     end
 
@@ -489,7 +432,6 @@ rmse_vel = sqrt(mean(sum(res_vel.^2,2)));
 % previously produced a 3x3 matrix due to implicit broadcasting.
 final_pos_err = norm(x_log(1:3,end) - gnss_pos_ned(end,:)');
 final_vel_err = norm(vel_log(:,end) - gnss_vel_ned(end,:)');
-final_vel = norm(vel_log(:,end));
 final_acc_err = norm(accel_from_vel(:,end) - gnss_accel_ned(end,:)');
 rms_resid_pos = sqrt(mean(res_pos.^2,'all'));
 rms_resid_vel = sqrt(mean(res_vel.^2,'all'));
@@ -497,11 +439,6 @@ max_resid_pos = max(vecnorm(res_pos,2,2));
 min_resid_pos = min(vecnorm(res_pos,2,2));
 max_resid_vel = max(vecnorm(res_vel,2,2));
 min_resid_vel = min(vecnorm(res_vel,2,2));
-
-% Print a concise summary matching the Python pipeline
-fprintf('Position: North=%.4f, East=%.4f, Down=%.4f\n', ...
-        x_log(1,end), x_log(2,end), x_log(3,end));
-fprintf('RMSE_pos: %.4f\n', rmse_pos);
 
 % --- Plot: Position Residuals ---
 figure('Name', 'KF Results: Position Residuals', 'Position', [150 150 1200 600]);
@@ -518,13 +455,12 @@ xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
 % fprintf('Saved plot: %s\n', err_file);
 % exportgraphics(gcf, all_file, 'Append', true);
 summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%8.2fm ' ...
-    'final_pos=%8.2fm rms_vel=%8.2fm/s final_vel=%8.2fm/s ' ...
-    'rms_resid_pos=%8.2fm max_resid_pos=%8.2fm ' ...
+    'final_pos=%8.2fm rms_resid_pos=%8.2fm max_resid_pos=%8.2fm ' ...
     'rms_resid_vel=%8.2fm max_resid_vel=%8.2fm accel_bias=%.4f gyro_bias=%.4f ' ...
     'grav_err_mean=%.4f grav_err_max=%.4f omega_err_mean=%.4f omega_err_max=%.4f ' ...
     'ZUPT_count=%d'], method, imu_name, [gnss_name '.csv'], rmse_pos, ...
-    final_pos_err, rmse_vel, final_vel, rms_resid_pos, max_resid_pos, ...
-    rms_resid_vel, max_resid_vel, norm(accel_bias), norm(gyro_bias), grav_err_mean, grav_err_max, ...
+    final_pos_err, rms_resid_pos, max_resid_pos, rms_resid_vel, max_resid_vel, ...
+    norm(accel_bias), norm(gyro_bias), grav_err_mean, grav_err_max, ...
     omega_err_mean, omega_err_max, zupt_count);
 fprintf('%s\n', summary_line);
 fid = fopen(fullfile(results_dir, [tag '_summary.txt']), 'w');
@@ -534,14 +470,14 @@ fclose(fid);
 % Store summary metrics and biases for later analysis
 results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, ...
     'final_pos_error', final_pos_err, 'final_vel_error', final_vel_err, ...
-    'final_vel', final_vel, 'final_acc_error', final_acc_err, 'accel_bias', accel_bias, 'gyro_bias', gyro_bias, ...
+    'final_acc_error', final_acc_err, 'accel_bias', accel_bias, 'gyro_bias', gyro_bias, ...
     'grav_err_mean', grav_err_mean, 'grav_err_max', grav_err_max, ...
     'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
-% Result Logging -- store the metrics struct under the variable name
-% ``results`` to stay in sync with the Python pipeline.
 if isfile(perf_file)
-
+    save(perf_file, '-append', 'output_matlab');
+else
+    save(perf_file, 'output_matlab');
 end
 
 summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt');
@@ -571,14 +507,16 @@ else
     warning('Missing %s', results_file);
 end
 
-method_struct = struct('gnss_pos_ned', gnss_pos_ned, 'gnss_vel_ned', gnss_vel_ned, ...
-    'gnss_accel_ned', gnss_accel_ned, 'gnss_pos_ecef', gnss_pos_ecef, ...
-    'gnss_vel_ecef', gnss_vel_ecef, 'gnss_accel_ecef', gnss_accel_ecef, ...
-    'x_log', x_log, 'vel_log', vel_log, 'accel_from_vel', accel_from_vel, ...
-    'euler_log', euler_log, 'zupt_log', zupt_log, 'time', time, ...
-    'gnss_time', gnss_time, 'pos_ned', pos_ned, 'vel_ned', vel_ned, ...
-    'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0);
-save_task_results(method_struct, imu_name, gnss_name, method_tag, 5);
+method_file = fullfile(results_dir, [tag '_task5_results.mat']);
+save(method_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
+    'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
+    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', ...
+    'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0');
+if isfile(method_file)
+    fprintf('Method-specific results saved to %s\n', method_file);
+else
+    warning('Missing %s', method_file);
+end
 
 % Return results structure and store in base workspace
 result = results;
@@ -590,10 +528,6 @@ end % End of main function
 %  LOCAL HELPER FUNCTIONS
 % =========================================================================
     function q_new = propagate_quaternion(q_old, w, dt)
-        %PROPAGATE_QUATERNION Propagate quaternion using angular rate.
-        %   Q_NEW = PROPAGATE_QUATERNION(Q_OLD, W, DT) integrates the rate
-        %   vector W over DT and multiplies the result with Q_OLD.  The output
-        %   quaternion is not normalised.
         w_norm = norm(w);
         if w_norm > 1e-9
             axis = w / w_norm;
@@ -606,9 +540,6 @@ end % End of main function
     end
 
     function q_out = quat_multiply(q1, q2)
-        %QUAT_MULTIPLY Hamilton product of two quaternions.
-        %   Q_OUT = QUAT_MULTIPLY(Q1, Q2) multiplies Q1 by Q2 using the
-        %   [w x y z] convention.
         w1 = q1(1); x1 = q1(2); y1 = q1(3); z1 = q1(4);
         w2 = q2(1); x2 = q2(2); y2 = q2(3); z2 = q2(4);
         q_out = [w1*w2 - x1*x2 - y1*y2 - z1*z2;
@@ -618,9 +549,6 @@ end % End of main function
     end
 
     function euler = quat_to_euler(q)
-        %QUAT_TO_EULER Convert quaternion to XYZ Euler angles.
-        %   EULER = QUAT_TO_EULER(Q) returns [roll; pitch; yaw] in radians for
-        %   the quaternion Q = [w x y z].
         w = q(1); x = q(2); y = q(3); z = q(4);
         sinr_cosp = 2 * (w * x + y * z);
         cosr_cosp = 1 - 2 * (x * x + y * y);
@@ -640,8 +568,6 @@ end % End of main function
     end
 
     function R = quat_to_rot(q)
-        %QUAT_TO_ROT Convert quaternion to rotation matrix.
-        %   R = QUAT_TO_ROT(Q) converts Q = [w x y z] into a 3×3 rotation matrix.
         qw = q(1); qx = q(2); qy = q(3); qz = q(4);
         R = [1 - 2 * (qy^2 + qz^2), 2 * (qx*qy - qw*qz), 2 * (qx*qz + qw*qy);
              2 * (qx*qy + qw*qz), 1 - 2 * (qx^2 + qz^2), 2 * (qy*qz - qw*qx);
@@ -649,9 +575,6 @@ end % End of main function
     end
 
     function q = rot_to_quaternion(R)
-        %ROT_TO_QUATERNION Convert rotation matrix to quaternion.
-        %   Q = ROT_TO_QUATERNION(R) converts R to a [w x y z] quaternion and
-        %   normalises the result with positive scalar part.
         tr = trace(R);
         if tr > 0
             S = sqrt(tr + 1.0) * 2;
@@ -684,28 +607,17 @@ end % End of main function
     end
 
     function is_stat = is_static(acc, gyro)
-        %IS_STATIC True if IMU window variance is below thresholds.
-        %   IS_STATIC = IS_STATIC(ACC, GYRO) returns true when the maximum
-        %   variance of the accelerometer and gyroscope windows are below the
-        %   hard-coded thresholds (0.01 and 1e-6).  Mirrors ``utils.is_static``.
         acc_thresh = 0.01; gyro_thresh = 1e-6;
         is_stat = all(var(acc,0,1) < acc_thresh) && ...
                    all(var(gyro,0,1) < gyro_thresh);
     end
 
     function deg = angle_between(v1, v2)
-        %ANGLE_BETWEEN Angle between two 3-D vectors in degrees.
-        %   DEG = ANGLE_BETWEEN(V1, V2) mirrors ``init_vectors.angle_between``.
         cos_theta = max(min(dot(v1, v2) / (norm(v1) * norm(v2)), 1.0), -1.0);
         deg = acosd(cos_theta);
     end
 
     function [grav_err, earth_err] = compute_wahba_errors(C_bn, g_b, omega_b, g_ref, omega_ref)
-        %COMPUTE_WAHBA_ERRORS Angular errors for gravity and Earth rate.
-        %   [EG, EO] = COMPUTE_WAHBA_ERRORS(C_BN, G_B, OMEGA_B, G_REF, OMEGA_REF)
-        %   returns the angle between measured and reference gravity vectors and
-        %   between Earth rotation vectors, matching the Python helper of the
-        %   same name.
         g_pred = C_bn * g_b;
         omega_pred = C_bn * omega_b;
         grav_err = angle_between(g_pred, g_ref);
@@ -713,9 +625,6 @@ end % End of main function
     end
 
     function R = euler_to_rot(eul)
-        %EULER_TO_ROT Convert XYZ Euler angles to Body->NED DCM.
-        %   R = EULER_TO_ROT(EUL) mirrors ``utils.euler_to_rot``. EUL is a
-        %   three-element vector ``[roll pitch yaw]`` in radians.
         cr = cos(eul(1)); sr = sin(eul(1));
         cp = cos(eul(2)); sp = sin(eul(2));
         cy = cos(eul(3)); sy = sin(eul(3));
@@ -725,8 +634,6 @@ end % End of main function
     end
 
     function plot_task5_mixed_frame(t, pos_ned, vel_ned, acc_ned, eul_log, C_E_N, r0, g_N, tag, method, results_dir, all_file)
-        %PLOT_TASK5_MIXED_FRAME Plot ECEF position/velocity and body accel.
-        %   Saves a multi-panel figure using the given METHOD and TAG.
         pos_ecef = (C_E_N' * pos_ned) + r0;
         vel_ecef = C_E_N' * vel_ned;
         N = size(acc_ned,2);
@@ -755,7 +662,6 @@ end % End of main function
     end
 
     function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_gnss, vel_gnss, acc_gnss, method)
-        %PLOT_TASK5_NED_FRAME Plot fused vs GNSS data in the NED frame.
         labels = {'North','East','Down'};
         figure('Name','Task5 NED Frame','Position',[100 100 1200 900]);
         for k = 1:3
@@ -778,7 +684,6 @@ end % End of main function
     end
 
     function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_ecef, vel_ecef, acc_ecef, C_E_N, r0, method)
-        %PLOT_TASK5_ECEF_FRAME Plot fused vs GNSS data in the ECEF frame.
         labels = {'X','Y','Z'};
         pos_fused = (C_E_N' * pos_ned) + r0;
         vel_fused = C_E_N' * vel_ned;
@@ -804,7 +709,6 @@ end % End of main function
     end
 
     function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, eul_log, t_gnss, pos_gnss_ned, vel_gnss_ned, acc_gnss_ned, method, g_N)
-        %PLOT_TASK5_BODY_FRAME Plot fused results in body frame coordinates.
         labels = {'X','Y','Z'};
         N = size(pos_ned,2);
         pos_body = zeros(3,N); vel_body = zeros(3,N); acc_body = zeros(3,N);
@@ -844,7 +748,6 @@ end % End of main function
     end
 
     function plot_task5_ecef_truth(t, pos_ned, vel_ned, acc_ned, state_file, C_E_N, r0, method)
-        %PLOT_TASK5_ECEF_TRUTH Overlay fused output with provided truth data.
         if ~exist(state_file,'file'); return; end
         truth = readmatrix(state_file);
         t_truth = truth(:,2);

@@ -1,7 +1,7 @@
 # Method Comparison
 
 The table below summarises the fusion results produced by `run_all_datasets.py`.
-Values are extracted from `results/run_all_datasets/summary.csv` via `summarise_runs.py`.
+Values are extracted from `results/summary.csv` via `summarise_runs.py`.
 The best method per dataset is marked with a check mark.
 
 | Dataset | Method | RMSE Position [m] | Final Error [m] | Best |

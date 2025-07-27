@@ -47,4 +47,4 @@ monotonically. Each sample log contains 1\u202f250 rows plus the header.
    \boldsymbol{\omega}_{ie,\text{NED}} = \omega_E\begin{bmatrix}\cos\varphi \\ 0 \\ -\sin\varphi\end{bmatrix},
    $$
    with $g \approx 9.81\,\mathrm{m/s^2}$ and $\omega_E \approx 7.2921\times10^{-5}\,\mathrm{rad/s}$.
-5. Save a small location map as `results/run_triad_only/<tag>_location_map.pdf`.
+5. Save a small location map as `results/<tag>_location_map.pdf`.

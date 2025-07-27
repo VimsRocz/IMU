@@ -33,13 +33,13 @@ quaternion is appended to `triad_init_log.txt`.
 ### 3.4 Validate Gravity and Earth‑Rate Alignment
 - Rotate the body vectors with `R_tri` and compute the angles to the references.
 - Report the gravity and Earth‑rate errors in degrees.
-- These errors appear in `results/run_triad_only/<tag>_task3_errors_comparison.pdf`.
+- These errors appear in `results/<tag>_task3_errors_comparison.pdf`.
 
 ### 3.5 Plot Quaternion Components
 - Plot `qw`, `qx`, `qy`, `qz` alongside the other methods for context.
-- The figure `results/run_triad_only/<tag>_task3_quaternions_comparison.pdf` is created.
+- The figure `results/<tag>_task3_quaternions_comparison.pdf` is created.
 - Apply the [standardized legend terms](PlottingChecklist.md#standardized-legend-terms) so the labels match other tasks.
 
 ## Result
 
-Task 3 outputs the rotation matrix and quaternion describing the initial attitude. The error and quaternion plots are saved to the `results/run_triad_only/` folder and listed in `plot_summary.md`. Use `src/run_triad_only.py` (or the MATLAB script `run_triad_only.m`) to process all datasets and generate these figures. The attitude estimate serves as the starting point for the IMU/GNSS comparison in **Task 4** and the subsequent Kalman filter fusion in **Task 5**.
+Task 3 outputs the rotation matrix and quaternion describing the initial attitude. The error and quaternion plots are saved to the `results/` folder and listed in `plot_summary.md`. Use `src/run_triad_only.py` (or the MATLAB script `run_triad_only.m`) to process all datasets and generate these figures. The attitude estimate serves as the starting point for the IMU/GNSS comparison in **Task 4** and the subsequent Kalman filter fusion in **Task 5**.

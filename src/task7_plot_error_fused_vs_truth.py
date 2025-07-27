@@ -37,7 +37,6 @@ def plot_error(time: np.ndarray, err: np.ndarray, out_dir: Path) -> None:
     plt.title("Task 7.1: FUSED - Truth Velocity Error")
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
     out_dir.mkdir(parents=True, exist_ok=True)
     pdf = out_dir / "task7_fused_vs_truth_error.pdf"
     png = out_dir / "task7_fused_vs_truth_error.png"

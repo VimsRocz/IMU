@@ -65,23 +65,3 @@ writetable(T, fullfile('results','summary.csv'));
 fprintf('\n');
 disp(T);
 end
-
-function run_triad_method(imu_file, gnss_file)
-%RUN_TRIAD_METHOD  Helper to run TRIAD on a single dataset pair.
-    data_dir = 'Data';
-    imu_path = fullfile(data_dir, imu_file);
-    gnss_path = fullfile(data_dir, gnss_file);
-    if ~exist(imu_path, 'file') || ~exist(gnss_path, 'file')
-        error('File not found: %s or %s', imu_path, gnss_path);
-    end
-    readmatrix(imu_path); %#ok<NASGU> % pre-load IMU
-    readtable(gnss_path); %#ok<NASGU> % pre-load GNSS
-    Task_1(imu_path, gnss_path, 'TRIAD');
-    Task_2(imu_path, gnss_path, 'TRIAD');
-    Task_3(imu_path, gnss_path, 'TRIAD');
-    Task_4(imu_path, gnss_path, 'TRIAD');
-    Task_5(imu_path, gnss_path, 'TRIAD');
-end
-
-% Example invocation
-% run_triad_method('IMU_X002.dat', 'GNSS_X002.csv');

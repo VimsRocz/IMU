@@ -57,7 +57,7 @@ imu  = get_data_file('IMU_X001.dat');
 gnss = get_data_file('GNSS_X001.csv');
 TRIAD(imu, gnss);
 ```
-`get_data_file` searches `MATLAB/data/` first and falls back to the repository root. Both the MATLAB and Python versions store their outputs in the shared `results/` directory.
+`get_data_file` searches `MATLAB/data/` first and falls back to the repository root.
 
 ### Sequential Task Execution
 
@@ -68,16 +68,16 @@ gnss = get_data_file('GNSS_X001.csv');
 
 Task_1(imu, gnss, 'TRIAD');   % -> results/Task1_init_IMU_X001_GNSS_X001_TRIAD.mat
 Task_2(imu, gnss, 'TRIAD');   % -> results/Task2_body_IMU_X001_GNSS_X001_TRIAD.mat
-Task_3(imu, gnss, 'TRIAD');   % uses Task1/2 output, writes results/Task3_results_IMU_X001_GNSS_X001.mat
-Task_4(imu, gnss, 'TRIAD');   % uses Task3 results, writes results/Task4_results_IMU_X001_GNSS_X001.mat
-Task_5(imu, gnss, 'TRIAD');   % uses Task4 results, writes results/Task5_results_IMU_X001_GNSS_X001.mat
+Task_3(imu, gnss, 'TRIAD');   % uses Task1/2 output, writes Task3_results_IMU_X001_GNSS_X001.mat
+Task_4(imu, gnss, 'TRIAD');   % uses Task3 results, writes Task4_results_IMU_X001_GNSS_X001.mat
+Task_5(imu, gnss, 'TRIAD');   % uses Task4 results, writes Task5_results_IMU_X001_GNSS_X001.mat
 ```
 
 ### MATLAB-only pipeline
 ```matlab
 run_all_datasets_matlab('TRIAD')
 ```
-The script `MATLAB/run_all_datasets_matlab.m` accepts the initialisation method as an optional argument. It scans `Data/` (or the repository root if that folder is missing) for matching IMU and GNSS logs, executes `Task_1` through `Task_5` for each pair and saves the results as `IMU_<id>_GNSS_<id>_<METHOD>_kf_output.mat` in `results/`. `plot_results` is invoked automatically to export the standard PDF figures.
+The function accepts the initialisation method as an optional argument. It scans `Data/` (or the repository root if that folder is missing) for matching IMU and GNSS logs, executes `Task_1` through `Task_5` for each pair and saves the results as `IMU_<id>_GNSS_<id>_<METHOD>_kf_output.mat` in `results/`. `plot_results` is invoked automatically to export the standard PDF figures.
 
 Prerequisites: MATLAB R2023a or newer. The **Signal Processing Toolbox** is strongly
 recommended for the MATLAB pipeline. If the toolbox is missing, Task&nbsp;2 falls back to

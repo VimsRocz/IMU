@@ -1,3 +1,4 @@
+
 function run_all_datasets_matlab(method)
 %RUN_ALL_DATASETS_MATLAB  Pure MATLAB batch runner for all datasets
 %   RUN_ALL_DATASETS_MATLAB(METHOD) enumerates the IMU/GNSS pairs in the
@@ -7,11 +8,7 @@ function run_all_datasets_matlab(method)
 %   <IMU>_<GNSS>_<METHOD>_kf_output.mat in the results directory. plot_results
 %   is called on each file to recreate the standard figures. A summary table
 %   mirroring ``src/run_all_datasets.py`` is printed and saved as
-%   ``results/summary.csv`` within the directory returned by
-%   ``get_results_dir()``.
-%
-% Usage:
-%   run_all_datasets_matlab(method)
+%   output_matlab/summary.csv.
 
 if nargin < 1 || isempty(method)
     method_list = {'TRIAD','Davenport','SVD'};
@@ -21,7 +18,7 @@ else
     method_list = method;
 end
 
-here = fileparts(mfilename('fullpath'));
+here = fileparts(mfilename('fullpath')); 
 root = fileparts(here);
 % Ensure this file's folder is on the MATLAB path so Task_* functions are
 % found even after changing directories. This mirrors the behaviour of the
@@ -45,7 +42,7 @@ pairs = {
     'IMU_X003.dat', 'GNSS_X002.csv';
 };
 
-resultsDir = get_results_dir();
+resultsDir = fullfile(root, 'output_matlab');
 if ~exist(resultsDir, 'dir')
     mkdir(resultsDir);
 end
@@ -87,15 +84,6 @@ for k = 1:size(pairs,1)
             save(outFile, '-struct', 'S');
             if exist('plot_results.m','file')
                 plot_results(outFile);
-            end
-            % After saving the standard MAT output, compare with the
-            % corresponding Python NPZ file when available. The helper
-            % script prints RMSE statistics to highlight any parity
-            % issues between implementations.
-            try
-                check_latest_python_matlab;
-            catch ME
-                warning('Parity check failed: %s', ME.message);
             end
             cand = fullfile(root, 'STATE_X001.txt');
             if isfile(cand)

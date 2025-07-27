@@ -7,8 +7,8 @@ Biases are estimated during the static interval, e.g. for X001 the accelerometer
 Figures comparing the IMU trajectory against GNSS are saved as
 
 ```
-results/run_triad_only/<tag>_task4_comparison_ned.pdf
-results/run_triad_only/<tag>_task4_all_ned.pdf
-results/run_triad_only/<tag>_task4_all_ecef.pdf
-results/run_triad_only/<tag>_task4_all_body.pdf
+results/<tag>_task4_comparison_ned.pdf
+results/<tag>_task4_all_ned.pdf
+results/<tag>_task4_all_ecef.pdf
+results/<tag>_task4_all_body.pdf
 ```

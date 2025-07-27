@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 from validate_with_truth import load_estimate, assemble_frames
 
 
+
 def compute_residuals(
     t_est: np.ndarray,
     est_pos: np.ndarray,
@@ -45,8 +46,6 @@ def plot_residuals(
     res_vel: np.ndarray,
     res_acc: np.ndarray,
     dataset: str,
-    gnss: str,
-    method: str,
     out_dir: Path,
 ) -> None:
     """Plot residual components and norms."""
@@ -71,13 +70,11 @@ def plot_residuals(
                 ax.set_xlabel("Time [s]")
             ax.grid(True)
 
-    tag = make_tag(dataset, gnss, method)
-    fig.suptitle(f"{tag} Task 7 ECEF Residuals")
+    fig.suptitle(f"{dataset} Task 7 ECEF Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     out_dir.mkdir(parents=True, exist_ok=True)
-    pdf_name = plot_filename(dataset, gnss, method, 7, "3", "ecef_residuals")
-    pdf = out_dir / pdf_name
-    png = pdf.with_suffix(".png")
+    pdf = out_dir / f"{dataset}_task7_ecef_residuals.pdf"
+    png = out_dir / f"{dataset}_task7_ecef_residuals.png"
     fig.savefig(pdf)
     fig.savefig(png)
     plt.close(fig)
@@ -91,29 +88,22 @@ def plot_residuals(
     ax.set_ylabel("Residual Norm")
     ax.legend()
     ax.grid(True)
-    fig.suptitle(f"{tag} Task 7 ECEF Residual Norms")
-    fig.tight_layout(rect=[0, 0, 1, 0.95])
-    norm_name = plot_filename(dataset, gnss, method, 7, "3", "ecef_residual_norms")
-    norm_pdf = out_dir / norm_name
-    norm_png = norm_pdf.with_suffix(".png")
+    fig.tight_layout()
+    norm_pdf = out_dir / f"{dataset}_task7_ecef_residual_norms.pdf"
+    norm_png = out_dir / f"{dataset}_task7_ecef_residual_norms.png"
     fig.savefig(norm_pdf)
     fig.savefig(norm_png)
     plt.close(fig)
 
 
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Plot ECEF residuals for Task 7")
     ap.add_argument("--est-file", required=True, help="fused estimator .npz")
-    ap.add_argument(
-        "--imu-file", required=True, help="raw IMU file used for the estimate"
-    )
-    ap.add_argument(
-        "--gnss-file", required=True, help="raw GNSS file used for the estimate"
-    )
+    ap.add_argument("--imu-file", required=True, help="raw IMU file used for the estimate")
+    ap.add_argument("--gnss-file", required=True, help="raw GNSS file used for the estimate")
     ap.add_argument("--truth-file", required=True, help="ground truth STATE_X file")
-    ap.add_argument("--dataset", required=True, help="IMU dataset file")
-    ap.add_argument("--gnss", required=True, help="GNSS dataset file")
-    ap.add_argument("--method", required=True, help="initialisation method")
+    ap.add_argument("--dataset", required=True, help="dataset identifier")
     ap.add_argument("--output-dir", default="results", help="directory for plots")
     args = ap.parse_args()
 
@@ -129,17 +119,8 @@ def main() -> None:
         t_est, pos_est, vel_est, pos_truth, vel_truth
     )
 
-    out_dir = output_dir(7, args.dataset, args.gnss, args.method, args.output_dir)
-    plot_residuals(
-        t_est,
-        res_pos,
-        res_vel,
-        res_acc,
-        args.dataset,
-        args.gnss,
-        args.method,
-        out_dir,
-    )
+    out_dir = Path(args.output_dir) / "task7" / args.dataset
+    plot_residuals(t_est, res_pos, res_vel, res_acc, args.dataset, out_dir)
 
 
 if __name__ == "__main__":

@@ -75,7 +75,7 @@ end
 sgtitle('Task 7 - GNSS - Predicted Residuals');
 set(f,'PaperPositionMode','auto');
 pdf = fullfile(output_dir, sprintf('%stask7_3_residuals_position_velocity.pdf', prefix));
-print(f, pdf, '-dpdf', '-bestfit');
+print(f, pdf, '-dpdf');
 close(f); fprintf('Saved %s\n', pdf);
 
 fprintf('--- Task 7, Subtask 7.4: Plotting attitude angles ---\n');
@@ -88,21 +88,21 @@ end
 xlabel('Time [s]'); sgtitle('Task 7 - Attitude Angles');
 set(f,'PaperPositionMode','auto');
 pdf_att = fullfile(output_dir, sprintf('%stask7_4_attitude_angles_euler.pdf', prefix));
-print(f, pdf_att, '-dpdf', '-bestfit'); close(f); fprintf('Saved %s\n', pdf_att);
+print(f, pdf_att, '-dpdf'); close(f); fprintf('Saved %s\n', pdf_att);
 
 norm_pos = vecnorm(res_pos,2,2);
 norm_vel = vecnorm(res_vel,2,2);
 res_acc = gradient(res_vel, t);
 norm_acc = vecnorm(res_acc,2,2);
 
-f = figure('Visible','off','Position',[100 100 600 400]);
+f = figure('Visible','off');
 plot(t, norm_pos, 'DisplayName','|pos error|'); hold on;
 plot(t, norm_vel, 'DisplayName','|vel error|');
 plot(t, norm_acc, 'DisplayName','|acc error|');
 xlabel('Time [s]'); ylabel('Error Norm'); legend; grid on;
 set(f,'PaperPositionMode','auto');
 pdf_norm = fullfile(output_dir, sprintf('%stask7_3_error_norms.pdf', prefix));
-print(f, pdf_norm, '-dpdf', '-bestfit'); close(f); fprintf('Saved %s\n', pdf_norm);
+print(f, pdf_norm, '-dpdf'); close(f); fprintf('Saved %s\n', pdf_norm);
 
 % Subtask 7.5: difference truth - fused over time
 fprintf('--- Task 7, Subtask 7.5: Plotting Truth - Fused differences ---\n');
@@ -130,11 +130,11 @@ end
 
 
 function [diff_pos_ned, diff_vel_ned] = subtask7_5_diff_plot(time, fused_pos_ned, truth_pos_ned, fused_vel_ned, truth_vel_ned, run_id, out_dir)
-%SUBTASK7_5_DIFF_PLOT Plot and analyse Truth minus Fused differences in NED frame.
+%SUBTASK7_5_DIFF_PLOT Plot and analyse Truth minus Fused differences.
 %   [diff_pos_ned, diff_vel_ned] = SUBTASK7_5_DIFF_PLOT(time, fused_pos_ned,
 %   truth_pos_ned, fused_vel_ned, truth_vel_ned, run_id, out_dir) computes
 %   truth_pos_ned - fused_pos_ned and truth_vel_ned - fused_vel_ned at each
-%   time step and plots the results in the NED frame.
+%   time step and plots the results.
 
 diff_pos_ned = truth_pos_ned - fused_pos_ned;
 diff_vel_ned = truth_vel_ned - fused_vel_ned;
@@ -149,11 +149,11 @@ for i = 1:3
     subplot(2,3,3+i); plot(time, diff_vel_ned(:,i));
     xlabel('Time [s]'); ylabel('Difference [m/s]'); grid on;
 end
-sgtitle('Truth - Fused Differences (NED Frame)');
+sgtitle('Truth - Fused Differences');
 set(f,'PaperPositionMode','auto');
 out_file_pdf = fullfile(out_dir, [run_id '_task7_5_diff_truth_fused_over_time.pdf']);
 out_file_png = strrep(out_file_pdf, '.pdf', '.png');
-print(f, out_file_pdf, '-dpdf', '-bestfit');
+print(f, out_file_pdf, '-dpdf');
 print(f, out_file_png, '-dpng');
 close(f); fprintf('Saved %s\n', out_file_pdf);
 

@@ -7,22 +7,13 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 %   frames.  Truth data in the ECEF frame is first converted to the
 %   estimator's local NED coordinates using ``compute_C_ECEF_to_NED`` so
 %   that residuals are expressed in a consistent frame.  The resulting
-%   ``*_overlay_truth.pdf`` files are written to the directory returned by
-%   ``get_results_dir()``.  This function expects the initialization output
-%   from Task 1 and the filter output from Task 5 to reside in that same
-%   directory.
-%
-% Usage:
-%   Task_6(task5_file, imu_path, gnss_path, truth_file)
+%   ``*_overlay_truth.pdf`` files are stored under ``output_matlab/``.  This
+%   function expects the initialization output from Task 1 and the filter
+%   output from Task 5 to be present in the ``results`` directory.
 
 if nargin < 4
     error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');
 end
-
-% Sign convention for NED -> NEU conversion
-% (mirrors ``task6_plot_truth.py`` in the Python code)
-% Use a row vector so element-wise operations broadcast correctly
-sign_ned = [1, 1, -1];
 
 fprintf('Starting Task 6 overlay ...\n');
 start_time = tic;
@@ -32,9 +23,6 @@ start_time = tic;
 
 here = fileparts(mfilename('fullpath'));
 root = fileparts(here);
-% Results directory under repository root
-results_dir = get_results_dir();
-if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 
 
 if ~isfile(task5_file)
@@ -231,12 +219,5 @@ T = cell2table(rows,'VariableNames',header);
 disp(T);
 runtime = toc(start_time);
 fprintf('Task 6 runtime: %.2f s\n', runtime);
-results = struct('metrics', metrics, 'runtime', runtime);
-save_task_results(results, imu_name, gnss_name, method, 6);
-end
-
-function y = centre(x)
-%CENTRE Remove the mean from each column vector.
-    y = x - mean(x,1);
 end
 

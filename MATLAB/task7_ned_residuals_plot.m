@@ -8,7 +8,7 @@ function task7_ned_residuals_plot(est_file, truth_file, dataset, output_dir)
 %
 %   Usage:
 %       task7_ned_residuals_plot('fused_results.mat', 'STATE_X001.txt', ...
-%           'IMU_X001_GNSS_X001', get_results_dir())
+%           'IMU_X001_GNSS_X001', 'output_matlab')
 %
 %   This MATLAB function mirrors the intended behaviour of the Python
 %   counterpart ``task7_ned_residuals_plot.py``.
@@ -151,8 +151,8 @@ sgtitle(sprintf('%s Task 7 NED Residuals', dataset));
 set(fig,'PaperPositionMode','auto');
 pdf = fullfile(out_dir, sprintf('%s_task7_ned_residuals.pdf', dataset));
 png = fullfile(out_dir, sprintf('%s_task7_ned_residuals.png', dataset));
-print(fig, pdf, '-dpdf', '-bestfit');
-print(fig, png, '-dpng', '-bestfit');
+print(fig, pdf, '-dpdf');
+print(fig, png, '-dpng');
 close(fig);
 
 fig = figure('Visible','off');
@@ -163,7 +163,7 @@ xlabel('Time [s]'); ylabel('Residual Norm'); legend; grid on;
 set(fig,'PaperPositionMode','auto');
 pdfn = fullfile(out_dir, sprintf('%s_task7_ned_residual_norms.pdf', dataset));
 pngn = fullfile(out_dir, sprintf('%s_task7_ned_residual_norms.png', dataset));
-print(fig, pdfn, '-dpdf', '-bestfit');
-print(fig, pngn, '-dpng', '-bestfit');
+print(fig, pdfn, '-dpdf');
+print(fig, pngn, '-dpng');
 close(fig);
 end

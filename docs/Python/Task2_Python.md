@@ -26,8 +26,7 @@ Body-frame gravity g_body and Earth rate ω_ie_body
 - Apply a Butterworth low‑pass filter around `5 Hz` to suppress high‑frequency noise.
 - Use `detect_static_interval` to find a low‑motion window and compute mean accelerometer and gyroscope vectors.
 - Log the interval indices, means and variances to `triad_init_log.txt`.
-- Optionally scale **only** the mean accelerometer vector so its magnitude is exactly `9.81 m/s²`.
-- The rest of the IMU data is left unscaled to preserve dynamic measurements.
+- Optionally scale the accelerometer vector so its magnitude is exactly `9.81 m/s²`.
 - Plot the detected interval with `plot_zupt_and_variance()` and save the PDF to `results/<tag>_ZUPT_variance.pdf`.
 - Refer to the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) when labelling the curves.
 

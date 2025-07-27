@@ -11,7 +11,7 @@ function task7_plot_error_fused_vs_truth(fused_file, truth_file, output_dir)
 %
 %   Usage:
 %       task7_plot_error_fused_vs_truth('fused_results.mat', ...
-%           'truth_results.mat', get_results_dir());
+%           'truth_results.mat', 'output_matlab');
 
 if nargin < 3 || isempty(output_dir)
     output_dir = 'output_matlab';
@@ -55,7 +55,7 @@ set(f,'PaperPositionMode','auto');
 
 pdf = fullfile(output_dir, 'task7_fused_vs_truth_error.pdf');
 png = fullfile(output_dir, 'task7_fused_vs_truth_error.png');
-print(f, pdf, '-dpdf', '-bestfit');
-print(f, png, '-dpng', '-bestfit');
+print(f, pdf, '-dpdf');
+print(f, png, '-dpng');
 close(f);
 end

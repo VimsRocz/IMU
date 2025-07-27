@@ -10,4 +10,4 @@ This report summarises the output of `run_triad_only.py`. It is split into seven
 6. [Kalman Filter Fusion](task5_kalman_summary.md)
 7. [Results Overview](results_overview.md)
 
-Each page documents the corresponding tasks and lists the generated figures stored in the `results/run_triad_only/` folder.
+Each page documents the corresponding tasks and lists the generated figures stored in the `results/` folder.

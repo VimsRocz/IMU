@@ -38,6 +38,6 @@ contains 500 000 rows, whereas the `_small` variants hold only the first
    \boldsymbol{\omega}_{ie,b} = \text{gyro\_mean}.
    $$
 7. Record the window indices, sampling period and magnitudes in `triad_init_log.txt`.
-8. Save the ZUPT diagnostic plot as `results/run_triad_only/<tag>_ZUPT_variance.pdf`.
+8. Save the ZUPT diagnostic plot as `results/<tag>_ZUPT_variance.pdf`.
 
 These body-frame vectors correspond to the Task\u00a01 references expressed in sensor axes and are used to determine the initial attitude in Task\u00a03.
