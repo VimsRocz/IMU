@@ -266,11 +266,8 @@ for i = 1:length(methods)
     gyro_bias = static_gyro' - omega_ie_body_expected;
 
     % Scale factor matching the Python implementation
-    if strcmpi(imu_name, 'IMU_X002')
-        scale_factor = 1.0016; % constant used for dataset X002
-    else
-        scale_factor = estimate_scale_factor(acc_body_filt, start_idx, end_idx, constants.GRAVITY);
-    end
+    % Python computes scale = g / norm(static_acc - acc_bias)
+    scale_factor = constants.GRAVITY / norm(static_acc' - acc_bias);
     scale = scale_factor;
 
     % Apply bias and scale corrections
