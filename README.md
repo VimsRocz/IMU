@@ -403,6 +403,8 @@ All cases: 100%|##########| 9/9 [00:12<00:00,  1.31s/it]
 ┃ ...     ┃  ...     ┃  ...         ┃   ...      ┃
 └─────────┴──────────┴──────────────┴───────────┘
 ```
+All logs, intermediate files and the final `summary.csv` are written to
+`results/run_all_datasets/`.
 
 #### run_triad_only.py
 
@@ -420,7 +422,7 @@ root** so the scripts can locate the bundled data files. Both scripts
 generate the same output as running
 `python src/run_all_datasets.py --method TRIAD` and validate the fused
 trajectory against the common `STATE_X001.txt` file. A short summary
-table for all datasets is printed and saved as `results/run_triad_only/summary.csv`.
+
 
 #### run_method_only.py
 

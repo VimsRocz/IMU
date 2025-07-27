@@ -33,7 +33,7 @@ else
     tag = [imu_name '_' gnss_name '_' method];
 end
 
-fprintf('\u25B6 %s\n', tag); % \u25B6 is the triangle symbol
+fprintf('%s %s\n', char(hex2dec('25B6')), tag); % \u25B6 is the triangle symbol
 fprintf('Ensured ''output_matlab/'' directory exists.\n');
 if ~isempty(method)
     fprintf('Running attitude-estimation method: %s\n', method);
