@@ -333,8 +333,8 @@ def main(argv: Iterable[str] | None = None) -> None:
     # ----------------------------
     # Task 7: Evaluation
     # ----------------------------
-    % Task 7 plots are now saved directly under the ``results``
-    % directory without subfolders for easier navigation.
+    # Task 7 plots are now saved directly under the ``results``
+    # directory without subfolders for easier navigation.
     task7_dir = results_dir
     with open(log_path, "a") as log:
         log.write("\nTASK 7: Evaluate residuals\n")
