@@ -201,6 +201,9 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         n = len(t)
     quat = quat[:n]
 
+    # Use relative time for all Task 7 plots so results align with Task 6
+    t_rel = t - t[0]
+
     # Reconstruct GNSS position and derive smoother velocity
     fused_time = data.get("time")
     fused_pos = data.get("pos_ned")
@@ -236,11 +239,11 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     labels = ["X", "Y", "Z"]
     fig, axes = plt.subplots(2, 3, figsize=(12, 6), sharex=True)
     for i in range(3):
-        axes[0, i].plot(t, res_pos[:, i])
+        axes[0, i].plot(t_rel, res_pos[:, i])
         axes[0, i].set_title(labels[i])
         axes[0, i].set_ylabel("Pos Residual [m]")
         axes[0, i].grid(True)
-        axes[1, i].plot(t, res_vel[:, i])
+        axes[1, i].plot(t_rel, res_vel[:, i])
         axes[1, i].set_xlabel("Time [s]")
         axes[1, i].set_ylabel("Vel Residual [m/s]")
         axes[1, i].grid(True)
@@ -257,7 +260,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     fig, axs = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
     names = ["Roll", "Pitch", "Yaw"]
     for i in range(3):
-        axs[i].plot(t, euler[:, i])
+        axs[i].plot(t_rel, euler[:, i])
         axs[i].set_ylabel(f"{names[i]} [deg]")
         axs[i].grid(True)
     axs[2].set_xlabel("Time [s]")
@@ -271,13 +274,13 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     # Error norm plots
     norm_pos = np.linalg.norm(res_pos, axis=1)
     norm_vel = np.linalg.norm(res_vel, axis=1)
-    res_acc = np.gradient(res_vel, t, axis=0)
+    res_acc = np.gradient(res_vel, t_rel, axis=0)
     norm_acc = np.linalg.norm(res_acc, axis=1)
 
     fig, ax = plt.subplots()
-    ax.plot(t, norm_pos, label="|pos error|")
-    ax.plot(t, norm_vel, label="|vel error|")
-    ax.plot(t, norm_acc, label="|acc error|")
+    ax.plot(t_rel, norm_pos, label="|pos error|")
+    ax.plot(t_rel, norm_vel, label="|vel error|")
+    ax.plot(t_rel, norm_acc, label="|acc error|")
     ax.set_xlabel("Time [s]")
     ax.set_ylabel("Error Norm")
     ax.legend()
@@ -310,7 +313,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
                 ref_lon = np.deg2rad(lon_deg)
 
         subtask7_5_diff_plot(
-            t,
+            t_rel,
             pos_interp,
             truth_pos,
             vel_interp,
@@ -359,6 +362,9 @@ def subtask7_5_diff_plot(
     out_dir: str,
 ) -> None:
     """Plot ``truth - fused`` differences in NED, ECEF and Body frames."""
+
+    # Use relative time for direct comparison with Task 6 plots
+    time = time - time[0]
 
     diff_pos_ned = truth_pos_ned - fused_pos_ned
     diff_vel_ned = truth_vel_ned - fused_vel_ned

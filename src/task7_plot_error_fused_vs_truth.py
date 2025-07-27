@@ -5,8 +5,9 @@ Usage:
         --truth truth_results.npz --output-dir results
 
 This script computes the velocity error ``FUSED - Truth`` for each
-component and plots the error over time. The resulting figure is saved
-as both PDF and PNG under the output directory.
+component and plots the error over time. The estimator time vector is
+shifted to start at zero so plots align with Task 6. The resulting
+figure is saved as both PDF and PNG under the output directory.
 
 Corresponds to MATLAB/task7_plot_error_fused_vs_truth.m
 """
@@ -62,6 +63,8 @@ def main(argv: list[str] | None = None) -> None:
     if time is None:
         raise KeyError("Missing 'time' or 'time_s' in fused file")
 
+    time_rel = np.asarray(time).squeeze() - np.asarray(time).squeeze()[0]
+
     vx = fused.get("vx")
     vy = fused.get("vy")
     vz = fused.get("vz")
@@ -82,7 +85,7 @@ def main(argv: list[str] | None = None) -> None:
 
     err = np.column_stack((vx - tvx, vy - tvy, vz - tvz))
 
-    plot_error(time, err, args.output_dir)
+    plot_error(time_rel, err, args.output_dir)
 
 
 if __name__ == "__main__":

@@ -7,9 +7,11 @@ Usage:
 
 This script loads a fused estimator output file and a ground truth
 trajectory, interpolates the truth to the estimator time vector and
-plots position, velocity and acceleration residuals. Figures are saved
-as PDF and PNG under ``results/<tag>/`` within the chosen output
-directory, where ``tag`` combines the dataset, GNSS file and method.
+plots position, velocity and acceleration residuals. The time axis is
+converted to ``t - t[0]`` so Task 6 and Task 7 share the same reference.
+Figures are saved as PDF and PNG under ``results/<tag>/`` within the
+chosen output directory, where ``tag`` combines the dataset, GNSS file
+and method.
 """
 
 from __future__ import annotations
@@ -132,14 +134,17 @@ def main() -> None:
     except KeyError as exc:
         raise ValueError("Truth data required for ECEF residuals") from exc
 
+    # Align time axis to start at zero for direct comparison with Task 6
+    t_rel = t_est - t_est[0]
+
     res_pos, res_vel, res_acc = compute_residuals(
-        t_est, pos_est, vel_est, pos_truth, vel_truth
+        t_rel, pos_est, vel_est, pos_truth, vel_truth
     )
 
     tag = make_tag(args.dataset, args.gnss, args.method)
     out_dir = Path(args.output_dir)
     plot_residuals(
-        t_est,
+        t_rel,
         res_pos,
         res_vel,
         res_acc,

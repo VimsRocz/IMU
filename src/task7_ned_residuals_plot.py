@@ -6,7 +6,9 @@ Usage:
         --output-dir results
 
 This implements the functionality of ``task7_ned_residuals_plot.m`` from the
-MATLAB code base. Figures are written under ``results/<dataset>/``.
+MATLAB code base. The estimator time vector is shifted to start at zero so that
+Task 6 and Task 7 plots share the same x-axis. Figures are written under
+``results/<dataset>/``.
 """
 
 from __future__ import annotations
@@ -183,6 +185,9 @@ def main() -> None:
     t_est, pos_est, vel_est, _acc_est, lat, lon, r0 = load_est_ned(args.est_file)
     t_truth, pos_truth, vel_truth, _ = load_truth_ned(args.truth_file, lat, lon, r0)
 
+    # Use relative time for plotting to align with Task 6
+    t_rel = t_est - t_est[0]
+
     pos_truth_i = np.vstack(
         [np.interp(t_est, t_truth, pos_truth[:, i]) for i in range(3)]
     ).T
@@ -191,11 +196,11 @@ def main() -> None:
     ).T
 
     res_pos, res_vel, res_acc = compute_residuals(
-        t_est, pos_est, vel_est, pos_truth_i, vel_truth_i
+        t_rel, pos_est, vel_est, pos_truth_i, vel_truth_i
     )
 
     out_dir = args.output_dir
-    plot_residuals(t_est, res_pos, res_vel, res_acc, args.dataset, out_dir)
+    plot_residuals(t_rel, res_pos, res_vel, res_acc, args.dataset, out_dir)
     saved = sorted(out_dir.glob(f"{args.dataset}_task7_ned_residual*.pdf"))
     if saved:
         print("Files saved in", out_dir)

@@ -5,7 +5,8 @@ function task7_ecef_residuals_plot(est_file, imu_file, gnss_file, truth_file, da
 %   mirrors the Python script ``task7_ecef_residuals_plot.py``. The IMU and GNSS
 %   file paths are currently unused but included for interface parity. The truth
 %   data is interpolated to the estimator timestamps and residuals in position,
-%   velocity and acceleration are plotted. Figures are saved under
+%   velocity and acceleration are plotted. The time axis is shifted so the
+%   first sample corresponds to ``t=0`` matching Task 6. Figures are saved under
 %   ``output_dir`` using ``dataset`` as part of the filename.
 
 if nargin < 6 || isempty(output_dir)
@@ -17,12 +18,15 @@ if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 [t_est, pos_est, vel_est, ~] = load_est(est_file);
 [t_truth, pos_truth, vel_truth, ~] = load_est(truth_file);
 
+% Use relative time to match Task 6 plots
+t_rel = t_est - t_est(1);
+
 pos_truth_i = interp1(t_truth, pos_truth, t_est, 'linear', 'extrap');
 vel_truth_i = interp1(t_truth, vel_truth, t_est, 'linear', 'extrap');
 
-[res_pos, res_vel, res_acc] = compute_residuals(t_est, pos_est, vel_est, pos_truth_i, vel_truth_i);
+[res_pos, res_vel, res_acc] = compute_residuals(t_rel, pos_est, vel_est, pos_truth_i, vel_truth_i);
 
-plot_residuals(t_est, res_pos, res_vel, res_acc, dataset, out_dir);
+plot_residuals(t_rel, res_pos, res_vel, res_acc, dataset, out_dir);
 
 end
 
