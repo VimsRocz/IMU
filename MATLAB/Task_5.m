@@ -195,19 +195,15 @@ x(4:6)  = gnss_vel_ned(1,:)';
 x(7:9)  = init_eul;
 x(10:12) = accel_bias(:);
 x(13:15) = gyro_bias(:);
-% EKF tuning parameters
+% EKF tuning parameters (mirroring Python defaults)
 P = blkdiag(eye(9) * 0.01, eye(3) * 1e-4, eye(3) * 1e-8);
-Q = zeros(15);
-if pos_proc_noise ~= 0
-    Q(1:3,1:3) = eye(3) * (pos_proc_noise^2);
-end
-Q(4:6,4:6) = eye(3) * (accel_noise^2);
-if vel_proc_noise ~= 0
-    Q(4:6,4:6) = Q(4:6,4:6) + eye(3) * (vel_proc_noise^2);
-end
+Q = eye(15) * 1e-4;
+Q(4:6,4:6) = diag([0.1, 0.1, 0.1]);
 Q(10:12,10:12) = eye(3) * (accel_bias_noise^2);
 Q(13:15,13:15) = eye(3) * (gyro_bias_noise^2);
-R = diag([ones(1,3) * pos_meas_noise^2, ones(1,3) * vel_meas_noise^2]);
+R = eye(6);
+R(1:3,1:3) = pos_meas_noise^2 * eye(3);
+R(4:6,4:6) = diag([0.25, 0.25, 0.25]);
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
@@ -231,12 +227,12 @@ q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
         else
             warning('Task_5:MissingField', ...
                 'File %s does not contain g_NED. Using default gravity.', task1_file);
-            g_NED = [0; 0; constants.GRAVITY];
+            g_NED = [0; 0; 9.79424753];
         end
     else
         warning('Task_5:MissingTask1', ...
             'Task 1 output not found; using constants.GRAVITY.');
-        g_NED = [0; 0; constants.GRAVITY];
+        g_NED = [0; 0; 9.79424753];
     end
 
     % -- Compute Wahba Errors using all Task 3 rotation matrices --

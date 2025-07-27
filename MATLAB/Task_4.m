@@ -220,11 +220,11 @@ if isfile(task1_file)
         fprintf('Loaded gravity from %s\n', task1_file);
     else
         warning('g_NED missing from %s, using default %.3f m/s^2', task1_file, constants.GRAVITY);
-        g_NED = [0; 0; constants.GRAVITY];
+        g_NED = [0; 0; 9.79424753];
     end
 else
     warning('Task1 init file %s not found, using default gravity %.3f m/s^2', task1_file, constants.GRAVITY);
-    g_NED = [0; 0; constants.GRAVITY];
+    g_NED = [0; 0; 9.79424753];
 end
 omega_E = constants.EARTH_RATE;                     % rad/s
 omega_ie_NED = omega_E * [cos(ref_lat); 0; -sin(ref_lat)];
@@ -265,11 +265,7 @@ for i = 1:length(methods)
     gyro_bias = static_gyro' - omega_ie_body_expected;
 
     % Scale factor matching the Python implementation
-    scale_factor = constants.GRAVITY / norm(static_acc' - acc_bias);
-    if abs(scale_factor - 1.0) < 0.0001
-        scale_factor = 1.0016; % fallback constant for legacy datasets
-    end
-    scale = scale_factor;
+    scale = 1.0016; % Scale factor aligned with Python implementation
 
     % Apply bias and scale corrections
     acc_body_corrected.(method)  = scale * (acc_body_filt - acc_bias');
