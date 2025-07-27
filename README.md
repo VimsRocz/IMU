@@ -11,6 +11,7 @@ IMU data processing and initialization tools (Python)
   - [run_all_datasets.py](#run_all_datasetspy)
   - [run_triad_only.py](#run_triad_onlypy)
   - [run_method_only.py](#run_method_onlypy)
+  - [run_triad_method.m](#run_triad_methodm)
   - [GNSS_IMU_Fusion_single](#gnss_imu_fusion_singleimu_file-gnss_file)
 - [Per-Task Overview](#per-task-overview)
 - [Datasets](#datasets)
@@ -472,6 +473,21 @@ python src/plot_compare_all.py
 ```
 This creates one `all_datasets_<method>_comparison.pdf` per method in
 the `results/` directory you ran the script from.
+
+#### run_triad_method.m
+
+Call this MATLAB helper with an explicit IMU/GNSS pair to run the
+TRIAD-based Tasks 1–5 on a single dataset:
+
+```matlab
+run_triad_method('IMU_X002.dat', 'GNSS_X002.csv')
+```
+
+Bundled pairs are:
+
+* `IMU_X001.dat` with `GNSS_X001.csv`
+* `IMU_X002.dat` with `GNSS_X002.csv`
+* `IMU_X003.dat` with `GNSS_X002.csv` (shared GNSS log)
 
 #### GNSS_IMU_Fusion_single(imu_file, gnss_file)
 

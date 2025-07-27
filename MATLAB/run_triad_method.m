@@ -1,9 +1,14 @@
 function run_triad_method(imu_file, gnss_file)
 %RUN_TRIAD_METHOD  Run Tasks 1-5 using the TRIAD method on a single dataset.
 %   RUN_TRIAD_METHOD(IMU_FILE, GNSS_FILE) loads the specified files from the
-%   "Data" directory relative to the repository root. An error is raised when
-%   either file does not exist. The helper mirrors the Python check_files
-%   functionality for parity.
+%   "Data" directory relative to the repository root.  Pass both filenames
+%   explicitly.  An error is raised when either file does not exist.  This
+%   helper mirrors the Python ``check_files`` functionality for parity.
+%
+%   Valid dataset pairs bundled with the repository are:
+%       * IMU_X001.dat with GNSS_X001.csv
+%       * IMU_X002.dat with GNSS_X002.csv
+%       * IMU_X003.dat with GNSS_X002.csv (shared GNSS log)
 %
 %   Example:
 %       run_triad_method('IMU_X002.dat', 'GNSS_X002.csv');
