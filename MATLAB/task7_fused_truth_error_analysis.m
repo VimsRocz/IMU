@@ -128,7 +128,10 @@ end
 
 % -------------------------------------------------------------------------
 function [t, pos, vel, acc, lat, lon, r0] = load_est(file)
-%LOAD_EST Load NPZ or MAT estimate containing ECEF position and velocity.
+%LOAD_EST Load estimate containing ECEF or NED position/velocity.
+%   The helper accepts NPZ or MAT files produced by either the Python or
+%   MATLAB pipelines. When ECEF fields are missing it falls back to NED
+%   outputs such as ``pos_ned``, ``fused_pos`` or ``x_log``.
     f = string(file);
     lat = NaN; lon = NaN; r0 = [NaN NaN NaN];
     if endsWith(f,'.npz')
@@ -198,6 +201,24 @@ function [t, pos, vel, acc, lat, lon, r0] = load_est(file)
                 Ctmp = compute_C_ECEF_to_NED(lat, lon);
                 pos = (Ctmp' * S.pos_ned')' + r0(:)';
                 vel = (Ctmp' * S.vel_ned')';
+            elseif isfield(S,'fused_pos') && isfield(S,'fused_vel')
+                % Fallback for GNSS-IMU fusion outputs
+                if isfield(S,'ref_lat'); lat = S.ref_lat; elseif isfield(S,'ref_lat_rad'); lat = S.ref_lat_rad; else; lat = NaN; end
+                if isfield(S,'ref_lon'); lon = S.ref_lon; elseif isfield(S,'ref_lon_rad'); lon = S.ref_lon_rad; else; lon = NaN; end
+                if isfield(S,'ref_r0'); r0 = S.ref_r0; elseif isfield(S,'ref_r0_m'); r0 = S.ref_r0_m; else; r0 = [NaN NaN NaN]; end
+                Ctmp = compute_C_ECEF_to_NED(lat, lon);
+                pos = (Ctmp' * S.fused_pos')' + r0(:)';
+                vel = (Ctmp' * S.fused_vel')';
+            elseif isfield(S,'x_log')
+                % 15-state log with [pos; vel] in NED
+                pos_ned = S.x_log(1:3,:)';
+                vel_ned = S.x_log(4:6,:)';
+                if isfield(S,'ref_lat'); lat = S.ref_lat; elseif isfield(S,'ref_lat_rad'); lat = S.ref_lat_rad; else; lat = NaN; end
+                if isfield(S,'ref_lon'); lon = S.ref_lon; elseif isfield(S,'ref_lon_rad'); lon = S.ref_lon_rad; else; lon = NaN; end
+                if isfield(S,'ref_r0'); r0 = S.ref_r0; elseif isfield(S,'ref_r0_m'); r0 = S.ref_r0_m; else; r0 = [NaN NaN NaN]; end
+                Ctmp = compute_C_ECEF_to_NED(lat, lon);
+                pos = (Ctmp' * pos_ned')' + r0(:)';
+                vel = (Ctmp' * vel_ned')';
             else
                 error('Task7:BadData','Estimate lacks ECEF or NED position fields');
             end
