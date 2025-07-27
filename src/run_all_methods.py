@@ -397,6 +397,9 @@ def main(argv=None):
                 output = buf.getvalue()
                 print(output, end="")
                 log.write(output)
+                print(
+                    f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{tag}/"
+                )
 
     # --- nicely formatted summary table --------------------------------------
     if results:

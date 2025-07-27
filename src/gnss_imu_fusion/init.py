@@ -158,6 +158,9 @@ def measure_body_vectors(
         np.array2string(g_body, precision=4),
         np.array2string(omega_ie_body, precision=4),
     )
+    print(
+        f"Task 2: static interval = {static_start}:{static_end}, g_body = {g_body}, omega_ie_body = {omega_ie_body}"
+    )
 
     mag_body = None
     if mag_file:

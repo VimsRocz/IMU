@@ -841,6 +841,7 @@ def main():
                 "Accelerometer scale factor applied: %.4f",
                 scale,
             )
+            print(f"Task 4: applied accelerometer scale factor = {scale:.4f}")
     except Exception as e:
         logging.error(f"Failed to load IMU data or compute corrections: {e}")
         raise
