@@ -29,7 +29,7 @@ start_time = tic;
 here = fileparts(mfilename('fullpath'));
 root = fileparts(here);
 % Results directory under repository root
-results_dir = fullfile(root, 'output_matlab');
+results_dir = get_results_dir();
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 
 

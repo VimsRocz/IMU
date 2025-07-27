@@ -83,7 +83,7 @@ for i=1:size(DATASETS,1)
     end
 end
 
-results_dir = fullfile(pwd,'output_matlab');
+results_dir = get_results_dir();
 if ~exist(results_dir,'dir'); mkdir(results_dir); end
 log_dir = fullfile(fileparts(mfilename('fullpath')),'logs');
 if ~exist(log_dir,'dir'); mkdir(log_dir); end

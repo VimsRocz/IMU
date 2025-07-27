@@ -17,7 +17,7 @@
 function run_triad_only
     here = fileparts(mfilename('fullpath'));
     root = fileparts(here);
-    results_dir = fullfile(root, 'output_matlab');
+    results_dir = get_results_dir();
     if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 
     % Run the complete pipeline for the TRIAD method

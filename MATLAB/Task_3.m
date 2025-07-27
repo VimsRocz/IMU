@@ -39,7 +39,7 @@ else
     tag = [pair_tag '_' method];
     method_tag = method;
 end
-results_dir = 'output_matlab';
+results_dir = get_results_dir();
 
 % Load vectors produced by Task 1 and Task 2
 task1_file = fullfile(results_dir, ['Task1_init_' tag '.mat']);

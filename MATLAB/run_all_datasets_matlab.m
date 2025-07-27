@@ -41,7 +41,7 @@ pairs = {
     'IMU_X003.dat', 'GNSS_X002.csv';
 };
 
-resultsDir = fullfile(root, 'output_matlab');
+resultsDir = get_results_dir();
 if ~exist(resultsDir, 'dir')
     mkdir(resultsDir);
 end
