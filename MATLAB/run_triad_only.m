@@ -1,9 +1,10 @@
 
 %
 %   The script assumes the dataset files ``IMU_X002.dat`` and
-%   ``GNSS_X002.csv`` are located in the ``Data/`` directory relative to the
-%   repository root. The helper ``check_files`` verifies the paths before
-%   loading.
+%   ``GNSS_X002.csv`` reside either in the repository root or in a ``Data/``
+%   subdirectory.  The helper ``check_files`` resolves these paths
+%   relative to the script location so that the example works regardless of
+%   the current working directory.
 %
 % Sections:
 %   1. DATA LOADING
@@ -124,19 +125,31 @@ end
 
 function [imu_path, gnss_path] = check_files(imu_file, gnss_file)
 %CHECK_FILES  Return validated paths for IMU and GNSS data files.
-    data_dir = 'Data';
-    imu_path = fullfile(data_dir, imu_file);
-    gnss_path = fullfile(data_dir, gnss_file);
-    if ~exist(imu_path, 'file')
-        imu_path = imu_file;
+%   The helper searches for each file in the following locations:
+%     1. ``Data/`` under the repository root
+%     2. Repository root
+%     3. Current working directory
+
+    script_dir = fileparts(mfilename('fullpath'));
+    repo_root  = fileparts(script_dir);
+
+    search_dirs = {fullfile(repo_root, 'Data'), repo_root, pwd};
+
+    imu_path = '';
+    gnss_path = '';
+    for i = 1:numel(search_dirs)
+        cand = fullfile(search_dirs{i}, imu_file);
+        if isempty(imu_path) && exist(cand, 'file')
+            imu_path = cand; end
+        cand = fullfile(search_dirs{i}, gnss_file);
+        if isempty(gnss_path) && exist(cand, 'file')
+            gnss_path = cand; end
     end
-    if ~exist(gnss_path, 'file')
-        gnss_path = gnss_file;
+
+    if isempty(imu_path)
+        error('File not found: %s', imu_file);
     end
-    if ~exist(imu_path, 'file')
-        error('File not found: %s', imu_path);
-    end
-    if ~exist(gnss_path, 'file')
-        error('File not found: %s', gnss_path);
+    if isempty(gnss_path)
+        error('File not found: %s', gnss_file);
     end
 end
