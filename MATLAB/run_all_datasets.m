@@ -4,19 +4,22 @@
 %   (Tasks 1--5) for the methods TRIAD, Davenport and SVD. After each run
 %   the Task 5 results structure is loaded into the base workspace under
 %   a variable named result_IMU_Xxxx_GNSS_Xxxx_METHOD and also written to
-%   output_matlab/<variable>.mat.
+%   MATLAB/results/<variable>.mat.
 
 imu_files = dir('IMU_X*.dat');
 gnss_files = dir('GNSS_X*.csv');
 methods = {'TRIAD','Davenport','SVD'};
 
+here = fileparts(mfilename('fullpath'));
+resultsDir = fullfile(here,'results');
+if ~exist(resultsDir,'dir')
+    mkdir(resultsDir);
+end
+
 if numel(imu_files) ~= numel(gnss_files)
     error('Number of IMU and GNSS files must match.');
 end
 
-if ~exist('output_matlab','dir')
-    mkdir('output_matlab');
-end
 
 for i = 1:numel(imu_files)
     imuFile  = imu_files(i).name;
@@ -29,7 +32,7 @@ for i = 1:numel(imu_files)
         fprintf('Running %s + %s with %s...\n', imuFile, gnssFile, method);
         main(imuFile, gnssFile, method);
 
-        result_file = fullfile('output_matlab', sprintf('%s_%s_%s_task5_results.mat',...
+        result_file = fullfile(resultsDir, sprintf('%s_%s_%s_task5_results.mat',...
             imuName, gnssName, method));
         if ~isfile(result_file)
             warning('Missing expected output %s', result_file);
@@ -38,8 +41,8 @@ for i = 1:numel(imu_files)
         result = load(result_file);
         var_name = sprintf('result_%s_%s_%s', imuName, gnssName, method);
         assignin('base', var_name, result);
-        save(fullfile('output_matlab',[var_name '.mat']), '-struct', 'result');
-        fprintf('Saved %s\n', fullfile('output_matlab',[var_name '.mat']));
+        save(fullfile(resultsDir,[var_name '.mat']), '-struct', 'result');
+        fprintf('Saved %s\n', fullfile(resultsDir,[var_name '.mat']));
     end
 end
 

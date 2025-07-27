@@ -2,7 +2,7 @@ function run_all_datasets_py(varargin)
 %RUN_ALL_DATASETS_PY  MATLAB equivalent of run_all_datasets.py
 %   RUN_ALL_DATASETS_PY mirrors the Python batch runner. It processes all
 %   IMU/GNSS pairs with each attitude initialisation method and prints a
-%   summary table. Results and logs are written to the 'output_matlab' folder.
+%   summary table. Results and logs are written to the 'MATLAB/results' folder.
 %
 %   Usage:
 %       run_all_datasets_py
@@ -83,7 +83,8 @@ for i=1:size(DATASETS,1)
     end
 end
 
-results_dir = fullfile(pwd,'output_matlab');
+here = fileparts(mfilename('fullpath'));
+results_dir = fullfile(here,'results');
 if ~exist(results_dir,'dir'); mkdir(results_dir); end
 log_dir = fullfile(fileparts(mfilename('fullpath')),'logs');
 if ~exist(log_dir,'dir'); mkdir(log_dir); end

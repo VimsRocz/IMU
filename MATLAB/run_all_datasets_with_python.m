@@ -29,7 +29,7 @@ if status ~= 0
     error('run_all_datasets.py failed');
 end
 
-resultsDir = fullfile(root,'output_matlab');
+resultsDir = fullfile(root,'MATLAB/results');
 matFiles = dir(fullfile(resultsDir,'*_kf_output.mat'));
 for k = 1:numel(matFiles)
     try

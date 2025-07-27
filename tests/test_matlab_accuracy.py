@@ -19,7 +19,7 @@ def test_matlab_accuracy(tmp_path):
     )
     subprocess.run([matlab, "-batch", cmd], check=True)
 
-    mat_file = Path('results/IMU_X001_GNSS_X001_TRIAD_final.mat')
+    mat_file = Path('MATLAB/results/IMU_X001_GNSS_X001_TRIAD_final.mat')
     assert mat_file.exists(), f"Missing {mat_file}"
     data = scipy.io.loadmat(mat_file, struct_as_record=False, squeeze_me=True)
     fused_pos = data['fused_pos']

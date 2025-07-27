@@ -20,8 +20,8 @@ end
 
 % Remove command-line side effects to behave like a normal function
 
-if ~exist('output_matlab','dir')
-    mkdir('output_matlab');
+if ~exist('MATLAB/results','dir')
+    mkdir('MATLAB/results');
 end
 
 % Print dataset and method like the Python script
@@ -34,7 +34,7 @@ else
 end
 
 fprintf('\u25B6 %s\n', tag); % \u25B6 is the triangle symbol
-fprintf('Ensured ''output_matlab/'' directory exists.\n');
+fprintf('Ensured ''MATLAB/results/'' directory exists.\n');
 if ~isempty(method)
     fprintf('Running attitude-estimation method: %s\n', method);
 end
@@ -47,7 +47,7 @@ end
 fprintf('TASK 1%s: Define reference vectors in NED frame\n', log_tag);
 
 % --- Configuration ---
-results_dir = 'output_matlab';
+results_dir = 'MATLAB/results';
 
 
 % ================================

@@ -4,7 +4,7 @@ function result = Task_4(imu_path, gnss_path, method)
 %   using the attitude estimates from Task 3. METHOD is unused but kept
 %   for backwards compatibility with older scripts.
 %   Requires that `Task_3` has already saved a dataset-specific
-%   results file such as `output_matlab/Task3_results_IMU_X001_GNSS_X001.mat`.
+%   results file such as `MATLAB/results/Task3_results_IMU_X001_GNSS_X001.mat`.
 
 if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');
@@ -16,8 +16,8 @@ if nargin < 3
     method = '';
 end
 
-if ~exist('output_matlab','dir')
-    mkdir('output_matlab');
+if ~exist('MATLAB/results','dir')
+    mkdir('MATLAB/results');
 end
 if ~isfile(gnss_path)
     error('Task_4:GNSSFileNotFound', ...
@@ -29,7 +29,7 @@ if ~isfile(imu_path)
           'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
           imu_path);
 end
-results_dir = 'output_matlab';
+results_dir = 'MATLAB/results';
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 pair_tag = [imu_name '_' gnss_name];

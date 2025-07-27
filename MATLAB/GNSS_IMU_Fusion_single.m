@@ -34,6 +34,12 @@ imu_path  = get_data_file(imu_file);
 gnss_path = get_data_file(gnss_file);
 method = 'TRIAD';
 
+here = fileparts(mfilename('fullpath'));
+resultsDir = fullfile(here,'results');
+if ~exist(resultsDir,'dir')
+    mkdir(resultsDir);
+end
+
 %% =======================================================================
 %  Task 1: Define Reference Vectors in NED Frame
 % ========================================================================
@@ -49,14 +55,14 @@ if ~isfile(imu_path)
           imu_path);
 end
 
-if ~exist('output_matlab','dir')
-    mkdir('output_matlab');
+if ~exist(resultsDir,'dir')
+    mkdir(resultsDir);
 end
 
 log_tag = [' (' method ')'];
 fprintf('TASK 1%s: Define reference vectors in NED frame\n', log_tag);
 
-results_dir = 'output_matlab';
+results_dir = resultsDir;
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 tag = [imu_name '_' gnss_name '_' method];
@@ -167,8 +173,8 @@ else
 end
 fprintf('TASK 2%s: Measure the vectors in the body frame\n', log_tag);
 
-if ~exist('output_matlab','dir')
-    mkdir('output_matlab');
+if ~exist(resultsDir,'dir')
+    mkdir(resultsDir);
 end
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
@@ -358,8 +364,8 @@ fprintf('\n==== Measured Vectors in the Body Frame ====\n');
 fprintf('Measured gravity vector (g_body):        [%.4f, %.4f, %.4f]'' m/s^2\n', g_body);
 fprintf('Measured Earth rotation (omega_ie_body): [%.4e, %.4e, %.4e]'' rad/s\n', omega_ie_body);
 
-save(fullfile('output_matlab', ['Task2_body_' tag '.mat']), 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
-fprintf('Body-frame vectors and biases saved to %s\n', fullfile('output_matlab', ['Task2_body_' tag '.mat']));
+save(fullfile(resultsDir, ['Task2_body_' tag '.mat']), 'g_body', 'g_body_scaled', 'omega_ie_body', 'accel_bias', 'gyro_bias');
+fprintf('Body-frame vectors and biases saved to %s\n', fullfile(resultsDir, ['Task2_body_' tag '.mat']));
 
 task2_results = struct('g_body', g_body, 'g_body_scaled', g_body_scaled, ...
                 'omega_ie_body', omega_ie_body, 'accel_bias', accel_bias, ...
@@ -380,7 +386,7 @@ if ~isfile(imu_path)
           'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
           imu_path);
 end
-results_dir = 'output_matlab';
+results_dir = resultsDir;
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 pair_tag = [imu_name '_' gnss_name];
@@ -532,7 +538,7 @@ if ~isfile(imu_path)
           'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
           imu_path);
 end
-results_dir = 'output_matlab';
+results_dir = resultsDir;
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 pair_tag = [imu_name '_' gnss_name];
@@ -701,7 +707,7 @@ assignin('base', 'task4_results', task4_results);
 %  Task 5: Sensor Fusion with Kalman Filter
 % ========================================================================
 
-results_dir = 'output_matlab';
+results_dir = resultsDir;
 results_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
 if evalin('base','exist(''task3_results'',''var'')')
     task3_results = evalin('base','task3_results');
@@ -885,7 +891,7 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
     'grav_err_mean_deg', grav_err_mean_deg, 'grav_err_max_deg', grav_err_max_deg, ...
     'earth_rate_err_mean_deg', omega_err_mean_deg, 'earth_rate_err_max_deg', omega_err_max_deg);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
-if isfile(perf_file); save(perf_file, '-append', 'output_matlab'); else; save(perf_file, 'output_matlab'); end
+if isfile(perf_file); save(perf_file, '-append', 'resultsDir'); else; save(perf_file, 'resultsDir'); end
 summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt'); fid_sum = fopen(summary_file, 'a'); fprintf(fid_sum, '%s\n', summary_line); fclose(fid_sum);
 results_file = fullfile(results_dir, sprintf('Task5_results_%s.mat', pair_tag));
 save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
@@ -899,7 +905,7 @@ task5_results = results; assignin('base', 'task5_results', task5_results);
 [~, imu_name, ~]  = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 tag = sprintf('%s_%s_%s', imu_name, gnss_name, method);
-res_file = fullfile('output_matlab', [tag '_task5_results.mat']);
+res_file = fullfile(resultsDir, [tag '_task5_results.mat']);
 if exist(res_file, 'file')
     S = load(res_file);
 else
@@ -977,7 +983,7 @@ end
 
 function rename_plot(src, dst)
 %RENAME_PLOT Move SRC to DST inside the results folder if it exists.
-results_dir = 'output_matlab';
+results_dir = resultsDir;
 src_path = fullfile(results_dir, src);
 dst_path = fullfile(results_dir, dst);
 if exist(src_path, 'file')

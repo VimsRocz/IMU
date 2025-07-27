@@ -12,7 +12,7 @@ function summary = task7_fused_truth_error_analysis(est_file, truth_file, out_di
 %   are saved under OUT_DIR and a structure of summary statistics is returned.
 
 if nargin < 3 || isempty(out_dir)
-    out_dir = 'output_matlab';
+    out_dir = 'MATLAB/results';
 end
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 start_time = tic;

@@ -8,13 +8,13 @@ function task7_ned_residuals_plot(est_file, truth_file, dataset, output_dir)
 %
 %   Usage:
 %       task7_ned_residuals_plot('fused_results.mat', 'STATE_X001.txt', ...
-%           'IMU_X001_GNSS_X001', 'output_matlab')
+%           'IMU_X001_GNSS_X001', 'MATLAB/results')
 %
 %   This MATLAB function mirrors the intended behaviour of the Python
 %   counterpart ``task7_ned_residuals_plot.py``.
 
 if nargin < 4 || isempty(output_dir)
-    output_dir = 'output_matlab';
+    output_dir = 'MATLAB/results';
 end
 if ~exist(output_dir, 'dir'); mkdir(output_dir); end
 

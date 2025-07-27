@@ -7,7 +7,7 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 %   frames.  Truth data in the ECEF frame is first converted to the
 %   estimator's local NED coordinates using ``compute_C_ECEF_to_NED`` so
 %   that residuals are expressed in a consistent frame.  The resulting
-%   ``*_overlay_truth.pdf`` files are stored under ``output_matlab/`` located
+%   ``*_overlay_truth.pdf`` files are stored under ``MATLAB/results/`` located
 %   at the repository root.  This function expects the initialization output
 %   from Task 1 and the filter output from Task 5 to reside in that same
 %   directory.
@@ -25,7 +25,7 @@ start_time = tic;
 here = fileparts(mfilename('fullpath'));
 root = fileparts(here);
 % Results directory under repository root
-results_dir = fullfile(root, 'output_matlab');
+results_dir = fullfile(root, 'MATLAB/results');
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 
 
