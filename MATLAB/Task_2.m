@@ -243,6 +243,17 @@ fprintf('Static interval found: samples %d to %d (length %d samples)\n', start_i
 fprintf('  Accel variance: [%.4g %.4g %.4g]\n', acc_var);
 fprintf('  Gyro  variance: [%.4g %.4g %.4g]\n', gyro_var);
 
+% Append static interval information to triad_init_log.txt (mirrors Python)
+log_file = fullfile(results_dir, 'triad_init_log.txt');
+log_fid = fopen(log_file, 'a');
+if log_fid ~= -1
+    fprintf(log_fid, '%s: static_idx=%d-%d acc_var=[%.4g %.4g %.4g] gyro_var=[%.4g %.4g %.4g]\n', ...
+            imu_file, start_idx, end_idx, acc_var, gyro_var);
+    fclose(log_fid);
+else
+    warning('Task_2:LogFile', 'Could not open %s for writing.', log_file);
+end
+
 % Compute duration of the static portion and compare with total dataset length
 static_duration = N_static * dt_imu;
 total_duration  = size(acc_filt, 1) * dt_imu;
