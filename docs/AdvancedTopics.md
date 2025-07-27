@@ -40,31 +40,29 @@ Once it finishes, open debug_output.log, copy the console dump and paste it back
 
 ### Running the MATLAB pipeline
 ```matlab
-imu_path  = get_data_file('IMU_X001.dat');
-gnss_path = get_data_file('GNSS_X001.csv');
+imu_path  = '../IMU_X001.dat';
+gnss_path = '../GNSS_X001.csv';
 TRIAD(imu_path, gnss_path);
 ```
 
-Scripts such as `TRIAD.m` take the full paths to the IMU and GNSS files as arguments. The helper function `get_data_file` searches both the repository root and `MATLAB/data`, letting `TRIAD` and related scripts locate the bundled sample logs automatically when you pass just the file names.
+Scripts such as `TRIAD.m` take the full paths to the IMU and GNSS files as arguments. Use relative paths from the repository root (e.g. `../IMU_X001.dat`) when calling the MATLAB functions.
 
 ### MATLAB Scripts
 
 All MATLAB code now lives in the single `MATLAB/` directory. It contains the pipeline tasks (`Task_1`–`Task_5`) alongside helper scripts such as `TRIAD.m`, `FINAL.m`, `plot_results.m` and `validate_3sigma.m`.
 
-To run `TRIAD.m` with the new data-file detection logic simply resolve the file paths with `get_data_file` and pass them to the script:
+To run `TRIAD.m` simply pass the data file names relative to the repository root:
 ```matlab
-imu  = get_data_file('IMU_X001.dat');
-gnss = get_data_file('GNSS_X001.csv');
-TRIAD(imu, gnss);
+TRIAD('../IMU_X001.dat', '../GNSS_X001.csv');
 ```
-`get_data_file` searches `MATLAB/data/` first and falls back to the repository root. Both the MATLAB and Python versions store their outputs in the shared `results/` directory.
+The MATLAB results are written to `MATLAB/results/` while the Python pipeline writes to `results/` in the project root.
 
 ### Sequential Task Execution
 
-To replicate the Python pipeline step by step, call each `Task_1`–`Task_5` function in order. Always resolve the data paths with `get_data_file` so the commands work from any folder. Every task writes a `.mat` file that the next one loads:
+To replicate the Python pipeline step by step, call each `Task_1`–`Task_5` function in order using root-relative paths. Every task writes a `.mat` file that the next one loads:
 ```matlab
-imu  = get_data_file('IMU_X001.dat');
-gnss = get_data_file('GNSS_X001.csv');
+imu  = '../IMU_X001.dat';
+gnss = '../GNSS_X001.csv';
 
 Task_1(imu, gnss, 'TRIAD');   % -> results/Task1_init_IMU_X001_GNSS_X001_TRIAD.mat
 Task_2(imu, gnss, 'TRIAD');   % -> results/Task2_body_IMU_X001_GNSS_X001_TRIAD.mat

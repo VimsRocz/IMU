@@ -1,6 +1,6 @@
 %RUN_TRIAD_ONLY  Process dataset X002 using the TRIAD method.
-%   This wrapper mirrors ``src/run_triad_only.py``. It resolves the
-%   dataset files via ``get_data_file`` and forwards them to
+%   This wrapper mirrors ``src/run_triad_only.py``. Dataset files are
+%   referenced directly in the repository root and forwarded to
 %   ``GNSS_IMU_Fusion_single`` which performs Tasks 1--7 including
 %   static-interval detection and Kalman filtering. All results are moved
 %   to ``results/IMU_X002_GNSS_X002_TRIAD`` so the output layout matches
@@ -24,8 +24,9 @@ addpath(script_dir);
 
 imu_file  = 'IMU_X002.dat';
 gnss_file = 'GNSS_X002.csv';
-imu_path  = get_data_file(imu_file);
-gnss_path = get_data_file(gnss_file);
+root_dir  = fileparts(fileparts(mfilename('fullpath')));
+imu_path  = fullfile(root_dir, imu_file);
+gnss_path = fullfile(root_dir, gnss_file);
 
 
 out_dir = fullfile(get_results_dir(), 'IMU_X002_GNSS_X002_TRIAD');

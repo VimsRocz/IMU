@@ -19,7 +19,7 @@ import os
 import logging
 from utils import save_mat
 
-from utils import ensure_dependencies, ecef_to_geodetic, get_data_file
+from utils import ensure_dependencies, ecef_to_geodetic
 from tabulate import tabulate
 from tqdm import tqdm
 # Overlay helper functions
@@ -53,8 +53,8 @@ SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 def run_one(imu, gnss, method, verbose=False):
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
-    imu_path = get_data_file(imu)
-    gnss_path = get_data_file(gnss)
+    imu_path = pathlib.Path(imu)
+    gnss_path = pathlib.Path(gnss)
 
     cmd = [
         sys.executable,
@@ -142,8 +142,8 @@ def main():
             print("GNSS Head:\n", gnss_df.head())
             print("IMU Head:\n", imu_data[:5])
             print("============================")
-        imu_path = get_data_file(imu)
-        gnss_path = get_data_file(gnss)
+        imu_path = pathlib.Path(imu)
+        gnss_path = pathlib.Path(gnss)
 
         start = time.time()
         summaries = run_one(imu, gnss, method, verbose=args.verbose)

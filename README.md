@@ -134,6 +134,12 @@ run_all_datasets_matlab;   % all methods
 run_all_datasets_matlab('TRIAD');
 ```
 
+All Python scripts read the input logs directly from the project root and
+save their outputs to ``results/``. MATLAB functions expect the same log
+files but write their figures and MAT-files to ``MATLAB/results/``. The two
+directories are completely independent so the pipelines do not overwrite
+each other's output.
+
 ### Per-Task Overview
 
 The five pipeline tasks roughly correspond to the steps of the MATLAB

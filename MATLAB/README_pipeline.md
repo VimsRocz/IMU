@@ -92,7 +92,7 @@ run_all_datasets
 To run only the TRIAD method use:
 
 ```matlab
-% process all bundled datasets (paths resolved with get_data_file)
+% process all bundled datasets (files loaded from the repository root)
 results = TRIAD_batch();
 
 % or run a specific pair
@@ -102,10 +102,10 @@ results = TRIAD_batch();
 % results = TRIAD_batch({'IMU_X001.dat','IMU_X002.dat'}, {'GNSS_X001.csv','GNSS_X002.csv'});
 ```
 
-`TRIAD_batch` resolves file names with `get_data_file`, so the bundled logs are
-found even if you run the command from another folder.  When more than one
-pair is processed the function returns a cell array of result structs, each
-matching the corresponding `MATLAB/results/Result_<IMU>_<GNSS>_TRIAD.mat` file.
+`TRIAD_batch` loads each IMU/GNSS pair directly from the repository root.
+When more than one pair is processed the function returns a cell array of
+result structs, each matching the corresponding
+`MATLAB/results/Result_<IMU>_<GNSS>_TRIAD.mat` file.
 
 Dedicated wrappers `run_triad_only.m`, `run_svd_only.m` and
 `run_davenport_only.m` behave like the Python helpers of the same name and

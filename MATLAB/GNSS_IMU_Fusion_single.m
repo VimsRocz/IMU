@@ -36,8 +36,9 @@ if nargin < 7 || isempty(zupt_gyro_var)
     zupt_gyro_var = 1e-6;
 end
 
-imu_path  = get_data_file(imu_file);
-gnss_path = get_data_file(gnss_file);
+root_dir  = fileparts(fileparts(mfilename('fullpath')));
+imu_path  = fullfile(root_dir, imu_file);
+gnss_path = fullfile(root_dir, gnss_file);
 
 %% =======================================================================
 %  Task 1: Define Reference Vectors in NED Frame
@@ -83,7 +84,7 @@ ref_r0 = [];
 if ~isempty(dataset_tok)
     state_name = ['STATE_' dataset_tok{1} '.txt'];
     try
-        state_path = get_data_file(state_name);
+        state_path = fullfile(root_dir, state_name);
         state_rows = readmatrix(state_path, 'CommentStyle', '#');
         ref_r0 = state_rows(1, 3:5)';
         if strcmp(dataset_tok{1}, 'X001')

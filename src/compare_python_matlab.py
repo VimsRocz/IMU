@@ -34,9 +34,7 @@ def run_matlab_pipeline(imu_file: str, gnss_file: str, method: str) -> Path:
     if not matlab:
         raise RuntimeError("MATLAB/Octave not found")
     cmd = (
-        f"imu_path=get_data_file('{imu_file}');"
-        f"gnss_path=get_data_file('{gnss_file}');"
-        f"main(imu_path, gnss_path, '{method}');"
+        f"main('{imu_file}', '{gnss_file}', '{method}');"
     )
     if "octave" in Path(matlab).name:
         subprocess.run([matlab, "--eval", cmd], check=True)

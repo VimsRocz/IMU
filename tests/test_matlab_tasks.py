@@ -13,9 +13,7 @@ def test_matlab_tasks(tmp_path):
     if not matlab:
         pytest.skip("MATLAB not available")
     cmd = (
-        "imu=get_data_file('IMU_X001.dat');"
-        "gnss=get_data_file('GNSS_X001.csv');"
-        "TRIAD(imu, gnss, true);"
+        "TRIAD('IMU_X001.dat', 'GNSS_X001.csv');"
     )
     subprocess.run([matlab, "-batch", cmd], check=True)
 

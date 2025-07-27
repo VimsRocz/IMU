@@ -2,7 +2,7 @@
 
 This guide explains how to track down extremely large position errors (tens of kilometres) when running the `MATLAB` pipeline. The Python implementation normally finishes with a final position error around **1 cm**, so any huge discrepancy is a strong indicator of a bug in the MATLAB code or its configuration.
 
-All example paths assume results are written to the shared `results/` directory used by both MATLAB and Python.
+All example paths assume results are written to `results/` for the Python code and `MATLAB/results/` for MATLAB outputs.
 
 ## 1. Detecting the Root Cause
 
