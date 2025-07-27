@@ -29,3 +29,9 @@ def plot_filename(dataset: str, gnss: str, method: str, task: int, subtask: str,
     """Return a plot filename following the standard convention."""
     tag = make_tag(dataset, gnss, method)
     return f"{tag}_task{task}_{subtask}_{out_type}.{ext}"
+
+def plot_path(directory: Union[str, Path], tag: str, task: int, subtask: str, out_type: str, ext: str = "pdf") -> Path:
+    """Return ``Path`` for a plot following the standard convention."""
+    directory = Path(directory)
+    fname = f"{tag}_task{task}_{subtask}_{out_type}.{ext}"
+    return directory / fname

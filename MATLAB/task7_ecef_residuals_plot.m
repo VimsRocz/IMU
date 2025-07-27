@@ -96,8 +96,8 @@ sgtitle(sprintf('%s Task 7 ECEF Residuals', dataset));
 set(f,'PaperPositionMode','auto');
 pdf = fullfile(out_dir, sprintf('%s_task7_ecef_residuals.pdf', dataset));
 png = fullfile(out_dir, sprintf('%s_task7_ecef_residuals.png', dataset));
-print(f, pdf, '-dpdf');
-print(f, png, '-dpng');
+print(f, pdf, '-dpdf', '-bestfit');
+print(f, png, '-dpng', '-bestfit');
 close(f);
 
 f = figure('Visible','off');
@@ -108,8 +108,8 @@ xlabel('Time [s]'); ylabel('Residual Norm'); legend; grid on;
 set(f,'PaperPositionMode','auto');
 pdfn = fullfile(out_dir, sprintf('%s_task7_ecef_residual_norms.pdf', dataset));
 pngn = fullfile(out_dir, sprintf('%s_task7_ecef_residual_norms.png', dataset));
-print(f, pdfn, '-dpdf');
-print(f, pngn, '-dpng');
+print(f, pdfn, '-dpdf', '-bestfit');
+print(f, pngn, '-dpng', '-bestfit');
 close(f);
 end
 

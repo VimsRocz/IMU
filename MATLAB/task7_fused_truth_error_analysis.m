@@ -218,7 +218,7 @@ function plot_residuals(t, res_pos, res_vel, out_dir)
     sgtitle('Task 7 - GNSS - Predicted Residuals');
     set(f,'PaperPositionMode','auto');
     pdf = fullfile(out_dir,'task7_3_residuals_position_velocity.pdf');
-    print(f,pdf,'-dpdf');
+    print(f,pdf,'-dpdf','-bestfit');
     close(f);
 end
 
@@ -232,6 +232,6 @@ function plot_norms(t, res_pos, res_vel, res_acc, out_dir)
     xlabel('Time [s]'); ylabel('Error Norm'); legend; grid on;
     set(f,'PaperPositionMode','auto');
     pdf = fullfile(out_dir,'task7_3_error_norms.pdf');
-    print(f,pdf,'-dpdf');
+    print(f,pdf,'-dpdf','-bestfit');
     close(f);
 end
