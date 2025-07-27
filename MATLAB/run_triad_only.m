@@ -72,7 +72,6 @@ writematrix(C_B_N, fullfile(out_dir,'C_B_N.csv'));
 writematrix(eul_deg, fullfile(out_dir,'euler_angles_deg.csv'));
 
 fprintf('Results saved to %s\n', out_dir);
-end
 
 %% -------------------------------------------------------------------------
 % Helper functions
