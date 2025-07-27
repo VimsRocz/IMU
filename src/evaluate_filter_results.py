@@ -397,7 +397,7 @@ if __name__ == "__main__":
     ap.add_argument("--gnss")
     ap.add_argument("--attitude")
     ap.add_argument("--npz", help="NPZ file produced by GNSS_IMU_Fusion.py")
-    ap.add_argument("--output", default="plots/task7/")
+    ap.add_argument("--output", default="results/task7/")
     ap.add_argument("--tag", help="Dataset tag used as filename prefix")
     args = ap.parse_args()
     if args.npz:
