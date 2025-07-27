@@ -1,13 +1,4 @@
-function run_triad_only
-%RUN_TRIAD_ONLY  Initial attitude estimation for dataset X001 using TRIAD.
-%   This MATLAB script mirrors the essential behaviour of the Python
-%   ``run_triad_only.py`` helper but processes only a single IMU/GNSS pair.
-%   The computed rotation matrix and Euler angles are saved under
-%   ``output_matlab/IMU_X001_GNSS_X001_TRIAD/`` for easy comparison with the
-%   Python implementation.
-%
-%   Usage:
-%       run_triad_only
+
 %
 %   The script assumes the dataset files ``IMU_X001.dat`` and
 %   ``GNSS_X001.csv`` are located in the current working directory.
