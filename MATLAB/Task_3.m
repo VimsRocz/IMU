@@ -40,6 +40,9 @@ else
     method_tag = method;
 end
 results_dir = get_results_dir();
+if ~exist(results_dir, 'dir')
+    mkdir(results_dir);
+end
 
 % Load vectors produced by Task 1 and Task 2
 task1_file = fullfile(results_dir, ['Task1_init_' tag '.mat']);

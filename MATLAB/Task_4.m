@@ -30,6 +30,9 @@ if ~isfile(imu_path)
           imu_path);
 end
 results_dir = get_results_dir();
+if ~exist(results_dir, 'dir')
+    mkdir(results_dir);
+end
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 pair_tag = [imu_name '_' gnss_name];
