@@ -1,8 +1,8 @@
 function dir = get_results_dir()
 %GET_RESULTS_DIR Return path to the results directory.
-%   DIR = GET_RESULTS_DIR() returns the path to the 'results' folder
-%   located alongside this function. MATLAB scripts use this helper to
-%   store logs and figures consistently next to the Python outputs.
+%   DIR = GET_RESULTS_DIR() returns the path to the top-level 'results'
+%   folder within the repository. MATLAB scripts use this helper so that
+%   logs and figures are stored next to the Python outputs.
 %
 %   Example:
 %       out = fullfile(get_results_dir(), 'example.mat');
@@ -10,5 +10,7 @@ function dir = get_results_dir()
 %
 %   See also RUN_ALL_DATASETS_MATLAB, RUN_ALL_METHODS.
 
-    dir = fullfile(fileparts(mfilename('fullpath')), 'results');
+    % Determine the repository root (this file resides in <root>/MATLAB).
+    root = fileparts(fileparts(mfilename('fullpath')));
+    dir  = fullfile(root, 'results');
 end
