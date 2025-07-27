@@ -206,14 +206,20 @@ for ax = 1:3
 end
 set(f,'PaperPositionMode','auto');
 run_id = sprintf('%s_%s', dataset, method);
-task_dir = fullfile(out_dir, run_id);
-if ~exist(task_dir,'dir'); mkdir(task_dir); end
-pdf_path = fullfile(task_dir, sprintf('%s_task6_overlay_state_%s.pdf', run_id, frame));
-png_path = fullfile(task_dir, sprintf('%s_task6_overlay_state_%s.png', run_id, frame));
+if ~exist(out_dir,'dir'); mkdir(out_dir); end
+pdf_path = fullfile(out_dir, sprintf('%s_task6_overlay_state_%s.pdf', run_id, frame));
+png_path = fullfile(out_dir, sprintf('%s_task6_overlay_state_%s.png', run_id, frame));
 print(f, pdf_path, '-dpdf', '-bestfit');
 print(f, png_path, '-dpng', '-bestfit');
 close(f);
 fprintf('Saved overlay figure to %s\n', pdf_path);
+files = dir(fullfile(out_dir, sprintf('%s_task6_*.pdf', run_id)));
+if ~isempty(files)
+    fprintf('Files saved in %s\n', out_dir);
+    for k=1:numel(files)
+        fprintf(' - %s\n', files(k).name);
+    end
+end
 end
 
 % -------------------------------------------------------------------------
@@ -245,5 +251,12 @@ print(f, pdf_path, '-dpdf', '-bestfit');
 print(f, png_path, '-dpng', '-bestfit');
 close(f);
 fprintf('Saved RMSE figure to %s\n', pdf_path);
+files = dir(fullfile(out_dir, sprintf('%s_%s_Task6_*_RMSE.pdf', dataset, method)));
+if ~isempty(files)
+    fprintf('Files saved in %s\n', out_dir);
+    for k=1:numel(files)
+        fprintf(' - %s\n', files(k).name);
+    end
+end
 end
 

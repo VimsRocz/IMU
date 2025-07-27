@@ -101,6 +101,12 @@ def plot_residuals(
     fig.savefig(norm_png)
     plt.close(fig)
 
+    saved = sorted(out_dir.glob(f"{tag}_task7_*ecef_residual*.pdf"))
+    if saved:
+        print("Files saved in", out_dir)
+        for f in saved:
+            print(" -", f.name)
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Plot ECEF residuals for Task 7")
@@ -131,7 +137,7 @@ def main() -> None:
     )
 
     tag = make_tag(args.dataset, args.gnss, args.method)
-    out_dir = Path(args.output_dir) / tag
+    out_dir = Path(args.output_dir)
     plot_residuals(
         t_est,
         res_pos,
