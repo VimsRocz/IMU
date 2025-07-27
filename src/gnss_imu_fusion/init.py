@@ -115,9 +115,10 @@ def measure_body_vectors(
         static_end = min(static_end or len(acc), len(acc))
     static_acc = np.mean(acc[static_start:static_end], axis=0)
     static_gyro = np.mean(gyro[static_start:static_end], axis=0)
+    # Scale only the mean to match MATLAB implementation.  The raw dataset is
+    # left untouched so later tasks can apply their own calibration if needed.
     scale = GRAVITY / np.linalg.norm(static_acc)
-    acc *= scale
-    static_acc *= scale
+    static_acc = static_acc * scale
     g_body = -static_acc
     omega_ie_body = static_gyro
 
