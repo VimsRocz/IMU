@@ -187,16 +187,18 @@ min_length = 80;
 
 % Use movvar if available, otherwise fall back to manual variance loop
 if exist('movvar','file') == 2
-    accel_var = movvar(acc_filt, window_size, 0, 'Endpoints', 'discard');
-    gyro_var  = movvar(gyro_filt, window_size, 0, 'Endpoints', 'discard');
+    % Use population variance (w=1) for consistency with Python implementation
+    accel_var = movvar(acc_filt, window_size, 1, 'Endpoints', 'discard');
+    gyro_var  = movvar(gyro_filt, window_size, 1, 'Endpoints', 'discard');
 else
     warning('movvar unavailable. Using manual (slower) moving variance calculation.');
     num_windows = size(acc_filt, 1) - window_size + 1;
     accel_var = zeros(num_windows, size(acc_filt, 2));
     gyro_var = zeros(num_windows, size(gyro_filt, 2));
     for i = 1:num_windows
-        accel_var(i,:) = var(acc_filt(i:i+window_size-1, :), 0, 1);
-        gyro_var(i,:) = var(gyro_filt(i:i+window_size-1, :), 0, 1);
+        % Population variance to mirror Python's np.var default (ddof=0)
+        accel_var(i,:) = var(acc_filt(i:i+window_size-1, :), 1, 1);
+        gyro_var(i,:) = var(gyro_filt(i:i+window_size-1, :), 1, 1);
     end
 end
 
@@ -236,8 +238,9 @@ end
 N_static = end_idx - start_idx + 1;
 static_acc_row = mean(acc_filt(start_idx:end_idx, :), 1);
 static_gyro_row = mean(gyro_filt(start_idx:end_idx, :), 1);
-acc_var = var(acc_filt(start_idx:end_idx, :), 0, 1);
-gyro_var = var(gyro_filt(start_idx:end_idx, :), 0, 1);
+% Use population variance (w=1) for final statistics
+acc_var = var(acc_filt(start_idx:end_idx, :), 1, 1);
+gyro_var = var(gyro_filt(start_idx:end_idx, :), 1, 1);
 
 fprintf('Static interval found: samples %d to %d (length %d samples)\n', start_idx, end_idx, N_static);
 fprintf('  Accel variance: [%.4g %.4g %.4g]\n', acc_var);
