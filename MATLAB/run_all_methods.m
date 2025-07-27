@@ -18,11 +18,7 @@ function run_all_methods()
 
     Task_1(imu_path, gnss_path, method);
 
-    imu_raw = readmatrix(imu_path);
-    dt_imu = mean(diff(imu_raw(1:100,2)));
-    imu_data.accel = imu_raw(:,6:8) / dt_imu;
-    imu_data.gyro  = imu_raw(:,3:5) / dt_imu;
-    Task_2(imu_data, method);
+    Task_2(imu_path, gnss_path, method);
     Task_3(imu_path, gnss_path, method);
     Task_4(imu_path, gnss_path, method);
     Task_5(imu_path, gnss_path, method);
