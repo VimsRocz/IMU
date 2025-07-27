@@ -20,8 +20,9 @@ end
 
 % Remove command-line side effects to behave like a normal function
 
-if ~exist('output_matlab','dir')
-    mkdir('output_matlab');
+results_dir = get_results_dir();
+if ~exist(results_dir,'dir')
+    mkdir(results_dir);
 end
 
 % Print dataset and method like the Python script
@@ -47,7 +48,6 @@ end
 fprintf('TASK 1%s: Define reference vectors in NED frame\n', log_tag);
 
 % --- Configuration ---
-results_dir = 'output_matlab';
 
 
 % ================================

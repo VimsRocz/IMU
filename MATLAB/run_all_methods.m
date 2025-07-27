@@ -29,6 +29,7 @@ end
 
 methods = {'TRIAD','Davenport','SVD'};
 colors  = {'r','g','b'};
+resultsDir = get_results_dir();
 
 if ~exist(resultsDir,'dir'); mkdir(resultsDir); end
 

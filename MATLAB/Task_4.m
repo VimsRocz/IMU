@@ -29,7 +29,7 @@ if ~isfile(imu_path)
           'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
           imu_path);
 end
-results_dir = 'output_matlab';
+results_dir = get_results_dir();
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 pair_tag = [imu_name '_' gnss_name];
