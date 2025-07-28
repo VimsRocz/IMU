@@ -789,11 +789,13 @@ end % End of main function
         dims_e = {'X','Y','Z'}; dims_b = {'X','Y','Z'};
         for i = 1:3
             subplot(3,3,i);   plot(t, pos_ecef(i,:), 'b-'); grid on;
-            title(['Pos ' dims_e{i} ' ECEF']); ylabel('m');
+            title(['Pos ' dims_e{i} ' ECEF']); ylabel('m'); xlabel('Time [s]');
+
             subplot(3,3,i+3); plot(t, vel_ecef(i,:), 'b-'); grid on;
-            title(['Vel ' dims_e{i} ' ECEF']); ylabel('m/s');
+            title(['Vel ' dims_e{i} ' ECEF']); ylabel('m/s'); xlabel('Time [s]');
+
             subplot(3,3,i+6); plot(t, acc_body(i,:), 'b-'); grid on;
-            title(['Acc ' dims_b{i} ' Body']); ylabel('m/s^2');
+            title(['Acc ' dims_b{i} ' Body']); ylabel('m/s^2'); xlabel('Time [s]');
         end
         sgtitle([method ' Mixed Frame Data']);
         % fname = fullfile(results_dir, sprintf('%s_Task5_MixedFrame.pdf', tag));
