@@ -595,6 +595,10 @@ save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
     'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
     'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', ...
     'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0');
+% Provide compatibility with the Python pipeline and downstream tasks
+% by storing the fused position under the generic ``pos`` field as well.
+pos = pos_ned; %#ok<NASGU>
+save(results_file, 'x_log', 'pos', '-append');
 if isfile(results_file)
     fprintf('Results saved to %s\n', results_file);
 else
