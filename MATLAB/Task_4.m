@@ -224,19 +224,20 @@ end
 
 if isfile(task1_file)
     t1 = load(task1_file);
-    if isfield(t1, 'g_NED')
+    if isfield(t1, 'gravity_ned')
+        g_NED = t1.gravity_ned(:);
+    elseif isfield(t1, 'g_NED')
         g_NED = t1.g_NED(:);
-        fprintf('Loaded gravity from %s\n', task1_file);
     else
-        warning('g_NED missing from %s, using default %.3f m/s^2', task1_file, constants.GRAVITY);
+        warning('Gravity vector missing from %s, using default %.3f m/s^2', task1_file, constants.GRAVITY);
         g_NED = [0; 0; constants.GRAVITY];
     end
+    fprintf('Loaded gravity from %s\n', task1_file);
 else
     warning('Task1 init file %s not found, using default gravity %.3f m/s^2', task1_file, constants.GRAVITY);
     g_NED = [0; 0; constants.GRAVITY];
 end
-% Override with the value used in the Python implementation for consistency
-g_NED = [0; 0; constants.GRAVITY];
+fprintf('Gravity vector applied: [%.8f %.8f %.8f]\n', g_NED);
 omega_E = constants.EARTH_RATE;                     % rad/s
 omega_ie_NED = omega_E * [cos(ref_lat); 0; -sin(ref_lat)];
 

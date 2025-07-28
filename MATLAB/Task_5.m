@@ -211,16 +211,13 @@ P = eye(15);                         % Larger initial uncertainty
 P(7:9,7:9)   = eye(3) * deg2rad(5)^2; % Attitude uncertainty (5 deg)
 P(10:15,10:15) = eye(6) * 1e-4;      % Bias uncertainty
 
-% Process noise terms use the same convention as the Python implementation.
-Q = zeros(15);
-Q(1:3,1:3)   = eye(3) * (pos_proc_noise^2);                   % Position process
-Q(4:6,4:6)   = eye(3) * ((accel_noise^2) + (vel_proc_noise^2));
-Q(10:12,10:12) = eye(3) * (accel_bias_noise^2);               % Accel bias random walk
-Q(13:15,13:15) = eye(3) * (gyro_bias_noise^2);                % Gyro bias random walk
+% Process noise terms tuned to match the Python implementation
+Q = eye(15) * 1e-4;
+Q(4:6,4:6) = diag([0.1, 0.1, 0.1]);
 
-R = zeros(6);                                                   % Measurement noise
-R(1:3,1:3) = eye(3) * (pos_meas_noise^2);                      % GNSS position noise
-R(4:6,4:6) = eye(3) * (vel_meas_noise^2);                      % GNSS velocity noise
+% Measurement noise covariance
+R = eye(6) * 1;
+R(4:6,4:6) = diag([0.25, 0.25, 0.25]);
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
@@ -250,7 +247,9 @@ q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
 
     if isfile(task1_file)
         init_data = load(task1_file);
-        if isfield(init_data, 'g_NED')
+        if isfield(init_data, 'gravity_ned')
+            g_NED = init_data.gravity_ned;
+        elseif isfield(init_data, 'g_NED')
             g_NED = init_data.g_NED;
         elseif isfield(init_data, 'results') && isfield(init_data.results, 'g_NED')
             g_NED = init_data.results.g_NED;
@@ -266,8 +265,7 @@ q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
         g_NED = [0; 0; constants.GRAVITY];
     end
 
-    % Override with gravity used in Python pipeline
-    g_NED = [0; 0; constants.GRAVITY];
+    fprintf('Gravity vector applied: [%.8f %.8f %.8f]\n', g_NED);
 
     % -- Compute Wahba Errors using all Task 3 rotation matrices --
     methods_all = fieldnames(task3_results);
@@ -287,11 +285,12 @@ prev_a_ned = zeros(3,1);
 prev_vel = x(4:6);
 
 % --- Pre-allocate Log Arrays ---
-num_imu_samples = length(imu_time);
-x_log = zeros(15, num_imu_samples);
-euler_log = zeros(3, num_imu_samples);
-zupt_log = zeros(1, num_imu_samples);
-acc_log = zeros(3, num_imu_samples); % Acceleration from propagated IMU data
+num_steps = size(acc_body_raw, 1);
+x_log = zeros(15, num_steps);
+euler_log = zeros(3, num_steps);
+zupt_log = zeros(1, num_steps);
+acc_log = zeros(3, num_steps); % Acceleration from propagated IMU data
+num_imu_samples = num_steps;
 zupt_count = 0;
 fprintf('-> 15-State filter initialized.\n');
 fprintf('Subtask 5.4: Integrating IMU data for each method.\n');
