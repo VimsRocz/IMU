@@ -531,12 +531,15 @@ fprintf('Fused mixed frames plot saved\n');
 fprintf('Plotting all data in NED frame.\n');
 
 
-state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
-if exist(state_file, 'file')
-    fprintf('Plotting fused ECEF trajectory with truth overlay.\n');
-    plot_task5_ecef_truth(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-        state_file, C_ECEF_to_NED, ref_r0, tag, method, results_dir);
-end
+    state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
+    if exist(state_file, 'file')
+        fprintf('Plotting fused ECEF trajectory with truth overlay.\n');
+        % The helper ``plot_task5_ecef_truth`` is currently disabled in MATLAB
+        % to keep parity with the Python implementation which omits this
+        % optional plot when no truth data is provided.
+        % plot_task5_ecef_truth(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
+        %     state_file, C_ECEF_to_NED, ref_r0, tag, method, results_dir);
+    end
 
 %% --- End-of-run summary statistics --------------------------------------
 % Interpolate filter estimates to GNSS timestamps for residual analysis
@@ -838,54 +841,3 @@ end % End of main function
         % fprintf('Saved plot: %s\n', fname);
         % close(fig);
     end
-
-
-        labels = {'North','East','Down'};
-        fig = figure('Visible','off','Name','Task5 NED Frame', ...
-            'Position',[100 100 1200 900]);
-        fused_label = sprintf('Fused (GNSS+IMU, %s)', method);
-        for k = 1:3
-            % Position
-            subplot(3,3,k); hold on;
-
-
-            % Velocity
-            subplot(3,3,3+k); hold on;
-
-        dt = diff(t_truth);
-        acc_truth = [zeros(1,3); diff(vel_truth)./dt];
-
-        pos_fused = (C_E_N' * pos_ned) + r0;
-        vel_fused = C_E_N' * vel_ned;
-        acc_fused = C_E_N' * acc_ned;
-
-        figure('Name','Task5 ECEF with Truth','Position',[100 100 1200 900]);
-        labels = {'X','Y','Z'};
-        for k = 1:3
-            % Position
-            subplot(3,3,k); hold on;
-            plot(t_truth, pos_truth(:,k),'k--','LineWidth',1.5,'DisplayName','Truth');
-            plot(t, pos_fused(k,:),'b-','LineWidth',2,'DisplayName','Fused (KF)');
-            ylabel([labels{k} ' [m]']); grid on; legend('Location','best'); set(gca,'FontSize',14);
-            title(['Position ' labels{k}]); hold off;
-
-            % Velocity
-            subplot(3,3,3+k); hold on;
-            plot(t_truth, vel_truth(:,k),'k--','LineWidth',1.5,'DisplayName','Truth');
-            plot(t, vel_fused(k,:),'b-','LineWidth',2,'DisplayName','Fused (KF)');
-            ylabel([labels{k} ' [m/s]']); grid on; legend('Location','best'); set(gca,'FontSize',14);
-            title(['Velocity ' labels{k}]); hold off;
-
-            % Acceleration
-            subplot(3,3,6+k); hold on;
-            plot(t_truth, acc_truth(:,k),'k--','LineWidth',1.5,'DisplayName','Truth');
-            plot(t, acc_fused(k,:),'b-','LineWidth',2,'DisplayName','Fused (KF)');
-            ylabel([labels{k} ' [m/s^2]']); grid on; legend('Location','best'); set(gca,'FontSize',14);
-            title(['Acceleration ' labels{k}]); hold off;
-        end
-        xlabel('Time [s]');
-        sgtitle([method ' - ECEF frame with Truth']);
-        set(gcf,'PaperPositionMode','auto');
-        print(gcf, fullfile(results_dir, sprintf('%s_Task5_ECEFTruth.pdf', tag)), '-dpdf', '-bestfit');
-    end
-
