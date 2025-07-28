@@ -35,6 +35,7 @@ from utils import (
     is_static,
     compute_C_ECEF_to_NED,
     ecef_to_geodetic,
+    interpolate_series,
 )
 from constants import GRAVITY, EARTH_RATE
 from .compute_biases import compute_biases
@@ -758,11 +759,9 @@ def main():
     )
     try:
         imu_data = pd.read_csv(imu_file, sep=r"\s+", header=None)
-        imu_time = (
-            np.arange(len(imu_data)) * dt_imu + gnss_time[0]
-        )  # Align with GNSS start time
-        lat_interp = np.interp(imu_time, gnss_time, lat_series)
-        lon_interp = np.interp(imu_time, gnss_time, lon_series)
+        imu_time = imu_data.iloc[:, 1].to_numpy() + gnss_time[0]
+        lat_interp = interpolate_series(imu_time, gnss_time, lat_series)
+        lon_interp = interpolate_series(imu_time, gnss_time, lon_series)
 
         # Convert velocity increments to acceleration (m/s²)
         # Columns 5,6,7 are velocity increments (m/s) over dt_imu
@@ -926,12 +925,8 @@ def main():
             t_truth = truth[:, 1]
             pos_truth_ecef = truth[:, 2:5]
             vel_truth_ecef = truth[:, 5:8]
-            truth_pos_ecef_i = np.vstack(
-                [np.interp(t_rel_ilu, t_truth, pos_truth_ecef[:, k]) for k in range(3)]
-            ).T
-            truth_vel_ecef_i = np.vstack(
-                [np.interp(t_rel_ilu, t_truth, vel_truth_ecef[:, k]) for k in range(3)]
-            ).T
+            truth_pos_ecef_i = interpolate_series(t_rel_ilu, t_truth, pos_truth_ecef)
+            truth_vel_ecef_i = interpolate_series(t_rel_ilu, t_truth, vel_truth_ecef)
             truth_pos_ned_i = ecef_to_ned(truth_pos_ecef_i, ref_lat, ref_lon, ref_r0)
             truth_vel_ned_i = (C_ECEF_to_NED @ truth_vel_ecef_i.T).T
         except Exception as e:
@@ -1308,19 +1303,14 @@ def main():
     fused_vel = {m: np.zeros_like(imu_vel[m]) for m in methods}
     fused_acc = {m: np.zeros_like(imu_acc[m]) for m in methods}
     # Interpolate GNSS data to IMU time once
-    gnss_pos_ned_interp = np.zeros((len(imu_time), 3))
-    gnss_vel_ned_interp = np.zeros((len(imu_time), 3))
-    gnss_acc_ned_interp = np.zeros((len(imu_time), 3))
-    for j in range(3):
-        gnss_pos_ned_interp[:, j] = np.interp(imu_time, gnss_time, gnss_pos_ned[:, j])
-        gnss_vel_ned_interp[:, j] = np.interp(imu_time, gnss_time, gnss_vel_ned[:, j])
-        gnss_acc_ned_interp[:, j] = np.interp(imu_time, gnss_time, gnss_acc_ned[:, j])
-        logging.debug(
-            "Interpolated GNSS NED axis %d: first=%.4f last=%.4f",
-            j,
-            gnss_pos_ned_interp[0, j],
-            gnss_pos_ned_interp[-1, j],
-        )
+    gnss_pos_ned_interp = interpolate_series(imu_time, gnss_time, gnss_pos_ned)
+    gnss_vel_ned_interp = interpolate_series(imu_time, gnss_time, gnss_vel_ned)
+    gnss_acc_ned_interp = interpolate_series(imu_time, gnss_time, gnss_acc_ned)
+    logging.debug(
+        "Interpolated GNSS data: first NED pos %.4f last %.4f",
+        gnss_pos_ned_interp[0, 0],
+        gnss_pos_ned_interp[-1, 0],
+    )
 
     innov_pos_all = {}
     innov_vel_all = {}
@@ -1888,12 +1878,8 @@ def main():
     final_pos = np.linalg.norm(gnss_pos_ned_interp[-1] - fused_pos[method][-1])
 
     # --- Additional residual metrics ---------------------------------------
-    pos_interp = np.vstack(
-        [np.interp(gnss_time, imu_time, fused_pos[method][:, i]) for i in range(3)]
-    ).T
-    vel_interp = np.vstack(
-        [np.interp(gnss_time, imu_time, fused_vel[method][:, i]) for i in range(3)]
-    ).T
+    pos_interp = interpolate_series(gnss_time, imu_time, fused_pos[method])
+    vel_interp = interpolate_series(gnss_time, imu_time, fused_vel[method])
     resid_pos = pos_interp - gnss_pos_ned
     resid_vel = vel_interp - gnss_vel_ned
 
@@ -2035,12 +2021,8 @@ def main():
         euler_deg = np.rad2deg(euler_all[method])
         save_euler_angles(imu_time, euler_deg, dataset_id, method)
 
-        pos_f = np.vstack(
-            [np.interp(gnss_time, imu_time, fused_pos[method][:, i]) for i in range(3)]
-        ).T
-        vel_f = np.vstack(
-            [np.interp(gnss_time, imu_time, fused_vel[method][:, i]) for i in range(3)]
-        ).T
+        pos_f = interpolate_series(gnss_time, imu_time, fused_pos[method])
+        vel_f = interpolate_series(gnss_time, imu_time, fused_vel[method])
         save_velocity_profile(gnss_time, vel_f, gnss_vel_ned)
         save_residual_plots(
             gnss_time,

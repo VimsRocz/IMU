@@ -335,3 +335,34 @@ def validate_gravity_vector(lat_deg: float, h: float = 0.0) -> np.ndarray:
         f" --> Gravity: {g:.6f} m/s^2 (NED +Z is down)"
     )
     return np.array([0.0, 0.0, g])
+
+
+def interpolate_series(
+    t_ref: np.ndarray, t_data: np.ndarray, series: np.ndarray
+) -> np.ndarray:
+    """Interpolate *series* to match *t_ref* using linear interpolation.
+
+    Parameters
+    ----------
+    t_ref : ndarray, shape (N,)
+        Reference timestamps in seconds.
+    t_data : ndarray, shape (M,)
+        Timestamps corresponding to ``series``.
+    series : ndarray, shape (M, ...)``
+        Samples to be interpolated along the first dimension.
+
+    Returns
+    -------
+    ndarray
+        ``series`` resampled so that ``series[i]`` corresponds to ``t_ref[i]``.
+    """
+
+    t_ref = np.asarray(t_ref)
+    t_data = np.asarray(t_data)
+    series = np.asarray(series)
+
+    if series.ndim == 1:
+        return np.interp(t_ref, t_data, series)
+
+    out = np.vstack([np.interp(t_ref, t_data, series[:, i]) for i in range(series.shape[1])]).T
+    return out
