@@ -1,4 +1,6 @@
-import numpy as np
+import pytest
+
+np = pytest.importorskip("numpy")
 from src.gnss_imu_fusion.init_vectors import triad_basis
 
 

@@ -1,6 +1,8 @@
-import numpy as np
+import pytest
 from pathlib import Path
-import matplotlib
+
+np = pytest.importorskip("numpy")
+matplotlib = pytest.importorskip("matplotlib")
 
 matplotlib.use("Agg")
 from src.task7_ned_residuals_plot import compute_residuals, plot_residuals

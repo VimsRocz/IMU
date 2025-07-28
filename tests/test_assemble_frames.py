@@ -1,4 +1,6 @@
-import numpy as np
+import pytest
+
+np = pytest.importorskip("numpy")
 from pathlib import Path
 
 from src.validate_with_truth import assemble_frames
