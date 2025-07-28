@@ -24,9 +24,9 @@ end
 
 %% Load Task 5 fused data
 S = load(task5_file, 'time', ...
-    'pos_fused_ned','vel_fused_ned', ...
-    'pos_fused_ecef','vel_fused_ecef', ...
-    'pos_fused_body','vel_fused_body');
+    'pos_fused_ned','vel_fused_ned','acc_fused_ned', ...
+    'pos_fused_ecef','vel_fused_ecef','acc_fused_ecef', ...
+    'pos_fused_body','vel_fused_body','acc_fused_body');
 
 if ~isfield(S,'time')
     error('time vector not found in %s', task5_file);
@@ -77,66 +77,71 @@ vel_ecef_i = interp1(truth_t, truth_vel_ecef, est_t, 'linear', 'extrap');
 pos_body_i = interp1(truth_t, truth_pos_body, est_t, 'linear', 'extrap');
 vel_body_i = interp1(truth_t, truth_vel_body, est_t, 'linear', 'extrap');
 
+%% Compute truth accelerations (aligned)
+acc_ned_i  = gradient(vel_ned_i,  est_t);
+acc_ecef_i = gradient(vel_ecef_i, est_t);
+acc_body_i = gradient(vel_body_i, est_t);
+
+% Convert to 3xN for plotting convenience
+tt = est_t(:).';
+pos_est_ned   = S.pos_fused_ned';   vel_est_ned   = S.vel_fused_ned';   acc_est_ned   = S.acc_fused_ned';
+pos_truth_ned = pos_ned_i';         vel_truth_ned = vel_ned_i';         acc_truth_ned = acc_ned_i';
+pos_est_ecef  = S.pos_fused_ecef';  vel_est_ecef  = S.vel_fused_ecef';  acc_est_ecef  = S.acc_fused_ecef';
+pos_truth_ecef= pos_ecef_i';        vel_truth_ecef= vel_ecef_i';        acc_truth_ecef= acc_ecef_i';
+pos_est_body  = S.pos_fused_body';  vel_est_body  = S.vel_fused_body';  acc_est_body  = S.acc_fused_body';
+pos_truth_body= pos_body_i';        vel_truth_body= vel_body_i';        acc_truth_body= acc_body_i';
+
 %% Generate figures and save overlay data
-results_dir = 'results';
-if ~exist(results_dir,'dir'); mkdir(results_dir); end
+outDir = 'results';
+if ~exist(outDir,'dir'); mkdir(outDir); end
 
-% Save arrays for Task 7 reuse
-overlay.t = est_t;
-overlay.pos_truth_ned  = pos_ned_i;
-overlay.vel_truth_ned  = vel_ned_i;
-overlay.pos_est_ned    = S.pos_fused_ned;
-overlay.vel_est_ned    = S.vel_fused_ned;
-overlay.pos_truth_ecef = pos_ecef_i;
-overlay.vel_truth_ecef = vel_ecef_i;
-overlay.pos_est_ecef   = S.pos_fused_ecef;
-overlay.vel_est_ecef   = S.vel_fused_ecef;
-overlay.pos_truth_body = pos_body_i;
-overlay.vel_truth_body = vel_body_i;
-overlay.pos_est_body   = S.pos_fused_body;
-overlay.vel_est_body   = S.vel_fused_body;
-overlay.tag = tag;
-save(fullfile(results_dir, sprintf('%s_task6_overlay.mat', tag)), '-struct', 'overlay');
+plot_state96('NED',  tt, pos_truth_ned,  vel_truth_ned,  acc_truth_ned,  pos_est_ned,  vel_est_ned,  acc_est_ned,  tag, outDir);
+plot_state96('ECEF', tt, pos_truth_ecef, vel_truth_ecef, acc_truth_ecef, pos_est_ecef, vel_est_ecef, acc_est_ecef, tag, outDir);
+plot_state96('Body', tt, pos_truth_body, vel_truth_body, acc_truth_body, pos_est_body, vel_est_body, acc_est_body, tag, outDir);
 
-% One figure per frame
-plot_state_overlay('NED',  est_t, pos_ned_i,  vel_ned_i,  S.pos_fused_ned,  S.vel_fused_ned,  tag);
-plot_state_overlay('ECEF', est_t, pos_ecef_i, vel_ecef_i, S.pos_fused_ecef, S.vel_fused_ecef, tag);
-plot_state_overlay('Body', est_t, pos_body_i, vel_body_i, S.pos_fused_body, S.vel_fused_body, tag);
+% Save snapshot for Task 7 reuse
+save(fullfile(outDir,sprintf('%s_task6_overlay.mat',tag)), 'tt','pos_*','vel_*','acc_*');
 end
 
 %% --------------------------------------------------------------------
-function plot_state_overlay(frameName, t, posTruth, velTruth, posEst, velEst, tag)
-labels = {'X','Y','Z'};
-if strcmpi(frameName,'NED')
-    labels = {'N','E','D'};
-end
-f = figure('Visible','off','Position',[100 100 1200 800]);
-tl = tiledlayout(3,2,'TileSpacing','compact');
+function plot_state96(frame, tt, pT, vT, aT, pF, vF, aF, tag, folder)
+    % Create 3\x3 grid : (row1 = Position, row2 = Velocity, row3 = Accel)
+    f  = figure('Color','w','Position',[50 50 1400 900]);
+    tl = tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
+    hdr = {'X','Y','Z'};      % will become \x0394N, \x0394E, \x0394D for NED automatically
+    if strcmp(frame,'NED'), hdr = {'\x0394N [m]','\x0394E [m]','\x0394D [m]'}; end
 
-for i = 1:3
-    nexttile(tl,i); hold on;
-    plot(t, posTruth(:,i), '--', t, posEst(:,i), '-','LineWidth',1.0);
-    ylabel('Position (m)');
-    legend({sprintf('Truth %s',labels{i}), sprintf('Fused %s',labels{i})},'Location','best');
-    title(labels{i}); grid on; axis tight;
-end
+    rows  = {'Position [m]','Velocity [m/s]','Acceleration [m/s^2]'};
+    cols  = {[0 0 0],[0 0.447 0.741]};   % black truth, blue fused
 
-for i = 1:3
-    nexttile(tl, i+3); hold on;
-    plot(t, velTruth(:,i), '--', t, velEst(:,i), '-','LineWidth',1.0);
-    ylabel('Velocity (m/s)');
-    legend({sprintf('Truth %s',labels{i}), sprintf('Fused %s',labels{i})},'Location','best');
-    title(labels{i}); grid on; axis tight;
-end
+    for k = 1:3                      % ----- col loop (X/Y/Z)
+        % ---- Position -----
+        nexttile(3*(0)+k);  hold on;
+        plot(tt,pT(k,:),'-','Color',cols{1},'LineWidth',1);
+        plot(tt,pF(k,:),':','Color',cols{2},'LineWidth',1);
+        title(hdr{k}); if k==1, ylabel(rows{1}); end; grid on;
 
-xlabel(tl,'Time (s)');
-sgtitle(sprintf('Task 6 \x2013 %s State Overlay (%s)', tag, frameName));
+        % ---- Velocity -----
+        nexttile(3*(1)+k);  hold on;
+        plot(tt,vT(k,:),'-','Color',cols{1},'LineWidth',1);
+        plot(tt,vF(k,:),':','Color',cols{2},'LineWidth',1);
+        if k==1, ylabel(rows{2}); end; grid on;
 
-base = fullfile('results', sprintf('%s_task6_overlay_state_%s', tag, upper(frameName)));
-print(f, [base '.pdf'], '-dpdf', '-bestfit');
-print(f, [base '.png'], '-dpng');
-close(f);
-fprintf('Task 6: saved overlay %s figure -> %s.pdf\n', frameName, base);
+        % ---- Acceleration -----
+        nexttile(3*(2)+k);  hold on;
+        plot(tt,aT(k,:),'-','Color',cols{1},'LineWidth',1);
+        plot(tt,aF(k,:),':','Color',cols{2},'LineWidth',1);
+        if k==1, ylabel(rows{3}); end; grid on;
+    end
+    legend({'Truth','Fused GNSS+IMU'},'Location','best','Box','off');
+    xlabel(tl,'Time [s]');
+    sgtitle(sprintf('Task 6 \x2013 %s \x2013 %s Frame (Fused vs. Truth)', ...
+                    strrep(tag,'_','\_'), frame));
+    % save
+    base = fullfile(folder,sprintf('%s_task6_overlay_state_%s',tag,lower(frame)));
+    exportgraphics(f,[base '.png'],'Resolution',300);
+    exportgraphics(f,[base '.pdf'],'ContentType','vector');
+    close(f);
 end
 
 %% --------------------------------------------------------------------
