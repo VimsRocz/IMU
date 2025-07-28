@@ -11,7 +11,8 @@ function [static_start, static_end] = detect_static_interval(acc_body, gyro_body
 %       GYRO_VAR_THRESH   - gyroscope variance threshold (default 1e-6)
 %       MIN_LENGTH        - minimum acceptable segment length (default 80)
 %
-%   Returned indices are 1-based and inclusive with respect to ACC_BODY.
+%   Returned indices are 1-based with ``END`` being exclusive, matching the
+%   Python implementation.
 
     if nargin < 3 || isempty(window_size)
         window_size = 80; % Match Python defaults
@@ -50,13 +51,13 @@ function [static_start, static_end] = detect_static_interval(acc_body, gyro_body
 
     longest_len = 0;
     static_start = 1;
-    static_end = window_size;
+    static_end = window_size + 1;
     for k = 1:numel(start_idx)
         len = end_idx(k) - start_idx(k) + 1;
         if len >= min_length && len > longest_len
             longest_len = len;
             static_start = start_idx(k);
-            static_end = end_idx(k) + window_size - 1;
+            static_end = end_idx(k) + window_size;
         end
     end
 
