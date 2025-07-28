@@ -151,8 +151,9 @@ imu_raw = readmatrix(imu_file);
 dt = mean(diff(imu_raw(1:100,2)));
 accel_raw = imu_raw(:,6:8) / dt;
 gyro_raw  = imu_raw(:,3:5) / dt;
-accel = (accel_raw - accel_bias') * accel_scale;
-gyro  = gyro_raw - gyro_bias';
+% subtract biases using row vectors to match Python implementation
+accel = (accel_raw - accel_bias) * accel_scale;
+gyro  = gyro_raw - gyro_bias;
 fprintf('Subtask 4.9: IMU data corrected: accel_bias=[%.4f %.4f %.4f], scale=%.4f\n', accel_bias, accel_scale);
 fprintf('           gyro_bias=[%.4e %.4e %.4e]\n', gyro_bias);
 
