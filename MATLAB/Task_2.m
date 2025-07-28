@@ -1,4 +1,4 @@
-function body_data = Task_2(imu_path, gnss_path, method)
+function body_data = Task_2(imu_path, gnss_path, method, dataset_tag)
 %TASK_2 Measure body-frame vectors and estimate IMU biases.
 %   BODY_DATA = TASK_2(IMU_PATH, GNSS_PATH, METHOD) loads the IMU log
 %   IMU_PATH, converts increments to rates and detects a static
@@ -29,6 +29,14 @@ function body_data = Task_2(imu_path, gnss_path, method)
 
     if nargin < 3 || isempty(method)
         method = '';
+    end
+    if nargin < 4 || isempty(dataset_tag)
+        [~, imu_name, ~] = fileparts(imu_path);
+        [~, gnss_name, ~] = fileparts(gnss_path);
+        dataset_tag = sprintf('%s_%s', imu_name, gnss_name);
+    else
+        [~, imu_name, ~] = fileparts(imu_path);
+        [~, gnss_name, ~] = fileparts(gnss_path);
     end
     if nargin < 2
         gnss_path = '';
@@ -124,34 +132,16 @@ function body_data = Task_2(imu_path, gnss_path, method)
             static_start, static_end, g_body, omega_ie_body);
     fprintf('Accelerometer bias = [% .6f % .6f % .6f] m/s^2\n', accel_bias);
     fprintf('Gyroscope bias     = [% .6f % .6f % .6f] rad/s\n', gyro_bias);
-    pair_tag = [imu_name '_' gnss_name];
-    if isempty(method)
-        tag = pair_tag;
-        method_tag = 'AllMethods';
-    else
-        tag = [pair_tag '_' method];
-        method_tag = method;
-    end
-
     results_dir = get_results_dir();
     if ~exist(results_dir,'dir'); mkdir(results_dir); end
 
-    legacy_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
-    generic_file = fullfile(results_dir, ...
-        sprintf('%s_%s_%s_task2_results.mat', imu_name, gnss_name, method_tag));
+    out_file = fullfile(results_dir, sprintf('Task2_%s_%s.mat', dataset_tag, method));
 
-    % Save individual variables for easy loading in later tasks
-    save(legacy_file, 'g_body', 'g_body_scaled', 'omega_ie_body', ...
+    save(out_file, 'g_body', 'g_body_scaled', 'omega_ie_body', ...
         'accel_bias', 'gyro_bias', 'static_start', 'static_end');
-    save(generic_file, 'g_body', 'g_body_scaled', 'omega_ie_body', ...
-        'accel_bias', 'gyro_bias', 'static_start', 'static_end');
-
-    % Also store a struct for interactive use
-    save(legacy_file, '-append', 'body_data');
-    save(generic_file, '-append', 'body_data');
 
     assignin('base','task2_results', body_data);
-    fprintf('Task 2 results saved to %s\n', legacy_file);
+    fprintf('Saved to %s\n', out_file);
     fprintf('Task 2 fields:\n');
     disp(fieldnames(body_data));
 end

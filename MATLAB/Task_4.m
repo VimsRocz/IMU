@@ -1,4 +1,4 @@
-function Task_4(imu_file, gnss_file, method, output_tag)
+function Task_4(imu_file, gnss_file, method, dataset_tag)
 %TASK_4 GNSS/IMU integration with robust file handling.
 %   TASK_4(IMU_FILE, GNSS_FILE, METHOD, OUTPUT_TAG) loads the MAT files
 %   produced by Tasks 1--3, applies the attitude matrix from Task 3 and
@@ -21,26 +21,31 @@ function Task_4(imu_file, gnss_file, method, output_tag)
 if nargin < 3
     method = 'TRIAD';
 end
+if nargin < 4 || isempty(dataset_tag)
+    [~, imu_name, ~]  = fileparts(imu_file);
+    [~, gnss_name, ~] = fileparts(gnss_file);
+    dataset_tag = sprintf('%s_%s', imu_name, gnss_name);
+else
+    [~, imu_name, ~]  = fileparts(imu_file);
+    [~, gnss_name, ~] = fileparts(gnss_file);
+end
 
 results_dir = get_results_dir();
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 
 [~, imu_name, ~]  = fileparts(imu_file);
 [~, gnss_name, ~] = fileparts(gnss_file);
-if nargin < 4 || isempty(output_tag)
-    tag = sprintf('%s_%s_%s', imu_name, gnss_name, method);
-else
-    tag = output_tag;
-end
+
+run_tag = sprintf('%s_%s', dataset_tag, method);
 
 % ------------------------------------------------------------------
 % Subtask 4.1: Load outputs from previous tasks
 % ------------------------------------------------------------------
 
-task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
-task2_file = fullfile(results_dir, sprintf('Task2_body_%s.mat', tag));
-task3_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', tag));
-out_mat    = fullfile(results_dir, sprintf('Task4_results_%s.mat', tag));
+task1_file = fullfile(results_dir, sprintf('Task1_%s_%s.mat', dataset_tag, method));
+task2_file = fullfile(results_dir, sprintf('Task2_%s_%s.mat', dataset_tag, method));
+task3_file = fullfile(results_dir, sprintf('Task3_%s_%s.mat', dataset_tag, method));
+out_mat    = fullfile(results_dir, sprintf('Task4_%s_%s.mat', dataset_tag, method));
 
 fprintf('Task 4: loading previous task outputs:\n');
 fprintf('  Task 1 -> %s\n', task1_file);
@@ -175,7 +180,7 @@ fprintf('Subtask 4.12: Integrated IMU data using %s method.\n', method);
 fprintf('Subtask 4.13: Plotting GNSS vs IMU in NED frame.\n');
 fig = figure();
 plot_ned_comparison(pos_ned, pos_imu, vel_ned, vel_imu, acc_ned, acc_imu);
-file_ned = fullfile(results_dir, sprintf('%s_task4_results_NED.pdf', tag));
+file_ned = fullfile(results_dir, sprintf('%s_task4_results_NED.pdf', run_tag));
 saveas(fig, file_ned);
 saveas(fig, strrep(file_ned,'.pdf','.png'));
 close(fig);
@@ -189,7 +194,7 @@ vel_imu_ecef = C_n_e*vel_imu;
 pos_gnss_ecef = pos_ecef;
 vel_gnss_ecef = vel_ecef;
 plot_ned_comparison(pos_gnss_ecef,pos_imu_ecef,vel_gnss_ecef,vel_imu_ecef,acc_ned,acc_imu);
-file_ecef = fullfile(results_dir, sprintf('%s_task4_results_ECEF.pdf', tag));
+file_ecef = fullfile(results_dir, sprintf('%s_task4_results_ECEF.pdf', run_tag));
 saveas(fig, file_ecef);
 saveas(fig, strrep(file_ecef,'.pdf','.png')); close(fig);
 fprintf('Saved plot: %s\n', file_ecef);
@@ -197,7 +202,7 @@ fprintf('Saved plot: %s\n', file_ecef);
 % -- Body frame --
 fig = figure();
 plot_body_frame(accel, gyro);
-file_body = fullfile(results_dir, sprintf('%s_task4_results_Body.pdf', tag));
+file_body = fullfile(results_dir, sprintf('%s_task4_results_Body.pdf', run_tag));
 saveas(fig, file_body);
 saveas(fig, strrep(file_body,'.pdf','.png'));
 close(fig);

@@ -1,5 +1,5 @@
 
-function task3_results = Task_3(imu_path, gnss_path, method)
+function task3_results = Task_3(imu_path, gnss_path, method, dataset_tag)
 % TASK 3: Solve Wahba's Problem
 % This function estimates the initial body-to-NED attitude using several
 % approaches (TRIAD, Davenport, SVD). It loads the reference and measured
@@ -16,7 +16,15 @@ if nargin < 2 || isempty(gnss_path)
     error('GNSS file not specified');
 end
 if nargin < 3
-    method = ''; %#ok<NASGU>  % unused but kept for API compatibility
+    method = '';
+end
+if nargin < 4 || isempty(dataset_tag)
+    [~, imu_name, ~] = fileparts(imu_path);
+    [~, gnss_name, ~] = fileparts(gnss_path);
+    dataset_tag = sprintf('%s_%s', imu_name, gnss_name);
+else
+    [~, imu_name, ~] = fileparts(imu_path);
+    [~, gnss_name, ~] = fileparts(gnss_path);
 end
 
 if ~isfile(gnss_path)
@@ -31,22 +39,15 @@ if ~isfile(imu_path)
 end
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
-pair_tag = [imu_name '_' gnss_name];
-if isempty(method)
-    tag = pair_tag;
-    method_tag = 'AllMethods';
-else
-    tag = [pair_tag '_' method];
-    method_tag = method;
-end
+method_tag = method;
 results_dir = get_results_dir();
 if ~exist(results_dir, 'dir')
     mkdir(results_dir);
 end
 
 % Load vectors produced by Task 1 and Task 2
-task1_file = fullfile(results_dir, ['Task1_init_' tag '.mat']);
-task2_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
+task1_file = fullfile(results_dir, sprintf('Task1_%s_%s.mat', dataset_tag, method));
+task2_file = fullfile(results_dir, sprintf('Task2_%s_%s.mat', dataset_tag, method));
 if evalin('base','exist(''task1_results'',''var'')')
     init_data = evalin('base','task1_results');
 else
@@ -293,20 +294,16 @@ task3_results = struct();
 task3_results.TRIAD.R = R_tri;
 task3_results.Davenport.R = R_dav;
 task3_results.SVD.R = R_svd;
-all_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
-save(all_file, 'task3_results');
-fprintf('-> Task 3 results (all methods) saved to %s\n', all_file);
-
-% Also save a method-specific copy for later tasks using helper
-method_results = task3_results.(method_tag);
-save_task_results(method_results, imu_name, gnss_name, method_tag, 3);
+out_file = fullfile(results_dir, sprintf('Task3_%s_%s.mat', dataset_tag, method));
+save(out_file, 'task3_results');
+fprintf('Saved to %s\n', out_file);
 
 % Return and store in base workspace
 assignin('base', 'task3_results', task3_results);
 
 % -------------------------------------------------------------
 % Display stored rotation matrix for verification
-task3_file = fullfile(results_dir, 'Task3_results_IMU_X002_GNSS_X002.mat');
+task3_file = fullfile(results_dir, sprintf('Task3_%s_%s.mat', dataset_tag, method));
 if exist(task3_file, 'file')
     data = load(task3_file);
     if isfield(data, 'task3_results') && isfield(data.task3_results, 'TRIAD')

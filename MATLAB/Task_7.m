@@ -1,4 +1,4 @@
-function Task_7(task5_matfile, truth_file, output_tag)
+function Task_7(task5_matfile, truth_file, run_tag)
 %TASK_7 Residual analysis and summary using fused and truth data.
 %   TASK_7(TASK5_MATFILE, TRUTH_FILE, OUTPUT_TAG) loads the fused
 %   navigation solution saved by Task 5 together with the reference
@@ -127,10 +127,10 @@ for fIdx = 1:numel(frames)
         case 'ecef'; labels = labels_ecef;
         otherwise;   labels = {'X','Y','Z'};
     end
-    plot_residuals(t, res.(frame).pos, res.(frame).vel, labels, frame, output_tag);
-    plot_error_norms(t, res.(frame).pos, res.(frame).vel, frame, output_tag);
-    plot_diff(t, res.(frame).pos, res.(frame).vel, labels, frame, output_tag);
-    compute_summary(res.(frame).pos, res.(frame).vel, frame, output_tag);
+    plot_residuals(t, res.(frame).pos, res.(frame).vel, labels, frame, run_tag);
+    plot_error_norms(t, res.(frame).pos, res.(frame).vel, frame, run_tag);
+    plot_diff(t, res.(frame).pos, res.(frame).vel, labels, frame, run_tag);
+    compute_summary(res.(frame).pos, res.(frame).vel, frame, run_tag);
 end
 
 fprintf('Task 7 complete: Residuals, error norms, and summary metrics generated and saved for all frames.\n');

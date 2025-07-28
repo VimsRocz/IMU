@@ -1,18 +1,4 @@
-function Task_6(task5_matfile, truth_file, output_tag)
-%TASK_6 Overlay fused and truth trajectories in three frames.
-%   TASK_6(TASK5_MATFILE, TRUTH_FILE, OUTPUT_TAG) loads the fused
-%   navigation results from Task 5 and the provided ground truth file
-%   then overlays the trajectories in the NED, ECEF and body frames.
-%   Each figure is displayed on screen and saved as PDF and PNG in the
-%   ``results/`` directory using OUTPUT_TAG as the filename prefix.
-%
-%   Example:
-%       Task_6('results/IMU_X002_GNSS_X002_TRIAD_task5_results.mat', ...
-%              'STATE_X001.txt', 'IMU_X002_GNSS_X002_TRIAD');
-%
-%   See also TASK6_FULL_OVERLAY.PY
 
-fprintf('Task 6: Overlaying fused and truth trajectories...\n');
 
 % ------------------------------------------------------------------
 % Ensure results directory
