@@ -56,9 +56,12 @@ function body_data = Task_2(imu_path, gnss_path, method)
     gyro_filt = low_pass_filter(gyro, 10, fs);
 
     [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt);
-    fprintf('Task 2: static interval = [%d..%d]\n', static_start, static_end);
+    fprintf('Static interval indices: %d to %d (%d samples)\n', ...
+            static_start, static_end, static_end-static_start);
     [acc_bias, gyro_bias] = compute_biases(acc_filt, gyro_filt, ...
                                            static_start, static_end);
+    fprintf('Accelerometer bias = [% .6f % .6f % .6f] m/s^2\n', acc_bias);
+    fprintf('Gyroscope bias     = [% .6f % .6f % .6f] rad/s\n', gyro_bias);
 
     validate_gravity_vector(acc_filt, static_start, static_end);
 
@@ -71,6 +74,9 @@ function body_data = Task_2(imu_path, gnss_path, method)
     omega_ie_body = static_gyro';
     fprintf('Task 2: g_body = [% .4f % .4f % .4f]\n', g_body);
     fprintf('Task 2: omega_ie_body = [% .6f % .6f % .6f]\n', omega_ie_body);
+    fprintf(['Task 2 summary: static interval %d:%d, g_body = [% .4f % .4f % .4f],' ...
+            ' omega_ie_body = [% .6f % .6f % .6f]\n'], ...
+            static_start, static_end, g_body, omega_ie_body);
 
     % Use consistent variable names across all MATLAB tasks
     accel_bias = acc_bias';     % 3x1 accelerometer bias in m/s^2
