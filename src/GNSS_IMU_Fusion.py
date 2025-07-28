@@ -757,19 +757,18 @@ def main():
     )
     try:
         imu_data = pd.read_csv(imu_file, sep=r"\s+", header=None)
-        dt_ilu = 1.0 / 400.0  # 400 Hz sampling rate, dt = 0.0025 s
         imu_time = (
-            np.arange(len(imu_data)) * dt_ilu + gnss_time[0]
+            np.arange(len(imu_data)) * dt_imu + gnss_time[0]
         )  # Align with GNSS start time
         lat_interp = np.interp(imu_time, gnss_time, lat_series)
         lon_interp = np.interp(imu_time, gnss_time, lon_series)
 
         # Convert velocity increments to acceleration (m/s²)
-        # Columns 5,6,7 are velocity increments (m/s) over dt_ilu
-        acc_body = imu_data[[5, 6, 7]].values / dt_ilu  # acc_body = delta_v / dt_ilu
+        # Columns 5,6,7 are velocity increments (m/s) over dt_imu
+        acc_body = imu_data[[5, 6, 7]].values / dt_imu  # acc_body = delta_v / dt_imu
         gyro_body = (
-            imu_data[[2, 3, 4]].values / dt_ilu
-        )  # gyro_body = delta_theta / dt_ilu
+            imu_data[[2, 3, 4]].values / dt_imu
+        )  # gyro_body = delta_theta / dt_imu
         acc_body = butter_lowpass_filter(acc_body)
         gyro_body = butter_lowpass_filter(gyro_body)
 
@@ -1231,9 +1230,8 @@ def main():
     gnss_acc_ned = np.array([C_ECEF_to_NED @ a for a in gnss_acc_ecef])
 
     # Load IMU data
-    dt_ilu = 1.0 / 400.0
-    imu_time = np.arange(len(imu_data)) * dt_ilu + gnss_time[0]
-    acc_body = imu_data[[5, 6, 7]].values / dt_ilu
+    imu_time = np.arange(len(imu_data)) * dt_imu + gnss_time[0]
+    acc_body = imu_data[[5, 6, 7]].values / dt_imu
     acc_body = butter_lowpass_filter(acc_body)
     # Use at most 4000 samples but allow shorter sequences when running the
     # trimmed datasets used in unit tests.
@@ -2015,7 +2013,7 @@ def main():
         save_zupt_variance(
             acc_body_corrected[method],
             zupt_mask,
-            dt_ilu,
+            dt_imu,
             dataset_id,
             threshold=0.01,
         )

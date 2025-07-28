@@ -748,18 +748,17 @@ logging.info("GNSS acceleration estimated in NED frame.")
 logging.info("Subtask 4.9: Loading IMU data and correcting for bias for each method.")
 try:
     imu_data = pd.read_csv("IMU_X001.dat", sep="\s+", header=None)
-    dt_ilu = 1.0 / 400.0  # 400 Hz sampling rate, dt = 0.0025 s
     imu_time = (
-        np.arange(len(imu_data)) * dt_ilu + gnss_time[0]
+        np.arange(len(imu_data)) * dt_imu + gnss_time[0]
     )  # Align with GNSS start time
 
     # Convert velocity increments to acceleration (m/s²)
-    # Columns 5,6,7 are velocity increments (m/s) over dt_ilu
-    acc_body = imu_data[[5, 6, 7]].values / dt_ilu  # acc_body = delta_v / dt_ilu
+    # Columns 5,6,7 are velocity increments (m/s) over dt_imu
+    acc_body = imu_data[[5, 6, 7]].values / dt_imu  # acc_body = delta_v / dt_imu
 
     # Convert angular increments to angular rates (rad/s)
-    # Columns 2,3,4 are angular increments (rad) over dt_ilu
-    gyro_body = imu_data[[2, 3, 4]].values / dt_ilu  # gyro_body = delta_theta / dt_ilu
+    # Columns 2,3,4 are angular increments (rad) over dt_imu
+    gyro_body = imu_data[[2, 3, 4]].values / dt_imu  # gyro_body = delta_theta / dt_imu
 
     N_static = 4000
     if len(imu_data) < N_static:
@@ -1123,9 +1122,8 @@ gnss_acc_ecef[1:] = (gnss_vel_ecef[1:] - gnss_vel_ecef[:-1]) / dt[1:, np.newaxis
 gnss_acc_ned = np.array([C_ECEF_to_NED @ a for a in gnss_acc_ecef])
 
 # Load IMU data
-dt_ilu = 1.0 / 400.0
-imu_time = np.arange(len(imu_data)) * dt_ilu + gnss_time[0]
-acc_body = imu_data[[5, 6, 7]].values / dt_ilu
+imu_time = np.arange(len(imu_data)) * dt_imu + gnss_time[0]
+acc_body = imu_data[[5, 6, 7]].values / dt_imu
 N_static = 4000
 if len(imu_data) < N_static:
     raise ValueError("Insufficient static samples.")
