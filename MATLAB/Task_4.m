@@ -120,8 +120,8 @@ fprintf('Loaded rotation matrix for %s.\n', method);
 % ------------------------------------------------------------------
 fprintf('Subtask 4.3: Loading GNSS data.\n');
 
-gnss = readtable(gnss_file);
-fprintf('Subtask 4.4: GNSS data shape: %d x %d\n', size(gnss,1), width(gnss));
+gnss = read_csv_table(gnss_file);
+fprintf('Subtask 4.4: GNSS data shape: %d x %d\n', size(gnss.X_ECEF_m,1), length(gnss.Properties.VariableNames));
 
 if ~isempty(r0_init)
     r0 = r0_init;
@@ -141,13 +141,13 @@ fprintf('Subtask 4.7: Converted GNSS to NED: first=[%.2f,%.2f,%.2f], last=[%.2f,
 gnss_time = gnss.Posix_Time;
 dt_gnss = mean(diff(gnss_time));
 acc_ned = diff(vel_ned,1,2) / dt_gnss;
-fprintf('Subtask 4.8: GNSS accel RMS = %.4f m/s^2\n', rms(acc_ned(:)) );
+fprintf('Subtask 4.8: GNSS accel RMS = %.4f m/s^2\n', sqrt(mean(acc_ned(:).^2)) );
 
 % ------------------------------------------------------------------
 % Subtask 4.9: Load IMU data and correct
 % ------------------------------------------------------------------
 fprintf('Subtask 4.9: Loading IMU data.\n');
-imu_raw = readmatrix(imu_file);
+imu_raw = dlmread(imu_file);
 dt = mean(diff(imu_raw(1:100,2)));
 accel_raw = imu_raw(:,6:8) / dt;
 gyro_raw  = imu_raw(:,3:5) / dt;

@@ -39,7 +39,7 @@ if ~exist(results_dir,'dir')
 end
 
 % Print dataset and method like the Python script
-fprintf('%s %s_%s\n', char(hex2dec('25B6')), dataset_tag, method); % triangle symbol
+fprintf('▶ %s_%s\n', dataset_tag, method); % triangle symbol
 fprintf('Ensured results directory %s exists.\n', results_dir);
 if ~isempty(method)
     fprintf('Running attitude-estimation method: %s\n', method);
@@ -60,9 +60,9 @@ fprintf('TASK 1%s: Define reference vectors in NED frame\n', log_tag);
 % ================================
 fprintf('\nSubtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.\n');
 
-% Load GNSS data using readtable
+% Load GNSS data using read_csv_table (Octave compatible)
 try
-    gnss_data = readtable(gnss_path);
+    gnss_data = read_csv_table(gnss_path);
 catch e
     error('Failed to load GNSS data file: %s\n%s', gnss_path, e.message);
 end
@@ -71,7 +71,10 @@ end
 disp('GNSS data columns:');
 disp(gnss_data.Properties.VariableNames');
 disp('First few rows of ECEF coordinates:');
-disp(head(gnss_data(:, {'X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m'})));
+disp('     X_ECEF_m     Y_ECEF_m      Z_ECEF_m');
+for i = 1:min(5, length(gnss_data.X_ECEF_m))
+    fprintf('%e %e %e\n', gnss_data.X_ECEF_m(i), gnss_data.Y_ECEF_m(i), gnss_data.Z_ECEF_m(i));
+end
 
 % Find the first row with non-zero ECEF coordinates
 valid_idx = find((gnss_data.X_ECEF_m ~= 0) | ...
@@ -79,10 +82,9 @@ valid_idx = find((gnss_data.X_ECEF_m ~= 0) | ...
                  (gnss_data.Z_ECEF_m ~= 0), 1, 'first');
 
 if ~isempty(valid_idx)
-    initial_row = gnss_data(valid_idx, :);
-    x_ecef = initial_row.X_ECEF_m;
-    y_ecef = initial_row.Y_ECEF_m;
-    z_ecef = initial_row.Z_ECEF_m;
+    x_ecef = gnss_data.X_ECEF_m(valid_idx);
+    y_ecef = gnss_data.Y_ECEF_m(valid_idx);
+    z_ecef = gnss_data.Z_ECEF_m(valid_idx);
 
     % Store the first valid ECEF position for downstream tasks
     ref_r0 = [x_ecef; y_ecef; z_ecef];

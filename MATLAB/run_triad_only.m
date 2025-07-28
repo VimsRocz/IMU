@@ -37,7 +37,7 @@ results_dir = get_results_dir();
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 
 % Mirror the initial console output from ``run_triad_only.py``
-fprintf('%s %s_%s_%s\n', char(hex2dec('25B6')), imu_name, gnss_name, method);
+fprintf('▶ %s_%s_%s\n', imu_name, gnss_name, method);
 fprintf('Ensured ''%s'' directory exists.\n', results_dir);
 start_t = tic; % measure runtime similar to the Python helper
 

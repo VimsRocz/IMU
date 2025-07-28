@@ -1,0 +1,61 @@
+# Created by Octave 8.4.0, Mon Jul 28 10:45:56 2025 UTC <runner@pkrvmpptgkbjq6m>
+# name: g_body
+# type: matrix
+# rows: 3
+# columns: 1
+ -9.5225881410650963
+ 2.7481286554116427e-05
+ 2.2907640153019426
+
+
+# name: g_body_scaled
+# type: matrix
+# rows: 3
+# columns: 1
+ -9.5225881410650963
+ 2.7481286554116427e-05
+ 2.2907640153019426
+
+
+# name: omega_ie_body
+# type: matrix
+# rows: 3
+# columns: 1
+ -2.3229988014290632e-05
+ -2.8021181701420757e-06
+ 6.9000739765505794e-05
+
+
+# name: accel_bias
+# type: matrix
+# rows: 3
+# columns: 1
+ 0.57757294999999997
+ -6.8367127400000003
+ 0.91029002999999997
+
+
+# name: gyro_bias
+# type: matrix
+# rows: 3
+# columns: 1
+ -2.3229988014290632e-05
+ -2.8021181701420757e-06
+ 6.9000739765505794e-05
+
+
+# name: static_start
+# type: scalar
+297
+
+
+# name: static_end
+# type: scalar
+479908
+
+
+# name: scale_factor
+# type: scalar
+0.99999337573983327
+
+
