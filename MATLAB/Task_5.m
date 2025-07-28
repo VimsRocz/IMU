@@ -144,10 +144,19 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
         g_body = -mean(acc_body_raw(1:N_static,:),1)';
         omega_ie_body = mean(gyro_body_raw(1:N_static,:),1)';
     end
-    % Load scale factor from Task 4 results when available
-    scale_factor = 1.0;
+    % Load accelerometer scale factor estimated in Task 4. The value may
+    % already be present in the ``task4_results`` workspace variable when
+    % running the tasks sequentially.  Otherwise load it from the saved
+    % MAT-file.  If neither source is available, fall back to a neutral
+    % scale factor of 1.0 so processing can continue.
+    scale_factor = 1.0;                     % Default when no prior value found
     task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-    if isfile(task4_file)
+    if evalin('base','exist(''task4_results'',''var'')')
+        t4 = evalin('base','task4_results');
+        if isfield(t4,'scale_factors') && isfield(t4.scale_factors, method)
+            scale_factor = t4.scale_factors.(method);
+        end
+    elseif isfile(task4_file)
         d4 = load(task4_file, 'scale_factors');
         if isfield(d4, 'scale_factors') && isfield(d4.scale_factors, method)
             scale_factor = d4.scale_factors.(method);
