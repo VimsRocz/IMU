@@ -931,9 +931,9 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
 % Persist the ``results`` struct for later analysis
 if isfile(perf_file)
-    save(perf_file, '-struct', 'results', '-append');
+    save(perf_file, '-append', 'results');
 else
-    save(perf_file, '-struct', 'results');
+    save(perf_file, 'results');
 end
 summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt'); fid_sum = fopen(summary_file, 'a'); fprintf(fid_sum, '%s\n', summary_line); fclose(fid_sum);
 % Store the fused state using the standard naming scheme
