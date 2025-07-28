@@ -302,8 +302,11 @@ The overlay is executed automatically when running `src/run_all_methods.py` but 
 
 ```bash
 python src/task6_plot_truth.py --est-file results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat \
-    --truth-file STATE_X001.txt --output results
+    --output results
 ```
+The script now attempts to locate `STATE_X001.txt` automatically based on the
+dataset identifier in `--est-file`. Pass `--truth-file` only when the file lives
+outside the repository root or has a different name.
 
 Passing `--show-measurements` adds the raw IMU and GNSS curves.  The resulting
  figures are written as ``results/<tag>_task6_overlay_state_<frame>.pdf`` and ``.png`` files (both formats are saved).
@@ -346,9 +349,10 @@ python src/run_all_methods.py --task 7
 * The helper script `src/task7_plot_error_fused_vs_truth.py` produces
   `task7_fused_vs_truth_error.pdf` showing the fused minus truth velocity error.
 * The script `task7_ecef_residuals_plot.py` plots ECEF frame residuals and
-  writes figures to ``results/``:
+  writes figures to ``results/``.  The truth file is inferred from `--dataset`
+  when not supplied:
   `python task7_ecef_residuals_plot.py --est-file <fused.npz> --imu-file <IMU.dat> \
-  --gnss-file <GNSS.csv> --truth-file <STATE_X.txt> --dataset <tag>`
+  --gnss-file <GNSS.csv> --dataset <tag>`
 * Subtask 7.5 generates `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf` for
   NED, ECEF and Body frames with the component-wise difference between truth and fused trajectories.
 

@@ -344,39 +344,49 @@ def main(argv=None):
             # ----------------------------
             # Task 6: Truth overlay plots
             # ----------------------------
-            truth_file = ROOT / "STATE_X001.txt"
-            if truth_file.exists():
-                overlay_cmd = [
-                    sys.executable,
-                    str(HERE / "task6_plot_truth.py"),
-                    "--est-file",
-                    str(npz_path.with_suffix(".mat")),
-                    "--imu-file",
-                    str(imu_path),
-                    "--gnss-file",
-                    str(gnss_path),
-                    "--truth-file",
-                    str(truth_file.resolve()),
-                    "--output",
-                    "results",
-                ]
-                if args.show_measurements:
-                    overlay_cmd.append("--show-measurements")
-                with open(log_path, "a") as log:
-                    log.write("\nTASK 6: Overlay fused output with truth\n")
-                    msg = "Starting Task 6 overlay ..."
-                    logger.info(msg)
-                    log.write(msg + "\n")
-                    proc = subprocess.Popen(
-                        overlay_cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                    )
-                    for line in proc.stdout:
-                        print(line, end="")
-                        log.write(line)
-                    proc.wait()
+            truth_file = None
+            m_ds = re.search(r"IMU_(X\d+)", imu_path.stem)
+            if m_ds:
+                ds_id = m_ds.group(1)
+                for cand in [
+                    ROOT / f"STATE_{ds_id}.txt",
+                    ROOT / f"STATE_{ds_id}_small.txt",
+                ]:
+                    if cand.is_file():
+                        truth_file = cand
+                        break
+
+            overlay_cmd = [
+                sys.executable,
+                str(HERE / "task6_plot_truth.py"),
+                "--est-file",
+                str(npz_path.with_suffix(".mat")),
+                "--imu-file",
+                str(imu_path),
+                "--gnss-file",
+                str(gnss_path),
+                "--output",
+                "results",
+            ]
+            if truth_file is not None:
+                overlay_cmd.extend(["--truth-file", str(truth_file.resolve())])
+            if args.show_measurements:
+                overlay_cmd.append("--show-measurements")
+            with open(log_path, "a") as log:
+                log.write("\nTASK 6: Overlay fused output with truth\n")
+                msg = "Starting Task 6 overlay ..."
+                logger.info(msg)
+                log.write(msg + "\n")
+                proc = subprocess.Popen(
+                    overlay_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+                for line in proc.stdout:
+                    print(line, end="")
+                    log.write(line)
+                proc.wait()
 
             # ----------------------------
             # Task 7: Evaluation

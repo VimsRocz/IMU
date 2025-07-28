@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 
 from validate_with_truth import load_estimate, assemble_frames
 from naming import make_tag, plot_filename
+import re
 
 
 def compute_residuals(
@@ -119,15 +120,39 @@ def main() -> None:
     ap.add_argument(
         "--gnss-file", required=True, help="raw GNSS file used for the estimate"
     )
-    ap.add_argument("--truth-file", required=True, help="ground truth STATE_X file")
+    ap.add_argument(
+        "--truth-file",
+        help=(
+            "ground truth STATE_X file. If omitted the script attempts to infer"
+            " the correct file from --dataset"
+        ),
+    )
     ap.add_argument("--dataset", required=True, help="IMU dataset file")
     ap.add_argument("--gnss", required=True, help="GNSS dataset file")
     ap.add_argument("--method", required=True, help="initialisation method")
     ap.add_argument("--output-dir", default="results", help="directory for plots")
     args = ap.parse_args()
 
+    truth_file = args.truth_file
+    if truth_file is None:
+        m = re.search(r"X(\d+)", Path(args.dataset).stem)
+        if m:
+            dataset_id = m.group(1)
+            candidates = [
+                Path(f"STATE_X{dataset_id}.txt"),
+                Path(f"STATE_X{dataset_id}_small.txt"),
+            ]
+            for cand in candidates:
+                if cand.is_file():
+                    truth_file = str(cand)
+                    break
+    if truth_file is None:
+        raise FileNotFoundError(
+            "Truth file not specified and could not be inferred from --dataset"
+        )
+
     est = load_estimate(args.est_file)
-    frames = assemble_frames(est, args.imu_file, args.gnss_file, args.truth_file)
+    frames = assemble_frames(est, args.imu_file, args.gnss_file, truth_file)
     try:
         t_est, pos_est, vel_est, _ = frames["ECEF"]["fused"]
         _, pos_truth, vel_truth, _ = frames["ECEF"]["truth"]
@@ -141,7 +166,6 @@ def main() -> None:
         t_rel, pos_est, vel_est, pos_truth, vel_truth
     )
 
-    tag = make_tag(args.dataset, args.gnss, args.method)
     out_dir = Path(args.output_dir)
     plot_residuals(
         t_rel,
