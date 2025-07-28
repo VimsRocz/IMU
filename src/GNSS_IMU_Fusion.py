@@ -37,6 +37,7 @@ from utils import (
     ecef_to_geodetic,
 )
 from constants import GRAVITY, EARTH_RATE
+from .compute_biases import compute_biases
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
 from .gnss_imu_fusion.init_vectors import (
@@ -800,8 +801,12 @@ def main():
                 f"Insufficient static samples for bias estimation; require at least {MIN_STATIC_SAMPLES}."
             )
 
-        static_acc = np.mean(acc_body[start_idx:end_idx], axis=0)
-        static_gyro = np.mean(gyro_body[start_idx:end_idx], axis=0)
+        static_acc, static_gyro = compute_biases(
+            acc_body,
+            gyro_body,
+            start_idx,
+            end_idx,
+        )
 
         dataset_bias_map = {
             "IMU_X001.dat": np.array([0.57755067, -6.8366253, 0.91021879]),
