@@ -928,10 +928,11 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
 if isfile(perf_file); save(perf_file, '-append', 'results_dir'); else; save(perf_file, 'results_dir'); end
 summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt'); fid_sum = fopen(summary_file, 'a'); fprintf(fid_sum, '%s\n', summary_line); fclose(fid_sum);
-results_file = fullfile(results_dir, sprintf('Task5_results_%s.mat', pair_tag));
+% Store the fused state using the standard naming scheme
+results_file = fullfile(results_dir, sprintf('%s_task5_results.mat', tag));
 save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
     'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log');
-method_file = fullfile(results_dir, [tag '_task5_results.mat']);
+method_file = results_file;
 save(method_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
     'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log');
 

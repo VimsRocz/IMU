@@ -68,7 +68,7 @@ Task_1(imu, gnss, 'TRIAD');   % -> results/Task1_init_IMU_X001_GNSS_X001_TRIAD.m
 Task_2(imu, gnss, 'TRIAD');   % -> results/Task2_body_IMU_X001_GNSS_X001_TRIAD.mat
 Task_3(imu, gnss, 'TRIAD');   % uses Task1/2 output, writes results/Task3_results_IMU_X001_GNSS_X001.mat
 Task_4(imu, gnss, 'TRIAD');   % uses Task3 results, writes results/Task4_results_IMU_X001_GNSS_X001.mat
-Task_5(imu, gnss, 'TRIAD');   % uses Task4 results, writes results/Task5_results_IMU_X001_GNSS_X001.mat
+Task_5(imu, gnss, 'TRIAD');   % uses Task4 results, writes results/IMU_X001_GNSS_X001_TRIAD_task5_results.mat
 ```
 
 ### MATLAB-only pipeline
