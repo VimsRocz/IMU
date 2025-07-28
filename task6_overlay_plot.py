@@ -198,25 +198,30 @@ def plot_overlay(
     labels = ["X", "Y", "Z"] if frame == "ECEF" else ["N", "E", "D"]
     colors = ["#377eb8", "#e41a1c", "#4daf4a"]  # colorblind friendly
 
-    fig, axes = plt.subplots(3, 1, figsize=(12, 12), sharex=True)
-    for ax, est, truth, ylab in zip(
-        axes,
-        (pos_est, vel_est, acc_est),
-        (pos_truth, vel_truth, acc_truth),
-        ("Position [m]", "Velocity [m/s]", "Acceleration [m/s$^2$]"),
-    ):
-        for i in range(3):
-            ax.plot(t_est, est[:, i], color=colors[i], label=f"Fused {labels[i]}")
-            ax.plot(t_est, truth[:, i], "--", color=colors[i], label=f"Truth {labels[i]}")
-        ax.set_ylabel(ylab)
-        ax.grid(True, alpha=0.3)
-    axes[-1].set_xlabel("Time [s]")
-    axes[0].set_title(f"{dataset} Task 6 Overlay — {method} ({frame} frame)")
-    axes[0].legend(loc="upper right", ncol=3, fontsize=9, frameon=True)
-    for ax in axes[1:]:
-        ax.legend().set_visible(False)
+    fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
 
-    fig.tight_layout()
+    datasets = [
+        (pos_est, pos_truth, "Position [m]"),
+        (vel_est, vel_truth, "Velocity [m/s]"),
+        (acc_est, acc_truth, "Acceleration [m/s$^2$]"),
+    ]
+
+    for row, (est, truth, ylab) in enumerate(datasets):
+        for col in range(3):
+            ax = axes[row, col]
+            ax.plot(t_est, est[:, col], color=colors[col], label=f"Fused {labels[col]}")
+            ax.plot(t_est, truth[:, col], "--", color=colors[col], label=f"Truth {labels[col]}")
+            ax.set_ylabel(ylab if col == 0 else "")
+            ax.grid(True, alpha=0.3)
+            if row == 0:
+                ax.set_title(labels[col])
+            if row == 2:
+                ax.set_xlabel("Time [s]")
+
+    axes[0, 0].legend(loc="upper right", ncol=3, fontsize=9, frameon=True)
+
+    fig.suptitle(f"{dataset} Task 6 Overlay — {method} ({frame} frame)")
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
     run_id = f"{dataset}_{method}"
     out_dir.mkdir(parents=True, exist_ok=True)
     pdf_path = out_dir / f"{run_id}_task6_overlay_state_{frame}.pdf"
