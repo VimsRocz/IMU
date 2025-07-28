@@ -39,6 +39,8 @@ Task_1(imu_path, gnss_path, method);
 Task_2(imu_path, gnss_path, method);
 Task_3(imu_path, gnss_path, method);
 Task_4(imu_path, gnss_path, method);
+% Task_5 accepts the file paths for compatibility but ignores them in the
+% current simplified implementation.
 Task_5(imu_path, gnss_path, method);
 % Demonstration: run simplified Kalman filter loop and save ``x_log`` only
 % This mirrors the Python stub ``task5_kf_state_log.py`` and shows how to
