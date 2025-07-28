@@ -36,6 +36,11 @@ run_id = sprintf('%s_%s', dataset_tag, method); % used by Tasks 6 and 7
 results_dir = get_results_dir();
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 
+% Mirror the initial console output from ``run_triad_only.py``
+fprintf('%s %s_%s_%s\n', char(hex2dec('25B6')), imu_name, gnss_name, method);
+fprintf('Ensured ''%s'' directory exists.\n', results_dir);
+start_t = tic; % measure runtime similar to the Python helper
+
 % ------------------------------------------------------------------
 % Execute Tasks 1--5 sequentially using the TRIAD initialisation
 % ------------------------------------------------------------------
@@ -68,3 +73,7 @@ if isfile(task5_file) && isfile(truth_file)
 else
     warning('Task 6 or Task 7 skipped: Missing Task 5 results or truth file.');
 end
+
+elapsed_s = toc(start_t);
+fprintf('Runtime %.2f s\n', elapsed_s);
+disp('TRIAD processing complete for X002');
