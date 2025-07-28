@@ -31,6 +31,7 @@ gnss_path = fullfile(root_dir, gnss_file);
 [~, imu_name, ~]  = fileparts(imu_file);
 [~, gnss_name, ~] = fileparts(gnss_file);
 dataset_tag = sprintf('%s_%s', imu_name, gnss_name);
+run_id = sprintf('%s_%s', dataset_tag, method); % used by Tasks 6 and 7
 
 results_dir = get_results_dir();
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
@@ -58,7 +59,6 @@ truth_file = fullfile(root_dir, 'STATE_X001.txt');
 if isfile(task5_file) && isfile(truth_file)
     disp('--- Running Task 6: Truth Overlay/Validation ---');
     Task_6(dataset_tag, method);
-    run_id = sprintf('%s_%s', dataset_tag, method);
     out_dir = fullfile(results_dir, run_id);
     fprintf('Task 6 overlay plots saved under: %s\n', out_dir);
     disp('--- Running Task 7: Residuals & Summary ---');
