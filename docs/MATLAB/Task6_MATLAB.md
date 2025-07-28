@@ -9,7 +9,8 @@ legend names described in [PlottingChecklist](../PlottingChecklist.md).
 The script loads `<IMU>_<GNSS>_<METHOD>_kf_output.mat` along with the
 corresponding `STATE_X*.txt` file. All IMU, GNSS and truth samples are
 interpolated to the estimator time vector before being passed to `plot_overlay`
-for the NED, ECEF and body frames.
+for the NED, ECEF and body frames.  The resulting 3×3 figures mirror the Task 5
+layout but overlay the truth trajectory instead of the GNSS series.
 
 ```text
 Task 5 output
