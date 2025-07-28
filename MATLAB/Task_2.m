@@ -55,10 +55,13 @@ function body_data = Task_2(imu_path, gnss_path, method)
     acc_filt  = low_pass_filter(accel, 10, fs);
     gyro_filt = low_pass_filter(gyro, 10, fs);
 
-    [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt);
+    [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt, ...
+        80, 0.01, 1e-6);
     fprintf('Task 2: static interval = [%d..%d]\n', static_start, static_end);
     [acc_bias, gyro_bias] = compute_biases(acc_filt, gyro_filt, ...
                                            static_start, static_end);
+    fprintf('Task 2: accel_bias = [% .6f % .6f % .6f] m/s^2\n', acc_bias);
+    fprintf('Task 2: gyro_bias  = [% .6f % .6f % .6f] rad/s\n', gyro_bias);
 
     validate_gravity_vector(acc_filt, static_start, static_end);
 

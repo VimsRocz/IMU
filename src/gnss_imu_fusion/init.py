@@ -128,6 +128,13 @@ def measure_body_vectors(
     )
     static_acc = np.mean(acc[static_start:static_end], axis=0)
     static_gyro = np.mean(gyro[static_start:static_end], axis=0)
+    accel_bias = static_acc.copy()
+    gyro_bias = static_gyro.copy()
+    logging.info(
+        "Task 2 biases: accel_bias=%s, gyro_bias=%s",
+        np.array2string(accel_bias, precision=6),
+        np.array2string(gyro_bias, precision=6),
+    )
 
     # --- Compute ratio of static to total samples and log duration
     n_static = static_end - static_start
@@ -159,7 +166,9 @@ def measure_body_vectors(
         np.array2string(omega_ie_body, precision=4),
     )
     print(
-        f"Task 2: static interval = {static_start}:{static_end}, g_body = {g_body}, omega_ie_body = {omega_ie_body}"
+        f"Task 2: static interval = {static_start}:{static_end}, "
+        f"accel_bias = {accel_bias}, gyro_bias = {gyro_bias}, "
+        f"g_body = {g_body}, omega_ie_body = {omega_ie_body}"
     )
 
     mag_body = None
