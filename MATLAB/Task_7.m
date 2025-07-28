@@ -1,56 +1,64 @@
 function Task_7()
-%TASK_7  Residual analysis for the TRIAD fused solution.
-%   TASK_7() loads ``x_log`` from Task 5 and the GNSS NED truth data from
-%   Task 4 for dataset X002. Position and velocity residuals are computed
-%   after downsampling the estimator output to match the 1 Hz GNSS rate.
-%   Statistics are printed to the command window and residual plots are
-%   displayed interactively. Figures and MAT files are saved under the
-%   ``results`` directory. This mirrors ``task7_ned_residuals_plot.py``.
+%TASK_7 Residual analysis against STATE\_X001.txt in the ECEF frame.
+%   TASK_7() loads the fused state history ``x_log`` saved by Task 5 and
+%   the ground truth trajectory ``STATE_X001.txt``.  The estimator NED
+%   states are converted to the ECEF frame using the reference latitude and
+%   longitude from Task 5.  Residuals in position and velocity are
+%   computed after interpolating the estimator output to the truth time
+%   vector.  Summary statistics are printed and residual plots are shown
+%   interactively.  Results are written to the ``results`` directory.
 
-    fprintf('--- Starting Task 7: Residual Analysis for IMU_X002_GNSS_X002_TRIAD ---\n');
+    fprintf('--- Starting Task 7: Residual Analysis with STATE_X001.txt (ECEF) ---\n');
 
+    %% Load state history from Task 5
     results_dir = get_results_dir();
-    results_file = fullfile(results_dir, 'IMU_X002_GNSS_X002_TRIAD_task5_results.mat');
+    res_file = fullfile(results_dir, 'IMU_X002_GNSS_X002_TRIAD_task5_results.mat');
     try
-        load(results_file, 'x_log');
-        fprintf('Task 7: Loaded x_log from %s, size: %dx%d\n', results_file, size(x_log));
-    catch
-        error('Task 7: Failed to load x_log from %s. Ensure Task 5 saved it correctly.', results_file);
+        S = load(res_file, 'x_log', 'time', 'ref_lat', 'ref_lon', 'ref_r0');
+        x_log  = S.x_log;
+        t_est  = S.time(:);
+        ref_lat = S.ref_lat;
+        ref_lon = S.ref_lon;
+        ref_r0  = S.ref_r0;
+        fprintf('Task 7: Loaded x_log from %s, size: %dx%d\n', res_file, size(x_log));
+    catch ME
+        error('Task 7: Failed to load x_log from %s. %s', res_file, ME.message);
     end
 
-    truth_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
+    %% Load ground truth STATE_X001.txt
+    root_dir = fileparts(fileparts(mfilename('fullpath')));
+    truth_path = fullfile(root_dir, 'STATE_X001.txt');
     try
-        load(truth_file, 'gnss_pos_ned');
-        fprintf('Task 7: Loaded GNSS truth positions from %s, size: %dx%d\n', truth_file, size(gnss_pos_ned));
-    catch
-        error('Task 7: Failed to load GNSS truth data from %s.', truth_file);
+        truth_data = read_state_file(truth_path);
+        fprintf('Task 7: Loaded truth data from %s, size: %dx%d\n', truth_path, size(truth_data));
+    catch ME
+        error('Task 7: Failed to load truth data from %s. %s', truth_path, ME.message);
     end
 
-    fprintf('Task 7: Extracting position and velocity estimates from x_log...\n');
-    pos_est = x_log(1:3, :);  % NED position [North, East, Down]
-    vel_est = x_log(4:6, :);  % NED velocity [North, East, Down]
-    pos_ned_gnss = gnss_pos_ned';
+    %% Extract truth position and velocity
+    t_truth = truth_data(:,2);
+    pos_truth_ecef = truth_data(:,3:5)';
+    vel_truth_ecef = truth_data(:,6:8)';
 
-    dt = 1;  % GNSS sample interval (seconds)
-    vel_ned_gnss = diff(gnss_pos_ned) / dt;
-    vel_ned_gnss = [vel_ned_gnss; vel_ned_gnss(end,:)]';
-    fprintf('Task 7: Computed GNSS velocity, size: %dx%d\n', size(vel_ned_gnss));
+    %% Convert estimates from NED to ECEF
+    C_n_e = compute_C_ECEF_to_NED(ref_lat, ref_lon)';
+    fprintf('Task 7: Extracting and converting estimates to ECEF...\n');
+    pos_est_ned = x_log(1:3, :);
+    vel_est_ned = x_log(4:6, :);
+    pos_est_ecef = C_n_e * pos_est_ned + ref_r0;
+    vel_est_ecef = C_n_e * vel_est_ned;
 
-    downsample_factor = 400;  % 500000 IMU samples / 1250 GNSS samples
-    time_indices = 1:downsample_factor:500000;
-    pos_est = pos_est(:, time_indices);
-    vel_est = vel_est(:, time_indices);
-    fprintf('Task 7: Downsampled estimates to %d samples (factor: %d)\n', length(time_indices), downsample_factor);
+    %% Interpolate estimator output to truth timestamps
+    pos_est_i = interp1(t_est, pos_est_ecef', t_truth, 'linear', 'extrap')';
+    vel_est_i = interp1(t_est, vel_est_ecef', t_truth, 'linear', 'extrap')';
+    fprintf('Task 7: Interpolated estimates to %d truth samples\n', numel(t_truth));
 
-    if size(pos_ned_gnss, 2) ~= length(time_indices)
-        error('Task 7: Data length mismatch. Truth: %d, Estimated: %d.', size(pos_ned_gnss, 2), length(time_indices));
-    end
-    fprintf('Task 7: Validated data lengths: %d samples\n', length(time_indices));
-
+    %% Compute residuals
     fprintf('Task 7: Computing residuals...\n');
-    pos_residuals = pos_est - pos_ned_gnss;
-    vel_residuals = vel_est - vel_ned_gnss;
+    pos_residuals = pos_est_i - pos_truth_ecef;
+    vel_residuals = vel_est_i - vel_truth_ecef;
 
+    %% Residual statistics
     pos_res_mean = mean(pos_residuals, 2);
     pos_res_std  = std(pos_residuals, 0, 2);
     vel_res_mean = mean(vel_residuals, 2);
@@ -60,44 +68,47 @@ function Task_7()
     fprintf('Velocity residual mean [m/s]: [%.8f %.8f %.8f]\n', vel_res_mean(1), vel_res_mean(2), vel_res_mean(3));
     fprintf('Velocity residual std  [m/s]: [%.8f %.8f %.8f]\n', vel_res_std(1), vel_res_std(2), vel_res_std(3));
 
-    fprintf('Final fused_vel_ned: [%.8f %.8f %.8f]\n', vel_est(1,end), vel_est(2,end), vel_est(3,end));
-    fprintf('Final truth_vel_ned: [%.8f %.8f %.8f]\n', vel_ned_gnss(1,end), vel_ned_gnss(2,end), vel_ned_gnss(3,end));
+    fprintf('Final fused_vel_ecef: [%.8f %.8f %.8f]\n', vel_est_i(1,end), vel_est_i(2,end), vel_est_i(3,end));
+    fprintf('Final truth_vel_ecef: [%.8f %.8f %.8f]\n', vel_truth_ecef(1,end), vel_truth_ecef(2,end), vel_truth_ecef(3,end));
 
-    fprintf('Task 7: Generating and displaying residual plots...\n');
-    fig = figure('Name', 'Task 7 - Residuals', 'Visible', 'on');
+    %% Plot residuals
+    fprintf('Task 7: Generating and displaying ECEF residual plots...\n');
+    fig = figure('Name', 'Task 7 - ECEF Residuals', 'Visible', 'on');
     subplot(2,1,1);
-    plot(time_indices, pos_residuals(1,:), 'b', 'DisplayName', 'North'); hold on;
-    plot(time_indices, pos_residuals(2,:), 'g', 'DisplayName', 'East');
-    plot(time_indices, pos_residuals(3,:), 'k', 'DisplayName', 'Down');
-    title('Position Residuals (NED)'); xlabel('Time Step'); ylabel('Residual (m)');
-    legend('Location', 'best'); grid on; hold off;
+    plot(t_truth, pos_residuals(1,:), 'b', 'DisplayName','X'); hold on;
+    plot(t_truth, pos_residuals(2,:), 'g', 'DisplayName','Y');
+    plot(t_truth, pos_residuals(3,:), 'k', 'DisplayName','Z');
+    title('Position Residuals (ECEF)'); xlabel('Time [s]'); ylabel('Residual (m)');
+    legend('Location','best'); grid on; hold off;
 
     subplot(2,1,2);
-    plot(time_indices, vel_residuals(1,:), 'b', 'DisplayName', 'North'); hold on;
-    plot(time_indices, vel_residuals(2,:), 'g', 'DisplayName', 'East');
-    plot(time_indices, vel_residuals(3,:), 'k', 'DisplayName', 'Down');
-    title('Velocity Residuals (NED)'); xlabel('Time Step'); ylabel('Residual (m/s)');
-    legend('Location', 'best'); grid on; hold off;
+    plot(t_truth, vel_residuals(1,:), 'b', 'DisplayName','VX'); hold on;
+    plot(t_truth, vel_residuals(2,:), 'g', 'DisplayName','VY');
+    plot(t_truth, vel_residuals(3,:), 'k', 'DisplayName','VZ');
+    title('Velocity Residuals (ECEF)'); xlabel('Time [s]'); ylabel('Residual (m/s)');
+    legend('Location','best'); grid on; hold off;
 
-    out_pdf = fullfile(results_dir, 'IMU_X002_GNSS_X002_TRIAD_task7_3_residuals_position_velocity.pdf');
+    out_pdf = fullfile(results_dir, 'IMU_X002_GNSS_X002_TRIAD_task7_3_residuals_position_velocity_ecef.pdf');
     saveas(fig, out_pdf);
     fprintf('Task 7: Saved residual plot: %s\n', out_pdf);
 
+    %% Difference ranges
     fprintf('Task 7: Computing difference ranges...\n');
-    directions = {'North', 'East', 'Down'};
-    for i = 1:3
+    directions = {'X','Y','Z'};
+    for i=1:3
         pos_range = [min(pos_residuals(i,:)) max(pos_residuals(i,:))];
         vel_range = [min(vel_residuals(i,:)) max(vel_residuals(i,:))];
         pos_exceed = sum(abs(pos_residuals(i,:)) > 1);
         vel_exceed = sum(abs(vel_residuals(i,:)) > 1);
-        fprintf('NED %s position diff range: %.2f m to %.2f m. %d samples exceed 1.0 m\n', ...
+        fprintf('ECEF %s position diff range: %.2f m to %.2f m. %d samples exceed 1.0 m\n', ...
             directions{i}, pos_range(1), pos_range(2), pos_exceed);
-        fprintf('NED %s velocity diff range: %.2f m/s to %.2f m/s. %d samples exceed 1.0 m/s\n', ...
+        fprintf('ECEF %s velocity diff range: %.2f m/s to %.2f m/s. %d samples exceed 1.0 m/s\n', ...
             directions{i}, vel_range(1), vel_range(2), vel_exceed);
     end
 
+    %% Save results
     results_out = fullfile(results_dir, 'IMU_X002_GNSS_X002_TRIAD_task7_results.mat');
-    save(results_out, 'pos_residuals', 'vel_residuals', 'pos_ned_gnss', 'vel_ned_gnss');
+    save(results_out, 'pos_residuals', 'vel_residuals', 'pos_est_i', 'vel_est_i');
     fprintf('Task 7: Results saved to %s\n', results_out);
     fprintf('Task 7: Completed successfully\n');
 end
