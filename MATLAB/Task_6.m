@@ -53,6 +53,17 @@ if ~isfield(S, 'x_log')
         return
     end
 end
+fprintf('Task 6: Loaded x_log, size: %dx%d\n', size(S.x_log));
+
+% Load GNSS truth data from Task 4
+truth4_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
+try
+    load(truth4_file, 'gnss_ned_pos');
+    fprintf('Task 6: Loaded GNSS truth positions from %s, size: %dx%d\n', ...
+        truth4_file, size(gnss_ned_pos));
+catch
+    error('Task 6: Failed to load GNSS truth data from %s.', truth4_file);
+end
 
 % Determine method from filename or structure.  The Task 5 results are
 % named either ``<IMU>_<GNSS>_<METHOD>_task5_results.mat`` or
@@ -186,18 +197,33 @@ pos_ned = centre(pos_ned_raw .* sign_ned);
 vel_ned = vel_ned_raw .* sign_ned;
 acc_ned = [zeros(1,3); diff(vel_ned)./diff(t_est)];
 
+% Downsample fused estimates to GNSS sample count
+num_samples = size(S.x_log, 2);
+n_gnss = size(gnss_ned_pos, 1);
+downsample_factor = floor(num_samples / n_gnss);
+time_idx = 1:downsample_factor:num_samples;
+t_ds = t_est(time_idx);
+pos_est_ds = S.x_log(1:3, time_idx);
+vel_est_ds = S.x_log(4:6, time_idx);
+pos_truth_ds = gnss_ned_pos';
+fprintf('Task 6: Downsampled estimates to %d samples (factor: %d)\n', numel(time_idx), downsample_factor);
+if size(pos_truth_ds,2) ~= numel(time_idx)
+    error('Task 6: Data length mismatch. Truth: %d, Estimated: %d. Adjust downsampling.', size(pos_truth_ds,2), numel(time_idx));
+end
+fprintf('Task 6: Validated data lengths: %d samples\n', numel(time_idx));
+
 fprintf('Subtask 6.8.2: Plotted %s position North: First = %.4f, Last = %.4f\n', ...
-    method, pos_ned(1,1), pos_ned(end,1));
+    method, pos_est_ds(1,1), pos_est_ds(1,end));
 fprintf('Subtask 6.8.2: Plotted %s position East: First = %.4f, Last = %.4f\n', ...
-    method, pos_ned(1,2), pos_ned(end,2));
+    method, pos_est_ds(2,1), pos_est_ds(2,end));
 fprintf('Subtask 6.8.2: Plotted %s position Down: First = %.4f, Last = %.4f\n', ...
-    method, pos_ned(1,3), pos_ned(end,3));
+    method, pos_est_ds(3,1), pos_est_ds(3,end));
 fprintf('Subtask 6.8.2: Plotted %s velocity North: First = %.4f, Last = %.4f\n', ...
-    method, vel_ned(1,1), vel_ned(end,1));
+    method, vel_est_ds(1,1), vel_est_ds(1,end));
 fprintf('Subtask 6.8.2: Plotted %s velocity East: First = %.4f, Last = %.4f\n', ...
-    method, vel_ned(1,2), vel_ned(end,2));
+    method, vel_est_ds(2,1), vel_est_ds(2,end));
 fprintf('Subtask 6.8.2: Plotted %s velocity Down: First = %.4f, Last = %.4f\n', ...
-    method, vel_ned(1,3), vel_ned(end,3));
+    method, vel_est_ds(3,1), vel_est_ds(3,end));
 
 C_N_E = C';
 pos_ecef = (C_N_E*pos_ned_raw')' + ref_r0';
@@ -232,6 +258,34 @@ plot_overlay('NED', run_id, t_est, pos_ned, vel_ned, acc_ned, ...
     'vel_truth', vel_truth_ned_i, 'acc_truth', acc_truth_ned_i, ...
     'filename', sprintf('%s_task6_overlay_state_NED', run_id));
 
+% Display downsampled NED overlay
+fprintf('Task 6: Generating and displaying NED overlay plot...\n');
+fig = figure('Name', 'Task 6 - NED State Overlay', 'Visible', 'on');
+subplot(2,1,1);
+plot(t_ds, pos_est_ds(1,:), 'b', 'DisplayName', 'Est North');
+hold on;
+plot(t_ds, pos_truth_ds(1,:), 'r--', 'DisplayName', 'Truth North');
+plot(t_ds, pos_est_ds(2,:), 'g', 'DisplayName', 'Est East');
+plot(t_ds, pos_truth_ds(2,:), 'm--', 'DisplayName', 'Truth East');
+plot(t_ds, pos_est_ds(3,:), 'k', 'DisplayName', 'Est Down');
+plot(t_ds, pos_truth_ds(3,:), 'c--', 'DisplayName', 'Truth Down');
+title('Position Overlay (NED)');
+xlabel('Time Step'); ylabel('Position (m)');
+legend('Location','best'); grid on; hold off;
+
+subplot(2,1,2);
+plot(t_ds, vel_est_ds(1,:), 'b', 'DisplayName', 'Est North');
+hold on;
+plot(t_ds, vel_est_ds(2,:), 'g', 'DisplayName', 'Est East');
+plot(t_ds, vel_est_ds(3,:), 'k', 'DisplayName', 'Est Down');
+title('Velocity Overlay (NED)');
+xlabel('Time Step'); ylabel('Velocity (m/s)');
+legend('Location','best'); grid on; hold off;
+
+output_file = fullfile(out_dir, sprintf('%s_task6_overlay_state_NED.pdf', run_id));
+saveas(fig, output_file);
+fprintf('Task 6: Saved overlay figure: %s\n', output_file);
+
 plot_overlay('ECEF', run_id, t_est, pos_ecef, vel_ecef, acc_ecef, ...
     t_est, pos_gnss_ecef_i, vel_gnss_ecef_i, acc_gnss_ecef_i, ...
     t_est, pos_ecef, vel_ecef, acc_ecef, out_dir, ...
@@ -261,6 +315,8 @@ end
 metrics = struct('NED', mNED, 'ECEF', mECEF, 'Body', mBody);
 metrics_file = fullfile(out_dir, sprintf('%s_task6_metrics.mat', run_id));
 save(metrics_file, 'metrics');
+save(fullfile(out_dir, sprintf('%s_task6_results.mat', run_id)), ...
+    'pos_est_ds', 'vel_est_ds', 'pos_truth_ds');
 rows = {
     'NED',  mNED.rmse_pos,  mNED.final_pos,  mNED.rmse_vel,  mNED.final_vel,  mNED.rmse_acc,  mNED.final_acc;
     'ECEF', mECEF.rmse_pos, mECEF.final_pos, mECEF.rmse_vel, mECEF.final_vel, mECEF.rmse_acc, mECEF.final_acc;
