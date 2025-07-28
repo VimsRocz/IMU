@@ -7,9 +7,20 @@ functionality is provided here yet.
 """
 
 
-def plot_xyz_timeseries(time_fused, pos_fused, vel_fused, acc_fused,
-                        time_gnss, pos_gnss, vel_gnss, acc_gnss,
-                        fig_title, out_prefix, axis_labels=None):
+def plot_xyz_timeseries(
+    time_fused,
+    pos_fused,
+    vel_fused,
+    acc_fused,
+    time_gnss,
+    pos_gnss,
+    vel_gnss,
+    acc_gnss,
+    fig_title,
+    out_prefix,
+    axis_labels=None,
+    method=None,
+):
     """Raise :class:`NotImplementedError` when called.
 
     Parameters match the MATLAB helper: all position, velocity and

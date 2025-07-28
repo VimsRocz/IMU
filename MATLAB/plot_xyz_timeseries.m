@@ -1,16 +1,21 @@
-function plot_xyz_timeseries(tF, pF, vF, aF, tG, pG, vG, aG, figTitle, outPrefix, axisLabels)
-%PLOT_XYZ_TIMESERIES Plot fused and optional GNSS timeseries.
-%   plot_xyz_timeseries(tF, pF, vF, aF, tG, pG, vG, aG, TITLE, PREFIX, LABELS)
+function plot_xyz_timeseries(tF, pF, vF, aF, tG, pG, vG, aG, figTitle, outPrefix, axisLabels, method)
+%PLOT_XYZ_TIMESERIES Plot fused and optional GNSS time series.
+%   plot_xyz_timeseries(tF, pF, vF, aF, tG, pG, vG, aG, TITLE, PREFIX, LABELS, METHOD)
 %   creates a 3x3 grid of subplots showing position, velocity and
 %   acceleration along the provided axes. Arrays ``pF``, ``vF`` and ``aF``
 %   must be 3xN with rows representing the X/Y/Z axes. ``tF`` is the time
 %   vector for the fused data. If GNSS arrays ``pG``, ``vG`` or ``aG`` are
-%   non-empty, they are overlaid as black dotted lines using ``tG`` as the
-%   timestamp vector. ``axisLabels`` defaults to {'X','Y','Z'}.
+%   non-empty, they are overlaid as solid black lines using ``tG`` as the
+%   timestamp vector. ``axisLabels`` defaults to {'X','Y','Z'}. ``METHOD``
+%   customises the legend label ``Fused (GNSS+IMU, METHOD)``.
 %   The figure is saved to PREFIX_fixed.pdf and PREFIX_fixed.png.
 
     if nargin < 11 || isempty(axisLabels)
         axisLabels = {'X','Y','Z'};
+    end
+
+    if nargin < 12
+        method = '';
     end
 
     % ----- 1. Normalize time -------------------------------------------------
@@ -44,8 +49,9 @@ function plot_xyz_timeseries(tF, pF, vF, aF, tG, pG, vG, aG, figTitle, outPrefix
             plot(tF, fusedSet{r}(c,:), 'b-', 'LineWidth', 1.0); hold on
             % GNSS overlay ---------------------------------------------------
             if ~isempty(gnssSet{r})
-                plot(tG, gnssSet{r}(c,:), 'k:', 'LineWidth', 1.0);
-                legend({'Fused (KF)','GNSS (Raw)'}, 'Location','best');
+                plot(tG, gnssSet{r}(c,:), 'k-', 'LineWidth', 1.0);
+                leg1 = sprintf('Fused (GNSS+IMU, %s)', method);
+                legend({leg1,'Measured GNSS'}, 'Location','best');
             end
             grid on; ylim(ylims{r});
             xlabel('Time [s]'); ylabel(units{r});
