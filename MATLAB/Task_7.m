@@ -2,11 +2,12 @@ function Task_7()
 %TASK_7 Residual analysis against STATE\_X001.txt in the ECEF frame.
 %   TASK_7() loads the fused state history ``x_log`` saved by Task 5 and
 %   the ground truth trajectory ``STATE_X001.txt``.  The estimator NED
-%   states are converted to the ECEF frame using the reference latitude and
+%   states are rotated to the ECEF frame using the reference latitude and
 %   longitude from Task 5.  Residuals in position and velocity are
 %   computed after interpolating the estimator output to the truth time
-%   vector.  Summary statistics are printed and residual plots are shown
-%   interactively.  Results are written to the ``results`` directory.
+%   vector.  A 3x3 subplot of residual components and norms is generated
+%   and written to the ``results`` directory.  Summary statistics are
+%   printed to the console mirroring ``task7_ecef_residuals_plot.py``.
 
     fprintf('--- Starting Task 7: Residual Analysis with STATE_X001.txt (ECEF) ---\n');
 
@@ -71,22 +72,35 @@ function Task_7()
     fprintf('Final fused_vel_ecef: [%.8f %.8f %.8f]\n', vel_est_i(1,end), vel_est_i(2,end), vel_est_i(3,end));
     fprintf('Final truth_vel_ecef: [%.8f %.8f %.8f]\n', vel_truth_ecef(1,end), vel_truth_ecef(2,end), vel_truth_ecef(3,end));
 
-    %% Plot residuals
-    fprintf('Task 7: Generating and displaying ECEF residual plots...\n');
-    fig = figure('Name', 'Task 7 - ECEF Residuals', 'Visible', 'on');
-    subplot(2,1,1);
-    plot(t_truth, pos_residuals(1,:), 'b', 'DisplayName','X'); hold on;
-    plot(t_truth, pos_residuals(2,:), 'g', 'DisplayName','Y');
-    plot(t_truth, pos_residuals(3,:), 'k', 'DisplayName','Z');
-    title('Position Residuals (ECEF)'); xlabel('Time [s]'); ylabel('Residual (m)');
-    legend('Location','best'); grid on; hold off;
+    %% Plot residuals using a 3x3 layout (X,Y,Z components and norms)
+    fprintf('Task 7: Generating and displaying 3x3 ECEF residual plot...\n');
+    fig = figure('Name', 'Task 7 - ECEF Residuals (3x3)', 'Visible', 'on');
 
-    subplot(2,1,2);
-    plot(t_truth, vel_residuals(1,:), 'b', 'DisplayName','VX'); hold on;
-    plot(t_truth, vel_residuals(2,:), 'g', 'DisplayName','VY');
-    plot(t_truth, vel_residuals(3,:), 'k', 'DisplayName','VZ');
-    title('Velocity Residuals (ECEF)'); xlabel('Time [s]'); ylabel('Residual (m/s)');
-    legend('Location','best'); grid on; hold off;
+    % Position residual components
+    subplot(3,3,1); plot(t_truth, pos_residuals(1,:), 'b');
+    title('Position Residual X (ECEF)'); xlabel('Time [s]'); ylabel('Residual (m)'); grid on;
+    subplot(3,3,2); plot(t_truth, pos_residuals(2,:), 'g');
+    title('Position Residual Y (ECEF)'); xlabel('Time [s]'); ylabel('Residual (m)'); grid on;
+    subplot(3,3,3); plot(t_truth, pos_residuals(3,:), 'k');
+    title('Position Residual Z (ECEF)'); xlabel('Time [s]'); ylabel('Residual (m)'); grid on;
+
+    % Velocity residual components
+    subplot(3,3,4); plot(t_truth, vel_residuals(1,:), 'b');
+    title('Velocity Residual X (ECEF)'); xlabel('Time [s]'); ylabel('Residual (m/s)'); grid on;
+    subplot(3,3,5); plot(t_truth, vel_residuals(2,:), 'g');
+    title('Velocity Residual Y (ECEF)'); xlabel('Time [s]'); ylabel('Residual (m/s)'); grid on;
+    subplot(3,3,6); plot(t_truth, vel_residuals(3,:), 'k');
+    title('Velocity Residual Z (ECEF)'); xlabel('Time [s]'); ylabel('Residual (m/s)'); grid on;
+
+    % Residual norms and trend
+    pos_res_norm = sqrt(sum(pos_residuals.^2,1));
+    vel_res_norm = sqrt(sum(vel_residuals.^2,1));
+    subplot(3,3,7); plot(t_truth, pos_res_norm, 'b');
+    title('Position Residual Norm (ECEF)'); xlabel('Time [s]'); ylabel('Norm (m)'); grid on;
+    subplot(3,3,8); plot(t_truth, vel_res_norm, 'b');
+    title('Velocity Residual Norm (ECEF)'); xlabel('Time [s]'); ylabel('Norm (m/s)'); grid on;
+    subplot(3,3,9); plot(t_truth, pos_res_norm, 'k');
+    title('Position Error Norm Trend (ECEF)'); xlabel('Time [s]'); ylabel('Error (m)'); grid on;
 
     out_pdf = fullfile(results_dir, 'IMU_X002_GNSS_X002_TRIAD_task7_3_residuals_position_velocity_ecef.pdf');
     saveas(fig, out_pdf);
