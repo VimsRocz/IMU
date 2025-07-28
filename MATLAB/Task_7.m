@@ -13,7 +13,9 @@ function Task_7(task5_matfile, truth_file, run_tag)
 
 fprintf('Task 7: Residuals & Summary Analysis...\n');
 
-if ~exist('results','dir'); mkdir('results'); end
+results_root = get_results_dir();
+out_dir = fullfile(results_root, run_tag);
+if ~exist(out_dir,'dir'); mkdir(out_dir); end
 
 %% --------------------------------------------------------------------
 % Load fused estimator results
@@ -150,8 +152,8 @@ function plot_residuals(t, pos_r, vel_r, labels, frame, tag)
         title(['Vel ' labels{k}]); ylabel('Residual [m/s]'); xlabel('Time [s]');
     end
     sgtitle(['Residuals (' upper(frame) ' frame)']);
-    pdf = fullfile('results', sprintf('%s_task7_3_residuals_position_velocity_%s.pdf', tag, frame));
-    png = fullfile('results', sprintf('%s_task7_3_residuals_position_velocity_%s.png', tag, frame));
+    pdf = fullfile(out_dir, sprintf('%s_task7_3_residuals_position_velocity_%s.pdf', tag, frame));
+    png = fullfile(out_dir, sprintf('%s_task7_3_residuals_position_velocity_%s.png', tag, frame));
     saveas(fig, pdf); saveas(fig, png);
     fprintf('Saved residuals plot for %s frame.\n', frame);
 end
@@ -162,8 +164,8 @@ function plot_error_norms(t, pos_r, vel_r, frame, tag)
     plot(t, vecnorm(vel_r,2,2), 'DisplayName','|vel|');
     grid on; legend; xlabel('Time [s]'); ylabel('Error Norm');
     title(['Error Norms (' upper(frame) ' frame)']);
-    pdf = fullfile('results', sprintf('%s_task7_3_error_norms_%s.pdf', tag, frame));
-    png = fullfile('results', sprintf('%s_task7_3_error_norms_%s.png', tag, frame));
+    pdf = fullfile(out_dir, sprintf('%s_task7_3_error_norms_%s.pdf', tag, frame));
+    png = fullfile(out_dir, sprintf('%s_task7_3_error_norms_%s.png', tag, frame));
     saveas(fig, pdf); saveas(fig, png);
     fprintf('Saved error norm plot for %s frame.\n', frame);
 end
@@ -178,8 +180,8 @@ function plot_diff(t, pos_r, vel_r, labels, frame, tag)
         title(['Vel ' labels{k}]); ylabel('Diff [m/s]'); xlabel('Time [s]');
     end
     sgtitle(['Truth - Fused Difference (' upper(frame) ' frame)']);
-    pdf = fullfile('results', sprintf('%s_task7_5_diff_truth_fused_over_time_%s.pdf', tag, frame));
-    png = fullfile('results', sprintf('%s_task7_5_diff_truth_fused_over_time_%s.png', tag, frame));
+    pdf = fullfile(out_dir, sprintf('%s_task7_5_diff_truth_fused_over_time_%s.pdf', tag, frame));
+    png = fullfile(out_dir, sprintf('%s_task7_5_diff_truth_fused_over_time_%s.png', tag, frame));
     saveas(fig, pdf); saveas(fig, png);
     fprintf('Saved difference over time plot for %s frame.\n', frame);
 end
@@ -197,7 +199,7 @@ function compute_summary(pos_r, vel_r, frame, tag)
         'rmse_vel', rmse_vel, 'final_vel', final_vel, ...
         'rms_resid_pos', rms_resid_pos, 'rms_resid_vel', rms_resid_vel, ...
         'max_resid_pos', max_resid_pos, 'max_resid_vel', max_resid_vel);
-    txt = fullfile('results', sprintf('%s_task7_summary_%s.txt', tag, frame));
+    txt = fullfile(out_dir, sprintf('%s_task7_summary_%s.txt', tag, frame));
     fid = fopen(txt,'w');
     fprintf(fid,'RMSE position [m]: %.4f\n', rmse_pos);
     fprintf(fid,'RMSE velocity [m/s]: %.4f\n', rmse_vel);
@@ -206,7 +208,7 @@ function compute_summary(pos_r, vel_r, frame, tag)
     fprintf(fid,'RMS resid pos [m]: %.4f max resid pos [m]: %.4f\n', rms_resid_pos, max_resid_pos);
     fprintf(fid,'RMS resid vel [m/s]: %.4f max resid vel [m/s]: %.4f\n', rms_resid_vel, max_resid_vel);
     fclose(fid);
-    mat = fullfile('results', sprintf('%s_task7_summary_%s.mat', tag, frame));
+    mat = fullfile(out_dir, sprintf('%s_task7_summary_%s.mat', tag, frame));
     save(mat, 'summary');
     fprintf('Saved summary metrics for %s frame.\n', frame);
     if strcmpi(frame,'ned')
