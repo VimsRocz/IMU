@@ -629,7 +629,8 @@ end % End of main function
         %PROPAGATE_QUATERNION Propagate quaternion using angular rate.
         %   Q_NEW = PROPAGATE_QUATERNION(Q_OLD, W, DT) integrates the rate
         %   vector W over DT and multiplies the result with Q_OLD.  The output
-        %   quaternion is not normalised.
+        %   quaternion is normalised to keep its unit length, matching the
+        %   Python implementation.
         w_norm = norm(w);
         if w_norm > 1e-9
             axis = w / w_norm;
@@ -639,6 +640,8 @@ end % End of main function
             dq = [1; 0; 0; 0];
         end
         q_new = quat_multiply(q_old, dq);
+        % normalise to unit quaternion for numerical stability
+        q_new = q_new / norm(q_new);
     end
 
     function q_out = quat_multiply(q1, q2)
