@@ -18,6 +18,7 @@ function body_data = Task_2(imu_path, gnss_path, method, dataset_tag)
 %       gyro_bias     - gyroscope bias estimate (3x1, rad/s)
 %       static_start  - index of first static sample
 %       static_end    - index of last static sample
+%       accel_scale   - accelerometer scale factor applied to raw data
 %   For convenience a struct ``body_data`` containing the same fields is
 %   returned and stored in the workspace variable
 %   ``task2_results`` for interactive use.
@@ -92,6 +93,7 @@ function body_data = Task_2(imu_path, gnss_path, method, dataset_tag)
     static_gyro = mean(gyro_filt(static_start:static_end, :), 1); % 1x3
     g_body_raw = -static_acc';
     scale_factor = constants.GRAVITY / norm(g_body_raw);
+    accel_scale  = scale_factor; % use consistent naming across tasks
     g_body = (g_body_raw / norm(g_body_raw)) * constants.GRAVITY;
     g_body_scaled = g_body; % legacy variable for compatibility with old scripts
     omega_ie_body = static_gyro';
@@ -111,7 +113,7 @@ function body_data = Task_2(imu_path, gnss_path, method, dataset_tag)
     body_data.gyro_bias     = gyro_bias;
     body_data.static_start  = static_start;
     body_data.static_end    = static_end;
-    body_data.accel_scale   = scale_factor;
+    body_data.accel_scale   = accel_scale;
 
     [~, imu_name, ~] = fileparts(imu_path);
     if ~isempty(gnss_path)
@@ -141,14 +143,14 @@ function body_data = Task_2(imu_path, gnss_path, method, dataset_tag)
             accel_bias, accel_mag);
     fprintf('Gyroscope bias     = [% .6e % .6e % .6e] rad/s (|b|=%.6e rad/s)\n', ...
             gyro_bias, gyro_mag);
-    fprintf('Accelerometer scale factor = %.4f\n', scale_factor);
+    fprintf('Accelerometer scale factor = %.4f\n', accel_scale);
     results_dir = get_results_dir();
     if ~exist(results_dir,'dir'); mkdir(results_dir); end
 
     out_file = fullfile(results_dir, sprintf('Task2_%s_%s.mat', dataset_tag, method));
 
     save(out_file, 'g_body', 'g_body_scaled', 'omega_ie_body', ...
-        'accel_bias', 'gyro_bias', 'static_start', 'static_end', 'scale_factor');
+        'accel_bias', 'gyro_bias', 'static_start', 'static_end', 'accel_scale');
 
     assignin('base','task2_results', body_data);
     fprintf('Saved to %s\n', out_file);
