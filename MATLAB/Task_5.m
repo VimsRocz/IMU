@@ -194,10 +194,16 @@ x(4:6)  = gnss_vel_ned(1,:)';
 x(7:9)  = init_eul;
 x(10:12) = accel_bias(:);
 x(13:15) = gyro_bias(:);
-% EKF tuning parameters
-P = blkdiag(eye(9) * 0.01, eye(3) * 1e-4, eye(3) * 1e-8);
-Q = eye(15) * 1e-4;
-Q(4:6,4:6) = diag([0.1, 0.1, 0.1]);
+% --- EKF tuning parameters (aligned with Python defaults) ---
+P = eye(15);                         % Larger initial uncertainty
+P(7:9,7:9)   = eye(3) * deg2rad(5)^2; % Attitude uncertainty (5 deg)
+P(10:15,10:15) = eye(6) * 1e-4;      % Bias uncertainty
+
+Q = eye(15) * 0.01;                  % Base process noise
+Q(4:6,4:6) = eye(3) * 0.1;           % Velocity process noise
+% Define bias random walk terms based on IMU specs
+accel_bias_noise = 1e-3;             % Example value
+gyro_bias_noise  = 1e-4;             % Example value
 Q(10:12,10:12) = eye(3) * (accel_bias_noise^2);
 Q(13:15,13:15) = eye(3) * (gyro_bias_noise^2);
 if pos_proc_noise ~= 0
@@ -206,8 +212,9 @@ end
 if vel_proc_noise ~= 0
     Q(4:6,4:6) = Q(4:6,4:6) + eye(3) * (vel_proc_noise^2);
 end
-R = eye(6) * 1;
-R(4:6,4:6) = diag([0.25, 0.25, 0.25]);
+
+R = eye(6) * 0.1;                    % GNSS position noise
+R(4:6,4:6) = eye(3) * 0.25;          % GNSS velocity noise
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
