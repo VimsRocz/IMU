@@ -1,5 +1,5 @@
 function plot_task5_results_all_methods(imu_time, fused_pos, fused_vel, fused_acc, ...
-    gnss_pos_ned_interp, gnss_vel_ned_interp, gnss_acc_ned_interp)
+    gnss_pos_ned_interp, gnss_vel_ned_interp, gnss_acc_ned_interp, tag, results_dir)
 %PLOT_TASK5_RESULTS_ALL_METHODS  Plot fused results from all methods versus GNSS.
 %   PLOT_TASK5_RESULTS_ALL_METHODS(IMU_TIME, FUSED_POS, FUSED_VEL, FUSED_ACC,
 %   GNSS_POS_NED_INTERP, GNSS_VEL_NED_INTERP, GNSS_ACC_NED_INTERP) creates a
@@ -33,8 +33,11 @@ labels = {'North','East','Down'};
 methods = {'TRIAD','Davenport','SVD'};
 method_colors = {'r','g','b'};
 
-fig = figure('Name','Task5 Results - All Methods', ...
-    'Position',[100 100 1200 900]);
+if nargin < 8 || isempty(results_dir)
+    results_dir = get_results_dir();
+end
+if ~exist(results_dir,'dir'); mkdir(results_dir); end
+fig = figure('Name','Task5 Results - All Methods', 'Position',[100 100 1200 900]);
 
 for j = 1:3
     %% Position subplot
@@ -103,6 +106,9 @@ end
 
 sgtitle('Task 5 Comparison - All Methods','FontSize',14);
 set(fig,'PaperPositionMode','auto');
-print(fig, 'task5_results_all_methods.png', '-dpng', '-r300');
+pdf_path = fullfile(results_dir, sprintf('%s_task5_results_all_methods.pdf', tag));
+print(fig, pdf_path, '-dpdf', '-bestfit');
+fprintf('Saved plot to %s\n', pdf_path);
+close(fig);
 close(fig);
 end

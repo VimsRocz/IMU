@@ -526,22 +526,13 @@ plot_task5_mixed_frame(imu_time, x_log(1:3,:), x_log(4:6,:), ...
 fprintf('Fused mixed frames plot saved\n');
 
 fprintf('Plotting all data in NED frame.\n');
-plot_task5_ned_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-    gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, tag, results_dir);
 
-fprintf('Plotting all data in ECEF frame.\n');
-plot_task5_ecef_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-    gnss_time, gnss_pos_ecef, gnss_vel_ecef, gnss_accel_ecef, C_ECEF_to_NED, ref_r0, method, tag, results_dir);
-
-fprintf('Plotting all data in body frame.\n');
-plot_task5_body_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, euler_log, ...
-    gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, g_NED, tag, results_dir);
 
 state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
 if exist(state_file, 'file')
     fprintf('Plotting fused ECEF trajectory with truth overlay.\n');
     plot_task5_ecef_truth(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-        state_file, C_ECEF_to_NED, ref_r0, method);
+        state_file, C_ECEF_to_NED, ref_r0, tag, method, results_dir);
 end
 
 %% --- End-of-run summary statistics --------------------------------------
@@ -845,120 +836,19 @@ end % End of main function
         % close(fig);
     end
 
-    function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_gnss, vel_gnss, acc_gnss, method, tag, results_dir)
-        %PLOT_TASK5_NED_FRAME Plot fused vs GNSS data in the NED frame.
-        %   Saves a PDF using the Python naming convention.
+
         labels = {'North','East','Down'};
         fig = figure('Visible','off','Name','Task5 NED Frame', ...
             'Position',[100 100 1200 900]);
         fused_label = sprintf('Fused (GNSS+IMU, %s)', method);
         for k = 1:3
+            % Position
             subplot(3,3,k); hold on;
-            plot(t_gnss, pos_gnss(:,k),'k:','DisplayName','Measured GNSS');
-            plot(t, pos_ned(k,:), 'b-','DisplayName',fused_label);
-            grid on; ylabel('[m]'); title(['Position ' labels{k}]); legend('Location','best');
 
+
+            % Velocity
             subplot(3,3,3+k); hold on;
-            plot(t_gnss, vel_gnss(:,k),'k:','DisplayName','Measured GNSS');
-            plot(t, vel_ned(k,:), 'b-','DisplayName',fused_label);
-            grid on; ylabel('[m/s]'); title(['Velocity ' labels{k}]); legend('Location','best');
 
-            subplot(3,3,6+k); hold on;
-            plot(t_gnss, acc_gnss(:,k),'k:','DisplayName','Derived GNSS');
-            plot(t, acc_ned(k,:), 'b-','DisplayName',fused_label);
-            grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend('Location','best');
-        end
-        xlabel('Time (s)');
-        sgtitle(sprintf('Task 5 \x2013 %s \x2013 NED Frame (Fused vs. Measured GNSS)', method));
-        out_pdf = fullfile(results_dir, sprintf('%s_task5_all_ned.pdf', tag));
-        set(fig,'PaperPositionMode','auto');
-        print(fig, out_pdf, '-dpdf', '-bestfit');
-        close(fig);
-        fprintf('Saved plot: %s\n', out_pdf);
-    end
-
-    function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_ecef, vel_ecef, acc_ecef, C_E_N, r0, method, tag, results_dir)
-        %PLOT_TASK5_ECEF_FRAME Plot fused vs GNSS data in the ECEF frame.
-        labels = {'X','Y','Z'};
-        pos_fused = (C_E_N' * pos_ned) + r0;
-        vel_fused = C_E_N' * vel_ned;
-        acc_fused = C_E_N' * acc_ned;
-        fig = figure('Visible','off','Name','Task5 ECEF Frame', ...
-            'Position',[100 100 1200 900]);
-        fused_label = sprintf('Fused (GNSS+IMU, %s)', method);
-        for k = 1:3
-            subplot(3,3,k); hold on;
-            plot(t_gnss, pos_ecef(:,k),'k:','DisplayName','Measured GNSS');
-            plot(t, pos_fused(k,:),'b-','DisplayName',fused_label);
-            grid on; ylabel('[m]'); title(['Position ' labels{k}]); legend('Location','best');
-
-            subplot(3,3,3+k); hold on;
-            plot(t_gnss, vel_ecef(:,k),'k:','DisplayName','Measured GNSS');
-            plot(t, vel_fused(k,:),'b-','DisplayName',fused_label);
-            grid on; ylabel('[m/s]'); title(['Velocity ' labels{k}]); legend('Location','best');
-
-            subplot(3,3,6+k); hold on;
-            plot(t_gnss, acc_ecef(:,k),'k:','DisplayName','Derived GNSS');
-            plot(t, acc_fused(k,:),'b-','DisplayName',fused_label);
-            grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend('Location','best');
-        end
-        xlabel('Time (s)');
-        sgtitle(sprintf('Task 5 \x2013 %s \x2013 ECEF Frame (Fused vs. Measured GNSS)', method));
-        out_pdf = fullfile(results_dir, sprintf('%s_task5_all_ecef.pdf', tag));
-        set(fig,'PaperPositionMode','auto');
-        print(fig, out_pdf, '-dpdf', '-bestfit');
-        close(fig);
-        fprintf('Saved plot: %s\n', out_pdf);
-    end
-
-    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, eul_log, t_gnss, pos_gnss_ned, vel_gnss_ned, acc_gnss_ned, method, g_N, tag, results_dir)
-        %PLOT_TASK5_BODY_FRAME Plot fused results in body frame coordinates.
-        %   Saves <tag>_task5_all_body.pdf in results_dir with Python-style layout.
-        labels = {'X','Y','Z'};
-        N = size(pos_ned,2);
-        pos_body = zeros(3,N); vel_body = zeros(3,N); acc_body = zeros(3,N);
-        for k = 1:N
-            C_B_N = euler_to_rot(eul_log(:,k));
-            pos_body(:,k) = C_B_N' * pos_ned(:,k);
-            vel_body(:,k) = C_B_N' * vel_ned(:,k);
-            acc_body(:,k) = C_B_N' * (acc_ned(:,k) - g_N);
-        end
-        eul_gnss = interp1(t, eul_log', t_gnss, 'linear', 'extrap')';
-        pos_gnss_body = zeros(size(pos_gnss_ned')); vel_gnss_body = zeros(size(vel_gnss_ned'));
-        acc_gnss_body = zeros(size(acc_gnss_ned'));
-        for k = 1:length(t_gnss)
-            C_B_N = euler_to_rot(eul_gnss(:,k));
-            pos_gnss_body(:,k) = C_B_N' * pos_gnss_ned(k,:)';
-            vel_gnss_body(:,k) = C_B_N' * vel_gnss_ned(k,:)';
-            acc_gnss_body(:,k) = C_B_N' * (acc_gnss_ned(k,:)' - g_N);
-        end
-        fig = figure('Visible','off','Name','Task5 Body Frame', ...
-            'Position',[100 100 1200 900]);
-        fused_label = sprintf('Fused (GNSS+IMU, %s)', method);
-        for j = 1:3
-            subplot(3,3,j); hold on;
-            plot(t_gnss, pos_gnss_body(j,:),'k:','DisplayName','Measured GNSS');
-            plot(t, pos_body(j,:),'b-','DisplayName',fused_label);
-            grid on; ylabel('[m]'); title(['Position ' labels{j}]); legend('Location','best');
-
-            subplot(3,3,3+j); hold on;
-            plot(t_gnss, vel_gnss_body(j,:),'k:','DisplayName','Measured GNSS');
-            plot(t, vel_body(j,:),'b-','DisplayName',fused_label);
-            grid on; ylabel('[m/s]'); title(['Velocity ' labels{j}]); legend('Location','best');
-
-            subplot(3,3,6+j); hold on;
-            plot(t_gnss, acc_gnss_body(j,:),'k:','DisplayName','Derived GNSS');
-            plot(t, acc_body(j,:),'b-','DisplayName',fused_label);
-            grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{j}]); legend('Location','best');
-        end
-        xlabel('Time (s)');
-        sgtitle(sprintf('Task 5 \x2013 %s \x2013 Body Frame (Fused vs. Measured GNSS)', method));
-        out_pdf = fullfile(results_dir, sprintf('%s_task5_all_body.pdf', tag));
-        set(fig,'PaperPositionMode','auto');
-        print(fig, out_pdf, '-dpdf', '-bestfit');
-        close(fig);
-        fprintf('Saved plot: %s\n', out_pdf);
-    end
         dt = diff(t_truth);
         acc_truth = [zeros(1,3); diff(vel_truth)./dt];
 
@@ -969,21 +859,30 @@ end % End of main function
         figure('Name','Task5 ECEF with Truth','Position',[100 100 1200 900]);
         labels = {'X','Y','Z'};
         for k = 1:3
+            % Position
             subplot(3,3,k); hold on;
-            plot(t_truth, pos_truth(:,k),'m-','DisplayName','Truth');
-            plot(t, pos_fused(k,:),'b-','DisplayName','Fused');
-            hold off; grid on; ylabel('[m]'); title(['Position ' labels{k}]); legend;
+            plot(t_truth, pos_truth(:,k),'k--','LineWidth',1.5,'DisplayName','Truth');
+            plot(t, pos_fused(k,:),'b-','LineWidth',2,'DisplayName','Fused (KF)');
+            ylabel([labels{k} ' [m]']); grid on; legend('Location','best'); set(gca,'FontSize',14);
+            title(['Position ' labels{k}]); hold off;
 
+            % Velocity
             subplot(3,3,3+k); hold on;
-            plot(t_truth, vel_truth(:,k),'m-','DisplayName','Truth');
-            plot(t, vel_fused(k,:),'b-','DisplayName','Fused');
-            hold off; grid on; ylabel('[m/s]'); title(['Velocity ' labels{k}]); legend;
+            plot(t_truth, vel_truth(:,k),'k--','LineWidth',1.5,'DisplayName','Truth');
+            plot(t, vel_fused(k,:),'b-','LineWidth',2,'DisplayName','Fused (KF)');
+            ylabel([labels{k} ' [m/s]']); grid on; legend('Location','best'); set(gca,'FontSize',14);
+            title(['Velocity ' labels{k}]); hold off;
 
+            % Acceleration
             subplot(3,3,6+k); hold on;
-            plot(t_truth, acc_truth(:,k),'m-','DisplayName','Truth');
-            plot(t, acc_fused(k,:),'b-','DisplayName','Fused');
-            hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend;
+            plot(t_truth, acc_truth(:,k),'k--','LineWidth',1.5,'DisplayName','Truth');
+            plot(t, acc_fused(k,:),'b-','LineWidth',2,'DisplayName','Fused (KF)');
+            ylabel([labels{k} ' [m/s^2]']); grid on; legend('Location','best'); set(gca,'FontSize',14);
+            title(['Acceleration ' labels{k}]); hold off;
         end
+        xlabel('Time [s]');
         sgtitle([method ' - ECEF frame with Truth']);
+        set(gcf,'PaperPositionMode','auto');
+        print(gcf, fullfile(results_dir, sprintf('%s_Task5_ECEFTruth.pdf', tag)), '-dpdf', '-bestfit');
     end
 
