@@ -1,36 +1,60 @@
-function plot_xyz_timeseries(t, pos, vel, acc, title_str, file_base, labels)
-%PLOT_XYZ_TIMESERIES  Plot position/velocity/acceleration timeseries.
-%   PLOT_XYZ_TIMESERIES(T, POS, VEL, ACC, TITLE_STR, FILE_BASE) creates a 3x3
-%   subplot figure with rows [position, velocity, acceleration] and columns
-%   representing the X/Y/Z axes.  The figure is saved to FILE_BASE.pdf and
-%   FILE_BASE.png.  LABELS is an optional cell array of axis labels.
+function plot_xyz_timeseries(tF, pF, vF, aF, tG, pG, vG, aG, figTitle, outPrefix, axisLabels)
+%PLOT_XYZ_TIMESERIES Plot fused and optional GNSS timeseries.
+%   plot_xyz_timeseries(tF, pF, vF, aF, tG, pG, vG, aG, TITLE, PREFIX, LABELS)
+%   creates a 3x3 grid of subplots showing position, velocity and
+%   acceleration along the provided axes. Arrays ``pF``, ``vF`` and ``aF``
+%   must be 3xN with rows representing the X/Y/Z axes. ``tF`` is the time
+%   vector for the fused data. If GNSS arrays ``pG``, ``vG`` or ``aG`` are
+%   non-empty, they are overlaid as black dotted lines using ``tG`` as the
+%   timestamp vector. ``axisLabels`` defaults to {'X','Y','Z'}.
+%   The figure is saved to PREFIX_fixed.pdf and PREFIX_fixed.png.
 
-if nargin < 7 || isempty(labels)
-    labels = {'X','Y','Z'};
-end
+    if nargin < 11 || isempty(axisLabels)
+        axisLabels = {'X','Y','Z'};
+    end
 
-fig = figure('Visible','off','Position',[100 100 1200 900]);
-for k = 1:3
-    subplot(3,3,k);
-    plot(t, pos(:,k), 'b-', 'LineWidth', 1.5);
-    grid on; ylabel('[m]'); title(sprintf('Position %s', labels{k}));
+    % ----- 1. Normalize time -------------------------------------------------
+    tF = tF - tF(1);
+    if ~isempty(tG)
+        tG = tG - tF(1); % Align zero with fused start
+    end
 
-    subplot(3,3,3+k);
-    plot(t, vel(:,k), 'b-', 'LineWidth', 1.5);
-    grid on; ylabel('[m/s]'); title(sprintf('Velocity %s', labels{k}));
+    % ----- 2. Symmetric axis limits -----------------------------------------
+    limPos = max([abs(pF), abs(pG)], [], 'all');
+    limVel = max([abs(vF), abs(vG)], [], 'all');
+    limAcc = max([abs(aF), abs(aG)], [], 'all');
+    yPos = [-limPos limPos];
+    yVel = [-limVel limVel];
+    yAcc = [-limAcc limAcc];
 
-    subplot(3,3,6+k);
-    plot(t, acc(:,k), 'b-', 'LineWidth', 1.5);
-    grid on; ylabel('[m/s^2]'); title(sprintf('Acceleration %s', labels{k}));
-end
-xlabel('Time (s)');
-sgtitle(title_str);
+    % ----- 3. Layout ---------------------------------------------------------
+    fig = figure('Name', figTitle, 'Units','pixels', 'Position',[80 80 1100 800]);
+    tl  = tiledlayout(3,3,'TileSpacing','compact','Padding','compact'); %#ok<NASGU>
 
-pdf_file = [file_base '.pdf'];
-png_file = [file_base '.png'];
-set(fig,'PaperPositionMode','auto');
-print(fig, pdf_file, '-dpdf', '-bestfit');
-print(fig, png_file, '-dpng');
-close(fig);
-fprintf('Saved plot: %s\n', pdf_file);
+    rowNames  = {'Position','Velocity','Acceleration'};
+    units     = {'[m]','[m/s]','[m/s^2]'};
+    fusedSet  = {pF, vF, aF};
+    gnssSet   = {pG, vG, aG};
+    ylims     = {yPos, yVel, yAcc};
+
+    for r = 1:3
+        for c = 1:3
+            nexttile
+            % Fused data ------------------------------------------------------
+            plot(tF, fusedSet{r}(c,:), 'b-', 'LineWidth', 1.0); hold on
+            % GNSS overlay ---------------------------------------------------
+            if ~isempty(gnssSet{r})
+                plot(tG, gnssSet{r}(c,:), 'k:', 'LineWidth', 1.0);
+                legend({'Fused (KF)','GNSS (Raw)'}, 'Location','best');
+            end
+            grid on; ylim(ylims{r});
+            xlabel('Time [s]'); ylabel(units{r});
+            title(sprintf('%s %s', rowNames{r}, axisLabels{c}));
+        end
+    end
+    sgtitle(figTitle,'FontWeight','bold');
+
+    % ----- 4. Save -----------------------------------------------------------
+    saveas(fig, [outPrefix, '_fixed.png']);
+    saveas(fig, [outPrefix, '_fixed.pdf']);
 end
