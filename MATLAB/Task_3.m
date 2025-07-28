@@ -304,6 +304,19 @@ save_task_results(method_results, imu_name, gnss_name, method_tag, 3);
 % Return and store in base workspace
 assignin('base', 'task3_results', task3_results);
 
+% -------------------------------------------------------------
+% Display stored rotation matrix for verification
+task3_file = fullfile(results_dir, 'Task3_results_IMU_X002_GNSS_X002.mat');
+if exist(task3_file, 'file')
+    data = load(task3_file);
+    if isfield(data, 'task3_results') && isfield(data.task3_results, 'TRIAD')
+        C_B_N = data.task3_results.TRIAD.R;
+        fprintf('\nRotation matrix C_{B}^{N}:\n');
+        disp(C_B_N);
+    end
+end
+fprintf('Results saved to %s\n', results_dir);
+
 stored_methods = fieldnames(task3_results); % cell array
 fprintf('Task 3 results stored in memory: %s\n', strjoin(stored_methods', ', '));
 

@@ -61,15 +61,3 @@ if isfile(task5_file) && isfile(truth_file)
 else
     warning('Task 6 or Task 7 skipped: Missing Task 5 results or truth file.');
 end
-
-%% Load and display rotation matrix from Task 3 results
-task3_file = fullfile(results_dir, 'Task3_results_IMU_X002_GNSS_X002.mat');
-if exist(task3_file, 'file')
-    data = load(task3_file);
-    if isfield(data, 'task3_results') && isfield(data.task3_results, 'TRIAD')
-        C_B_N = data.task3_results.TRIAD.R;
-        fprintf('\nRotation matrix C_{B}^{N}:\n');
-        disp(C_B_N);
-    end
-end
-fprintf('Results saved to %s\n', results_dir);
