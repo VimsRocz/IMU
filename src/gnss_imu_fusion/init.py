@@ -13,6 +13,7 @@ from ..utils import (
     compute_C_ECEF_to_NED,
     validate_gravity_vector,
 )
+from ..compute_biases import compute_biases
 from .init_vectors import butter_lowpass_filter
 
 
@@ -126,8 +127,12 @@ def measure_body_vectors(
         static_end,
         static_end - static_start,
     )
-    static_acc = np.mean(acc[static_start:static_end], axis=0)
-    static_gyro = np.mean(gyro[static_start:static_end], axis=0)
+    static_acc, static_gyro = compute_biases(
+        acc,
+        gyro,
+        static_start,
+        static_end,
+    )
 
     # --- Compute ratio of static to total samples and log duration
     n_static = static_end - static_start
