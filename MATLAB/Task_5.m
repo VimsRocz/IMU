@@ -194,20 +194,14 @@ x(4:6)  = gnss_vel_ned(1,:)';
 x(7:9)  = init_eul;
 x(10:12) = accel_bias(:);
 x(13:15) = gyro_bias(:);
-% EKF tuning parameters
-P = blkdiag(eye(9) * 0.01, eye(3) * 1e-4, eye(3) * 1e-8);
-Q = eye(15) * 1e-4;
-Q(4:6,4:6) = diag([0.1, 0.1, 0.1]);
-Q(10:12,10:12) = eye(3) * (accel_bias_noise^2);
-Q(13:15,13:15) = eye(3) * (gyro_bias_noise^2);
-if pos_proc_noise ~= 0
-    Q(1:3,1:3) = Q(1:3,1:3) + eye(3) * (pos_proc_noise^2);
-end
-if vel_proc_noise ~= 0
-    Q(4:6,4:6) = Q(4:6,4:6) + eye(3) * (vel_proc_noise^2);
-end
-R = eye(6) * 1;
-R(4:6,4:6) = diag([0.25, 0.25, 0.25]);
+% EKF tuning parameters (mirrors Python defaults)
+P = eye(15);
+R = zeros(6);
+R(1:3,1:3) = eye(3) * (pos_meas_noise^2);
+R(4:6,4:6) = eye(3) * (vel_meas_noise^2);
+Q_base = zeros(15);
+Q_base(7:9,7:9) = eye(3) * 1e-6; % small attitude process noise
+% Remaining Q terms are added inside the loop using the user parameters
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
@@ -296,6 +290,16 @@ gnss_vel_interp = interp1(gnss_time, gnss_vel_ned, imu_time, 'linear', 'extrap')
 fprintf('-> Starting filter loop over %d IMU samples...\n', num_imu_samples);
 for i = 1:num_imu_samples
     % --- 1. State Propagation (Prediction) ---
+    Q = Q_base;
+    if pos_proc_noise ~= 0
+        Q(1:3,1:3) = Q(1:3,1:3) + eye(3) * (pos_proc_noise^2);
+    end
+    Q(4:6,4:6) = eye(3) * (accel_noise^2);
+    if vel_proc_noise ~= 0
+        Q(4:6,4:6) = Q(4:6,4:6) + eye(3) * (vel_proc_noise^2);
+    end
+    Q(10:12,10:12) = eye(3) * (accel_bias_noise^2);
+    Q(13:15,13:15) = eye(3) * (gyro_bias_noise^2);
     F = eye(15);
     F(1:3, 4:6) = eye(3) * dt_imu;
     P = F * P * F' + Q * dt_imu;
