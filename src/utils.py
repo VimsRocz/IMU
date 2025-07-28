@@ -223,6 +223,26 @@ def save_plot_mat(fig: Figure, filename: str) -> None:
     _savemat(filename, out, do_compression=True)
 
 
+def save_plot_fig(fig: Figure, filename: str) -> None:
+    """Save matplotlib figure *fig* in MATLAB ``.fig`` format.
+
+    Parameters
+    ----------
+    fig : :class:`matplotlib.figure.Figure`
+        Figure to serialise.
+    filename : str
+        Path of the ``.fig`` file.
+
+    Notes
+    -----
+    The ``.fig`` format used here is a simple MAT-file containing the
+    exported line data, matching :func:`save_plot_mat`.  Opening the
+    file in MATLAB requires loading the variables and replotting them.
+    """
+
+    save_plot_mat(fig, filename)
+
+
 def compute_C_ECEF_to_NED(lat: float, lon: float) -> np.ndarray:
     """Return rotation matrix from ECEF to NED frame.
 
