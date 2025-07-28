@@ -308,6 +308,10 @@ gnss_vel_interp = interp1(gnss_time, gnss_vel_ned, imu_time, 'linear', 'extrap')
 % --- Main Filter Loop ---
 fprintf('-> Starting filter loop over %d IMU samples...\n', num_imu_samples);
 for i = 1:num_imu_samples
+    if mod(i, 1e5) == 0
+        fprintf('[DBG-KF] k=%d   posN=%.1f  velN=%.2f  accN=%.2f\n', ...
+            i, x(1), x(4), a_ned(1));
+    end
     % --- 1. State Propagation (Prediction) ---
     F = eye(15);
     F(1:3, 4:6) = eye(3) * dt_imu;
@@ -326,6 +330,10 @@ for i = 1:num_imu_samples
     % Python implementation in ``integration.py`` and ensures both
     % pipelines stay in sync.
     a_ned = C_B_N * corrected_accel - g_NED;
+    if mod(i, 1e5) == 0
+        fprintf('[DBG-KF] k=%d   posN=%.1f  velN=%.2f  accN=%.2f\n', ...
+            i, x(1), x(4), a_ned(1));
+    end
     if i > 1
         vel_new = prev_vel + 0.5 * (a_ned + prev_a_ned) * dt_imu;
         pos_new = x(1:3) + 0.5 * (vel_new + prev_vel) * dt_imu;
@@ -521,6 +529,9 @@ final_pos_err = norm(x_log(1:3,end) - gnss_pos_ned(end,:)');
 final_vel_err = norm(vel_log(:,end) - gnss_vel_ned(end,:)');
 final_vel = norm(vel_log(:,end));
 final_acc_err = norm(accel_from_vel(:,end) - gnss_accel_ned(end,:)');
+rms_guard = all(abs(x_log(4:6,end)) < 500);
+assert(rms_guard, ...
+    'KF diverged: final velocity > 500 m/s - check F & H matrices');
 rms_resid_pos = sqrt(mean(res_pos.^2,'all'));
 rms_resid_vel = sqrt(mean(res_vel.^2,'all'));
 max_resid_pos = max(vecnorm(res_pos,2,2));
@@ -557,6 +568,9 @@ summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%8.2fm ' ..
     rms_resid_vel, max_resid_vel, norm(accel_bias), norm(gyro_bias), grav_err_mean, grav_err_max, ...
     omega_err_mean, omega_err_max, zupt_count);
 fprintf('%s\n', summary_line);
+fprintf('[SUMMARY] method=%s rmse_pos=%.2f m final_pos=%.2f m ', ...
+        method, rmse_pos, final_pos_err);
+fprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', rmse_vel, final_vel);
 fid = fopen(fullfile(results_dir, [tag '_summary.txt']), 'w');
 fprintf(fid, '%s\n', summary_line);
 fclose(fid);
@@ -589,6 +603,8 @@ gnss_time = gnss_time; %#ok<NASGU>
 % Convenience fields matching the Python pipeline
 pos_ned = x_log(1:3,:)';
 vel_ned = x_log(4:6,:)';
+states.pos_ned_m  = x_log(1:3,:);
+states.vel_ned_mps = x_log(4:6,:);
 ref_lat = deg2rad(lat_deg); %#ok<NASGU>
 ref_lon = deg2rad(lon_deg); %#ok<NASGU>
 
@@ -598,7 +614,8 @@ results_file = fullfile(results_dir, sprintf('%s_task5_results.mat', tag));
 save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
     'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
     'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', ...
-    'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0');
+    'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
+    'states');
 % Provide compatibility with the Python pipeline and downstream tasks
 % by storing the fused position under the generic ``pos`` field as well.
 pos = pos_ned; %#ok<NASGU>

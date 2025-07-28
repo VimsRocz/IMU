@@ -8,7 +8,7 @@ function Task_7()
 %   vector. A figure with six subplots (position X/Y/Z on the first row,
 %   velocity X/Y/Z on the second) is generated and saved under ``results``.
 
-    fprintf('--- Starting Task 7: Residual Analysis with STATE_X001.txt (ECEF) ---\n');
+    fprintf('--- Starting Task 7: Residual Analysis with Task4 truth (ECEF) ---\n');
 
     %% Load state history from Task 5
     results_dir = get_results_dir();
@@ -25,15 +25,10 @@ function Task_7()
         error('Task 7: Failed to load x_log from %s. %s', res_file, ME.message);
     end
 
-    %% Load ground truth STATE_X001.txt
-    root_dir = fileparts(fileparts(mfilename('fullpath')));
-    truth_path = fullfile(root_dir, 'STATE_X001.txt');
-    try
-        truth_data = read_state_file(truth_path);
-        fprintf('Task 7: Loaded truth data from %s, size: %dx%d\n', truth_path, size(truth_data));
-    catch ME
-        error('Task 7: Failed to load truth data from %s. %s', truth_path, ME.message);
-    end
+    %% Load ground truth from Task 4 results
+    truth_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
+    d = load(truth_file, 'truth_pos_ecef', 'truth_vel_ecef');
+    truth_data = [zeros(size(d.truth_pos_ecef,1),1), (0:size(d.truth_pos_ecef,1)-1)', d.truth_pos_ecef, d.truth_vel_ecef];
 
     %% Extract truth position and velocity
     t_truth = truth_data(:,2);
@@ -57,6 +52,12 @@ function Task_7()
     fprintf('Task 7: Computing errors...\n');
     pos_error = pos_truth_ecef - pos_est_i;
     vel_error = vel_truth_ecef - vel_est_i;
+    pos_residual = pos_est_i - pos_truth_ecef;
+    assert(max(abs(pos_residual), [], 'all') < 100, ...
+        'Task-7: Position residual blew up - transform error?');
+
+    final_pos = norm(pos_error(:,end));
+    final_vel = norm(vel_error(:,end));
 
     %% Error statistics
     pos_err_mean = mean(pos_error, 2);
@@ -70,6 +71,10 @@ function Task_7()
 
     fprintf('Final fused_vel_ecef: [%.8f %.8f %.8f]\n', vel_est_i(1,end), vel_est_i(2,end), vel_est_i(3,end));
     fprintf('Final truth_vel_ecef: [%.8f %.8f %.8f]\n', vel_truth_ecef(1,end), vel_truth_ecef(2,end), vel_truth_ecef(3,end));
+    fprintf('[SUMMARY] method=KF rmse_pos=%.2f m final_pos=%.2f m ', ...
+            sqrt(mean(sum(pos_error.^2,2))), final_pos);
+    fprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', ...
+            sqrt(mean(sum(vel_error.^2,2))), final_vel);
 
     %% Plot errors
     fprintf('Task 7: Generating ECEF error plots...\n');
@@ -112,5 +117,9 @@ function Task_7()
     results_out = fullfile(results_dir, 'IMU_X002_GNSS_X002_TRIAD_task7_results.mat');
     save(results_out, 'pos_error', 'vel_error', 'pos_est_i', 'vel_est_i');
     fprintf('Task 7: Results saved to %s\n', results_out);
+    fprintf('[SUMMARY] method=KF rmse_pos=%.2f m final_pos=%.2f m ', ...
+            sqrt(mean(sum(pos_error.^2,2))), final_pos);
+    fprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', ...
+            sqrt(mean(sum(vel_error.^2,2))), final_vel);
     fprintf('Task 7: Completed successfully\n');
 end

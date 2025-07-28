@@ -109,23 +109,20 @@ else
 end
 
 if nargin < 4 || isempty(truth_file)
-    % Default to the common STATE_X001.txt trajectory
-    state_name = 'STATE_X001.txt';
-    root_dir = fileparts(fileparts(mfilename('fullpath')));
-    truth_file = fullfile(root_dir, state_name);
-    if ~isfile(truth_file)
-        error('Task_6:TruthMissing', 'State file not found: %s', state_name);
-    end
+    truth_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
 end
 
-% Load STATE_X truth file with comment support
-truth = read_state_file(truth_file);
+load(truth_file, 'truth_pos_ecef', 'truth_vel_ecef');
+truth_time = (0:size(truth_pos_ecef,1)-1)';
+truth = [zeros(size(truth_time)), truth_time, truth_pos_ecef, truth_vel_ecef];
 
 % Use reference coordinates from the estimate when available
 if isfield(S,'ref_lat'); ref_lat = S.ref_lat; else; ref_lat = deg2rad(-32.026554); end
 if isfield(S,'ref_lon'); ref_lon = S.ref_lon; else; ref_lon = deg2rad(133.455801); end
 if isfield(S,'ref_r0');  ref_r0 = S.ref_r0;  else;  ref_r0 = truth(1,3:5)'; end
 C = compute_C_ECEF_to_NED(ref_lat, ref_lon);
+fprintf('[DBG-FRAME] NED origin => ECEF = %.6f  %.6f  %.6f (should be ~=0)\n', ...
+        ned2ecef_vector([0 0 0], ref_lat, ref_lon));
 
 % Ground truth in different frames
 t_truth = truth(:,2);
@@ -330,6 +327,10 @@ T = cell2table(rows,'VariableNames',header);
 disp(T);
 runtime = toc(start_time);
 fprintf('Task 6 runtime: %.2f s\n', runtime);
+fprintf('[SUMMARY] method=%s rmse_pos=%.2f m final_pos=%.2f m ', ...
+        method, mNED.rmse_pos, mNED.final_pos);
+fprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', ...
+        mNED.rmse_vel, mNED.final_vel);
 results = struct('metrics', metrics, 'runtime', runtime);
 save_task_results(results, imu_name, gnss_name, method, 6);
 end
