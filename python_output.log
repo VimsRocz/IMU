@@ -1,0 +1,274 @@
+Ensured 'results' directory exists.
+GNSS preview: shape (20,), first row: [ 2.02500000e+03  2.00000000e+00  1.00000000e+00  1.00000000e+01
+  1.00000000e+00  1.00000000e+00  1.73840406e+09  0.00000000e+00
+  0.00000000e+00  0.00000000e+00 -3.72905171e+06  3.93567521e+06
+ -3.34839235e+06  9.86025069e-02 -8.22873379e-02  1.68529087e-01
+  0.00000000e+00  0.00000000e+00  0.00000000e+00  0.00000000e+00]
+IMU preview: shape (10,), first row: [ 0.00000000e+00  2.50000000e-03 -2.88493568e-07  6.22272807e-07
+  7.09716400e-08  2.39005000e-02 -3.26764000e-05 -5.73544000e-03
+  2.25000000e+01  1.00000000e+00]
+▶ IMU_X002_GNSS_X002_TRIAD
+Ensured 'results/' directory exists.
+Running attitude-estimation method: TRIAD
+TASK 1 (TRIAD): Define reference vectors in NED frame
+Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.
+GNSS data columns:
+    'UTC_yyyy'
+    'UTC_MM'
+    'UTC_dd'
+    'UTC_HH'
+    'UTC_mm'
+    'UTC_ss'
+    'Posix_Time'
+    'Latitude_deg'
+    'Longitude_deg'
+    'Height_deg'
+    'X_ECEF_m'
+    'Y_ECEF_m'
+    'Z_ECEF_m'
+    'VX_ECEF_mps'
+    'VY_ECEF_mps'
+    'VZ_ECEF_mps'
+    'HDOP'
+    'VDOP'
+    'PDOP'
+    'TDOP'
+First few rows of ECEF coordinates:
+     X_ECEF_m     Y_ECEF_m      Z_ECEF_m
+-3.729052e+06 3.935675e+06 -3.348392e+06
+-3.729050e+06 3.935676e+06 -3.348394e+06
+-3.729051e+06 3.935671e+06 -3.348399e+06
+-3.729050e+06 3.935675e+06 -3.348393e+06
+-3.729051e+06 3.935676e+06 -3.348392e+06
+Subtask 1.2: Defining gravity vector in NED frame.
+Subtask 1.3: Defining Earth rotation rate vector in NED frame.
+Subtask 1.4: Validating reference vectors.
+Reference vectors validated successfully.
+Computed initial latitude: -31.871173°, longitude: 133.455811° from GNSS
+==== Reference Vectors in NED Frame ====
+Gravity vector (NED):        [0.         0.         9.79424753] m/s^2
+Earth rotation rate (NED):   [6.19272441e-05 0.00000000e+00 3.85030996e-05] rad/s
+Latitude (deg):              -31.871173
+Longitude (deg):             133.455811
+Location map saved
+TASK 2: Measure the vectors in the body frame
+Static interval indices: 296 to 479907 (479611 samples)
+Static interval duration: 1199.03 s of 1250.00 s total (95.9%)
+Static interval covers 95.9% of the dataset. Verify motion data or adjust detection thresholds.
+Task 2 vectors: g_body=[-9.5226e+00  2.7479e-05  2.2908e+00], omega_ie_body=[-2.3230e-05 -2.8021e-06  6.9001e-05]
+Estimated IMU dt: 0.002500 s
+Gravity vector (body): [-9.52258818e+00  2.74785412e-05  2.29076387e+00]
+Earth rotation (body): [-2.32300437e-05 -2.80207333e-06  6.90007293e-05]
+TASK 3: Solve Wahba’s problem (find initial attitude from body to NED)
+Subtask 3.1: Preparing vector pairs for attitude determination.
+Subtask 3.2: Computing rotation matrix using TRIAD method.
+Rotation matrix (TRIAD method, Case 1):
+[[ 2.33646980e-01 -4.54035202e-02  9.71260835e-01]
+ [ 1.06220955e-02  9.98968728e-01  4.41435243e-02]
+ [-9.72263472e-01  2.82418914e-06  2.33888307e-01]]
+Rotation matrix (TRIAD method, Case 2):
+[[ 2.33646980e-01 -4.54035202e-02  9.71260835e-01]
+ [ 1.06220955e-02  9.98968728e-01  4.41435243e-02]
+ [-9.72263472e-01  2.82418914e-06  2.33888307e-01]]
+Subtask 3.3: Computing rotation matrix using Davenport’s Q-Method.
+Rotation matrix (Davenport’s Q-Method, Case 1):
+[[ 2.33646980e-01 -4.54035202e-02  9.71260835e-01]
+ [ 1.06220955e-02  9.98968728e-01  4.41435243e-02]
+ [-9.72263472e-01  2.82418914e-06  2.33888307e-01]]
+Davenport quaternion (q_w, q_x, q_y, q_z, Case 1): [ 0.78525537 -0.01405298  0.61875549  0.01783675]
+Rotation matrix (Davenport’s Q-Method, Case 2):
+[[ 2.33646980e-01 -4.54035202e-02  9.71260835e-01]
+ [ 1.06220955e-02  9.98968728e-01  4.41435243e-02]
+ [-9.72263472e-01  2.82418914e-06  2.33888307e-01]]
+Davenport quaternion (q_w, q_x, q_y, q_z, Case 2): [ 0.78525537 -0.01405298  0.61875549  0.01783675]
+Subtask 3.4: Computing rotation matrix using SVD method.
+Rotation matrix (SVD method):
+[[ 2.31654377e-01 -4.54034191e-02  9.71738020e-01]
+ [ 1.06220955e-02  9.98968728e-01  4.41435243e-02]
+ [-9.72740161e-01  9.58534024e-05  2.31897758e-01]]
+Subtask 3.5: Converting TRIAD and SVD DCMs to quaternions.
+Quaternion (TRIAD, Case 1): [ 0.78525537 -0.01405298  0.61875549  0.01783675]
+TRIAD initial attitude (deg): roll=0.001 pitch=76.474 yaw=2.603
+Quaternion (SVD, Case 1): [ 0.78462107 -0.0140347   0.61955964  0.01785114]
+Quaternion (TRIAD, Case 2): [ 0.78525537 -0.01405298  0.61875549  0.01783675]
+Quaternion (SVD, Case 2): [ 0.78462107 -0.0140347   0.61955964  0.01785114]
+
+Attitude errors using reference vectors:
+TRIAD      -> Gravity error (deg): 0.000023
+TRIAD      -> Earth rate error (deg):  0.234815
+Davenport  -> Gravity error (deg): 0.000023
+Davenport  -> Earth rate error (deg):  0.234815
+SVD        -> Gravity error (deg): 0.117419
+SVD        -> Earth rate error (deg):  0.117419
+Subtask 3.6: Validating attitude determination and comparing methods.
+
+Detailed Earth-Rate Errors:
+  TRIAD     : 0.234815°
+  Davenport : 0.234815°
+  SVD       : 0.117419°
+
+Earth-rate errors by method:
+  TRIAD     : 0.234815207°
+  Davenport : 0.234815207°
+  SVD       : 0.117419345°
+  Δ = 1.17e-01° (tolerance = 1.0e-05)
+
+
+==== Method Comparison for Case X001 and Case X001_doc ====
+Method       Gravity Err (deg)    Earth-Rate Err (deg)
+TRIAD                   0.0000                  0.2348
+Davenport               0.0000                  0.2348
+SVD                     0.1174                  0.1174
+Subtask 3.7: Plotting validation errors and quaternion components.
+Error comparison plot saved
+Quaternion comparison plot saved
+Subtask 3.8: Storing rotation matrices for use in later tasks.
+Task 3 results stored in memory: ['TRIAD', 'Davenport', 'SVD']
+TASK 4: GNSS and IMU Data Integration and Comparison
+Subtask 4.1: Accessing rotation matrices from Task 3.
+Rotation matrices accessed: ['TRIAD']
+Subtask 4.3: Loading GNSS data.
+Subtask 4.4: Extracting relevant columns.
+GNSS data shape: (1250, 3)
+Subtask 4.5: Defining reference point.
+Reference point: lat=-0.556257 rad, lon=2.329243 rad, r0=[-3729051.70953389  3935675.21436999 -3348392.35045077]
+Subtask 4.6: Computing ECEF to NED rotation matrix.
+ECEF to NED rotation matrix computed.
+NED to ECEF rotation matrix computed.
+Subtask 4.7: Converting GNSS data to NED frame.
+GNSS velocity incorporated: [ 0.07577281 -0.01497924  0.1973064 ]
+GNSS data transformed to NED frame.
+Subtask 4.8: Estimating GNSS acceleration in NED.
+GNSS acceleration estimated in NED frame.
+Subtask 4.9: Loading IMU data and correcting for bias for each method.
+Method TRIAD: Accelerometer bias: [ 0.57757295 -6.83671274  0.91029003] (|b|=6.921189 m/s^2)
+Method TRIAD: Gyroscope bias: [-2.63999989e-07  9.53280997e-09 -1.52202301e-07]
+Method TRIAD: Accelerometer scale factor: 0.8368
+IMU data corrected for bias for each method.
+Accelerometer scale factor applied: 0.8368
+Subtask 4.10: Setting IMU parameters and gravity vector.
+Using gravity vector from Task 1: [0.         0.         9.79424753]
+Subtask 4.11: Initializing output arrays.
+Subtask 4.12: Integrating IMU accelerations for each method.
+Integrating IMU data using TRIAD method.
+IMU-derived position, velocity, and acceleration computed for all methods.
+Subtask 4.13: Validating and plotting data.
+Comparison plot in NED frame saved
+Plotting data in mixed frames.
+Mixed frames plot saved
+Plotting all data in NED frame.
+All data in NED frame plot saved
+Plotting all data in ECEF frame.
+All data in ECEF frame plot saved
+Plotting all data in body frame.
+All data in body frame plot saved
+Task 5: Sensor Fusion with Kalman Filter
+Subtask 5.1: Configuring logging.
+Subtask 5.3: Loading GNSS and IMU data.
+Method TRIAD: Bias computed: [ 0.57757295 -6.83671274  0.91029003]
+Method TRIAD: Scale factor: 1.0000
+Subtask 5.4: Integrating IMU data for each method.
+Method TRIAD: IMU data integrated.
+[IMU_X002_GNSS_X002 | TRIAD] Final integrated NED velocity: [-1178.306, 8434.896, -1051.365] m/s
+Subtask 5.6: Running Kalman Filter for sensor fusion for each method.
+Adjusted Q[3:6,3:6]: [[0.1 0.  0. ]
+ [0.  0.1 0. ]
+ [0.  0.  0.1]]
+Adjusted R[3:6,3:6]: [[0.25 0.   0.  ]
+ [0.   0.25 0.  ]
+ [0.   0.   0.25]]
+Method TRIAD: Kalman Filter completed. ZUPTcnt=479587
+Subtask 5.7: No event handling needed as time < 5000s.
+Subtask 5.8.2: Plotting results for TRIAD.
+Subtask 5.8.2: Plotted TRIAD position North: First = 0.0000, Last = 18786.8639
+Subtask 5.8.2: Plotted TRIAD position East: First = 0.0000, Last = 326.1563
+Subtask 5.8.2: Plotted TRIAD position Down: First = 0.0000, Last = -32273.1875
+Subtask 5.8.2: Plotted TRIAD velocity North: First = 0.0758, Last = 0.3640
+Subtask 5.8.2: Plotted TRIAD velocity East: First = -0.0150, Last = 0.0050
+Subtask 5.8.2: Plotted TRIAD velocity Down: First = 0.1973, Last = -0.5268
+Loaded output results/IMU_X002_GNSS_X002_TRIAD_kf_output.npz with keys: ['summary', 'time', 'pos_ned', 'vel_ned', 'fused_pos', 'fused_vel', 'pos_ecef', 'vel_ecef', 'pos_body', 'vel_body', 'innov_pos', 'innov_vel', 'euler', 'residual_pos', 'residual_vel', 'time_residuals', 'attitude_q', 'P_hist', 'x_log', 'ref_lat', 'ref_lon', 'ref_r0']
+Output time range: 1738404061.0 to 1738405310.9975 s
+Position shape: (500000, 3)
+Subtask 6.8.2: Plotted TRIAD position North: First = 0.0000, Last = 18786.8639
+Subtask 6.8.2: Plotted TRIAD position East: First = 0.0000, Last = 326.1563
+Subtask 6.8.2: Plotted TRIAD position Down: First = 0.0000, Last = -32273.1875
+Subtask 6.8.2: Plotted TRIAD velocity North: First = 0.0758, Last = 0.3640
+Subtask 6.8.2: Plotted TRIAD velocity East: First = -0.0150, Last = 0.0050
+Subtask 6.8.2: Plotted TRIAD velocity Down: First = 0.1973, Last = -0.5268
+Starting Task 6 overlay ...
+Running Task 7 evaluation ...
+Subtask 5.8.2: Plotted TRIAD acceleration North: First = 0.0000, Last = -1.8243
+Subtask 5.8.2: Plotted TRIAD acceleration East: First = 0.0000, Last = 6.7566
+Subtask 5.8.2: Plotted TRIAD acceleration Down: First = 0.0000, Last = 12.1056
+Subtask 5.8.2: TRIAD plot saved as 'results/IMU_X002_GNSS_X002_TRIAD_task5_results_TRIAD.pdf'
+Plotting fused data in mixed frames.
+Fused mixed frames plot saved
+Plotting all data in NED frame.
+All data in NED frame plot saved
+Plotting all data in ECEF frame.
+All data in ECEF frame plot saved
+Plotting all data in body frame.
+All data in body frame plot saved
+[SUMMARY] method=TRIAD     imu=IMU_X002.dat gnss=GNSS_X002.csv rmse_pos=   0.29m final_pos=   0.00m rms_resid_pos=   0.03m max_resid_pos=   0.30m rms_resid_vel=   0.10m max_resid_vel=   0.42m accel_bias=6.9212 gyro_bias=0.0000 ZUPT_count=479587 GravErrMean_deg=0.039155 GravErrMax_deg=0.117419 EarthRateErrMean_deg=0.195683 EarthRateErrMax_deg=0.234815
+[Gravity Validation] Latitude: -31.871 deg, altitude: 158.8 m --> Gravity: 9.794248 m/s^2 (NED +Z is down)
+Task 2: static interval = 296:479907, g_body = [-9.52258818e+00  2.74785412e-05  2.29076387e+00], omega_ie_body = [-2.32300437e-05 -2.80207333e-06  6.90007293e-05]
+Task 4: applied accelerometer scale factor = 0.8368
+Saved overlay figure results/IMU_X002_GNSS_X002_TRIAD_task6_overlay_state_NED.pdf
+Saved overlay figure results/IMU_X002_GNSS_X002_TRIAD_task6_overlay_state_ECEF.pdf
+Saved overlay figure results/IMU_X002_GNSS_X002_TRIAD_task6_overlay_state_Body.pdf
+Frame       RMSEpos    FinalPos    RMSEvel    FinalVel    RMSEacc    FinalAcc
+-------  ----------  ----------  ---------  ----------  ---------  ----------
+NED        3307.542   37344.494    223.895     107.595    906.856       2.149
+ECEF     256232.431  241074.046    223.895     107.595    906.856       2.149
+Body     256232.431  241074.046    223.895     107.595    906.856       2.149
+Files saved in results
+ - IMU_X002_GNSS_X002_TRIAD_task6_attitude_angles.pdf
+ - IMU_X002_GNSS_X002_TRIAD_task6_overlay_state_Body.pdf
+ - IMU_X002_GNSS_X002_TRIAD_task6_overlay_state_ECEF.pdf
+ - IMU_X002_GNSS_X002_TRIAD_task6_overlay_state_NED.pdf
+Task 6 runtime: 7.19 s
+Final fused_vel_ned: [ 0.3639609   0.0050345  -0.52682276]
+Final truth_vel_ned: [ 1.12188333e-04  1.55215361e-06 -1.62407298e-04]
+Position residual mean [m]: [-5.81384266e-03 -9.10341342e-05  8.36919726e-03]
+Position residual std  [m]: [0.22230574 0.02713645 0.32063886]
+Velocity residual mean [m/s]: [ 0.62943775  0.00985778 -0.90612169]
+Velocity residual std  [m/s]: [24.11823006  2.94285732 34.78688939]
+Saved results/IMU_X002_GNSS_X002_TRIAD_task7_3_residuals_position_velocity.pdf
+Saved results/IMU_X002_GNSS_X002_TRIAD_task7_4_attitude_angles_euler.pdf
+Saved results/IMU_X002_GNSS_X002_TRIAD_task7_3_error_norms.pdf
+Saved results/IMU_X002_GNSS_X002_TRIAD_task7_5_diff_truth_fused_over_time_NED.pdf
+Saved results/IMU_X002_GNSS_X002_TRIAD_task7_5_diff_truth_fused_over_time_NED.png
+NED North position diff range: -0.23 m to 8.44 m. 350 samples exceed 1.0 m
+NED North velocity diff range: -1513.66 m/s to 186.53 m/s. 366399 samples exceed 1.0 m/s
+NED East position diff range: -0.10 m to 0.12 m. No samples exceed 1.0 m
+NED East velocity diff range: -20.94 m/s to 13.68 m/s. 371698 samples exceed 1.0 m/s
+NED Down position diff range: -12.22 m to 0.32 m. 352 samples exceed 1.0 m
+NED Down velocity diff range: -277.14 m/s to 2191.02 m/s. 365263 samples exceed 1.0 m/s
+Saved results/IMU_X002_GNSS_X002_TRIAD_task7_5_diff_truth_fused_over_time_ECEF.pdf
+Saved results/IMU_X002_GNSS_X002_TRIAD_task7_5_diff_truth_fused_over_time_ECEF.png
+ECEF X position diff range: -10.28 m to 0.28 m. 351 samples exceed 1.0 m
+ECEF X velocity diff range: -235.28 m/s to 1844.68 m/s. 366969 samples exceed 1.0 m/s
+ECEF Y position diff range: -0.28 m to 10.68 m. 351 samples exceed 1.0 m
+ECEF Y velocity diff range: -1916.45 m/s to 236.98 m/s. 366425 samples exceed 1.0 m/s
+ECEF Z position diff range: -0.10 m to 0.72 m. No samples exceed 1.0 m
+ECEF Z velocity diff range: -128.57 m/s to 15.37 m/s. 365587 samples exceed 1.0 m/s
+Saved results/IMU_X002_GNSS_X002_TRIAD_task7_5_diff_truth_fused_over_time_Body.pdf
+Saved results/IMU_X002_GNSS_X002_TRIAD_task7_5_diff_truth_fused_over_time_Body.png
+Body X position diff range: -0.38 m to 14.78 m. 352 samples exceed 1.0 m
+Body X velocity diff range: -2651.17 m/s to 333.06 m/s. 358877 samples exceed 1.0 m/s
+Body Y position diff range: -1.42 m to 1.42 m. 180 samples exceed 1.0 m
+Body Y velocity diff range: -177.73 m/s to 153.84 m/s. 373943 samples exceed 1.0 m/s
+Body Z position diff range: -1.41 m to 1.42 m. 162 samples exceed 1.0 m
+Body Z velocity diff range: -153.48 m/s to 178.56 m/s. 364287 samples exceed 1.0 m/s
+Saved Task 7.5 diff-truth plots for NED/ECEF/Body frames under: results/
+Metric                  Final Error     RMSE
+--------------------  -------------  -------
+Position [m]                  0.006    0.391
+Velocity [m/s]                0.640   42.446
+Acceleration [m/s^2]          0.037  763.942
+[SUMMARY] method=TRIAD rmse_pos=0.391m final_pos=0.006m rmse_vel=42.446m/s final_vel=0.640m/s runtime=5.95s
+Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/IMU_X002_GNSS_X002_TRIAD/
+Dataset    Method      RMSEpos [m]    End-Error [m]    RMSresidPos [m]    MaxresidPos [m]    RMSresidVel [m/s]    MaxresidVel [m/s]    Runtime [s]
+---------  --------  -------------  ---------------  -----------------  -----------------  -------------------  -------------------  -------------
+IMU_X002   TRIAD              0.29             0.00               0.03               0.30                 0.10                 0.42         274.01
+TRIAD processing complete for X002
