@@ -173,5 +173,10 @@ def plot_overlay(
     fname_png = out_path.with_suffix(".png")
     fig.savefig(fname_pdf, dpi=300, bbox_inches="tight")
     fig.savefig(fname_png, dpi=150, bbox_inches="tight")
+    try:
+        from utils import save_plot_mat
+        save_plot_mat(fig, str(out_path.with_suffix(".mat")))
+    except Exception:
+        pass
     print(f"Saved overlay figure {fname_pdf}")
     plt.close(fig)
