@@ -49,8 +49,21 @@ if exist(init_file,'file') ~= 2 || exist(body_file,'file') ~= 2 || ...
         exist(task3_file,'file') ~= 2 || exist(task4_file,'file') ~= 2
     error('Task_5:MissingPrereq','Required Task 1--4 outputs not found.');
 end
-load(init_file, 'gravity_ned','lat0_rad','lon0_rad');
-load(body_file, 'accel_bias','gyro_bias');
+S1 = load(init_file);
+req = {'gravity_ned','lat0_rad','lon0_rad'};
+for nReq = 1:numel(req)
+    if ~isfield(S1, req{nReq})
+        error('Task_5:MissingField','%s missing from %s', req{nReq}, init_file);
+    end
+end
+gravity_ned = S1.gravity_ned;
+lat0_rad    = S1.lat0_rad;
+lon0_rad    = S1.lon0_rad;
+S2 = load(body_file);
+if isfield(S2, 'accel_bias'); accel_bias = S2.accel_bias; else
+    error('Task_5:MissingField','accel_bias missing from %s', body_file); end
+if isfield(S2, 'gyro_bias'); gyro_bias = S2.gyro_bias; else
+    error('Task_5:MissingField','gyro_bias missing from %s', body_file); end
 tmp = load(body_file, 'accel_scale');
 if isfield(tmp, 'accel_scale')
     accel_scale = tmp.accel_scale;
@@ -131,39 +144,7 @@ vel_est_ned = x_log(4:6,:);
 acc_est_ned = [zeros(3,1), diff(vel_est_ned,1,2)/dt];
 acc_body    = accel; %# body-frame specific force after bias/scale
 
-% Convert estimates to the ECEF frame using the fixed reference attitude
-[pos_est_ecef_rel, vel_est_ecef] = ned2ecef_series(pos_est_ned, vel_est_ned, ...
-    lat0_rad, lon0_rad);
-pos_est_ecef = pos_est_ecef_rel + r0;
 
-time = imu.time(:);
-time_s = time;
-
-% Compute residual statistics against GNSS measurements
-pos_gnss_interp = interp1(gnss_times, pos_ned', time, 'linear', 'extrap')';
-vel_gnss_interp = interp1(gnss_times, vel_ned', time, 'linear', 'extrap')';
-res_pos = pos_est_ned - pos_gnss_interp;
-res_vel = vel_est_ned - vel_gnss_interp;
-rmse_pos = sqrt(mean(sum(res_pos.^2,1)));
-final_pos = norm(res_pos(:,end));
-rms_resid_pos = sqrt(mean(res_pos.^2,'all'));
-rms_resid_vel = sqrt(mean(res_vel.^2,'all'));
-max_resid_pos = max(vecnorm(res_pos,2,1));
-max_resid_vel = max(vecnorm(res_vel,2,1));
-summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%.2fm ' ...
-    'final_pos=%.2fm rms_resid_pos=%.2fm max_resid_pos=%.2fm ' ...
-    'rms_resid_vel=%.2fm max_resid_vel=%.2fm'], ...
-    method, [imu_name '.dat'], [gnss_name '.csv'], rmse_pos, final_pos, rms_resid_pos, ...
-    max_resid_pos, rms_resid_vel, max_resid_vel);
-fid = fopen(fullfile(results_dir,'IMU_GNSS_summary.txt'),'a');
-fprintf(fid,'%s\n', summary_line); fclose(fid);
-fprintf('%s\n', summary_line);
-
-% Save using Python-style variable names for cross-language parity
-C_b_n = C_b_n_series;
-save(out_mat, 'time','time_s','x_log','pos_est_ned','vel_est_ned','acc_est_ned', ...
-    'pos_est_ecef','vel_est_ecef','acc_body','C_b_n','pos_ned','vel_ned','acc_ned', ...
-    'lat0_rad','lon0_rad','r0','P');
 fprintf('Saved Task 5 results to %s\n', out_mat);
 
 % Generate and save plots
@@ -246,19 +227,19 @@ function fig = plot_task5_ned(t, pos_ref, pos_fused, vel_ref, vel_fused, acc_ref
             switch r
                 case 1
                     plot(ax, t, pos_ref(c,:), 'k-', 'DisplayName','Measured GNSS');
-                    plot(ax, t, pos_fused(c,:), 'b-', 'DisplayName',['Fused (GNSS+IMU, ' method ')']);
-                    ylabel(ax, sprintf(''Position %s (m)'', labels{c}));
-                    title(ax, sprintf(''Pos %s'', labels{c}));
+                    plot(ax, t, pos_fused(c,:), 'b-', 'DisplayName', ['Fused (GNSS+IMU, ', method, ')']);
+                    ylabel(ax, sprintf('Position %s (m)', labels{c}));
+                    title(ax, sprintf('Pos %s', labels{c}));
                 case 2
                     plot(ax, t, vel_ref(c,:), 'k-', 'DisplayName','Measured GNSS');
-                    plot(ax, t, vel_fused(c,:), 'b-', 'DisplayName',['Fused (GNSS+IMU, ' method ')']);
-                    ylabel(ax, sprintf(''Velocity %s (m/s)'', labels{c}));
-                    title(ax, sprintf(''Vel %s'', labels{c}));
+                    plot(ax, t, vel_fused(c,:), 'b-', 'DisplayName', ['Fused (GNSS+IMU, ', method, ')']);
+                    ylabel(ax, sprintf('Velocity %s (m/s)', labels{c}));
+                    title(ax, sprintf('Vel %s', labels{c}));
                 otherwise
                     plot(ax, t(2:end), acc_ref(c, :), 'k-', 'DisplayName','Measured GNSS');
-                    plot(ax, t(2:end), acc_fused(c, :), 'b-', 'DisplayName',['Fused (GNSS+IMU, ' method ')']);
-                    ylabel(ax, sprintf(''Accel %s (m/s^2)'', labels{c}));
-                    title(ax, sprintf(''Acc %s'', labels{c}));
+                    plot(ax, t(2:end), acc_fused(c, :), 'b-', 'DisplayName', ['Fused (GNSS+IMU, ', method, ')']);
+                    ylabel(ax, sprintf('Accel %s (m/s^2)', labels{c}));
+                    title(ax, sprintf('Acc %s', labels{c}));
             end
             xlabel(ax,'Time (s)');
             legend(ax,'Location','best');
@@ -291,19 +272,19 @@ function fig = plot_task5_ecef(t, pos_ref, pos_fused, vel_ref, vel_fused, acc_re
             switch r
                 case 1
                     plot(ax, t, pos_ref(c,:), 'k-', 'DisplayName','Measured GNSS');
-                    plot(ax, t, pos_fused(c,:), 'b-', 'DisplayName',['Fused (GNSS+IMU, ' method ')']);
-                    ylabel(ax, sprintf(''Position %s (m)'', labels{c}));
-                    title(ax, sprintf(''Pos %s'', labels{c}));
+                    plot(ax, t, pos_fused(c,:), 'b-', 'DisplayName', ['Fused (GNSS+IMU, ', method, ')']);
+                    ylabel(ax, sprintf('Position %s (m)', labels{c}));
+                    title(ax, sprintf('Pos %s', labels{c}));
                 case 2
                     plot(ax, t, vel_ref(c,:), 'k-', 'DisplayName','Measured GNSS');
-                    plot(ax, t, vel_fused(c,:), 'b-', 'DisplayName',['Fused (GNSS+IMU, ' method ')']);
-                    ylabel(ax, sprintf(''Velocity %s (m/s)'', labels{c}));
-                    title(ax, sprintf(''Vel %s'', labels{c}));
+                    plot(ax, t, vel_fused(c,:), 'b-', 'DisplayName', ['Fused (GNSS+IMU, ', method, ')']);
+                    ylabel(ax, sprintf('Velocity %s (m/s)', labels{c}));
+                    title(ax, sprintf('Vel %s', labels{c}));
                 otherwise
                     plot(ax, t(2:end), acc_ref(c,:), 'k-', 'DisplayName','Measured GNSS');
-                    plot(ax, t(2:end), acc_fused(c,:), 'b-', 'DisplayName',['Fused (GNSS+IMU, ' method ')']);
-                    ylabel(ax, sprintf(''Accel %s (m/s^2)'', labels{c}));
-                    title(ax, sprintf(''Acc %s'', labels{c}));
+                    plot(ax, t(2:end), acc_fused(c,:), 'b-', 'DisplayName', ['Fused (GNSS+IMU, ', method, ')']);
+                    ylabel(ax, sprintf('Accel %s (m/s^2)', labels{c}));
+                    title(ax, sprintf('Acc %s', labels{c}));
             end
             xlabel(ax,'Time (s)');
             legend(ax,'Location','best');
