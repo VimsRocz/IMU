@@ -235,8 +235,8 @@ else
     warning('Task1 init file %s not found, using default gravity %.3f m/s^2', task1_file, constants.GRAVITY);
     g_NED = [0; 0; constants.GRAVITY];
 end
-% Override with the value used in the Python implementation for consistency
-g_NED = [0; 0; constants.GRAVITY];
+% Gravity vector loaded from Task 1 is used directly to maintain parity with
+% the Python implementation. Do not override with the nominal constant.
 omega_E = constants.EARTH_RATE;                     % rad/s
 omega_ie_NED = omega_E * [cos(ref_lat); 0; -sin(ref_lat)];
 
