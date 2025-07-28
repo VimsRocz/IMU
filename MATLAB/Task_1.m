@@ -1,4 +1,4 @@
-function result = Task_1(imu_path, gnss_path, method)
+function result = Task_1(imu_path, gnss_path, method, dataset_tag)
 % TASK 1: Define Reference Vectors in NED Frame
 % This function translates Task 1 from the Python file GNSS_IMU_Fusion.py
 % into MATLAB. In addition to the standard task1_results MAT-file, this
@@ -10,6 +10,14 @@ function result = Task_1(imu_path, gnss_path, method)
 
 if nargin < 3 || isempty(method)
     method = '';
+end
+if nargin < 4 || isempty(dataset_tag)
+    [~, imu_name, ~] = fileparts(imu_path);
+    [~, gnss_name, ~] = fileparts(gnss_path);
+    dataset_tag = sprintf('%s_%s', imu_name, gnss_name);
+else
+    [~, imu_name, ~] = fileparts(imu_path);
+    [~, gnss_name, ~] = fileparts(gnss_path);
 end
 
 if ~isfile(gnss_path)
@@ -31,15 +39,7 @@ if ~exist(results_dir,'dir')
 end
 
 % Print dataset and method like the Python script
-[~, imu_name, ~] = fileparts(imu_path);
-[~, gnss_name, ~] = fileparts(gnss_path);
-if isempty(method)
-    tag = [imu_name '_' gnss_name];
-else
-    tag = [imu_name '_' gnss_name '_' method];
-end
-
-fprintf('%s %s\n', char(hex2dec('25B6')), tag); % \u25B6 is the triangle symbol
+fprintf('%s %s_%s\n', char(hex2dec('25B6')), dataset_tag, method); % triangle symbol
 fprintf('Ensured results directory %s exists.\n', results_dir);
 if ~isempty(method)
     fprintf('Running attitude-estimation method: %s\n', method);
@@ -190,20 +190,14 @@ lat = lat_deg; %#ok<NASGU>
 lon = lon_deg; %#ok<NASGU>
 omega_NED = omega_ie_NED; %#ok<NASGU>
 
-results = struct('lat', lat_deg, 'lon', lon_deg, 'g_NED', g_NED, 'omega_NED', omega_ie_NED);
-save_task_results(results, imu_name, gnss_name, method, 1);
-
-% --------------------------------------------------------------------
-% Also save a simple initialization file for downstream tasks
-% --------------------------------------------------------------------
+init_file = fullfile(results_dir, sprintf('Task1_%s_%s.mat', dataset_tag, method));
 init_struct = struct('lat', lat_deg, 'lon', lon_deg, ...
                      'g_NED', g_NED, 'omega_NED', omega_ie_NED);
 if exist('ref_r0', 'var')
     init_struct.ref_r0 = ref_r0; %#ok<STRNU>
 end
-init_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
 save(init_file, '-struct', 'init_struct');
-fprintf('Initial data saved to %s\n', init_file);
+fprintf('Saved to %s\n', init_file);
 
 % Return results and store in base workspace for interactive use
 result = struct('lat', lat_deg, 'lon', lon_deg, ...

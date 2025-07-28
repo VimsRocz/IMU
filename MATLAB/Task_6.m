@@ -1,4 +1,4 @@
-function Task_6()
+function Task_6(dataset_tag, method)
 %TASK_6 Generate 3x3 overlay plots using STATE\_X001.txt.
 %   TASK_6() loads the fused state history from Task 5 together with the
 %   ground truth trajectory and visualises position, velocity and
@@ -15,6 +15,13 @@ function Task_6()
 %
 %   See also RUN_TRIAD_ONLY, TASK6_OVERLAY_PLOT.PY
 
+if nargin < 1 || isempty(dataset_tag)
+    dataset_tag = 'IMU_X002_GNSS_X002';
+end
+if nargin < 2 || isempty(method)
+    method = 'TRIAD';
+end
+
 fprintf('--- Starting Task 6: Overlay Plots with STATE_X001.txt ---\n');
 
 %% ------------------------------------------------------------------
@@ -22,17 +29,12 @@ fprintf('--- Starting Task 6: Overlay Plots with STATE_X001.txt ---\n');
 %% ------------------------------------------------------------------
 root_dir    = fileparts(fileparts(mfilename('fullpath')));
 results_dir = get_results_dir();
-imu_name  = 'IMU_X002';
-gnss_name = 'GNSS_X002';
-method    = 'TRIAD';
-run_id    = sprintf('%s_%s_%s', imu_name, gnss_name, method);
+run_id    = sprintf('%s_%s', dataset_tag, method);
 
-results_file = fullfile(results_dir, sprintf('%s_task5_results.mat', run_id));
+results_file = fullfile(results_dir, sprintf('Task5_%s_%s.mat', dataset_tag, method));
 truth_file   = fullfile(root_dir, 'STATE_X001.txt');
-task4_file   = fullfile(results_dir, sprintf('Task4_results_%s.mat', ...
-    [imu_name '_' gnss_name]));
-task3_file   = fullfile(results_dir, sprintf('Task3_results_%s.mat', ...
-    [imu_name '_' gnss_name]));
+task4_file   = fullfile(results_dir, sprintf('Task4_%s_%s.mat', dataset_tag, method));
+task3_file   = fullfile(results_dir, sprintf('Task3_%s_%s.mat', dataset_tag, method));
 
 %% ------------------------------------------------------------------
 % Load estimator data from Task 5

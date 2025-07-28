@@ -1,4 +1,4 @@
-function Task_5(imu_path, gnss_path, method)
+function Task_5(imu_path, gnss_path, method, dataset_tag)
 %TASK_5  Sensor fusion: integrate IMU, correct with GNSS via 15-state Kalman filter
 %   TASK_5(IMU_PATH, GNSS_PATH, METHOD) loads the intermediate results from
 %   Tasks 1--4 and performs the full 15-state Kalman filter exactly as the
@@ -19,25 +19,29 @@ function Task_5(imu_path, gnss_path, method)
 if nargin < 3
     method = '';
 end
+if nargin < 4 || isempty(dataset_tag)
+    [~, imu_name, ~]  = fileparts(imu_path);
+    [~, gnss_name, ~] = fileparts(gnss_path);
+    dataset_tag = sprintf('%s_%s', imu_name, gnss_name);
+else
+    [~, imu_name, ~]  = fileparts(imu_path);
+    [~, gnss_name, ~] = fileparts(gnss_path);
+end
 
 results_dir = get_results_dir();
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 [~, imu_name, ~]  = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
-if isempty(method)
-    tag = sprintf('%s_%s', imu_name, gnss_name);
-else
-    tag = sprintf('%s_%s_%s', imu_name, gnss_name, method);
-end
+run_tag = sprintf('%s_%s', dataset_tag, method);
 
 fprintf('Subtask 5.1: Loading Task 1-4 outputs.\n');
 % Build file paths
-init_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
-body_file = fullfile(results_dir, sprintf('Task2_body_%s.mat', tag));
-task3_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', tag));
-task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', tag));
-out_mat   = fullfile(results_dir, sprintf('Task5_results_%s.mat', tag));
-fig_prefix = fullfile(results_dir, sprintf('%s_task5_results', tag));
+init_file = fullfile(results_dir, sprintf('Task1_%s_%s.mat', dataset_tag, method));
+body_file = fullfile(results_dir, sprintf('Task2_%s_%s.mat', dataset_tag, method));
+task3_file = fullfile(results_dir, sprintf('Task3_%s_%s.mat', dataset_tag, method));
+task4_file = fullfile(results_dir, sprintf('Task4_%s_%s.mat', dataset_tag, method));
+out_mat   = fullfile(results_dir, sprintf('Task5_%s_%s.mat', dataset_tag, method));
+fig_prefix = fullfile(results_dir, sprintf('%s_task5_results', run_tag));
 
 if exist(init_file,'file') ~= 2 || exist(body_file,'file') ~= 2 || ...
         exist(task3_file,'file') ~= 2 || exist(task4_file,'file') ~= 2

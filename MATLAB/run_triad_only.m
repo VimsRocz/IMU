@@ -28,6 +28,9 @@ method    = 'TRIAD';
 root_dir  = fileparts(fileparts(mfilename('fullpath')));
 imu_path  = fullfile(root_dir, imu_file);
 gnss_path = fullfile(root_dir, gnss_file);
+[~, imu_name, ~]  = fileparts(imu_file);
+[~, gnss_name, ~] = fileparts(gnss_file);
+dataset_tag = sprintf('%s_%s', imu_name, gnss_name);
 
 results_dir = get_results_dir();
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
@@ -35,13 +38,13 @@ if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 % ------------------------------------------------------------------
 % Execute Tasks 1--5 sequentially using the TRIAD initialisation
 % ------------------------------------------------------------------
-Task_1(imu_path, gnss_path, method);
-Task_2(imu_path, gnss_path, method);
-Task_3(imu_path, gnss_path, method);
-Task_4(imu_path, gnss_path, method);
+Task_1(imu_path, gnss_path, method, dataset_tag);
+Task_2(imu_path, gnss_path, method, dataset_tag);
+Task_3(imu_path, gnss_path, method, dataset_tag);
+Task_4(imu_path, gnss_path, method, dataset_tag);
 % Task_5 accepts the file paths for compatibility but ignores them in the
 % current simplified implementation.
-Task_5(imu_path, gnss_path, method);
+Task_5(imu_path, gnss_path, method, dataset_tag);
 % Demonstration: run simplified Kalman filter loop and save ``x_log`` only
 % This mirrors the Python stub ``task5_kf_state_log.py`` and shows how to
 % persist the state history matrix to ``MATLAB/results``.
@@ -50,17 +53,12 @@ task5_kf_state_log();
 % ------------------------------------------------------------------
 % Tasks 6 and 7: validation and residual analysis
 % ------------------------------------------------------------------
-task5_file = fullfile(results_dir, sprintf('IMU_X002_GNSS_X002_%s_task5_results.mat', method));
+task5_file = fullfile(results_dir, sprintf('Task5_%s_%s.mat', dataset_tag, method));
 truth_file = fullfile(root_dir, 'STATE_X001.txt');
 if isfile(task5_file) && isfile(truth_file)
     disp('--- Running Task 6: Truth Overlay/Validation ---');
-    % Task_6 currently uses internally defined file paths and therefore
-    % accepts no input arguments. Call it without parameters to avoid the
-    % "Too many input arguments" error.
-    Task_6();
-    [~, imu_name, ~]  = fileparts(imu_path);
-    [~, gnss_name, ~] = fileparts(gnss_path);
-    run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
+    Task_6(dataset_tag, method);
+    run_id = sprintf('%s_%s', dataset_tag, method);
     out_dir = fullfile(results_dir, run_id);
     fprintf('Task 6 overlay plots saved under: %s\n', out_dir);
     disp('--- Running Task 7: Residuals & Summary ---');
