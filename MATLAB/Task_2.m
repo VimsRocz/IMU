@@ -65,8 +65,11 @@ function body_data = Task_2(imu_path, gnss_path, method, dataset_tag)
     gyro_filt = low_pass_filter(gyro, 5, fs);
 
     [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt);
-    fprintf('Static interval indices: %d to %d (%d samples)\n', ...
-            static_start, static_end, static_end-static_start);
+    start0 = static_start - 1; % convert to 0-based for parity with Python
+    end0   = static_end - 1;   % detect_static_interval returns exclusive end
+    fprintf('Static interval indices (0-based): %d to %d (%d samples)\n', ...
+            start0, end0, static_end-static_start);
+    fprintf('Note: MATLAB uses 1-based indexing, Python is 0-based.\n');
 
     % Report ratio of static samples to total duration like the Python version
     n_static  = static_end - static_start + 1;
@@ -88,6 +91,7 @@ function body_data = Task_2(imu_path, gnss_path, method, dataset_tag)
     static_acc  = mean(acc_filt(static_start:static_end, :), 1); % 1x3
     static_gyro = mean(gyro_filt(static_start:static_end, :), 1); % 1x3
     g_body_raw = -static_acc';
+    scale_factor = constants.GRAVITY / norm(g_body_raw);
     g_body = (g_body_raw / norm(g_body_raw)) * constants.GRAVITY;
     g_body_scaled = g_body; % legacy variable for compatibility with old scripts
     omega_ie_body = static_gyro';
@@ -107,6 +111,7 @@ function body_data = Task_2(imu_path, gnss_path, method, dataset_tag)
     body_data.gyro_bias     = gyro_bias;
     body_data.static_start  = static_start;
     body_data.static_end    = static_end;
+    body_data.accel_scale   = scale_factor;
 
     [~, imu_name, ~] = fileparts(imu_path);
     if ~isempty(gnss_path)
@@ -125,23 +130,33 @@ function body_data = Task_2(imu_path, gnss_path, method, dataset_tag)
         body_data.accel_bias = accel_bias;
     end
 
-    fprintf('Task 2: g_body = [% .4f % .4f % .4f]\n', g_body);
-    fprintf('Task 2: omega_ie_body = [% .6f % .6f % .6f]\n', omega_ie_body);
-    fprintf(['Task 2 summary: static interval %d:%d, g_body = [% .4f % .4f % .4f], ' ...
-            'omega_ie_body = [% .6f % .6f % .6f]\n'], ...
+    fprintf('Task 2: g_body = [% .8e % .8e % .8e]\n', g_body);
+    fprintf('Task 2: omega_ie_body = [% .8e % .8e % .8e]\n', omega_ie_body);
+    fprintf(['Task 2 summary: static interval %d:%d, g_body = [% .8e % .8e % .8e], ' ...
+            'omega_ie_body = [% .8e % .8e % .8e]\n'], ...
             static_start, static_end, g_body, omega_ie_body);
-    fprintf('Accelerometer bias = [% .6f % .6f % .6f] m/s^2\n', accel_bias);
-    fprintf('Gyroscope bias     = [% .6f % .6f % .6f] rad/s\n', gyro_bias);
+    accel_mag = norm(accel_bias);
+    gyro_mag  = norm(gyro_bias);
+    fprintf('Accelerometer bias = [% .6f % .6f % .6f] m/s^2 (|b|=%.6f m/s^2)\n', ...
+            accel_bias, accel_mag);
+    fprintf('Gyroscope bias     = [% .6e % .6e % .6e] rad/s (|b|=%.6e rad/s)\n', ...
+            gyro_bias, gyro_mag);
+    fprintf('Accelerometer scale factor = %.4f\n', scale_factor);
     results_dir = get_results_dir();
     if ~exist(results_dir,'dir'); mkdir(results_dir); end
 
     out_file = fullfile(results_dir, sprintf('Task2_%s_%s.mat', dataset_tag, method));
 
     save(out_file, 'g_body', 'g_body_scaled', 'omega_ie_body', ...
-        'accel_bias', 'gyro_bias', 'static_start', 'static_end');
+        'accel_bias', 'gyro_bias', 'static_start', 'static_end', 'scale_factor');
 
     assignin('base','task2_results', body_data);
     fprintf('Saved to %s\n', out_file);
-    fprintf('Task 2 fields:\n');
-    disp(fieldnames(body_data));
+    fprintf('Task 2 fields: {g_body, g_body_scaled, omega_ie_body, accel_bias, gyro_bias, static_start, static_end, accel_scale}\n');
+    fprintf('  g_body        = [% .8e % .8e % .8e]\n', body_data.g_body);
+    fprintf('  omega_ie_body = [% .8e % .8e % .8e]\n', body_data.omega_ie_body);
+    fprintf('  accel_bias    = [% .6f % .6f % .6f] (|b|=%.6f)\n', body_data.accel_bias, accel_mag);
+    fprintf('  gyro_bias     = [% .6e % .6e % .6e] (|b|=%.6e)\n', body_data.gyro_bias, gyro_mag);
+    fprintf('  accel_scale   = %.4f\n', body_data.accel_scale);
+    fprintf('  static_start  = %d, static_end = %d\n', body_data.static_start, body_data.static_end);
 end
