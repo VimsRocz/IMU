@@ -120,8 +120,8 @@ fprintf('Loaded rotation matrix for %s.\n', method);
 % ------------------------------------------------------------------
 fprintf('Subtask 4.3: Loading GNSS data.\n');
 
-gnss = readtable(gnss_file);
-fprintf('Subtask 4.4: GNSS data shape: %d x %d\n', size(gnss,1), width(gnss));
+gnss = read_csv_table(gnss_file);
+fprintf('Subtask 4.4: GNSS data shape: %d x %d\n', length(gnss.X_ECEF_m), length(fieldnames(gnss)));
 
 if ~isempty(r0_init)
     r0 = r0_init;
@@ -147,7 +147,7 @@ fprintf('Subtask 4.8: GNSS accel RMS = %.4f m/s^2\n', rms(acc_ned(:)) );
 % Subtask 4.9: Load IMU data and correct
 % ------------------------------------------------------------------
 fprintf('Subtask 4.9: Loading IMU data.\n');
-imu_raw = readmatrix(imu_file);
+imu_raw = read_matrix(imu_file);
 dt = mean(diff(imu_raw(1:100,2)));
 accel_raw = imu_raw(:,6:8) / dt;
 gyro_raw  = imu_raw(:,3:5) / dt;
@@ -217,8 +217,15 @@ vel_est_ned   = vel_imu;
 acc_est_ned   = acc_imu;
 pos_est_ecef  = pos_imu_ecef;
 vel_est_ecef  = vel_imu_ecef;
+
+% Variables for Task 5 compatibility
+pos_ned = pos_imu;
+vel_ned = vel_imu;
+acc_ned = acc_imu;
+
 save_vars = {'pos_est_ned','vel_est_ned','acc_est_ned','pos_est_ecef', ...
-    'vel_est_ecef','lat0_rad','lon0_rad','gravity_ned','accel_scale','C_b_n','C_e_n','r0'};
+    'vel_est_ecef','lat0_rad','lon0_rad','gravity_ned','accel_scale','C_b_n','C_e_n','r0', ...
+    'pos_ned','vel_ned','acc_ned'};
 save(out_mat, save_vars{:});
 fprintf('Saved Task 4 results to %s\n', out_mat);
 fprintf('Task 4 completed: All frame plots saved, variables ready for Task 5.\n');

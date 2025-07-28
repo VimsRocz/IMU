@@ -47,7 +47,7 @@ function body_data = Task_2(imu_path, gnss_path, method, dataset_tag)
               'Could not find IMU data at:\n  %s', imu_path);
     end
 
-    data = readmatrix(imu_path);
+    data = read_matrix(imu_path);
     if size(data,2) < 8
         error('Task_2:BadFormat', ...
               'Expected at least 8 columns in %s', imu_path);
