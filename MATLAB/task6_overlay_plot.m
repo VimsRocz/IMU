@@ -170,38 +170,36 @@ end
 
 % -------------------------------------------------------------------------
 function pdf_path = plot_overlay(t_est, pos_est, vel_est, acc_est, pos_truth, vel_truth, acc_truth, frame, method, dataset, out_dir)
-%PLOT_OVERLAY Create 3x3 overlay plot of fused vs truth.
+%PLOT_OVERLAY Create 2x3 overlay plot of fused vs truth.
 
 labels = {'X','Y','Z'};
 if strcmpi(frame,'NED')
     labels = {'N','E','D'};
 end
-colors = {[0.2157 0.4824 0.7216], [0.8941 0.1020 0.1098], [0.3010 0.6863 0.2902]};
-ylabels = {'Position [m]','Velocity [m/s]','Acceleration [m/s^2]'};
+    colors = {[0.2157 0.4824 0.7216], [0.8941 0.1020 0.1098], [0.3010 0.6863 0.2902]};
+    ylabels = {'Position [m]','Velocity [m/s]'};
 
-f = figure('Visible','off','Position',[100 100 900 900]);
-data_est  = {pos_est,  vel_est,  acc_est};
-data_truth = {pos_truth, vel_truth, acc_truth};
-for row = 1:3
-    for col = 1:3
-        subplot(3,3,(row-1)*3+col); hold on;
-        plot(t_est, data_est{row}(:,col), 'Color', colors{col}, 'DisplayName', ['Fused ' labels{col}]);
-        plot(t_est, data_truth{row}(:,col), '--', 'Color', colors{col}, 'DisplayName', ['Truth ' labels{col}]);
-        grid on;
-        if row == 1
-            title(labels{col});
-        end
-        if col == 1
-            ylabel(ylabels{row});
-        end
-        if row == 3
+    f = figure('Visible','off','Position',[100 100 900 600]);
+    data_est  = {pos_est,  vel_est};
+    data_truth = {pos_truth, vel_truth};
+    for row = 1:2
+        for col = 1:3
+            subplot(2,3,(row-1)*3+col); hold on;
+            plot(t_est, data_est{row}(:,col), 'Color', colors{col}, 'DisplayName', ['Fused ' labels{col}]);
+            plot(t_est, data_truth{row}(:,col), '--', 'Color', colors{col}, 'DisplayName', ['Truth ' labels{col}]);
+            grid on;
+            if row == 1
+                title(labels{col});
+            end
+            if col == 1
+                ylabel(ylabels{row});
+            end
             xlabel('Time [s]');
-        end
-        if row == 1 && col == 1
-            legend('Location','northeastoutside');
+            if row == 1 && col == 1
+                legend('Location','northeastoutside');
+            end
         end
     end
-end
 sgtitle(sprintf('%s Task 6 Overlay - %s (%s frame)', dataset, method, upper(frame)));
 set(f,'PaperPositionMode','auto');
 run_id = sprintf('%s_%s', dataset, method);

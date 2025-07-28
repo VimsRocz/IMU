@@ -206,6 +206,7 @@ t_ds = t_est(time_idx);
 pos_est_ds = S.x_log(1:3, time_idx);
 vel_est_ds = S.x_log(4:6, time_idx);
 pos_truth_ds = gnss_pos_ned';
+vel_truth_ds = vel_truth_ned_i(time_idx, :)';
 fprintf('Task 6: Downsampled estimates to %d samples (factor: %d)\n', numel(time_idx), downsample_factor);
 if size(pos_truth_ds,2) ~= numel(time_idx)
     error('Task 6: Data length mismatch. Truth: %d, Estimated: %d. Adjust downsampling.', size(pos_truth_ds,2), numel(time_idx));
@@ -261,26 +262,29 @@ plot_overlay('NED', run_id, t_est, pos_ned, vel_ned, acc_ned, ...
 % Display downsampled NED overlay
 fprintf('Task 6: Generating and displaying NED overlay plot...\n');
 fig = figure('Name', 'Task 6 - NED State Overlay', 'Visible', 'on');
-subplot(2,1,1);
-plot(t_ds, pos_est_ds(1,:), 'b', 'DisplayName', 'Est North');
-hold on;
-plot(t_ds, pos_truth_ds(1,:), 'r--', 'DisplayName', 'Truth North');
-plot(t_ds, pos_est_ds(2,:), 'g', 'DisplayName', 'Est East');
-plot(t_ds, pos_truth_ds(2,:), 'm--', 'DisplayName', 'Truth East');
-plot(t_ds, pos_est_ds(3,:), 'k', 'DisplayName', 'Est Down');
-plot(t_ds, pos_truth_ds(3,:), 'c--', 'DisplayName', 'Truth Down');
-title('Position Overlay (NED)');
-xlabel('Time Step'); ylabel('Position (m)');
-legend('Location','best'); grid on; hold off;
+labels = {'North','East','Down'};
+for idx = 1:3
+    subplot(2,3,idx);
+    plot(t_ds, pos_est_ds(idx,:), 'b', 'DisplayName', ['Est ' labels{idx}]);
+    hold on;
+    plot(t_ds, pos_truth_ds(idx,:), 'r--', 'DisplayName', ['Truth ' labels{idx}]);
+    title(['Position ' labels{idx}]);
+    if idx == 1
+        ylabel('Position (m)');
+    end
+    grid on; legend('Location','best'); hold off;
 
-subplot(2,1,2);
-plot(t_ds, vel_est_ds(1,:), 'b', 'DisplayName', 'Est North');
-hold on;
-plot(t_ds, vel_est_ds(2,:), 'g', 'DisplayName', 'Est East');
-plot(t_ds, vel_est_ds(3,:), 'k', 'DisplayName', 'Est Down');
-title('Velocity Overlay (NED)');
-xlabel('Time Step'); ylabel('Velocity (m/s)');
-legend('Location','best'); grid on; hold off;
+    subplot(2,3,idx+3);
+    plot(t_ds, vel_est_ds(idx,:), 'b', 'DisplayName', ['Est ' labels{idx}]);
+    hold on;
+    plot(t_ds, vel_truth_ds(idx,:), 'r--', 'DisplayName', ['Truth ' labels{idx}]);
+    title(['Velocity ' labels{idx}]);
+    xlabel('Time Step');
+    if idx == 1
+        ylabel('Velocity (m/s)');
+    end
+    grid on; legend('Location','best'); hold off;
+end
 
 output_file = fullfile(out_dir, sprintf('%s_task6_overlay_state_NED.pdf', run_id));
 saveas(fig, output_file);
