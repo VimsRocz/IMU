@@ -386,6 +386,7 @@ for i = 1:num_imu_samples
         fprintf('Task 5: Stored state at sample %d/%d\n', i, num_imu_samples);
     end
 end
+fprintf('Task 5: Completed state logging for %d samples\n', num_imu_samples);
 fprintf('Method %s: IMU data integrated.\n', method);
 fprintf('Method %s: Kalman Filter completed. ZUPTcnt=%d\n', method, zupt_count);
 
