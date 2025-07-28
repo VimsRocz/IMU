@@ -21,59 +21,52 @@ else
 end
 addpath(script_dir);
 
-imu_file  = 'IMU_X002.dat';
-gnss_file = 'GNSS_X002.csv';
 method    = 'TRIAD';
-
 root_dir  = fileparts(fileparts(mfilename('fullpath')));
-imu_path  = fullfile(root_dir, imu_file);
-gnss_path = fullfile(root_dir, gnss_file);
-[~, imu_name, ~]  = fileparts(imu_file);
-[~, gnss_name, ~] = fileparts(gnss_file);
-dataset_tag = sprintf('%s_%s', imu_name, gnss_name);
-run_id = sprintf('%s_%s', dataset_tag, method); % used by Tasks 6 and 7
 
 results_dir = get_results_dir();
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 
-% Mirror the initial console output from ``run_triad_only.py``
-fprintf('%s %s_%s_%s\n', char(hex2dec('25B6')), imu_name, gnss_name, method);
+fprintf('%s Running TRIAD on all datasets (MATLAB pipeline)\n', char(hex2dec('25B6')));
 fprintf('Ensured ''%s'' directory exists.\n', results_dir);
-start_t = tic; % measure runtime similar to the Python helper
+start_t = tic;
 
-% ------------------------------------------------------------------
-% Execute Tasks 1--5 sequentially using the TRIAD initialisation
-% ------------------------------------------------------------------
-Task_1(imu_path, gnss_path, method, dataset_tag);
-Task_2(imu_path, gnss_path, method, dataset_tag);
-Task_3(imu_path, gnss_path, method, dataset_tag);
-Task_4(imu_path, gnss_path, method, dataset_tag);
-% Task_5 accepts the file paths for compatibility but ignores them in the
-% current simplified implementation.
-Task_5(imu_path, gnss_path, method, dataset_tag);
-% Demonstration: run simplified Kalman filter loop and save ``x_log`` only
-% This mirrors the Python stub ``task5_kf_state_log.py`` and shows how to
-% persist the state history matrix to ``MATLAB/results``.
-task5_kf_state_log();
+run_all_datasets_matlab(method);
 
-% ------------------------------------------------------------------
-% Tasks 6 and 7: validation and residual analysis
-% ------------------------------------------------------------------
-task5_file = fullfile(results_dir, sprintf('Task5_%s_%s.mat', dataset_tag, method));
-truth_file = fullfile(root_dir, 'STATE_X001.txt');
-if isfile(task5_file) && isfile(truth_file)
-    disp('--- Running Task 6: Truth Overlay/Validation ---');
-
-    out_dir = fullfile(results_dir, run_id);
-    fprintf('Task 6 overlay plots saved under: %s\n', out_dir);
-    disp('--- Running Task 7: Residuals & Summary ---');
-    Task_7(task5_file, truth_file, run_id);
-    fprintf('Task 7 evaluation plots saved under: %s\n', out_dir);
-    disp('Task 6 and Task 7 complete. See results directory for plots and PDF summaries.');
+% Parse summary lines from Task 5
+sum_file = fullfile(results_dir,'IMU_GNSS_summary.txt');
+if isfile(sum_file)
+    lines = strtrim(splitlines(fileread(sum_file)));
+    lines = lines(~cellfun('isempty',lines));
 else
-    warning('Task 6 or Task 7 skipped: Missing Task 5 results or truth file.');
+    lines = {};
 end
+datasets = {}; metrics = [];
+for i=1:numel(lines)
+    tok = regexp(lines{i},'(\w+)=([^\s]+)','tokens');
+    kv = struct();
+    for t=1:numel(tok)
+        kv.(tok{t}{1}) = tok{t}{2};
+    end
+    tag = sprintf('%s_%s_%s', erase(kv.imu,'.dat'), erase(kv.gnss,'.csv'), kv.method);
+    matfile = fullfile(results_dir, sprintf('%s_task5_results.mat', tag));
+    runtime = NaN;
+    if isfile(matfile)
+        T = load(matfile,'time');
+        if isfield(T,'time'); runtime = T.time(end)-T.time(1); end
+    end
+    datasets{end+1,1} = regexp(kv.imu,'(X\d+)','tokens','once');
+    if isempty(datasets{end}); datasets{end} = kv.imu; else; datasets{end} = datasets{end}{1}; end
+    metrics(end+1,:) = [str2double(kv.rmse_pos(1:end-1)), str2double(kv.final_pos(1:end-1)), ...
+        str2double(kv.rms_resid_pos(1:end-1)), str2double(kv.max_resid_pos(1:end-1)), ...
+        str2double(kv.rms_resid_vel(1:end-1)), str2double(kv.max_resid_vel(1:end-1)), runtime];
+end
+T = table(datasets, repmat({method},numel(datasets),1), metrics(:,1), metrics(:,2), ...
+    metrics(:,3), metrics(:,4), metrics(:,5), metrics(:,6), metrics(:,7), ...
+    'VariableNames',{'Dataset','Method','RMSEpos_m','EndErr_m','RMSresidPos_m','MaxresidPos_m','RMSresidVel_mps','MaxresidVel_mps','Runtime_s'});
+writetable(T, fullfile(results_dir,'summary.csv'));
+disp(T);
 
 elapsed_s = toc(start_t);
 fprintf('Runtime %.2f s\n', elapsed_s);
-disp('TRIAD processing complete for X002');
+disp('TRIAD batch processing complete');

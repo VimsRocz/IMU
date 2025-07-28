@@ -22,17 +22,20 @@ if ~isfile(task5_matfile)
     error('Task 7: Fused result file not found: %s', task5_matfile);
 end
 S = load(task5_matfile);
-req = {'pos_est_ned','vel_est_ned','pos_est_ecef','vel_est_ecef','C_b_n'};
-for k = 1:numel(req)
-    if ~isfield(S, req{k})
-        error('Task 7: Field %s missing from %s', req{k}, task5_matfile);
-    end
+if isfield(S,'pos_est_ned'); pos_est_ned = S.pos_est_ned; elseif isfield(S,'pos_ned'); pos_est_ned = S.pos_ned; else; error('Task 7: pos_est_ned missing'); end
+if isfield(S,'vel_est_ned'); vel_est_ned = S.vel_est_ned; elseif isfield(S,'vel_ned'); vel_est_ned = S.vel_ned; else; error('Task 7: vel_est_ned missing'); end
+if isfield(S,'pos_est_ecef') && isfield(S,'vel_est_ecef')
+    pos_est_ecef = S.pos_est_ecef; vel_est_ecef = S.vel_est_ecef;
+else
+    if isfield(S,'lat0_rad'); lat = S.lat0_rad; else; lat = S.ref_lat_rad; end
+    if isfield(S,'lon0_rad'); lon = S.lon0_rad; else; lon = S.ref_lon_rad; end
+    if isfield(S,'r0'); r0 = S.r0; else; r0 = S.ref_r0; end
+    C = compute_C_NED_to_ECEF(lat, lon);
+    pos_est_ecef = (C * pos_est_ned')' + r0(:)';
+    vel_est_ecef = (C * vel_est_ned')';
 end
-pos_est_ned  = S.pos_est_ned;
-vel_est_ned  = S.vel_est_ned;
-pos_est_ecef = S.pos_est_ecef;
-vel_est_ecef = S.vel_est_ecef;
-C_b_n        = S.C_b_n;
+if isfield(S,'C_b_n'); C_b_n = S.C_b_n; else; C_b_n = repmat(eye(3),1,1,size(pos_est_ned,1)); end
+if isfield(S,'time'); t_est = S.time(:); elseif isfield(S,'time_s'); t_est = S.time_s(:); else; t_est = (0:size(pos_est_ned,1)-1)'; end
 if isfield(S,'time'); t_est = S.time(:); elseif isfield(S,'time_s'); t_est = S.time_s(:); else; t_est = (0:size(pos_est_ned,1)-1)'; end
 fprintf('Task 7: Loaded estimator data from %s (%d samples)\n', task5_matfile, numel(t_est));
 
@@ -182,19 +185,39 @@ function plot_diff(t, pos_r, vel_r, labels, frame, tag)
 end
 
 function compute_summary(pos_r, vel_r, frame, tag)
-    rmse_pos = sqrt(mean(pos_r.^2,1));
-    rmse_vel = sqrt(mean(vel_r.^2,1));
-    final_pos = pos_r(end,:); final_vel = vel_r(end,:);
-    summary = struct('rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, ...
-        'final_pos_error', final_pos, 'final_vel_error', final_vel);
+    rmse_pos = sqrt(mean(sum(pos_r.^2,2))); %# overall RMSE
+    final_pos = norm(pos_r(end,:));
+    rmse_vel = sqrt(mean(sum(vel_r.^2,2)));
+    final_vel = norm(vel_r(end,:));
+    rms_resid_pos = sqrt(mean(pos_r.^2,'all'));
+    rms_resid_vel = sqrt(mean(vel_r.^2,'all'));
+    max_resid_pos = max(vecnorm(pos_r,2,2));
+    max_resid_vel = max(vecnorm(vel_r,2,2));
+    summary = struct('rmse_pos', rmse_pos, 'final_pos', final_pos, ...
+        'rmse_vel', rmse_vel, 'final_vel', final_vel, ...
+        'rms_resid_pos', rms_resid_pos, 'rms_resid_vel', rms_resid_vel, ...
+        'max_resid_pos', max_resid_pos, 'max_resid_vel', max_resid_vel);
     txt = fullfile('results', sprintf('%s_task7_summary_%s.txt', tag, frame));
     fid = fopen(txt,'w');
-    fprintf(fid,'RMSE position [m]: %.4f %.4f %.4f\n', rmse_pos);
-    fprintf(fid,'RMSE velocity [m/s]: %.4f %.4f %.4f\n', rmse_vel);
-    fprintf(fid,'Final position error [m]: %.4f %.4f %.4f\n', final_pos);
-    fprintf(fid,'Final velocity error [m/s]: %.4f %.4f %.4f\n', final_vel);
+    fprintf(fid,'RMSE position [m]: %.4f\n', rmse_pos);
+    fprintf(fid,'RMSE velocity [m/s]: %.4f\n', rmse_vel);
+    fprintf(fid,'Final position error [m]: %.4f\n', final_pos);
+    fprintf(fid,'Final velocity error [m/s]: %.4f\n', final_vel);
+    fprintf(fid,'RMS resid pos [m]: %.4f max resid pos [m]: %.4f\n', rms_resid_pos, max_resid_pos);
+    fprintf(fid,'RMS resid vel [m/s]: %.4f max resid vel [m/s]: %.4f\n', rms_resid_vel, max_resid_vel);
     fclose(fid);
     mat = fullfile('results', sprintf('%s_task7_summary_%s.mat', tag, frame));
     save(mat, 'summary');
     fprintf('Saved summary metrics for %s frame.\n', frame);
+    if strcmpi(frame,'ned')
+        runtime = t(end)-t(1);
+        parts = strsplit(tag,'_');
+        method = parts{end};
+        imu_file = [parts{1} '.dat'];
+        gnss_file = [parts{2} '.csv'];
+        summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%.2fm final_pos=%.2fm ' ...
+            'rms_resid_pos=%.2fm max_resid_pos=%.2fm rms_resid_vel=%.2fm max_resid_vel=%.2fm runtime=%.2fs'], ...
+            method, imu_file, gnss_file, rmse_pos, final_pos, rms_resid_pos, max_resid_pos, rms_resid_vel, max_resid_vel, runtime);
+        fprintf('%s\n', summary_line);
+    end
 end
