@@ -283,13 +283,13 @@ Typical result PDFs:
 - `<tag>_task6_attitude_angles.pdf` – attitude angles over time
 - `<tag>_<frame>_overlay_truth.pdf` – fused output vs reference. Here `<tag>` is
   the dataset pair and method concatenated, e.g. `IMU_X002_GNSS_X002_Davenport`.
- - ``results/<tag>_task6_overlay_state_<frame>.pdf`` – Task 6 overlay with GNSS, IMU and raw state (PDF/PNG) plus ``.mat``
+ - ``results/<tag>_task6_overlay_state_<frame>.pdf`` – Task 6 overlay with GNSS, IMU and raw state (PDF/PNG/``.fig``) plus ``.mat``
   Example: ``IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.pdf``
- - `<tag>_task7_3_residuals_position_velocity.pdf` – Task 7 position/velocity residuals (PDF/PNG/``.mat``)
+ - `<tag>_task7_3_residuals_position_velocity.pdf` – Task 7 position/velocity residuals (PDF/PNG/``.mat``/``.fig``)
   Example: ``IMU_X002_GNSS_X002_Davenport_task7_3_residuals_position_velocity.pdf``
  - `task7_4_attitude_angles_euler.pdf` – Task 7 Euler angle plots
- - `task7_fused_vs_truth_error.pdf` – Task 7 fused minus truth velocity error (PDF/PNG/``.mat``)
- - `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf` – Task 7 truth minus fused difference for NED, ECEF and Body frames (PDF/PNG/``.mat``)
+ - `task7_fused_vs_truth_error.pdf` – Task 7 fused minus truth velocity error (PDF/PNG/``.mat``/``.fig``)
+ - `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf` – Task 7 truth minus fused difference for NED, ECEF and Body frames (PDF/PNG/``.mat``/``.fig``)
   plot
 
 ## Task 6: State Overlay
@@ -316,7 +316,7 @@ for example `IMU_X002_GNSS_X002_Davenport` yielding
 
 ### Output
 
-* ``results/<tag>_task6_overlay_state_<frame>.pdf`` – fused output vs raw state file (PDF/PNG/``.mat``)
+* ``results/<tag>_task6_overlay_state_<frame>.pdf`` – fused output vs raw state file (PDF/PNG/``.fig``/``.mat``)
   Example: ``IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.pdf``
 
 ## Task 7: Evaluation of Filter Results
@@ -342,7 +342,7 @@ python src/run_all_methods.py --task 7
 * When running `run_all_methods.py`, plots are stored directly in
   `results/` as
   `<tag>_task7_3_residuals_position_velocity.pdf` and
-  `<tag>_task7_4_attitude_angles_euler.pdf` (PDF/PNG). Here `<tag>` is the
+  `<tag>_task7_4_attitude_angles_euler.pdf` (PDF/PNG/``.fig``). Here `<tag>` is the
   concatenation of the IMU dataset, GNSS dataset and method name, e.g.
   `IMU_X002_GNSS_X002_Davenport`, resulting in
   `IMU_X002_GNSS_X002_Davenport_task7_3_residuals_position_velocity.pdf`.

@@ -130,8 +130,9 @@ def run_evaluation(
     fig.savefig(out_path)
     print(f"Saved {out_path}")
     try:
-        from utils import save_plot_mat
+        from utils import save_plot_mat, save_plot_fig
         save_plot_mat(fig, str(out_path.with_suffix(".mat")))
+        save_plot_fig(fig, str(out_path.with_suffix(".fig")))
     except Exception:
         pass
     plt.close(fig)
@@ -150,8 +151,9 @@ def run_evaluation(
         fig.savefig(hist_path)
         print(f"Saved {hist_path}")
         try:
-            from utils import save_plot_mat
+            from utils import save_plot_mat, save_plot_fig
             save_plot_mat(fig, str(hist_path.with_suffix(".mat")))
+            save_plot_fig(fig, str(hist_path.with_suffix(".fig")))
         except Exception:
             pass
         plt.close(fig)
@@ -173,8 +175,9 @@ def run_evaluation(
     att_out = plot_path(out_dir, tag or "", 7, "4", "attitude_angles_euler")
     fig.savefig(att_out)
     try:
-        from utils import save_plot_mat
+        from utils import save_plot_mat, save_plot_fig
         save_plot_mat(fig, str(att_out.with_suffix(".mat")))
+        save_plot_fig(fig, str(att_out.with_suffix(".fig")))
     except Exception:
         pass
     plt.close(fig)
@@ -410,8 +413,9 @@ def subtask7_5_diff_plot(
         fig.savefig(png)
         print(f"Saved {png}")
         try:
-            from utils import save_plot_mat
+            from utils import save_plot_mat, save_plot_fig
             save_plot_mat(fig, str(pdf.with_suffix(".mat")))
+            save_plot_fig(fig, str(pdf.with_suffix(".fig")))
         except Exception:
             pass
         plt.close(fig)
