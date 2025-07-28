@@ -1,16 +1,19 @@
-function plot_xyz_timeseries(tF, pF, vF, aF, tG, pG, vG, aG, figTitle, outPrefix, axisLabels)
-%PLOT_XYZ_TIMESERIES Plot fused and optional GNSS timeseries.
-%   plot_xyz_timeseries(tF, pF, vF, aF, tG, pG, vG, aG, TITLE, PREFIX, LABELS)
-%   creates a 3x3 grid of subplots showing position, velocity and
-%   acceleration along the provided axes. Arrays ``pF``, ``vF`` and ``aF``
-%   must be 3xN with rows representing the X/Y/Z axes. ``tF`` is the time
-%   vector for the fused data. If GNSS arrays ``pG``, ``vG`` or ``aG`` are
-%   non-empty, they are overlaid as black dotted lines using ``tG`` as the
-%   timestamp vector. ``axisLabels`` defaults to {'X','Y','Z'}.
-%   The figure is saved to PREFIX_fixed.pdf and PREFIX_fixed.png.
+function plot_xyz_timeseries(tF, pF, vF, aF, tG, pG, vG, aG, figTitle, outPrefix, axisLabels, method)
+%PLOT_XYZ_TIMESERIES  Plot fused and GNSS timeseries in a 3x3 grid.
+%   plot_xyz_timeseries(TF, PF, VF, AF, TG, PG, VG, AG, TITLE, PREFIX, LABELS, METHOD)
+%   mirrors the Python helper used for Task 5 plots. ``PF``, ``VF`` and ``AF``
+%   are ``3xN`` arrays containing position, velocity and acceleration from the
+%   Kalman filter. GNSS measurements ``PG``, ``VG`` and ``AG`` are optional but
+%   when provided are drawn as black dashed lines for comparison. ``METHOD`` is
+%   inserted into the legend to clearly identify the fused data source.
+%   ``axisLabels`` defaults to ``{'X','Y','Z'}``.  Figures are saved to
+%   ``PREFIX_fixed.pdf`` and ``PREFIX_fixed.png``.
 
     if nargin < 11 || isempty(axisLabels)
         axisLabels = {'X','Y','Z'};
+    end
+    if nargin < 12
+        method = '';
     end
 
     % ----- 1. Normalize time -------------------------------------------------
@@ -45,7 +48,11 @@ function plot_xyz_timeseries(tF, pF, vF, aF, tG, pG, vG, aG, figTitle, outPrefix
             % GNSS overlay ---------------------------------------------------
             if ~isempty(gnssSet{r})
                 plot(tG, gnssSet{r}(c,:), 'k:', 'LineWidth', 1.0);
-                legend({'Fused (KF)','GNSS (Raw)'}, 'Location','best');
+                if ~isempty(method)
+                    legend({sprintf('Fused (GNSS+IMU, %s)', method), 'Measured GNSS'}, 'Location','best');
+                else
+                    legend({'Fused (GNSS+IMU)','Measured GNSS'}, 'Location','best');
+                end
             end
             grid on; ylim(ylims{r});
             xlabel('Time [s]'); ylabel(units{r});
