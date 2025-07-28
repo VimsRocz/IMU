@@ -198,12 +198,11 @@ def plot_overlay(
     labels = ["X", "Y", "Z"] if frame == "ECEF" else ["N", "E", "D"]
     colors = ["#377eb8", "#e41a1c", "#4daf4a"]  # colorblind friendly
 
-    fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
+    fig, axes = plt.subplots(2, 3, figsize=(12, 6), sharex=True)
 
     datasets = [
         (pos_est, pos_truth, "Position [m]"),
         (vel_est, vel_truth, "Velocity [m/s]"),
-        (acc_est, acc_truth, "Acceleration [m/s$^2$]"),
     ]
 
     for row, (est, truth, ylab) in enumerate(datasets):
@@ -215,8 +214,7 @@ def plot_overlay(
             ax.grid(True, alpha=0.3)
             if row == 0:
                 ax.set_title(labels[col])
-            if row == 2:
-                ax.set_xlabel("Time [s]")
+            ax.set_xlabel("Time [s]")
 
     axes[0, 0].legend(loc="upper right", ncol=3, fontsize=9, frameon=True)
 
