@@ -237,7 +237,7 @@ else
     warning('Task1 init file %s not found, using default gravity %.3f m/s^2', task1_file, constants.GRAVITY);
     g_NED = [0; 0; constants.GRAVITY];
 end
-fprintf('Gravity vector applied: [%.8f %.8f %.8f]\n', g_NED);
+
 omega_E = constants.EARTH_RATE;                     % rad/s
 omega_ie_NED = omega_E * [cos(ref_lat); 0; -sin(ref_lat)];
 
