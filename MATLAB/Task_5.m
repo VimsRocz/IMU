@@ -162,6 +162,9 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
             scale_factor = d4.scale_factors.(method);
         end
     end
+    % Override erroneous scale factors with neutral scaling for MATLAB parity
+    % with the Python implementation.
+    scale_factor = 1.0;
     % Biases are provided by Task 2. Do not override them with
     % dataset-specific constants so that both MATLAB and Python remain
     % consistent.
