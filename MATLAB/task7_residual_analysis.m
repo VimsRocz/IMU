@@ -34,6 +34,8 @@ if isfield(S5,'x_log'); x_log = S5.x_log; else; error('x_log missing'); end
 if isfield(S5,'pos_ned'); pos_ned = S5.pos_ned; else; pos_ned = x_log(1:3,:)'; end
 if isfield(S5,'vel_ned'); vel_ned = S5.vel_ned; else; vel_ned = x_log(4:6,:)'; end
 
+fprintf('Estimated position size: %d x %d\n', size(pos_ned,1), size(pos_ned,2));
+
 N = size(pos_ned,1);
 t = (0:N-1)' * dt;
 
@@ -45,6 +47,7 @@ else
 end
 pos_truth = interp1(t_gnss, S4.pos_ned_gnss, t, 'linear', 'extrap');
 vel_truth = interp1(t_gnss, S4.vel_ned_gnss, t, 'linear', 'extrap');
+fprintf('Truth position size: %d x %d\n', size(pos_truth,1), size(pos_truth,2));
 
 %% Residuals in NED
 pos_residuals = pos_ned - pos_truth;
