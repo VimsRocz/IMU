@@ -101,13 +101,13 @@ for k = 1:size(pairs,1)
             if isfile(cand)
                 fprintf('Starting Task 6 for %s + %s ...\n', imuStem, gnssStem);
                 try
-                    Task_6(task5File, imu, gnss, cand);
+                    tag = sprintf('%s_%s_%s', imuStem, gnssStem, method);
+                    Task_6(task5File, cand, tag);
                 catch ME
                     warning('Task 6 failed: %s', ME.message);
                 end
                 fprintf('Starting Task 7 for %s + %s ...\n', imuStem, gnssStem);
                 try
-                    tag = sprintf('%s_%s_%s', imuStem, gnssStem, method);
                     outDir = fullfile(resultsDir, 'task7', tag);
                     summary = task7_fused_truth_error_analysis(outFile, cand, outDir);
                     save(fullfile(outDir,'task7_summary.mat'), 'summary');
