@@ -1,7 +1,9 @@
 function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %TASK_5  Run 15-state EKF using IMU & GNSS NED positions
 %   Expects Task 1 outputs saved in the results directory for gravity
-%   initialization.
+%   initialization. State history ``x_log`` is logged at each timestep and
+%   written to ``Task5_results_<pair>.mat`` as well as the generic
+%   ``Task_5_results.mat`` used by Tasks 6 and 7.
 %
 %   result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 %   Optional name/value arguments mirror the Python Kalman filter defaults:
@@ -566,6 +568,7 @@ fclose(fid_sum);
 % Persist core results for unit tests and further analysis
 % Persist IMU and GNSS time vectors for Tasks 6 and 7
 time      = imu_time; %#ok<NASGU>  used by Task_6
+imu_time  = imu_time; %#ok<NASGU>  preserve variable name for downstream tasks
 gnss_time = gnss_time; %#ok<NASGU>
 
 % Convenience fields matching the Python pipeline
@@ -578,7 +581,11 @@ results_file = fullfile(results_dir, sprintf('Task5_results_%s.mat', pair_tag));
 save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
     'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
     'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', ...
-    'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0');
+    'time', 'imu_time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0');
+% Also save under a generic filename for tasks expecting Task_5_results.mat
+alt_results = fullfile(results_dir, 'Task_5_results.mat');
+save(alt_results, 'x_log', 'imu_time', 'gnss_pos_ned', 'gnss_vel_ned', ...
+    'gnss_accel_ned', 'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef');
 if isfile(results_file)
     fprintf('Results saved to %s\n', results_file);
 else
@@ -590,6 +597,7 @@ end
         'gnss_vel_ecef', gnss_vel_ecef, 'gnss_accel_ecef', gnss_accel_ecef, ...
         'x_log', x_log, 'vel_log', vel_log, 'accel_from_vel', accel_from_vel, ...
         'euler_log', euler_log, 'zupt_log', zupt_log, 'time', time, ...
+        'imu_time', imu_time, ...
         'gnss_time', gnss_time, 'pos_ned', pos_ned, 'vel_ned', vel_ned, ...
         'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0);
     % ``method`` already stores the algorithm name (e.g. 'TRIAD'). Use it
