@@ -73,7 +73,7 @@ else
 end
 load(task3_file, 'task3_results');
 C_b_n = task3_results.(method).R; %#ok<NASGU>
-load(task4_file, 'pos_ned','vel_ned','acc_ned');
+load(task4_file, 'pos_ned','vel_ned','acc_ned','r0');
 
 % Read raw sensor data
 fprintf('Subtask 5.2: Reading IMU & GNSS data.\n');
@@ -83,7 +83,7 @@ try
 catch e
     error('Failed to load GNSS file %s: %s', gnss_path, e.message);
 end
-dt   = median(diff(imu.time));
+dt   = mean(diff(imu.time));
 fprintf(' -> IMU dt = %.4f s, %d samples\n', dt, numel(imu.time));
 
 % Correct IMU measurements
@@ -129,39 +129,38 @@ for k = 1:n
 end
 fprintf('Task 5: Completed filter loop with %d GNSS updates.\n', idx_gnss-1);
 
+% Propagate body orientation using gyro measurements
+C_b_n_series = zeros(3,3,n);
+C_b_n_series(:,:,1) = C_b_n;
+for k = 2:n
+    dR = expm(skew(gyro(:,k-1)*dt));
+    C_b_n_series(:,:,k) = C_b_n_series(:,:,k-1) * dR;
+end
+
 % Extract fused estimates
 fprintf('Subtask 5.6: Extracting fused pos/vel/acc.\n');
 pos_est_ned = x_log(1:3,:);
 vel_est_ned = x_log(4:6,:);
+acc_est_ned = [zeros(3,1), diff(vel_est_ned,1,2)/dt];
 acc_body    = accel; %# body-frame specific force after bias/scale
 
-% Provide variables with names matching the Python implementation
-pos_fused_ned = pos_est_ned;
-vel_fused_ned = vel_est_ned;
-acc_fused_ned = zeros(size(vel_est_ned));
-acc_fused_ned(:,2:end) = diff(vel_est_ned,1,2) / dt;
 
-
-
-% Save using Python-style variable names for cross-language parity
-save(out_mat, 'x_log','pos_est_ned','vel_est_ned','pos_est_ecef', ...
-    'vel_est_ecef','acc_body','C_b_n','P','lat0_rad','lon0_rad');
 fprintf('Saved Task 5 results to %s\n', out_mat);
 
 % Generate and save plots
 fprintf('Subtask 5.7: Plotting fused vs IMU/GNSS in NED frame.\n');
 try
     % Check dimensions before plotting
-    if size(pos_ned,2) == size(pos_fused_ned,2) && length(imu.time) == size(pos_fused_ned,2)
-        fig = plot_task5_ned(imu.time, pos_ned, pos_fused_ned, vel_ned, vel_fused_ned, acc_ned, acc_fused_ned, method);
+    if size(pos_ned,2) == size(pos_est_ned,2) && length(imu.time) == size(pos_est_ned,2)
+        fig = plot_task5_ned(imu.time, pos_ned, pos_est_ned, vel_ned, vel_est_ned, acc_ned, acc_est_ned, method);
         print(fig, [fig_ned '.pdf'], '-dpdf', '-bestfit');
         print(fig, [fig_ned '.png'], '-dpng', '-r300');
         close(fig);
         fprintf('NED plot saved successfully.\n');
     else
         fprintf('Warning: Size mismatch in NED plot data - skipping plot.\n');
-        fprintf('  time: %s, pos_ned: %s, pos_fused_ned: %s\n', ...
-            mat2str(size(imu.time)), mat2str(size(pos_ned)), mat2str(size(pos_fused_ned)));
+        fprintf('  time: %s, pos_ned: %s, pos_est_ned: %s\n', ...
+            mat2str(size(imu.time)), mat2str(size(pos_ned)), mat2str(size(pos_est_ned)));
     end
 catch e
     fprintf('Warning: NED plotting failed: %s\n', e.message);
@@ -169,8 +168,10 @@ end
 
 fprintf('Subtask 5.8: Plotting fused vs ground truth in ECEF frame.\n');
 try
-    [pos_fused_ecef, vel_fused_ecef, acc_fused_ecef] = ned2ecef_series(pos_fused_ned, vel_fused_ned, acc_fused_ned, lat0_rad, lon0_rad);
-    [pos_ref_ecef, vel_ref_ecef, acc_ref_ecef]   = ned2ecef_series(pos_ned, vel_ned, acc_ned, lat0_rad, lon0_rad);
+    [pos_fused_rel, vel_fused_ecef, acc_fused_ecef] = ned2ecef_series(pos_est_ned, vel_est_ned, acc_est_ned, lat0_rad, lon0_rad);
+    pos_fused_ecef = pos_fused_rel + r0;
+    [pos_ref_rel, vel_ref_ecef, acc_ref_ecef]   = ned2ecef_series(pos_ned, vel_ned, acc_ned, lat0_rad, lon0_rad);
+    pos_ref_ecef = pos_ref_rel + r0;
     fig = plot_task5_ecef(imu.time, pos_ref_ecef, pos_fused_ecef, vel_ref_ecef, vel_fused_ecef, acc_ref_ecef, acc_fused_ecef, method);
     print(fig, [fig_ecef '.pdf'], '-dpdf', '-bestfit');
     print(fig, [fig_ecef '.png'], '-dpng', '-r300');
@@ -306,4 +307,11 @@ function fig = plot_task5_body(t, gyro_raw, gyro_err, accel_raw, accel_bias, met
     ylabel(ax,'a_x (m/s^2)'); legend(ax,'Location','best');
     xlabel(ax,'Time (s)');
     title(tl, sprintf('Task 5  %s  Body Frame Residuals', method));
+end
+
+function S = skew(w)
+%SKEW  Return the skew-symmetric matrix of vector w.
+    S = [    0   -w(3)  w(2);
+           w(3)     0  -w(1);
+          -w(2)  w(1)     0];
 end
