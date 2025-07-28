@@ -24,6 +24,7 @@ addParameter(p, 'vel_truth', []);
 addParameter(p, 'acc_truth', []);
 addParameter(p, 'suffix', '');
 addParameter(p, 'filename', '');
+addParameter(p, 'visible', 'off');
 parse(p, varargin{:});
 Ttruth = p.Results.t_truth;
 ptruth = p.Results.pos_truth;
@@ -31,6 +32,7 @@ vtruth = p.Results.vel_truth;
 atruth = p.Results.acc_truth;
 suffix = p.Results.suffix;
 custom_name = p.Results.filename;
+visible_flag = p.Results.visible;
 
 if isempty(suffix) && isempty(custom_name)
     if ~isempty(Ttruth)
@@ -40,7 +42,7 @@ if isempty(suffix) && isempty(custom_name)
     end
 end
 
-h = figure('Visible','off');
+h = figure('Visible', visible_flag);
 
 subplot(4,1,1); hold on;
 plot(t_gnss, vecnorm(pos_gnss,2,2), 'k-', 'DisplayName', 'Measured GNSS');

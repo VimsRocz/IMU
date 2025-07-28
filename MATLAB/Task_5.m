@@ -287,6 +287,7 @@ prev_vel = x(4:6);
 % --- Pre-allocate Log Arrays ---
 num_steps = size(acc_body_raw, 1);
 x_log = zeros(15, num_steps);
+fprintf('Task 5: x_log initialized with size %dx%d\n', size(x_log));
 euler_log = zeros(3, num_steps);
 zupt_log = zeros(1, num_steps);
 acc_log = zeros(3, num_steps); % Acceleration from propagated IMU data
@@ -381,6 +382,9 @@ for i = 1:num_imu_samples
     % --- Log State and Attitude ---
     x_log(:, i) = x;
     euler_log(:, i) = quat_to_euler(q_b_n);
+    if mod(i, 100000) == 0
+        fprintf('Task 5: Stored state at sample %d/%d\n', i, num_imu_samples);
+    end
 end
 fprintf('Method %s: IMU data integrated.\n', method);
 fprintf('Method %s: Kalman Filter completed. ZUPTcnt=%d\n', method, zupt_count);
@@ -604,6 +608,12 @@ if isfile(results_file)
     fprintf('Results saved to %s\n', results_file);
 else
     warning('Missing %s', results_file);
+end
+try
+    check = load(results_file, 'x_log');
+    fprintf('Task 5: Verified x_log saved, size: %dx%d\n', size(check.x_log));
+catch
+    warning('Task 5: Failed to verify x_log save in %s', results_file);
 end
 
     method_struct = struct('gnss_pos_ned', gnss_pos_ned, 'gnss_vel_ned', gnss_vel_ned, ...
