@@ -144,15 +144,10 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
         g_body = -mean(acc_body_raw(1:N_static,:),1)';
         omega_ie_body = mean(gyro_body_raw(1:N_static,:),1)';
     end
-    % Load scale factor from Task 4 results when available
+    % Task 5 uses a unity accelerometer scale factor to mirror the Python
+    % implementation.  Earlier Task 4 runs may have saved a different value
+    % but applying it here leads to mismatched trajectories.
     scale_factor = 1.0;
-    task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-    if isfile(task4_file)
-        d4 = load(task4_file, 'scale_factors');
-        if isfield(d4, 'scale_factors') && isfield(d4.scale_factors, method)
-            scale_factor = d4.scale_factors.(method);
-        end
-    end
     % Biases are provided by Task 2. Do not override them with
     % dataset-specific constants so that both MATLAB and Python remain
     % consistent.
