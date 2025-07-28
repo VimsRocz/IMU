@@ -55,7 +55,7 @@ if isfile(task5_file) && isfile(truth_file)
     out_dir = fullfile(results_dir, run_id);
     fprintf('Task 6 overlay plots saved under: %s\n', out_dir);
     disp('--- Running Task 7: Residuals & Summary ---');
-    Task_7(task5_file, truth_file);
+    Task_7();
     fprintf('Task 7 evaluation plots saved under: %s\n', out_dir);
     disp('Task 6 and Task 7 complete. See results directory for plots and PDF summaries.');
 else
