@@ -121,7 +121,7 @@ fprintf('Loaded rotation matrix for %s.\n', method);
 fprintf('Subtask 4.3: Loading GNSS data.\n');
 
 gnss = read_csv_table(gnss_file);
-fprintf('Subtask 4.4: GNSS data shape: %d x %d\n', size(gnss,1), width(gnss));
+fprintf('Subtask 4.4: GNSS data shape: %d x %d\n', length(gnss.X_ECEF_m), length(fieldnames(gnss)));
 
 if ~isempty(r0_init)
     r0 = r0_init;
