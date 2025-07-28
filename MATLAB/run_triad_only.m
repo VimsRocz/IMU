@@ -52,7 +52,10 @@ task5_file = fullfile(results_dir, sprintf('IMU_X002_GNSS_X002_%s_task5_results.
 truth_file = fullfile(root_dir, 'STATE_X001.txt');
 if isfile(task5_file) && isfile(truth_file)
     disp('--- Running Task 6: Truth Overlay/Validation ---');
-    Task_6(task5_file, imu_path, gnss_path, truth_file);
+    % Task_6 currently uses internally defined file paths and therefore
+    % accepts no input arguments. Call it without parameters to avoid the
+    % "Too many input arguments" error.
+    Task_6();
     [~, imu_name, ~]  = fileparts(imu_path);
     [~, gnss_name, ~] = fileparts(gnss_path);
     run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
