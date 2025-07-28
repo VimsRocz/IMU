@@ -129,8 +129,8 @@ acc_fused_ned = zeros(size(vel_est_ned));
 acc_fused_ned(:,2:end) = diff(vel_est_ned,1,2) / dt;
 
 % Convert estimates to the ECEF frame using the fixed reference attitude
-[pos_est_ecef, vel_est_ecef] = ned2ecef_series(pos_est_ned, vel_est_ned, ...
-    lat0_rad, lon0_rad);
+[pos_est_ecef, vel_est_ecef] = ned2ecef_series( ...
+    pos_est_ned, vel_est_ned, [], lat0_rad, lon0_rad);
 
 % Save using Python-style variable names for cross-language parity
 save(out_mat, 'x_log','pos_est_ned','vel_est_ned','pos_est_ecef', ...
