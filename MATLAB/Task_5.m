@@ -116,10 +116,17 @@ fprintf('Task 5: Completed filter loop with %d GNSS updates.\n', idx_gnss-1);
 
 % Extract fused estimates
 fprintf('Subtask 5.6: Extracting fused pos/vel/acc.\n');
-pos_fused_ned = x_log(1:3,:);
-vel_fused_ned = x_log(4:6,:);
-acc_fused_ned = diff(vel_fused_ned,1,2)/dt;
-save(out_mat, 'x_log','pos_fused_ned','vel_fused_ned','acc_fused_ned','P');
+pos_est_ned = x_log(1:3,:);
+vel_est_ned = x_log(4:6,:);
+acc_body    = accel; %# body-frame specific force after bias/scale
+
+% Convert estimates to the ECEF frame using the fixed reference attitude
+[pos_est_ecef, vel_est_ecef] = ned2ecef_series(pos_est_ned, vel_est_ned, ...
+    lat0_rad, lon0_rad);
+
+% Save using Python-style variable names for cross-language parity
+save(out_mat, 'x_log','pos_est_ned','vel_est_ned','pos_est_ecef', ...
+    'vel_est_ecef','acc_body','C_b_n','P');
 fprintf('Saved Task 5 results to %s\n', out_mat);
 
 % Generate and save plots
