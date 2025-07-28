@@ -1,0 +1,24 @@
+# Created by Octave 8.4.0, Mon Jul 28 11:07:04 2025 UTC <runner@pkrvmpptgkbjq6m>
+# name: task3_results
+# type: scalar struct
+# ndims: 2
+ 1 1
+# length: 1
+# name: TRIAD
+# type: scalar struct
+# ndims: 2
+ 1 1
+# length: 1
+# name: R
+# type: matrix
+# rows: 3
+# columns: 3
+ 0.23364698 -0.045403520199999998 0.97126083500000004
+ 0.0106220955 0.99896872800000003 0.0441435243
+ -0.97226347199999996 2.82418914e-06 0.23388830699999999
+
+
+
+
+
+

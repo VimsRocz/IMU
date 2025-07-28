@@ -98,7 +98,7 @@ for k = 1:n
     P = F*P*F' + Q;
     x_log(:,k) = x;
     % Update
-    if idx_gnss <= height(gnss) && imu.time(k) >= gnss_times(idx_gnss)
+    if idx_gnss <= length(gnss_times) && imu.time(k) >= gnss_times(idx_gnss)
         z_pos = [gnss.X_ECEF_m(idx_gnss); gnss.Y_ECEF_m(idx_gnss); gnss.Z_ECEF_m(idx_gnss)];
         z_vel = [gnss.VX_ECEF_mps(idx_gnss); gnss.VY_ECEF_mps(idx_gnss); gnss.VZ_ECEF_mps(idx_gnss)];
         H = compute_measurement_matrix(lat0_rad, lon0_rad);
@@ -124,17 +124,39 @@ fprintf('Saved Task 5 results to %s\n', out_mat);
 
 % Generate and save plots
 fprintf('Subtask 5.7: Plotting fused vs IMU/GNSS in NED frame.\n');
-figure; plot_ned_fusion(imu.time, pos_ned, pos_fused_ned, vel_ned, vel_fused_ned, accel, acc_fused_ned); %#ok<NASGU>
-saveas(gcf, [fig_prefix '_NED.pdf']);
+try
+    % Check dimensions before plotting
+    if size(pos_ned,2) == size(pos_fused_ned,2) && length(imu.time) == size(pos_fused_ned,2)
+        figure; plot_ned_fusion(imu.time, pos_ned, pos_fused_ned, vel_ned, vel_fused_ned, accel, acc_fused_ned); %#ok<NASGU>
+        saveas(gcf, [fig_prefix '_NED.pdf']);
+        fprintf('NED plot saved successfully.\n');
+    else
+        fprintf('Warning: Size mismatch in NED plot data - skipping plot.\n');
+        fprintf('  time: %s, pos_ned: %s, pos_fused_ned: %s\n', ...
+            mat2str(size(imu.time)), mat2str(size(pos_ned)), mat2str(size(pos_fused_ned)));
+    end
+catch e
+    fprintf('Warning: NED plotting failed: %s\n', e.message);
+end
 
 fprintf('Subtask 5.8: Plotting fused vs ground truth in ECEF frame.\n');
-[pos_fused_ecef, vel_fused_ecef] = ned2ecef_series(pos_fused_ned, vel_fused_ned, lat0_rad, lon0_rad);
-figure; plot_ecef_fusion(imu.time, zeros(size(pos_fused_ecef)), pos_fused_ecef, zeros(size(vel_fused_ecef)), vel_fused_ecef); %#ok<NASGU>
-saveas(gcf, [fig_prefix '_ECEF.pdf']);
+try
+    [pos_fused_ecef, vel_fused_ecef] = ned2ecef_series(pos_fused_ned, vel_fused_ned, lat0_rad, lon0_rad);
+    figure; plot_ecef_fusion(imu.time, zeros(size(pos_fused_ecef)), pos_fused_ecef, zeros(size(vel_fused_ecef)), vel_fused_ecef); %#ok<NASGU>
+    saveas(gcf, [fig_prefix '_ECEF.pdf']);
+    fprintf('ECEF plot saved successfully.\n');
+catch e
+    fprintf('Warning: ECEF plotting failed: %s\n', e.message);
+end
 
 fprintf('Subtask 5.9: Plotting body-frame residuals & biases.\n');
-figure; plot_body_residuals(imu.time, gyro, x_log(7:9,:), accel, x_log(10:12,:)); %#ok<NASGU>
-saveas(gcf, [fig_prefix '_Body.pdf']);
+try
+    figure; plot_body_residuals(imu.time, gyro, x_log(7:9,:), accel, x_log(10:12,:)); %#ok<NASGU>
+    saveas(gcf, [fig_prefix '_Body.pdf']);
+    fprintf('Body plot saved successfully.\n');
+catch e
+    fprintf('Warning: Body plotting failed: %s\n', e.message);
+end
 end
 
 % -------------------------------------------------------------------------
