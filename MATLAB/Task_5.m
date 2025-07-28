@@ -72,12 +72,11 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 
     % Load attitude estimate from Task 3 results
     results_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
-    if evalin('base','exist(''task3_results'',''var'')')
-        task3_results = evalin('base','task3_results');
-    else
-        data = load(results_file);
-        task3_results = data.task3_results;
+    data = load(results_file);
+    if ~isfield(data, 'task3_results')
+        error('Task 3 results not found: %s', results_file);
     end
+    task3_results = data.task3_results;
     if ~isfield(task3_results, method)
         error('Method %s not found in task3_results', method);
     end
@@ -151,12 +150,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     % scale factor of 1.0 so processing can continue.
     scale_factor = 1.0;                     % Default when no prior value found
     task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-    if evalin('base','exist(''task4_results'',''var'')')
-        t4 = evalin('base','task4_results');
-        if isfield(t4,'scale_factors') && isfield(t4.scale_factors, method)
-            scale_factor = t4.scale_factors.(method);
-        end
-    elseif isfile(task4_file)
+    if isfile(task4_file)
         d4 = load(task4_file, 'scale_factors');
         if isfield(d4, 'scale_factors') && isfield(d4.scale_factors, method)
             scale_factor = d4.scale_factors.(method);
@@ -183,20 +177,16 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 fprintf('\nSubtask 5.1-5.5: Configuring and Initializing 15-State Kalman Filter.\n');
 results4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
 if nargin < 4 || isempty(gnss_pos_ned)
-    if evalin('base','exist(''task4_results'',''var'')')
-        gnss_pos_ned = evalin('base','task4_results.gnss_pos_ned');
-    else
-        if ~isfile(results4)
-            error('Task_5:MissingResults', ...
-                  'Task 4 must run first and save gnss_pos_ned.');
-        end
-        S = load(results4,'gnss_pos_ned');
-        if ~isfield(S,'gnss_pos_ned')
-            error('Task_5:BadMATfile', ...
-                  '''gnss_pos_ned'' not found in %s', results4);
-        end
-        gnss_pos_ned = S.gnss_pos_ned;
+    if ~isfile(results4)
+        error('Task_5:MissingResults', ...
+              'Task 4 must run first and save gnss_pos_ned.');
     end
+    S = load(results4,'gnss_pos_ned');
+    if ~isfield(S,'gnss_pos_ned')
+        error('Task_5:BadMATfile', ...
+              '''gnss_pos_ned'' not found in %s', results4);
+    end
+    gnss_pos_ned = S.gnss_pos_ned;
 end
 % State vector x: [pos; vel; euler; accel_bias; gyro_bias] (15x1)
 init_eul = quat_to_euler(rot_to_quaternion(C_B_N));
@@ -668,9 +658,8 @@ end
     % directly when saving so filenames match the Python pipeline.
     save_task_results(method_struct, imu_name, gnss_name, method, 5);
 
-% Return results structure and store in base workspace
+% Return results structure
 result = results;
-assignin('base', 'task5_results', result);
 
 end % End of main function
 
