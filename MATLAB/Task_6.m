@@ -1,120 +1,162 @@
 function Task_6(task5_file, truth_file, tag)
-%TASK_6 Overlay fused estimator output with ground truth.
-%   TASK_6(TASK5_FILE, TRUTH_FILE, TAG) loads the results saved by
-%   ``Task_5`` and the STATE_X truth file then plots fused versus truth
-%   trajectories in the NED, ECEF and body frames. Three figures are
-%   saved under the repository ``results`` directory using ``TAG`` as the
-%   filename prefix. A ``*_task6_stats.mat`` file containing RMSE and
-%   final error metrics is also written.
+%TASK_6  Overlay fused state (Task 5) with absolute truth.
+%   TASK_6(TASK5_FILE, TRUTH_FILE, TAG) loads the fused navigation
+%   solution produced by Task 5 and the matching STATE_X truth file.
+%   Position and velocity components are compared in the NED, ECEF and
+%   body frames.  Figures are saved under ``results/`` using ``TAG`` as
+%   filename prefix:
+%       results/<tag>_task6_overlay_state_<FRAME>.pdf
+%       results/<tag>_task6_overlay_state_<FRAME>.png
 %
-%   Usage:
-%       Task_6('Task5_IMU_X001_GNSS_X001_TRIAD.mat','STATE_X001.txt','X001_TRIAD')
+%   The reference latitude/longitude are taken from
+%   ``Task1_<dataset>_<method>.mat``.  ``TAG`` defaults to the prefix of
+%   ``task5_file``.
 %
-%   This function mirrors the Python implementation and keeps the MATLAB
-%   pipeline in sync.
+%   Example:
+%       Task_6('IMU_X001_GNSS_X001_TRIAD_task5_results.mat', ...
+%             'STATE_X001.txt')
+%
+% This implementation mirrors the Python pipeline.
 
 if nargin < 3 || isempty(tag)
-    [~,tag] = fileparts(task5_file);
-end
-results_dir = get_results_dir();
-if ~exist(results_dir,'dir'); mkdir(results_dir); end
-
-S = load(task5_file);
-T = read_truth_file(truth_file);
-
-% Reference coordinates
-if isfield(S,'ref_lat_rad'); lat0 = S.ref_lat_rad; elseif isfield(S,'ref_lat'); lat0 = S.ref_lat; else; lat0 = 0; end
-if isfield(S,'ref_lon_rad'); lon0 = S.ref_lon_rad; elseif isfield(S,'ref_lon'); lon0 = S.ref_lon; else; lon0 = 0; end
-if isfield(S,'ref_r0_ecef'); r0 = S.ref_r0_ecef(:); elseif isfield(S,'ref_r0'); r0 = S.ref_r0(:); else; r0 = [0;0;0]; end
-
-time = S.time(:);
-
-pos_truth_ned = [T.pos_N, T.pos_E, T.pos_D];
-vel_truth_ned = [T.vel_N, T.vel_E, T.vel_D];
-[pos_truth_ecef, vel_truth_ecef] = ned2ecef_series(pos_truth_ned, vel_truth_ned, lat0, lon0, r0);
-
-n = numel(time);
-pos_truth_body = zeros(n,3); vel_truth_body = zeros(n,3);
-for k = 1:n
-    C_BN = S.C_BN_log(:,:,k); % body<-NED
-    pos_truth_body(k,:) = (C_BN*pos_truth_ned(k,:)').';
-    vel_truth_body(k,:) = (C_BN*vel_truth_ned(k,:)').';
+    [~, tag] = fileparts(task5_file);
 end
 
-% Plot overlays
-plot_overlay(time, pos_truth_ned, vel_truth_ned, S.pos_fused_ned, S.vel_fused_ned,
-    'Task 6 – Fused vs. Truth (NED)', fullfile(results_dir,[tag '_task6_overlay_state_NED']));
-plot_overlay(time, pos_truth_ecef, vel_truth_ecef, S.pos_fused_ecef, S.vel_fused_ecef,
-    'Task 6 – Fused vs. Truth (ECEF)', fullfile(results_dir,[tag '_task6_overlay_state_ECEF']));
-plot_overlay(time, pos_truth_body, vel_truth_body, S.pos_fused_body, S.vel_fused_body,
-    'Task 6 – Fused vs. Truth (Body)', fullfile(results_dir,[tag '_task6_overlay_state_Body']));
+%% Load Task 5 fused data
+S = load(task5_file, 'time', ...
+    'pos_fused_ned','vel_fused_ned', ...
+    'pos_fused_ecef','vel_fused_ecef', ...
+    'pos_fused_body','vel_fused_body');
 
-% Error metrics
-rmse_pos_ned  = sqrt(mean(sum((S.pos_fused_ned - pos_truth_ned).^2,2)));
-rmse_vel_ned  = sqrt(mean(sum((S.vel_fused_ned - vel_truth_ned).^2,2)));
-rmse_pos_ecef = sqrt(mean(sum((S.pos_fused_ecef - pos_truth_ecef).^2,2)));
-rmse_vel_ecef = sqrt(mean(sum((S.vel_fused_ecef - vel_truth_ecef).^2,2)));
-rmse_pos_body = sqrt(mean(sum((S.pos_fused_body - pos_truth_body).^2,2)));
-rmse_vel_body = sqrt(mean(sum((S.vel_fused_body - vel_truth_body).^2,2)));
-final_pos_ned  = norm(S.pos_fused_ned(end,:) - pos_truth_ned(end,:));
-final_vel_ned  = norm(S.vel_fused_ned(end,:) - vel_truth_ned(end,:));
-final_pos_ecef = norm(S.pos_fused_ecef(end,:) - pos_truth_ecef(end,:));
-final_vel_ecef = norm(S.vel_fused_ecef(end,:) - vel_truth_ecef(end,:));
-final_pos_body = norm(S.pos_fused_body(end,:) - pos_truth_body(end,:));
-final_vel_body = norm(S.vel_fused_body(end,:) - vel_truth_body(end,:));
-
-summary.frame = {'NED';'ECEF';'Body'};
-summary.rmse_pos  = [rmse_pos_ned; rmse_pos_ecef; rmse_pos_body];
-summary.final_pos = [final_pos_ned; final_pos_ecef; final_pos_body];
-summary.rmse_vel  = [rmse_vel_ned; rmse_vel_ecef; rmse_vel_body];
-summary.final_vel = [final_vel_ned; final_vel_ecef; final_vel_body];
-
-save(fullfile(results_dir,[tag '_task6_stats.mat']),'summary');
-fprintf('Task 6 overlay plots saved under: %s\n', results_dir);
+if ~isfield(S,'time')
+    error('time vector not found in %s', task5_file);
 end
 
-function plot_overlay(time, pos_truth, vel_truth, pos_fused, vel_fused, title_str, out_base)
+% Derive dataset and method from tag
+m = regexp(tag, '(IMU_[^_]+_GNSS_[^_]+)_([A-Za-z0-9]+)', 'tokens', 'once');
+if ~isempty(m)
+    dataset_tag = m{1};
+    method = m{2};
+else
+    dataset_tag = tag;
+    method = 'METHOD';
+end
+
+%% Load reference origin from Task 1
+task1_file = fullfile('results', sprintf('Task1_%s_%s.mat', dataset_tag, method));
+lat0 = 0; lon0 = 0;
+if isfile(task1_file)
+    S1 = load(task1_file);
+    if isfield(S1,'lat0_rad'); lat0 = S1.lat0_rad; end
+    if isfield(S1,'lon0_rad'); lon0 = S1.lon0_rad; end
+else
+    warning('Task 6: Task 1 file %s not found. Using zeros for lat/lon.', task1_file);
+end
+
+%% Load absolute truth file
+raw = readmatrix(truth_file);
+truth_t = raw(:,2);
+truth_pos_ecef = raw(:,3:5);
+truth_vel_ecef = raw(:,6:8);
+quat_e2b = raw(:,9:12);
+
+[truth_pos_ned, truth_vel_ned] = ecef_to_ned_series(truth_pos_ecef, truth_vel_ecef, lat0, lon0);
+C_e2b = quat_to_dcm(quat_e2b); % 3x3xN
+truth_pos_body = multiprod(C_e2b, truth_pos_ecef); % Nx3
+truth_vel_body = multiprod(C_e2b, truth_vel_ecef);
+
+%% Time align truth to estimator time vector
+est_t = S.time(:);
+if abs(mean(diff(est_t)) - mean(diff(truth_t))) > 1e-3
+    warning('Task 6: time step mismatch exceeds 1 ms');
+end
+pos_ned_i  = interp1(truth_t, truth_pos_ned, est_t, 'linear', 'extrap');
+vel_ned_i  = interp1(truth_t, truth_vel_ned, est_t, 'linear', 'extrap');
+pos_ecef_i = interp1(truth_t, truth_pos_ecef, est_t, 'linear', 'extrap');
+vel_ecef_i = interp1(truth_t, truth_vel_ecef, est_t, 'linear', 'extrap');
+pos_body_i = interp1(truth_t, truth_pos_body, est_t, 'linear', 'extrap');
+vel_body_i = interp1(truth_t, truth_vel_body, est_t, 'linear', 'extrap');
+
+%% Generate figures
+out_dir = 'results';
+if ~exist(out_dir,'dir'); mkdir(out_dir); end
+
+plot_state_overlay('NED', est_t, S.pos_fused_ned, S.vel_fused_ned, ...
+    pos_ned_i, vel_ned_i, dataset_tag, method, out_dir, tag);
+plot_state_overlay('ECEF', est_t, S.pos_fused_ecef, S.vel_fused_ecef, ...
+    pos_ecef_i, vel_ecef_i, dataset_tag, method, out_dir, tag);
+plot_state_overlay('Body', est_t, S.pos_fused_body, S.vel_fused_body, ...
+    pos_body_i, vel_body_i, dataset_tag, method, out_dir, tag);
+end
+
+%% --------------------------------------------------------------------
+function plot_state_overlay(frame, t, pos_fused, vel_fused, pos_truth, vel_truth, dataset_tag, method, out_dir, tag)
 labels = {'X','Y','Z'};
-colors = lines(3);
-fig = figure('Visible','off');
-axs = gobjects(2,3);
+if strcmpi(frame,'NED')
+    labels = {'N','E','D'};
+end
+f = figure('Visible','off');
+tiledlayout(2,3,'TileSpacing','compact','Padding','compact');
+ax1 = gobjects(1,3); ax2 = gobjects(1,3);
 for i=1:3
-    axs(1,i) = subplot(2,3,i); hold on; grid on;
-    plot(time, pos_fused(:,i), 'Color', colors(i,:), 'LineWidth',1.8);
-    plot(time, pos_truth(:,i),'--','Color',colors(i,:), 'LineWidth',1.2);
-    ylabel(sprintf('Pos %s [m]', labels{i}));
-    title(sprintf('Position %s', labels{i}));
-    if i==1
-        legend({'Fused','Truth'},'Location','best');
+    ax1(i) = nexttile(i); hold on;
+    plot(t, pos_fused(:,i), 'b-', 'LineWidth',1.0);
+    plot(t, pos_truth(:,i), 'r--', 'LineWidth',1.0);
+    ylabel('Position (m)'); title(sprintf('Position %s', labels{i}));
+    grid on; axis tight;
+    if i==3
+        legend({'Fused','Truth'},'Location','northeast');
     end
 end
 for i=1:3
-    axs(2,i) = subplot(2,3,i+3); hold on; grid on;
-    plot(time, vel_fused(:,i), 'Color', colors(i,:), 'LineWidth',1.8);
-    plot(time, vel_truth(:,i),'--','Color',colors(i,:), 'LineWidth',1.2);
-    ylabel(sprintf('Vel %s [m/s]', labels{i}));
-    title(sprintf('Velocity %s', labels{i}));
+    ax2(i) = nexttile(i+3); hold on;
+    plot(t, vel_fused(:,i), 'b-', 'LineWidth',1.0);
+    plot(t, vel_truth(:,i), 'r--', 'LineWidth',1.0);
+    ylabel('Velocity (m/s)'); title(sprintf('Velocity %s', labels{i}));
+    grid on; axis tight;
 end
-linkaxes(axs(:),'x');
-for i=1:3
-    xlabel(axs(2,i),'Time [s]');
-end
-sgtitle(title_str);
-print(fig, [out_base '.pdf'], '-dpdf', '-bestfit');
-print(fig, [out_base '.png'], '-dpng');
-close(fig);
+linkaxes(ax1,'y');
+linkaxes(ax2,'y');
+xlabel(ax2(1),'Epoch Time (s)');
+xlabel(ax2(2),'Epoch Time (s)');
+xlabel(ax2(3),'Epoch Time (s)');
+sgtitle(sprintf('Task 6 \x2013 %s Overlay  (Dataset %s | Method %s)', frame, dataset_tag, method));
+
+base = fullfile(out_dir, sprintf('%s_task6_overlay_state_%s', tag, frame));
+print(f, [base '.pdf'], '-dpdf', '-bestfit');
+print(f, [base '.png'], '-dpng');
+close(f);
+fprintf('Task 6: saved overlay %s figure  ->  %s.pdf\n', frame, base);
 end
 
-function [pos_ecef, vel_ecef] = ned2ecef_series(pos_ned, vel_ned, lat0, lon0, r0)
-C_EN = compute_C_ECEF_to_NED(lat0, lon0);
-C_NE = C_EN';
-pos_ecef = (C_NE*pos_ned')' + r0.';
-vel_ecef = (C_NE*vel_ned')';
+%% --------------------------------------------------------------------
+function C = quat_to_dcm(q)
+%QUAT_TO_DCM Convert quaternion [q0 q1 q2 q3] to DCM stack.
+N = size(q,1);
+C = zeros(3,3,N);
+for k=1:N
+    q0 = q(k,1); q1 = q(k,2); q2 = q(k,3); q3 = q(k,4);
+    C(:,:,k) = [1-2*(q2^2+q3^2), 2*(q1*q2 - q0*q3), 2*(q1*q3 + q0*q2); ...
+                2*(q1*q2 + q0*q3), 1-2*(q1^2+q3^2), 2*(q2*q3 - q0*q1); ...
+                2*(q1*q3 - q0*q2), 2*(q2*q3 + q0*q1), 1-2*(q1^2+q2^2)];
+end
 end
 
-function T = read_truth_file(fname)
-    data = readmatrix(fname);
-    T.time   = data(:,1);
-    T.pos_N  = data(:,2);  T.pos_E = data(:,3);  T.pos_D = data(:,4);
-    T.vel_N  = data(:,5);  T.vel_E = data(:,6);  T.vel_D = data(:,7);
+%% --------------------------------------------------------------------
+function out = multiprod(C, V)
+%MULTIPROD Multiply a stack of 3x3 matrices with 3D vectors.
+N = size(C,3);
+out = zeros(N,3);
+for k=1:N
+    out(k,:) = (C(:,:,k) * V(k,:).').';
 end
+end
+
+%% --------------------------------------------------------------------
+function [pos_ned, vel_ned] = ecef_to_ned_series(pos_ecef, vel_ecef, lat_rad, lon_rad)
+C = compute_C_ECEF_to_NED(lat_rad, lon_rad);
+r0 = pos_ecef(1,:);
+pos_ned = (C * (pos_ecef - r0).').';
+vel_ned = (C * vel_ecef.').';
+end
+
