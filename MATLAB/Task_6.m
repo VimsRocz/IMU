@@ -286,6 +286,48 @@ output_file = fullfile(out_dir, sprintf('%s_task6_overlay_state_NED.pdf', run_id
 saveas(fig, output_file);
 fprintf('Task 6: Saved overlay figure: %s\n', output_file);
 
+% ---------------------------------------------------------------
+% Interactive ECEF overlay using truth from STATE_X001.txt
+% ---------------------------------------------------------------
+pos_est_ecef_ds   = pos_ecef(time_idx,:)';
+vel_est_ecef_ds   = vel_ecef(time_idx,:)';
+pos_truth_ecef_ds = pos_truth_ecef_i(time_idx,:)';
+fprintf('Subtask 6.8.2: Plotted %s position X_ECEF: First = %.4f, Last = %.4f m\n', ...
+    method, pos_est_ecef_ds(1,1), pos_est_ecef_ds(1,end));
+fprintf('Subtask 6.8.2: Plotted %s position Y_ECEF: First = %.4f, Last = %.4f m\n', ...
+    method, pos_est_ecef_ds(2,1), pos_est_ecef_ds(2,end));
+fprintf('Subtask 6.8.2: Plotted %s position Z_ECEF: First = %.4f, Last = %.4f m\n', ...
+    method, pos_est_ecef_ds(3,1), pos_est_ecef_ds(3,end));
+fprintf('Subtask 6.8.2: Plotted %s velocity X_ECEF: First = %.4f, Last = %.4f m/s\n', ...
+    method, vel_est_ecef_ds(1,1), vel_est_ecef_ds(1,end));
+fprintf('Subtask 6.8.2: Plotted %s velocity Y_ECEF: First = %.4f, Last = %.4f m/s\n', ...
+    method, vel_est_ecef_ds(2,1), vel_est_ecef_ds(2,end));
+fprintf('Subtask 6.8.2: Plotted %s velocity Z_ECEF: First = %.4f, Last = %.4f m/s\n', ...
+    method, vel_est_ecef_ds(3,1), vel_est_ecef_ds(3,end));
+
+fprintf('Task 6: Generating and displaying ECEF overlay plot...\n');
+fig_ecef = figure('Name', 'Task 6 - ECEF State Overlay', 'Visible', 'on');
+subplot(2,1,1);
+plot(t_ds, pos_est_ecef_ds(1,:), 'b', 'DisplayName', 'Est X'); hold on;
+plot(t_ds, pos_truth_ecef_ds(1,:), 'r--', 'DisplayName', 'Truth X');
+plot(t_ds, pos_est_ecef_ds(2,:), 'g', 'DisplayName', 'Est Y');
+plot(t_ds, pos_truth_ecef_ds(2,:), 'm--', 'DisplayName', 'Truth Y');
+plot(t_ds, pos_est_ecef_ds(3,:), 'k', 'DisplayName', 'Est Z');
+plot(t_ds, pos_truth_ecef_ds(3,:), 'c--', 'DisplayName', 'Truth Z');
+title('Position Overlay (ECEF)'); xlabel('Time Step'); ylabel('Position (m)');
+legend('Location','best'); grid on; hold off;
+
+subplot(2,1,2);
+plot(t_ds, vel_est_ecef_ds(1,:), 'b', 'DisplayName', 'Est VX'); hold on;
+plot(t_ds, vel_est_ecef_ds(2,:), 'g', 'DisplayName', 'Est VY');
+plot(t_ds, vel_est_ecef_ds(3,:), 'k', 'DisplayName', 'Est VZ');
+title('Velocity Overlay (ECEF)'); xlabel('Time Step'); ylabel('Velocity (m/s)');
+legend('Location','best'); grid on; hold off;
+
+out_ecef = fullfile(out_dir, sprintf('%s_task6_overlay_state_ECEF.pdf', run_id));
+saveas(fig_ecef, out_ecef);
+fprintf('Task 6: Saved overlay figure: %s\n', out_ecef);
+
 plot_overlay('ECEF', run_id, t_est, pos_ecef, vel_ecef, acc_ecef, ...
     t_est, pos_gnss_ecef_i, vel_gnss_ecef_i, acc_gnss_ecef_i, ...
     t_est, pos_ecef, vel_ecef, acc_ecef, out_dir, ...
