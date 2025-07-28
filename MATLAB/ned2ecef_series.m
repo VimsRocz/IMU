@@ -8,8 +8,11 @@ function [pos_ecef, vel_ecef] = ned2ecef_series(pos_ned, vel_ned, lat_rad, lon_r
 %
 %   This mirrors the helper used in the Python pipeline.
 
-C_e_n = compute_C_ECEF_to_NED(lat_rad, lon_rad);
-C_n_e = C_e_n';
-pos_ecef = (C_n_e * pos_ned')' + r0_ecef(:)';
-vel_ecef = (C_n_e * vel_ned')';
+N = size(pos_ned,1);
+pos_ecef = zeros(N,3);
+vel_ecef = zeros(N,3);
+for i = 1:N
+    pos_ecef(i,:) = ned2ecef_vector(pos_ned(i,:), lat_rad, lon_rad) + r0_ecef(:).';
+    vel_ecef(i,:) = ned2ecef_vector(vel_ned(i,:), lat_rad, lon_rad);
+end
 end
