@@ -1274,6 +1274,11 @@ def main():
                 imu_pos[m][i - 1] + 0.5 * (imu_vel[m][i] + imu_vel[m][i - 1]) * dt
             )
         logging.info(f"Method {m}: IMU data integrated.")
+        final_vel = imu_vel[m][-1]
+        logging.info(
+            f"[{summary_tag} | {m}] Final integrated NED velocity: "
+            f"[{final_vel[0]:.3f}, {final_vel[1]:.3f}, {final_vel[2]:.3f}] m/s"
+        )
 
     # ZUPT handled dynamically during Kalman filtering
 
