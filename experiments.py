@@ -10,7 +10,10 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Tuple
+
+import pandas as pd
+import numpy as np
 
 try:
     import yaml  # type: ignore
@@ -113,6 +116,36 @@ def run_case(dataset: Dict[str, str], method: str) -> Dict[str, Any]:
     }
 
 
+def task4() -> Tuple[float, float] | None:
+    """Read ``data.csv`` and return its mean and standard deviation."""
+
+    path = Path("data.csv")
+    if not path.is_file():
+        print("Error: The file 'data.csv' was not found.")
+        return None
+
+    try:
+        df = pd.read_csv(path, header=None)
+        numeric = df.apply(pd.to_numeric, errors="coerce")
+    except Exception:
+        print("Error: The file 'data.csv' contains invalid non-numerical data.")
+        return None
+
+    if numeric.isnull().values.any():
+        print("Error: The file 'data.csv' contains invalid non-numerical data.")
+        return None
+
+    print("First few rows of data from 'data.csv':")
+    print(numeric.head())
+
+    values = numeric.to_numpy(dtype=float)
+    mean_val = float(np.mean(values))
+    std_val = float(np.std(values, ddof=0))
+    print(f"Mean of the data: {mean_val}")
+    print(f"Standard deviation of the data: {std_val}")
+    return mean_val, std_val
+
+
 def main(argv: Iterable[str] | None = None) -> None:
     """Entry point for command line execution."""
     parser = argparse.ArgumentParser(description="Batch-run GNSS/IMU experiments")
@@ -176,6 +209,9 @@ def main(argv: Iterable[str] | None = None) -> None:
             for r in results
         ]
         print(tabulate(rows, headers=["tag", "method", "ret", "sec", "log"]))
+
+    # Task 4 demonstration -----------------------------------------------------
+    task4()
 
 
 if __name__ == "__main__":  # pragma: no cover
