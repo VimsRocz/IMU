@@ -13,6 +13,17 @@ function save_task_results(results, imu_name, gnss_name, method, task)
         mkdir(results_dir);
     end
     base = sprintf('%s_%s_%s_task%d_results.mat', imu_name, gnss_name, method, task);
-    save(fullfile(results_dir, base), 'results');
-    fprintf('Saved task %d results to %s\n', task, fullfile(results_dir, base));
+    out  = fullfile(results_dir, base);
+
+    % Append when the file already exists so previously saved variables
+    % such as ``x_log`` are not overwritten. Earlier tasks create the file
+    % anew, whereas Task 5 may save additional arrays before calling this
+    % helper.  This mirrors the Python pipeline behaviour where multiple
+    % keys coexist in the same ``.mat`` container.
+    if isfile(out)
+        save(out, 'results', '-append');
+    else
+        save(out, 'results');
+    end
+    fprintf('Saved task %d results to %s\n', task, out);
 end
