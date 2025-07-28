@@ -58,9 +58,9 @@ fprintf('Task 6: Loaded x_log, size: %dx%d\n', size(S.x_log));
 % Load GNSS truth data from Task 4
 truth4_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
 try
-    load(truth4_file, 'gnss_ned_pos');
+    load(truth4_file, 'gnss_pos_ned');
     fprintf('Task 6: Loaded GNSS truth positions from %s, size: %dx%d\n', ...
-        truth4_file, size(gnss_ned_pos));
+        truth4_file, size(gnss_pos_ned));
 catch
     error('Task 6: Failed to load GNSS truth data from %s.', truth4_file);
 end
@@ -199,13 +199,13 @@ acc_ned = [zeros(1,3); diff(vel_ned)./diff(t_est)];
 
 % Downsample fused estimates to GNSS sample count
 num_samples = size(S.x_log, 2);
-n_gnss = size(gnss_ned_pos, 1);
+n_gnss = size(gnss_pos_ned, 1);
 downsample_factor = floor(num_samples / n_gnss);
 time_idx = 1:downsample_factor:num_samples;
 t_ds = t_est(time_idx);
 pos_est_ds = S.x_log(1:3, time_idx);
 vel_est_ds = S.x_log(4:6, time_idx);
-pos_truth_ds = gnss_ned_pos';
+pos_truth_ds = gnss_pos_ned';
 fprintf('Task 6: Downsampled estimates to %d samples (factor: %d)\n', numel(time_idx), downsample_factor);
 if size(pos_truth_ds,2) ~= numel(time_idx)
     error('Task 6: Data length mismatch. Truth: %d, Estimated: %d. Adjust downsampling.', size(pos_truth_ds,2), numel(time_idx));
