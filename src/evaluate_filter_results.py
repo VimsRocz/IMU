@@ -165,7 +165,13 @@ def run_evaluation(
     plt.close(fig)
 
 
-def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) -> None:
+def run_evaluation_npz(
+    npz_file: str,
+    save_path: str,
+    tag: str | None = None,
+    *,
+    show: bool = False,
+) -> None:
     """Evaluate residuals stored in a ``*_kf_output.npz`` file.
 
     Parameters
@@ -176,6 +182,9 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         Directory where the evaluation plots will be written.
     tag
         Optional dataset tag used to prefix the filenames.
+    show
+        If ``True`` display the Task 7.5 figures interactively in addition to
+        saving them.
     """
     start_time = time.time()
     out_dir = Path(save_path)
@@ -323,6 +332,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
             ref_lon,
             run_id,
             out_dir,
+            show=show,
         )
     else:
         print("Subtask 7.5 skipped: missing fused or truth data")
@@ -360,8 +370,16 @@ def subtask7_5_diff_plot(
     ref_lon: float | None,
     run_id: str,
     out_dir: str,
+    *,
+    show: bool = False,
 ) -> None:
-    """Plot ``truth - fused`` differences in NED, ECEF and Body frames."""
+    """Plot ``truth - fused`` differences in NED, ECEF and Body frames.
+
+    Parameters
+    ----------
+    show
+        When ``True`` display each figure interactively via :func:`matplotlib.pyplot.show`.
+    """
 
     # Use relative time for direct comparison with Task 6 plots
     time = time - time[0]
@@ -394,6 +412,8 @@ def subtask7_5_diff_plot(
         print(f"Saved {pdf}")
         fig.savefig(png)
         print(f"Saved {png}")
+        if show:
+            plt.show()
         plt.close(fig)
 
         pos_thr = 1.0
@@ -456,9 +476,14 @@ if __name__ == "__main__":
     # Task 7 plots now default to the top-level ``results`` directory
     ap.add_argument("--output", default="results")
     ap.add_argument("--tag", help="Dataset tag used as filename prefix")
+    ap.add_argument(
+        "--show",
+        action="store_true",
+        help="Display Task 7.5 plots interactively",
+    )
     args = ap.parse_args()
     if args.npz:
-        run_evaluation_npz(args.npz, args.output, args.tag)
+        run_evaluation_npz(args.npz, args.output, args.tag, show=args.show)
     else:
         if not (args.prediction and args.gnss and args.attitude):
             ap.error(

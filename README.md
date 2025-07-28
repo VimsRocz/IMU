@@ -354,7 +354,9 @@ python src/run_all_methods.py --task 7
   `python task7_ecef_residuals_plot.py --est-file <fused.npz> --imu-file <IMU.dat> \
   --gnss-file <GNSS.csv> --dataset <tag>`
 * Subtask 7.5 generates `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf` for
-  NED, ECEF and Body frames with the component-wise difference between truth and fused trajectories.
+  NED, ECEF and Body frames with the component-wise difference between truth and
+  fused trajectories. Pass `--show` to `evaluate_filter_results.py` to display
+  these plots interactively.
 
 ### Notes
 
