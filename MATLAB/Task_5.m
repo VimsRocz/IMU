@@ -199,22 +199,16 @@ P = eye(15);                         % Larger initial uncertainty
 P(7:9,7:9)   = eye(3) * deg2rad(5)^2; % Attitude uncertainty (5 deg)
 P(10:15,10:15) = eye(6) * 1e-4;      % Bias uncertainty
 
-Q = eye(15) * 0.01;                  % Base process noise
-Q(4:6,4:6) = eye(3) * 0.1;           % Velocity process noise
-% Define bias random walk terms based on IMU specs
-accel_bias_noise = 1e-3;             % Example value
-gyro_bias_noise  = 1e-4;             % Example value
-Q(10:12,10:12) = eye(3) * (accel_bias_noise^2);
-Q(13:15,13:15) = eye(3) * (gyro_bias_noise^2);
-if pos_proc_noise ~= 0
-    Q(1:3,1:3) = Q(1:3,1:3) + eye(3) * (pos_proc_noise^2);
-end
-if vel_proc_noise ~= 0
-    Q(4:6,4:6) = Q(4:6,4:6) + eye(3) * (vel_proc_noise^2);
-end
+% Process noise terms use the same convention as the Python implementation.
+Q = zeros(15);
+Q(1:3,1:3)   = eye(3) * (pos_proc_noise^2);                   % Position process
+Q(4:6,4:6)   = eye(3) * ((accel_noise^2) + (vel_proc_noise^2));
+Q(10:12,10:12) = eye(3) * (accel_bias_noise^2);               % Accel bias random walk
+Q(13:15,13:15) = eye(3) * (gyro_bias_noise^2);                % Gyro bias random walk
 
-R = eye(6) * 0.1;                    % GNSS position noise
-R(4:6,4:6) = eye(3) * 0.25;          % GNSS velocity noise
+R = zeros(6);                                                   % Measurement noise
+R(1:3,1:3) = eye(3) * (pos_meas_noise^2);                      % GNSS position noise
+R(4:6,4:6) = eye(3) * (vel_meas_noise^2);                      % GNSS velocity noise
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---

@@ -18,6 +18,10 @@ Default parameters:
 | `accel_bias_noise`  | `1e-5` |
 | `gyro_bias_noise`   | `1e-5` |
 
+The MATLAB filter reads these values via optional name/value pairs and applies
+them identically to the Python `GNSSIMUKalman` class. Ensure any tuning changes
+remain in sync across both languages.
+
 ```text
 IMU integration (Task 4)
        ↓
