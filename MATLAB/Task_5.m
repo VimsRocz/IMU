@@ -49,8 +49,21 @@ if exist(init_file,'file') ~= 2 || exist(body_file,'file') ~= 2 || ...
         exist(task3_file,'file') ~= 2 || exist(task4_file,'file') ~= 2
     error('Task_5:MissingPrereq','Required Task 1--4 outputs not found.');
 end
-load(init_file, 'gravity_ned','lat0_rad','lon0_rad');
-load(body_file, 'accel_bias','gyro_bias');
+S1 = load(init_file);
+req = {'gravity_ned','lat0_rad','lon0_rad'};
+for nReq = 1:numel(req)
+    if ~isfield(S1, req{nReq})
+        error('Task_5:MissingField','%s missing from %s', req{nReq}, init_file);
+    end
+end
+gravity_ned = S1.gravity_ned;
+lat0_rad    = S1.lat0_rad;
+lon0_rad    = S1.lon0_rad;
+S2 = load(body_file);
+if isfield(S2, 'accel_bias'); accel_bias = S2.accel_bias; else
+    error('Task_5:MissingField','accel_bias missing from %s', body_file); end
+if isfield(S2, 'gyro_bias'); gyro_bias = S2.gyro_bias; else
+    error('Task_5:MissingField','gyro_bias missing from %s', body_file); end
 tmp = load(body_file, 'accel_scale');
 if isfield(tmp, 'accel_scale')
     accel_scale = tmp.accel_scale;
@@ -128,13 +141,11 @@ vel_fused_ned = vel_est_ned;
 acc_fused_ned = zeros(size(vel_est_ned));
 acc_fused_ned(:,2:end) = diff(vel_est_ned,1,2) / dt;
 
-% Convert estimates to the ECEF frame using the fixed reference attitude
-[pos_est_ecef, vel_est_ecef] = ned2ecef_series( ...
-    pos_est_ned, vel_est_ned, [], lat0_rad, lon0_rad);
+
 
 % Save using Python-style variable names for cross-language parity
 save(out_mat, 'x_log','pos_est_ned','vel_est_ned','pos_est_ecef', ...
-    'vel_est_ecef','acc_body','C_b_n','P');
+    'vel_est_ecef','acc_body','C_b_n','P','lat0_rad','lon0_rad');
 fprintf('Saved Task 5 results to %s\n', out_mat);
 
 % Generate and save plots
