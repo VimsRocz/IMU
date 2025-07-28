@@ -20,8 +20,8 @@ function Task_7()
 
     truth_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
     try
-        load(truth_file, 'gnss_ned_pos');
-        fprintf('Task 7: Loaded GNSS truth positions from %s, size: %dx%d\n', truth_file, size(gnss_ned_pos));
+        load(truth_file, 'gnss_pos_ned');
+        fprintf('Task 7: Loaded GNSS truth positions from %s, size: %dx%d\n', truth_file, size(gnss_pos_ned));
     catch
         error('Task 7: Failed to load GNSS truth data from %s.', truth_file);
     end
@@ -29,10 +29,10 @@ function Task_7()
     fprintf('Task 7: Extracting position and velocity estimates from x_log...\n');
     pos_est = x_log(1:3, :);  % NED position [North, East, Down]
     vel_est = x_log(4:6, :);  % NED velocity [North, East, Down]
-    pos_ned_gnss = gnss_ned_pos';
+    pos_ned_gnss = gnss_pos_ned';
 
     dt = 1;  % GNSS sample interval (seconds)
-    vel_ned_gnss = diff(gnss_ned_pos) / dt;
+    vel_ned_gnss = diff(gnss_pos_ned) / dt;
     vel_ned_gnss = [vel_ned_gnss; vel_ned_gnss(end,:)]';
     fprintf('Task 7: Computed GNSS velocity, size: %dx%d\n', size(vel_ned_gnss));
 
