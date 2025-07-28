@@ -19,19 +19,25 @@ import argparse
 from pathlib import Path
 
 
+def task6_full_overlay(task5_matfile: str, truth_file: str, output_tag: str) -> None:
+    """Placeholder matching the MATLAB ``Task_6`` interface."""
+    print("Task 6 full overlay stub - not yet implemented.")
+    print(f"Would load fused results from: {task5_matfile}")
+    print(f"Would load ground truth from: {truth_file}")
+    print(f"Output tag: {output_tag}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Task 6 full overlay stub")
     ap.add_argument("--est-file", required=True)
     ap.add_argument("--truth-file", required=True)
+    ap.add_argument("--tag", default="RUN")
     ap.add_argument("--output-dir", default="results")
     args = ap.parse_args()
 
-    out_dir = Path(args.output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
-    # TODO: implement reading of estimator and truth data
-    # TODO: generate overlay plots for ECEF, NED, body frames and attitude
-    print("Task 6 full overlay stub. Implementation pending.")
+    task6_full_overlay(args.est_file, args.truth_file, args.tag)
 
 
 if __name__ == "__main__":
