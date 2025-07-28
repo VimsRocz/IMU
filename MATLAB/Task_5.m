@@ -414,14 +414,17 @@ for k = 1:N
     acc_fused_body(k,:) = (C_BN' * acc_fused_ned(k,:)')';
 end
 
-plot_xyz_timeseries(time, pos_fused_ned, vel_fused_ned, acc_fused_ned,
-    sprintf('%s Task 5 \x2013 Fused (NED)', tag),
+% Plot fused position, velocity, and acceleration in the three common
+% reference frames.  Use a simple ASCII hyphen in the titles to avoid
+% issues with Unicode escape sequences on older MATLAB versions.
+plot_xyz_timeseries(time, pos_fused_ned, vel_fused_ned, acc_fused_ned, ...
+    sprintf('%s Task 5 - Fused (NED)', tag), ...
     fullfile(results_dir, sprintf('%s_task5_fused_NED', tag)), {'North','East','Down'});
-plot_xyz_timeseries(time, pos_fused_ecef, vel_fused_ecef, acc_fused_ecef,
-    sprintf('%s Task 5 \x2013 Fused (ECEF)', tag),
+plot_xyz_timeseries(time, pos_fused_ecef, vel_fused_ecef, acc_fused_ecef, ...
+    sprintf('%s Task 5 - Fused (ECEF)', tag), ...
     fullfile(results_dir, sprintf('%s_task5_fused_ECEF', tag)), {'X','Y','Z'});
-plot_xyz_timeseries(time, pos_fused_body, vel_fused_body, acc_fused_body,
-    sprintf('%s Task 5 \x2013 Fused (Body)', tag),
+plot_xyz_timeseries(time, pos_fused_body, vel_fused_body, acc_fused_body, ...
+    sprintf('%s Task 5 - Fused (Body)', tag), ...
     fullfile(results_dir, sprintf('%s_task5_fused_Body', tag)), {'X','Y','Z'});
 
 save(fullfile(results_dir, sprintf('Task5_%s.mat', tag)), 'time', ...
