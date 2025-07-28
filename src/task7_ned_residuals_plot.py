@@ -147,6 +147,11 @@ def plot_residuals(
     png = out_dir / f"{dataset}_task7_ned_residuals.png"
     fig.savefig(pdf)
     fig.savefig(png)
+    try:
+        from utils import save_plot_mat
+        save_plot_mat(fig, str(out_dir / f"{dataset}_task7_ned_residuals.mat"))
+    except Exception:
+        pass
     plt.close(fig)
 
     fig, ax = plt.subplots()
@@ -163,6 +168,11 @@ def plot_residuals(
     norm_png = out_dir / f"{dataset}_task7_ned_residual_norms.png"
     fig.savefig(norm_pdf)
     fig.savefig(norm_png)
+    try:
+        from utils import save_plot_mat
+        save_plot_mat(fig, str(out_dir / f"{dataset}_task7_ned_residual_norms.mat"))
+    except Exception:
+        pass
     plt.close(fig)
 
     saved = sorted(out_dir.glob(f"{dataset}_task7_ned_residual*.pdf"))

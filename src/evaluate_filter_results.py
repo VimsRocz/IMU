@@ -129,6 +129,11 @@ def run_evaluation(
     out_path = plot_path(out_dir, tag or "", 7, "3", "residuals_position_velocity")
     fig.savefig(out_path)
     print(f"Saved {out_path}")
+    try:
+        from utils import save_plot_mat
+        save_plot_mat(fig, str(out_path.with_suffix(".mat")))
+    except Exception:
+        pass
     plt.close(fig)
 
     # Histograms of residuals
@@ -144,6 +149,11 @@ def run_evaluation(
         hist_path = plot_path(out_dir, tag or "", 7, f"hist_{name}", "residuals")
         fig.savefig(hist_path)
         print(f"Saved {hist_path}")
+        try:
+            from utils import save_plot_mat
+            save_plot_mat(fig, str(hist_path.with_suffix(".mat")))
+        except Exception:
+            pass
         plt.close(fig)
 
     quat = att[quat_cols].to_numpy()
@@ -162,6 +172,11 @@ def run_evaluation(
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     att_out = plot_path(out_dir, tag or "", 7, "4", "attitude_angles_euler")
     fig.savefig(att_out)
+    try:
+        from utils import save_plot_mat
+        save_plot_mat(fig, str(att_out.with_suffix(".mat")))
+    except Exception:
+        pass
     plt.close(fig)
 
 
@@ -394,6 +409,11 @@ def subtask7_5_diff_plot(
         print(f"Saved {pdf}")
         fig.savefig(png)
         print(f"Saved {png}")
+        try:
+            from utils import save_plot_mat
+            save_plot_mat(fig, str(pdf.with_suffix(".mat")))
+        except Exception:
+            pass
         plt.close(fig)
 
         pos_thr = 1.0

@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Tuple, Optional
+from matplotlib.figure import Figure
 
 try:
     from pyproj import Transformer
@@ -180,11 +181,46 @@ def save_mat(filename: str, data: dict) -> None:
     data : dict
         Mapping of variable names to arrays to be written.
     """
-
     from scipy.io import savemat
 
     # Store with compression to reduce disk usage
     savemat(filename, data, do_compression=True)
+
+
+def save_plot_mat(fig: Figure, filename: str) -> None:
+    """Save matplotlib figure *fig* in MATLAB ``.mat`` format.
+
+    Parameters
+    ----------
+    fig : :class:`matplotlib.figure.Figure`
+        Figure to serialise.
+    filename : str
+        Path of the ``.mat`` file.
+
+    Notes
+    -----
+    This helper exports the plotted line data and basic axis labels so the
+    figure can be recreated in MATLAB. The structure mirrors the axes layout
+    where each line is stored as ``ax<i>_line<j>_x`` and ``ax<i>_line<j>_y``.
+    """
+
+    import numpy as _np
+    from scipy.io import savemat as _savemat
+
+    out: dict[str, _np.ndarray] = {}
+    for i, ax in enumerate(fig.get_axes(), start=1):
+        prefix = f"ax{i}"
+        out[f"{prefix}_title"] = _np.array(ax.get_title(), dtype=object)
+        out[f"{prefix}_xlabel"] = _np.array(ax.get_xlabel(), dtype=object)
+        out[f"{prefix}_ylabel"] = _np.array(ax.get_ylabel(), dtype=object)
+        for j, line in enumerate(ax.get_lines(), start=1):
+            out[f"{prefix}_line{j}_x"] = _np.asarray(line.get_xdata())
+            out[f"{prefix}_line{j}_y"] = _np.asarray(line.get_ydata())
+            label = line.get_label()
+            if label and not label.startswith("_"):
+                out[f"{prefix}_line{j}_label"] = _np.array(label, dtype=object)
+
+    _savemat(filename, out, do_compression=True)
 
 
 def compute_C_ECEF_to_NED(lat: float, lon: float) -> np.ndarray:

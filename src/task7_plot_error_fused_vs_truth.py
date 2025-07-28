@@ -44,6 +44,11 @@ def plot_error(time: np.ndarray, err: np.ndarray, out_dir: Path) -> None:
     png = out_dir / "task7_fused_vs_truth_error.png"
     plt.savefig(pdf)
     plt.savefig(png)
+    try:
+        from utils import save_plot_mat
+        save_plot_mat(plt.gcf(), str(out_dir / "task7_fused_vs_truth_error.mat"))
+    except Exception:
+        pass
     plt.close()
 
 
