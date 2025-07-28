@@ -11,7 +11,10 @@ function run_all_datasets_matlab(method)
 %   ``get_results_dir()``.
 %
 % Usage:
+
 %   run_all_datasets_matlab(method)
+
+format long g % mirror Python full-precision printing
 
 if nargin < 1 || isempty(method)
     method_list = {'TRIAD','Davenport','SVD'};
