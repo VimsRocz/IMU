@@ -32,7 +32,7 @@ function run_all_methods()
         disp('--- Running Task 6: Truth Overlay/Validation ---');
         Task_6(res_file, imu_path, gnss_path, truth_file);
         disp('--- Running Task 7: Residuals & Summary ---');
-        Task_7();
+        Task_7(res_file, truth_file, run_id);
         disp('Task 6 and Task 7 complete. See results directory for plots and PDF summaries.');
     else
         warning('Task 6 or Task 7 skipped: Missing Task 5 results or truth file.');
