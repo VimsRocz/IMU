@@ -965,7 +965,7 @@ pos_struct = struct('TRIAD', S.x_log(1:3,:)');
 vel_struct = struct('TRIAD', S.vel_log');
 acc_struct = struct('TRIAD', S.accel_from_vel');
 plot_task5_results_all_methods(imu_time, pos_struct, vel_struct, acc_struct, ...
-    gnss_pos_interp, gnss_vel_interp, gnss_acc_interp);
+    gnss_pos_interp, gnss_vel_interp, gnss_acc_interp, tag, results_dir);
 
 % Rename key figures to match the Python naming scheme
 rename_plot(sprintf('%s_Task3_ErrorComparison.pdf', tag), ...
