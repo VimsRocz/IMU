@@ -41,7 +41,9 @@ body_file = fullfile(results_dir, sprintf('Task2_%s_%s.mat', dataset_tag, method
 task3_file = fullfile(results_dir, sprintf('Task3_%s_%s.mat', dataset_tag, method));
 task4_file = fullfile(results_dir, sprintf('Task4_%s_%s.mat', dataset_tag, method));
 out_mat   = fullfile(results_dir, sprintf('Task5_%s_%s.mat', dataset_tag, method));
-fig_prefix = fullfile(results_dir, sprintf('%s_task5_results', run_tag));
+fig_ned   = fullfile(results_dir, sprintf('%s_task5_all_ned',  run_tag));
+fig_ecef  = fullfile(results_dir, sprintf('%s_task5_all_ecef', run_tag));
+fig_body  = fullfile(results_dir, sprintf('%s_task5_all_body', run_tag));
 
 if exist(init_file,'file') ~= 2 || exist(body_file,'file') ~= 2 || ...
         exist(task3_file,'file') ~= 2 || exist(task4_file,'file') ~= 2
@@ -134,8 +136,10 @@ fprintf('Subtask 5.7: Plotting fused vs IMU/GNSS in NED frame.\n');
 try
     % Check dimensions before plotting
     if size(pos_ned,2) == size(pos_fused_ned,2) && length(imu.time) == size(pos_fused_ned,2)
-        figure; plot_ned_fusion(imu.time, pos_ned, pos_fused_ned, vel_ned, vel_fused_ned, accel, acc_fused_ned); %#ok<NASGU>
-        saveas(gcf, [fig_prefix '_NED.pdf']);
+        fig = plot_task5_ned(imu.time, pos_ned, pos_fused_ned, vel_ned, vel_fused_ned, acc_ned, acc_fused_ned, method);
+        print(fig, [fig_ned '.pdf'], '-dpdf', '-bestfit');
+        print(fig, [fig_ned '.png'], '-dpng', '-r300');
+        close(fig);
         fprintf('NED plot saved successfully.\n');
     else
         fprintf('Warning: Size mismatch in NED plot data - skipping plot.\n');
@@ -148,9 +152,12 @@ end
 
 fprintf('Subtask 5.8: Plotting fused vs ground truth in ECEF frame.\n');
 try
-    [pos_fused_ecef, vel_fused_ecef] = ned2ecef_series(pos_fused_ned, vel_fused_ned, lat0_rad, lon0_rad);
-    figure; plot_ecef_fusion(imu.time, zeros(size(pos_fused_ecef)), pos_fused_ecef, zeros(size(vel_fused_ecef)), vel_fused_ecef); %#ok<NASGU>
-    saveas(gcf, [fig_prefix '_ECEF.pdf']);
+    [pos_fused_ecef, vel_fused_ecef, acc_fused_ecef] = ned2ecef_series(pos_fused_ned, vel_fused_ned, acc_fused_ned, lat0_rad, lon0_rad);
+    [pos_ref_ecef, vel_ref_ecef, acc_ref_ecef]   = ned2ecef_series(pos_ned, vel_ned, acc_ned, lat0_rad, lon0_rad);
+    fig = plot_task5_ecef(imu.time, pos_ref_ecef, pos_fused_ecef, vel_ref_ecef, vel_fused_ecef, acc_ref_ecef, acc_fused_ecef, method);
+    print(fig, [fig_ecef '.pdf'], '-dpdf', '-bestfit');
+    print(fig, [fig_ecef '.png'], '-dpng', '-r300');
+    close(fig);
     fprintf('ECEF plot saved successfully.\n');
 catch e
     fprintf('Warning: ECEF plotting failed: %s\n', e.message);
@@ -158,8 +165,10 @@ end
 
 fprintf('Subtask 5.9: Plotting body-frame residuals & biases.\n');
 try
-    figure; plot_body_residuals(imu.time, gyro, x_log(7:9,:), accel, x_log(10:12,:)); %#ok<NASGU>
-    saveas(gcf, [fig_prefix '_Body.pdf']);
+    fig = plot_task5_body(imu.time, gyro, x_log(7:9,:), accel, x_log(10:12,:), method);
+    print(fig, [fig_body '.pdf'], '-dpdf', '-bestfit');
+    print(fig, [fig_body '.png'], '-dpng', '-r300');
+    close(fig);
     fprintf('Body plot saved successfully.\n');
 catch e
     fprintf('Warning: Body plotting failed: %s\n', e.message);
@@ -189,29 +198,95 @@ function H = compute_measurement_matrix(lat, lon)
     H = [eye(3), zeros(3,12); zeros(3), eye(3), zeros(3,9)]; %#ok<EMACH>
 end
 
-function plot_ned_fusion(t, pos_ref, pos_fused, vel_ref, vel_fused, accel_raw, accel_fused)
-%PLOT_NED_FUSION  Simple NED comparison plots.
-    subplot(3,1,1); plot(t, pos_ref(1,:), 'k:', t, pos_fused(1,:)); xlabel('t'); ylabel('N (m)'); grid on; legend('Ref','Fused');
-    subplot(3,1,2); plot(t, vel_ref(1,:), 'k:', t, vel_fused(1,:)); xlabel('t'); ylabel('V_N (m/s)'); grid on; legend('Ref','Fused');
-    subplot(3,1,3); plot(t(2:end), accel_raw(1,2:end), 'k:', t(2:end), accel_fused(1,:)); xlabel('t'); ylabel('a_N (m/s^2)'); grid on; legend('Raw','Fused');
+function fig = plot_task5_ned(t, pos_ref, pos_fused, vel_ref, vel_fused, acc_ref, acc_fused, method)
+%PLOT_TASK5_NED  3x3 comparison of GNSS vs fused results in NED frame.
+    labels = {'N','E','D'};
+    fig = figure('Name','Task5 NED');
+    tl = tiledlayout(3,3,'TileSpacing','compact');
+    for r = 1:3
+        for c = 1:3
+            ax = nexttile((r-1)*3+c); hold(ax,'on'); grid(ax,'on');
+            switch r
+                case 1
+                    plot(ax, t, pos_ref(c,:), 'k-', 'DisplayName','Measured GNSS');
+                    plot(ax, t, pos_fused(c,:), 'b-', 'DisplayName',['Fused (GNSS+IMU, ' method ')']);
+                    ylabel(ax, sprintf(''Position %s (m)'', labels{c}));
+                    title(ax, sprintf(''Pos %s'', labels{c}));
+                case 2
+                    plot(ax, t, vel_ref(c,:), 'k-', 'DisplayName','Measured GNSS');
+                    plot(ax, t, vel_fused(c,:), 'b-', 'DisplayName',['Fused (GNSS+IMU, ' method ')']);
+                    ylabel(ax, sprintf(''Velocity %s (m/s)'', labels{c}));
+                    title(ax, sprintf(''Vel %s'', labels{c}));
+                otherwise
+                    plot(ax, t(2:end), acc_ref(c, :), 'k-', 'DisplayName','Measured GNSS');
+                    plot(ax, t(2:end), acc_fused(c, :), 'b-', 'DisplayName',['Fused (GNSS+IMU, ' method ')']);
+                    ylabel(ax, sprintf(''Accel %s (m/s^2)'', labels{c}));
+                    title(ax, sprintf(''Acc %s'', labels{c}));
+            end
+            xlabel(ax,'Time (s)');
+            legend(ax,'Location','best');
+        end
+    end
+    title(tl, sprintf('Task 5  %s  NED Frame (Fused vs. Measured GNSS)', method));
 end
 
-function [pos_ecef, vel_ecef] = ned2ecef_series(pos_ned, vel_ned, lat, lon)
-%NED2ECEF_SERIES  Convert series from NED to ECEF using fixed rotation.
+function [pos_ecef, vel_ecef, acc_ecef] = ned2ecef_series(pos_ned, vel_ned, acc_ned, lat, lon)
+%NED2ECEF_SERIES  Convert NED series to ECEF using fixed rotation.
     C = compute_C_ECEF_to_NED(lat, lon); % NED <- ECEF
     R = C';
     pos_ecef = R*pos_ned;
     vel_ecef = R*vel_ned;
+    if nargin > 2 && ~isempty(acc_ned)
+        acc_ecef = R*acc_ned;
+    else
+        acc_ecef = [];
+    end
 end
 
-function plot_ecef_fusion(t, pos_ref, pos_fused, vel_ref, vel_fused)
-%PLOT_ECEF_FUSION  Simple ECEF comparison plots.
-    subplot(2,1,1); plot(t, pos_fused(1,:), 'b'); xlabel('t'); ylabel('X (m)'); grid on; legend('Fused');
-    subplot(2,1,2); plot(t, vel_fused(1,:), 'b'); xlabel('t'); ylabel('VX (m/s)'); grid on; legend('Fused');
+function fig = plot_task5_ecef(t, pos_ref, pos_fused, vel_ref, vel_fused, acc_ref, acc_fused, method)
+%PLOT_TASK5_ECEF  3x3 comparison of GNSS vs fused results in ECEF frame.
+    labels = {'X','Y','Z'};
+    fig = figure('Name','Task5 ECEF');
+    tl = tiledlayout(3,3,'TileSpacing','compact');
+    for r = 1:3
+        for c = 1:3
+            ax = nexttile((r-1)*3+c); hold(ax,'on'); grid(ax,'on');
+            switch r
+                case 1
+                    plot(ax, t, pos_ref(c,:), 'k-', 'DisplayName','Measured GNSS');
+                    plot(ax, t, pos_fused(c,:), 'b-', 'DisplayName',['Fused (GNSS+IMU, ' method ')']);
+                    ylabel(ax, sprintf(''Position %s (m)'', labels{c}));
+                    title(ax, sprintf(''Pos %s'', labels{c}));
+                case 2
+                    plot(ax, t, vel_ref(c,:), 'k-', 'DisplayName','Measured GNSS');
+                    plot(ax, t, vel_fused(c,:), 'b-', 'DisplayName',['Fused (GNSS+IMU, ' method ')']);
+                    ylabel(ax, sprintf(''Velocity %s (m/s)'', labels{c}));
+                    title(ax, sprintf(''Vel %s'', labels{c}));
+                otherwise
+                    plot(ax, t(2:end), acc_ref(c,:), 'k-', 'DisplayName','Measured GNSS');
+                    plot(ax, t(2:end), acc_fused(c,:), 'b-', 'DisplayName',['Fused (GNSS+IMU, ' method ')']);
+                    ylabel(ax, sprintf(''Accel %s (m/s^2)'', labels{c}));
+                    title(ax, sprintf(''Acc %s'', labels{c}));
+            end
+            xlabel(ax,'Time (s)');
+            legend(ax,'Location','best');
+        end
+    end
+    title(tl, sprintf('Task 5  %s  ECEF Frame (Fused vs. Measured GNSS)', method));
 end
 
-function plot_body_residuals(t, gyro_raw, gyro_err, accel_raw, accel_bias)
-%PLOT_BODY_RESIDUALS  Visualise body frame residuals.
-    subplot(2,1,1); plot(t, gyro_raw(1,:), 'k:', t, gyro_err(1,:)); xlabel('t'); ylabel('\omega_x'); grid on; legend('Raw','Err');
-    subplot(2,1,2); plot(t, accel_raw(1,:), 'k:', t, accel_bias(1,:)); xlabel('t'); ylabel('a_x'); grid on; legend('Raw','Bias');
+function fig = plot_task5_body(t, gyro_raw, gyro_err, accel_raw, accel_bias, method)
+%PLOT_TASK5_BODY  Plot body-frame residuals and biases.
+    fig = figure('Name','Task5 Body');
+    tl = tiledlayout(2,1,'TileSpacing','compact');
+    ax = nexttile; hold(ax,'on'); grid(ax,'on');
+    plot(ax, t, gyro_raw(1,:), 'k-', 'DisplayName','Gyro raw X');
+    plot(ax, t, gyro_err(1,:), 'b-', 'DisplayName','Gyro bias X');
+    ylabel(ax,'\omega_x (rad/s)'); legend(ax,'Location','best');
+    ax = nexttile; hold(ax,'on'); grid(ax,'on');
+    plot(ax, t, accel_raw(1,:), 'k-', 'DisplayName','Accel raw X');
+    plot(ax, t, accel_bias(1,:), 'b-', 'DisplayName','Accel bias X');
+    ylabel(ax,'a_x (m/s^2)'); legend(ax,'Location','best');
+    xlabel(ax,'Time (s)');
+    title(tl, sprintf('Task 5  %s  Body Frame Residuals', method));
 end
