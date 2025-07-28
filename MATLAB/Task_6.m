@@ -77,56 +77,66 @@ vel_ecef_i = interp1(truth_t, truth_vel_ecef, est_t, 'linear', 'extrap');
 pos_body_i = interp1(truth_t, truth_pos_body, est_t, 'linear', 'extrap');
 vel_body_i = interp1(truth_t, truth_vel_body, est_t, 'linear', 'extrap');
 
-%% Generate figures
-out_dir = 'results';
-if ~exist(out_dir,'dir'); mkdir(out_dir); end
+%% Generate figures and save overlay data
+results_dir = 'results';
+if ~exist(results_dir,'dir'); mkdir(results_dir); end
 
-plot_state_overlay('NED', est_t, S.pos_fused_ned, S.vel_fused_ned, ...
-    pos_ned_i, vel_ned_i, dataset_tag, method, out_dir, tag);
-plot_state_overlay('ECEF', est_t, S.pos_fused_ecef, S.vel_fused_ecef, ...
-    pos_ecef_i, vel_ecef_i, dataset_tag, method, out_dir, tag);
-plot_state_overlay('Body', est_t, S.pos_fused_body, S.vel_fused_body, ...
-    pos_body_i, vel_body_i, dataset_tag, method, out_dir, tag);
+% Save arrays for Task 7 reuse
+overlay.t = est_t;
+overlay.pos_truth_ned  = pos_ned_i;
+overlay.vel_truth_ned  = vel_ned_i;
+overlay.pos_est_ned    = S.pos_fused_ned;
+overlay.vel_est_ned    = S.vel_fused_ned;
+overlay.pos_truth_ecef = pos_ecef_i;
+overlay.vel_truth_ecef = vel_ecef_i;
+overlay.pos_est_ecef   = S.pos_fused_ecef;
+overlay.vel_est_ecef   = S.vel_fused_ecef;
+overlay.pos_truth_body = pos_body_i;
+overlay.vel_truth_body = vel_body_i;
+overlay.pos_est_body   = S.pos_fused_body;
+overlay.vel_est_body   = S.vel_fused_body;
+overlay.tag = tag;
+save(fullfile(results_dir, sprintf('%s_task6_overlay.mat', tag)), '-struct', 'overlay');
+
+% One figure per frame
+plot_state_overlay('NED',  est_t, pos_ned_i,  vel_ned_i,  S.pos_fused_ned,  S.vel_fused_ned,  tag);
+plot_state_overlay('ECEF', est_t, pos_ecef_i, vel_ecef_i, S.pos_fused_ecef, S.vel_fused_ecef, tag);
+plot_state_overlay('Body', est_t, pos_body_i, vel_body_i, S.pos_fused_body, S.vel_fused_body, tag);
 end
 
 %% --------------------------------------------------------------------
-function plot_state_overlay(frame, t, pos_fused, vel_fused, pos_truth, vel_truth, dataset_tag, method, out_dir, tag)
+function plot_state_overlay(frameName, t, posTruth, velTruth, posEst, velEst, tag)
 labels = {'X','Y','Z'};
-if strcmpi(frame,'NED')
+if strcmpi(frameName,'NED')
     labels = {'N','E','D'};
 end
-f = figure('Visible','off');
-tiledlayout(2,3,'TileSpacing','compact','Padding','compact');
-ax1 = gobjects(1,3); ax2 = gobjects(1,3);
-for i=1:3
-    ax1(i) = nexttile(i); hold on;
-    plot(t, pos_fused(:,i), 'b-', 'LineWidth',1.0);
-    plot(t, pos_truth(:,i), 'r--', 'LineWidth',1.0);
-    ylabel('Position (m)'); title(sprintf('Position %s', labels{i}));
-    grid on; axis tight;
-    if i==3
-        legend({'Fused','Truth'},'Location','northeast');
-    end
-end
-for i=1:3
-    ax2(i) = nexttile(i+3); hold on;
-    plot(t, vel_fused(:,i), 'b-', 'LineWidth',1.0);
-    plot(t, vel_truth(:,i), 'r--', 'LineWidth',1.0);
-    ylabel('Velocity (m/s)'); title(sprintf('Velocity %s', labels{i}));
-    grid on; axis tight;
-end
-linkaxes(ax1,'y');
-linkaxes(ax2,'y');
-xlabel(ax2(1),'Epoch Time (s)');
-xlabel(ax2(2),'Epoch Time (s)');
-xlabel(ax2(3),'Epoch Time (s)');
-sgtitle(sprintf('Task 6 \x2013 %s Overlay  (Dataset %s | Method %s)', frame, dataset_tag, method));
+f = figure('Visible','off','Position',[100 100 1200 800]);
+tl = tiledlayout(3,2,'TileSpacing','compact');
 
-base = fullfile(out_dir, sprintf('%s_task6_overlay_state_%s', tag, frame));
+for i = 1:3
+    nexttile(tl,i); hold on;
+    plot(t, posTruth(:,i), '--', t, posEst(:,i), '-','LineWidth',1.0);
+    ylabel('Position (m)');
+    legend({sprintf('Truth %s',labels{i}), sprintf('Fused %s',labels{i})},'Location','best');
+    title(labels{i}); grid on; axis tight;
+end
+
+for i = 1:3
+    nexttile(tl, i+3); hold on;
+    plot(t, velTruth(:,i), '--', t, velEst(:,i), '-','LineWidth',1.0);
+    ylabel('Velocity (m/s)');
+    legend({sprintf('Truth %s',labels{i}), sprintf('Fused %s',labels{i})},'Location','best');
+    title(labels{i}); grid on; axis tight;
+end
+
+xlabel(tl,'Time (s)');
+sgtitle(sprintf('Task 6 \x2013 %s State Overlay (%s)', tag, frameName));
+
+base = fullfile('results', sprintf('%s_task6_overlay_state_%s', tag, upper(frameName)));
 print(f, [base '.pdf'], '-dpdf', '-bestfit');
 print(f, [base '.png'], '-dpng');
 close(f);
-fprintf('Task 6: saved overlay %s figure  ->  %s.pdf\n', frame, base);
+fprintf('Task 6: saved overlay %s figure -> %s.pdf\n', frameName, base);
 end
 
 %% --------------------------------------------------------------------

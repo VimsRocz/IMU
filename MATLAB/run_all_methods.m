@@ -29,10 +29,13 @@ function run_all_methods()
     res_file = fullfile(get_results_dir(), sprintf('IMU_X002_GNSS_X002_%s_task5_results.mat', method));
     truth_file = fullfile(root_dir, 'STATE_X001.txt');
     if isfile(res_file) && isfile(truth_file)
+        [~, imu_name, ~]  = fileparts(dataset.imu);
+        [~, gnss_name, ~] = fileparts(dataset.gnss);
+        run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
         disp('--- Running Task 6: Truth Overlay/Validation ---');
-        Task_6(res_file, imu_path, gnss_path, truth_file);
+        Task_6(res_file, truth_file, run_id);
         disp('--- Running Task 7: Residuals & Summary ---');
-        Task_7();
+        Task_7(run_id);
         disp('Task 6 and Task 7 complete. See results directory for plots and PDF summaries.');
     else
         warning('Task 6 or Task 7 skipped: Missing Task 5 results or truth file.');
