@@ -48,7 +48,14 @@ if exist(init_file,'file') ~= 2 || exist(body_file,'file') ~= 2 || ...
     error('Task_5:MissingPrereq','Required Task 1--4 outputs not found.');
 end
 load(init_file, 'gravity_ned','lat0_rad','lon0_rad');
-load(body_file, 'accel_bias','gyro_bias','accel_scale');
+load(body_file, 'accel_bias','gyro_bias');
+tmp = load(body_file, 'accel_scale');
+if isfield(tmp, 'accel_scale')
+    accel_scale = tmp.accel_scale;
+else
+    accel_scale = 1;
+    warning('Task_5:MissingField', 'Variable ''accel_scale'' not found. Using scale = 1.');
+end
 load(task3_file, 'task3_results');
 C_b_n = task3_results.(method).R; %#ok<NASGU>
 load(task4_file, 'pos_ned','vel_ned','acc_ned');

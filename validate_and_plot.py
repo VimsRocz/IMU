@@ -70,10 +70,22 @@ def main() -> None:
     t_truth, pos_truth_ecef, vel_truth_ecef, quat_truth = load_truth(Path(args.truth_file))
 
     est = load_estimate(args.est_file)
-    t_est = np.asarray(est["time"]).squeeze()
-    pos_est = np.asarray(est["pos"])
-    vel_est = np.asarray(est["vel"])
-    quat_est = np.asarray(est.get("quat"))
+    t_est = est.get("time")
+    pos_est = est.get("pos")
+    vel_est = est.get("vel")
+    quat_est = est.get("quat")
+
+    if t_est is None:
+        raise KeyError("time")
+    if pos_est is None:
+        raise KeyError("pos")
+    if vel_est is None:
+        raise KeyError("vel")
+
+    t_est = np.asarray(t_est).squeeze()
+    pos_est = np.asarray(pos_est)
+    vel_est = np.asarray(vel_est)
+    quat_est = np.asarray(quat_est) if quat_est is not None else None
 
     ref_lat = est.get("ref_lat") or est.get("ref_lat_rad") or est.get("lat0")
     ref_lon = est.get("ref_lon") or est.get("ref_lon_rad") or est.get("lon0")
