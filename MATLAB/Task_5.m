@@ -565,7 +565,9 @@ perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
 % Result Logging -- store the metrics struct under the variable name
 % ``results`` to stay in sync with the Python pipeline.
 if isfile(perf_file)
-
+    save(perf_file, '-struct', 'results', '-append');
+else
+    save(perf_file, '-struct', 'results');
 end
 
 summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt');

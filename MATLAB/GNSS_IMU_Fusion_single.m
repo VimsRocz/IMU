@@ -929,7 +929,12 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
     'grav_err_mean_deg', grav_err_mean_deg, 'grav_err_max_deg', grav_err_max_deg, ...
     'earth_rate_err_mean_deg', omega_err_mean_deg, 'earth_rate_err_max_deg', omega_err_max_deg);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
-if isfile(perf_file); save(perf_file, '-append', 'results_dir'); else; save(perf_file, 'results_dir'); end
+% Persist the ``results`` struct for later analysis
+if isfile(perf_file)
+    save(perf_file, '-struct', 'results', '-append');
+else
+    save(perf_file, '-struct', 'results');
+end
 summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt'); fid_sum = fopen(summary_file, 'a'); fprintf(fid_sum, '%s\n', summary_line); fclose(fid_sum);
 % Store the fused state using the standard naming scheme
 results_file = fullfile(results_dir, sprintf('%s_task5_results.mat', tag));
