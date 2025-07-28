@@ -186,6 +186,19 @@ pos_ned = centre(pos_ned_raw .* sign_ned);
 vel_ned = vel_ned_raw .* sign_ned;
 acc_ned = [zeros(1,3); diff(vel_ned)./diff(t_est)];
 
+fprintf('Subtask 6.8.2: Plotted %s position North: First = %.4f, Last = %.4f\n', ...
+    method, pos_ned(1,1), pos_ned(end,1));
+fprintf('Subtask 6.8.2: Plotted %s position East: First = %.4f, Last = %.4f\n', ...
+    method, pos_ned(1,2), pos_ned(end,2));
+fprintf('Subtask 6.8.2: Plotted %s position Down: First = %.4f, Last = %.4f\n', ...
+    method, pos_ned(1,3), pos_ned(end,3));
+fprintf('Subtask 6.8.2: Plotted %s velocity North: First = %.4f, Last = %.4f\n', ...
+    method, vel_ned(1,1), vel_ned(end,1));
+fprintf('Subtask 6.8.2: Plotted %s velocity East: First = %.4f, Last = %.4f\n', ...
+    method, vel_ned(1,2), vel_ned(end,2));
+fprintf('Subtask 6.8.2: Plotted %s velocity Down: First = %.4f, Last = %.4f\n', ...
+    method, vel_ned(1,3), vel_ned(end,3));
+
 C_N_E = C';
 pos_ecef = (C_N_E*pos_ned_raw')' + ref_r0';
 vel_ecef = (C_N_E*vel_ned_raw')';

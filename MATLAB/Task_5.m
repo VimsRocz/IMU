@@ -599,6 +599,7 @@ save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
 % by storing the fused position under the generic ``pos`` field as well.
 pos = pos_ned; %#ok<NASGU>
 save(results_file, 'x_log', 'pos', '-append');
+fprintf('State history (x_log) saved to %s\n', results_file);
 if isfile(results_file)
     fprintf('Results saved to %s\n', results_file);
 else
