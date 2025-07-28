@@ -52,13 +52,13 @@ function body_data = Task_2(imu_path, gnss_path, method)
     gyro  = data(:,3:5) / dt;
 
     fs = 1/dt;
-    acc_filt  = low_pass_filter(accel, 10, fs);
-    gyro_filt = low_pass_filter(gyro, 10, fs);
+    % Mirror the Python implementation which uses a 5 Hz Butterworth
+    % low-pass filter when detecting the static interval.
+    acc_filt  = low_pass_filter(accel, 5, fs);
+    gyro_filt = low_pass_filter(gyro, 5, fs);
 
     [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt);
     fprintf('Task 2: static interval = [%d..%d]\n', static_start, static_end);
-    [acc_bias, gyro_bias] = compute_biases(acc_filt, gyro_filt, ...
-                                           static_start, static_end);
 
     validate_gravity_vector(acc_filt, static_start, static_end);
 
@@ -72,9 +72,14 @@ function body_data = Task_2(imu_path, gnss_path, method)
     fprintf('Task 2: g_body = [% .4f % .4f % .4f]\n', g_body);
     fprintf('Task 2: omega_ie_body = [% .6f % .6f % .6f]\n', omega_ie_body);
 
-    % Use consistent variable names across all MATLAB tasks
-    accel_bias = acc_bias';     % 3x1 accelerometer bias in m/s^2
-    gyro_bias  = gyro_bias';    % 3x1 gyroscope bias in rad/s
+    % Compute sensor biases relative to the expected static vectors.
+    % During a stationary period the accelerometer should measure
+    % ``-g_body`` and the gyroscope should measure ``omega_ie_body``.
+    accel_bias = static_acc' + g_body;        % m/s^2
+    gyro_bias  = static_gyro' - omega_ie_body; % rad/s
+
+    fprintf('Task 2: accel_bias = [% .4f % .4f % .4f]\n', accel_bias);
+    fprintf('Task 2: gyro_bias = [% .4e % .4e % .4e]\n', gyro_bias);
 
     body_data = struct();
     body_data.g_body        = g_body;
