@@ -1,11 +1,22 @@
-function Task_5()
-%TASK_5 Run Kalman Filter, generate plots and save results.
-%   This simplified placeholder replaces the original implementation.
-%   The function loads IMU and GNSS data from fixed paths, runs a dummy
+function Task_5(varargin)
+%TASK_5  Run Kalman Filter, generate plots and save results.
+%   TASK_5(imu_path, gnss_path, method) accepts optional arguments for
+%   compatibility with earlier scripts. They are currently ignored.
+%
+%   Usage:
+%       Task_5()
+%       Task_5(imu_path, gnss_path, method)
+%
+%   This simplified placeholder replaces the original implementation. The
+%   function loads IMU and GNSS data from fixed paths, runs a dummy
 %   15-state Kalman Filter loop, saves the state history and exports a set
 %   of 3x3 subplot PDFs. Paths and logic mirror the provided code snippet.
 
 fprintf('--- Starting Task 5: Sensor Fusion with Kalman Filter ---\n');
+
+if nargin > 0
+    fprintf('Task 5: Ignoring %d input argument(s)\n', nargin);
+end
 
 % Step 1: Configure Kalman Filter
 fprintf('Task 5: Configuring 15-State Kalman Filter...\n');
