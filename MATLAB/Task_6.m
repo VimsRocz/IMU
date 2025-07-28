@@ -91,6 +91,19 @@ pos_truth_ecef= pos_ecef_i';        vel_truth_ecef= vel_ecef_i';        acc_trut
 pos_est_body  = S.pos_fused_body';  vel_est_body  = S.vel_fused_body';  acc_est_body  = S.acc_fused_body';
 pos_truth_body= pos_body_i';        vel_truth_body= vel_body_i';        acc_truth_body= acc_body_i';
 
+%% Error metrics (per-frame)
+metrics.NED  = compute_overlay_metrics(est_t, S.pos_fused_ned,  S.vel_fused_ned,  pos_ned_i,  vel_ned_i);
+metrics.ECEF = compute_overlay_metrics(est_t, S.pos_fused_ecef, S.vel_fused_ecef, pos_ecef_i, vel_ecef_i);
+metrics.Body = compute_overlay_metrics(est_t, S.pos_fused_body, S.vel_fused_body, pos_body_i, vel_body_i);
+
+fprintf('Frame       RMSEpos  FinalPos  RMSEvel  FinalVel  RMSEacc  FinalAcc\n');
+fields = fieldnames(metrics);
+for i = 1:numel(fields)
+    m = metrics.(fields{i});
+    fprintf('%-8s  %8.3f  %8.3f  %8.3f  %8.3f  %8.3f  %8.3f\n', ...
+        fields{i}, m.rmse_pos, m.final_pos, m.rmse_vel, m.final_vel, m.rmse_acc, m.final_acc);
+end
+
 %% Generate figures and save overlay data
 outDir = 'results';
 if ~exist(outDir,'dir'); mkdir(outDir); end
@@ -101,6 +114,7 @@ plot_state96('Body', tt, pos_truth_body, vel_truth_body, acc_truth_body, pos_est
 
 % Save snapshot for Task 7 reuse
 save(fullfile(outDir,sprintf('%s_task6_overlay.mat',tag)), 'tt','pos_*','vel_*','acc_*');
+save(fullfile(outDir,sprintf('%s_task6_metrics.mat',tag)), 'metrics');
 end
 
 %% --------------------------------------------------------------------
@@ -138,7 +152,7 @@ function plot_state96(frame, tt, pT, vT, aT, pF, vF, aF, tag, folder)
     sgtitle(sprintf('Task 6 \x2013 %s \x2013 %s Frame (Fused vs. Truth)', ...
                     strrep(tag,'_','\_'), frame));
     % save
-    base = fullfile(folder,sprintf('%s_task6_overlay_state_%s',tag,lower(frame)));
+    base = fullfile(folder,sprintf('%s_task6_overlay_state_%s',tag,frame));
     exportgraphics(f,[base '.png'],'Resolution',300);
     exportgraphics(f,[base '.pdf'],'ContentType','vector');
     close(f);
