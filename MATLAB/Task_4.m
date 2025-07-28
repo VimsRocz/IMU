@@ -562,28 +562,31 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     %   the saved PDF figures.
 
     dims = {'North','East','Down'};
+    gnss_col  = [0.8500 0.3250 0.0980];
+    fused_col = [0 0.4470 0.7410];
     % ----- NED frame -----
     fig = figure('Visible','off','Position',[100 100 1200 900]);
     for i = 1:3
         subplot(3,3,i); hold on;
-        plot(t_gnss, p_gnss_ned(:,i),'k--','DisplayName','GNSS');
-        plot(t_imu, p_imu(:,i),'b-','DisplayName',method);
-        hold off; grid on; legend; title(['Position ' dims{i}]); ylabel('m');
+        plot(t_gnss, p_gnss_ned(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
+        plot(t_imu,  p_imu(:,i),'-','Color',fused_col,'DisplayName','Fused');
+        hold off; grid on; legend; title(['Position ' dims{i}]); ylabel('m'); xlabel('Time (s)');
 
         subplot(3,3,i+3); hold on;
-        plot(t_gnss, v_gnss_ned(:,i),'k--','DisplayName','GNSS');
-        plot(t_imu, v_imu(:,i),'b-','DisplayName',method);
-        hold off; grid on; legend; title(['Velocity ' dims{i}]); ylabel('m/s');
+        plot(t_gnss, v_gnss_ned(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
+        plot(t_imu,  v_imu(:,i),'-','Color',fused_col,'DisplayName','Fused');
+        hold off; grid on; legend; title(['Velocity ' dims{i}]); ylabel('m/s'); xlabel('Time (s)');
 
         subplot(3,3,i+6); hold on;
-        plot(t_gnss, a_gnss_ned(:,i),'k--','DisplayName','GNSS');
-        plot(t_imu, a_imu(:,i),'b-','DisplayName',method);
-        hold off; grid on; legend; title(['Acceleration ' dims{i}]); ylabel('m/s^2');
+        plot(t_gnss, a_gnss_ned(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
+        plot(t_imu,  a_imu(:,i),'-','Color',fused_col,'DisplayName','Fused');
+        hold off; grid on; legend; title(['Acceleration ' dims{i}]); ylabel('m/s^2'); xlabel('Time (s)');
     end
     sgtitle([method ' Comparison in NED frame']);
     fname = [base '_Task4_NEDFrame.pdf'];
     set(fig,'PaperPositionMode','auto');
     print(fig,fname,'-dpdf','-bestfit');
+    print(fig,strrep(fname,'.pdf','.png'),'-dpng');
     fprintf('Comparison plot in NED frame saved\n');
     close(fig);
 
@@ -600,24 +603,25 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     dims_e = {'X','Y','Z'};
     for i = 1:3
         subplot(3,3,i); hold on;
-        plot(t_gnss, p_gnss_ecef(:,i),'k--','DisplayName','GNSS');
-        plot(t_imu, p_imu_ecef(:,i),'b-','DisplayName',method);
-        hold off; grid on; legend; title(['Position ' dims_e{i}]); ylabel('m');
+        plot(t_gnss, p_gnss_ecef(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
+        plot(t_imu,  p_imu_ecef(:,i),'-','Color',fused_col,'DisplayName','Fused');
+        hold off; grid on; legend; title(['Position ' dims_e{i}]); ylabel('m'); xlabel('Time (s)');
 
         subplot(3,3,i+3); hold on;
-        plot(t_gnss, v_gnss_ecef(:,i),'k--','DisplayName','GNSS');
-        plot(t_imu, v_imu_ecef(:,i),'b-','DisplayName',method);
-        hold off; grid on; legend; title(['Velocity ' dims_e{i}]); ylabel('m/s');
+        plot(t_gnss, v_gnss_ecef(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
+        plot(t_imu,  v_imu_ecef(:,i),'-','Color',fused_col,'DisplayName','Fused');
+        hold off; grid on; legend; title(['Velocity ' dims_e{i}]); ylabel('m/s'); xlabel('Time (s)');
 
         subplot(3,3,i+6); hold on;
-        plot(t_gnss, a_gnss_ecef(:,i),'k--','DisplayName','GNSS');
-        plot(t_imu, a_imu_ecef(:,i),'b-','DisplayName',method);
-        hold off; grid on; legend; title(['Acceleration ' dims_e{i}]); ylabel('m/s^2');
+        plot(t_gnss, a_gnss_ecef(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
+        plot(t_imu,  a_imu_ecef(:,i),'-','Color',fused_col,'DisplayName','Fused');
+        hold off; grid on; legend; title(['Acceleration ' dims_e{i}]); ylabel('m/s^2'); xlabel('Time (s)');
     end
     sgtitle([method ' Comparison in ECEF frame']);
     fname = [base '_Task4_ECEFFrame.pdf'];
     set(fig,'PaperPositionMode','auto');
     print(fig,fname,'-dpdf','-bestfit');
+    print(fig,strrep(fname,'.pdf','.png'),'-dpng');
     fprintf('All data in ECEF frame plot saved\n');
     close(fig);
 
@@ -629,14 +633,23 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     vel_body = (C_N_B*v_gnss_ned')';
     dims_b = {'X','Y','Z'};
     for i = 1:3
-        subplot(3,3,i); plot(t_gnss,pos_body(:,i),'k-'); grid on; title(['Position b' dims_b{i}]); ylabel('m');
-        subplot(3,3,i+3); plot(t_gnss,vel_body(:,i),'k-'); grid on; title(['Velocity b' dims_b{i}]); ylabel('m/s');
-        subplot(3,3,i+6); plot(t_imu, acc_body_corr(:,i),'b-'); grid on; title(['Acceleration b' dims_b{i}]); ylabel('m/s^2');
+        subplot(3,3,i); hold on;
+        plot(t_gnss,pos_body(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
+        hold off; grid on; legend; title(['Position b' dims_b{i}]); ylabel('m'); xlabel('Time (s)');
+
+        subplot(3,3,i+3); hold on;
+        plot(t_gnss,vel_body(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
+        hold off; grid on; legend; title(['Velocity b' dims_b{i}]); ylabel('m/s'); xlabel('Time (s)');
+
+        subplot(3,3,i+6); hold on;
+        plot(t_imu, acc_body_corr(:,i),'-','Color',fused_col,'DisplayName','Fused');
+        hold off; grid on; legend; title(['Acceleration b' dims_b{i}]); ylabel('m/s^2'); xlabel('Time (s)');
     end
     sgtitle([method ' Data in Body Frame']);
     fname = [base '_Task4_BodyFrame.pdf'];
     set(fig,'PaperPositionMode','auto');
     print(fig,fname,'-dpdf','-bestfit');
+    print(fig,strrep(fname,'.pdf','.png'),'-dpng');
     fprintf('All data in body frame plot saved\n');
     close(fig);
 
@@ -644,14 +657,23 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     fprintf('Plotting data in mixed frames.\n');
     fig = figure('Visible','off','Position',[100 100 1200 900]);
     for i = 1:3
-        subplot(3,3,i); plot(t_gnss,p_gnss_ecef(:,i),'k-'); grid on; title(['Pos ' dims_e{i} ' ECEF']); ylabel('m');
-        subplot(3,3,i+3); plot(t_gnss,v_gnss_ecef(:,i),'k-'); grid on; title(['Vel ' dims_e{i} ' ECEF']); ylabel('m/s');
-        subplot(3,3,i+6); plot(t_imu, acc_body_corr(:,i),'b-'); grid on; title(['Acc ' dims_b{i} ' Body']); ylabel('m/s^2');
+        subplot(3,3,i); hold on;
+        plot(t_gnss,p_gnss_ecef(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
+        hold off; grid on; legend; title(['Pos ' dims_e{i} ' ECEF']); ylabel('m'); xlabel('Time (s)');
+
+        subplot(3,3,i+3); hold on;
+        plot(t_gnss,v_gnss_ecef(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
+        hold off; grid on; legend; title(['Vel ' dims_e{i} ' ECEF']); ylabel('m/s'); xlabel('Time (s)');
+
+        subplot(3,3,i+6); hold on;
+        plot(t_imu, acc_body_corr(:,i),'-','Color',fused_col,'DisplayName','Fused');
+        hold off; grid on; legend; title(['Acc ' dims_b{i} ' Body']); ylabel('m/s^2'); xlabel('Time (s)');
     end
     sgtitle([method ' Mixed Frame Data']);
     fname = [base '_Task4_MixedFrame.pdf'];
     set(fig,'PaperPositionMode','auto');
     print(fig,fname,'-dpdf','-bestfit');
+    print(fig,strrep(fname,'.pdf','.png'),'-dpng');
     fprintf('Mixed frames plot saved\n');
     close(fig);
 end
