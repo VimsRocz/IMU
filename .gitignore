@@ -19,3 +19,8 @@ testing.py
 triad_init_log.txt
 src/testing.py
 src/triad_init_log.txt
+output_matlab/
+src/logs/
+src/results/
+src/task5_results_all_methods.png
+task5_results_all_methods.png
