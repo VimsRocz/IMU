@@ -140,7 +140,8 @@ fprintf('Subtask 4.7: Converted GNSS to NED: first=[%.2f,%.2f,%.2f], last=[%.2f,
 
 gnss_time = gnss.Posix_Time;
 dt_gnss = mean(diff(gnss_time));
-acc_ned = diff(vel_ned,1,2) / dt_gnss;
+acc_ned = zeros(size(vel_ned));
+acc_ned(:,2:end) = diff(vel_ned,1,2) / dt_gnss;
 fprintf('Subtask 4.8: GNSS accel RMS = %.4f m/s^2\n', rms(acc_ned(:)) );
 
 % ------------------------------------------------------------------
@@ -179,33 +180,50 @@ fprintf('Subtask 4.12: Integrated IMU data using %s method.\n', method);
 % Subtask 4.13: Plot comparison
 % ------------------------------------------------------------------
 fprintf('Subtask 4.13: Plotting GNSS vs IMU in NED frame.\n');
-fig = figure();
-plot_ned_comparison(pos_ned, pos_imu, vel_ned, vel_imu, acc_ned, acc_imu);
+
+t_imu  = (0:n-1)*dt;
+t_gnss = gnss_time - gnss_time(1);
+
+fig = plot_task4_frame(t_imu', pos_imu', vel_imu', acc_imu', ...
+    t_gnss, pos_ned', vel_ned', acc_ned', 'labels', {'N','E','D'}, ...
+    'frame_name', 'NED');
 file_ned = fullfile(results_dir, sprintf('%s_task4_results_NED.pdf', run_tag));
-saveas(fig, file_ned);
-saveas(fig, strrep(file_ned,'.pdf','.png'));
+print(fig, file_ned, '-dpdf', '-bestfit');
+print(fig, strrep(file_ned,'.pdf','.png'), '-dpng');
 close(fig);
 fprintf('Saved plot: %s\n', file_ned);
 
 % -- ECEF frame --
-fig = figure();
 C_n_e = C_e_n';
 pos_imu_ecef = C_n_e*pos_imu + r0;
 vel_imu_ecef = C_n_e*vel_imu;
+acc_imu_ecef = C_n_e*acc_imu;
 pos_gnss_ecef = pos_ecef;
 vel_gnss_ecef = vel_ecef;
-plot_ned_comparison(pos_gnss_ecef,pos_imu_ecef,vel_gnss_ecef,vel_imu_ecef,acc_ned,acc_imu);
+acc_gnss_ecef = C_n_e*acc_ned;
+fig = plot_task4_frame(t_imu', pos_imu_ecef', vel_imu_ecef', acc_imu_ecef', ...
+    t_gnss, pos_gnss_ecef', vel_gnss_ecef', acc_gnss_ecef', 'labels', {'X','Y','Z'}, ...
+    'frame_name', 'ECEF');
 file_ecef = fullfile(results_dir, sprintf('%s_task4_results_ECEF.pdf', run_tag));
-saveas(fig, file_ecef);
-saveas(fig, strrep(file_ecef,'.pdf','.png')); close(fig);
+print(fig, file_ecef, '-dpdf', '-bestfit');
+print(fig, strrep(file_ecef,'.pdf','.png'), '-dpng');
+close(fig);
 fprintf('Saved plot: %s\n', file_ecef);
 
 % -- Body frame --
-fig = figure();
-plot_body_frame(accel, gyro);
+C_n_b = C_b_n';
+pos_imu_body = C_n_b*pos_imu;
+vel_imu_body = C_n_b*vel_imu;
+acc_imu_body = accel';
+pos_gnss_body = C_n_b*pos_ned;
+vel_gnss_body = C_n_b*vel_ned;
+acc_gnss_body = C_n_b*acc_ned;
+fig = plot_task4_frame(t_imu', pos_imu_body', vel_imu_body', acc_imu_body', ...
+    t_gnss, pos_gnss_body', vel_gnss_body', acc_gnss_body', 'labels', {'X','Y','Z'}, ...
+    'frame_name', 'Body');
 file_body = fullfile(results_dir, sprintf('%s_task4_results_Body.pdf', run_tag));
-saveas(fig, file_body);
-saveas(fig, strrep(file_body,'.pdf','.png'));
+print(fig, file_body, '-dpdf', '-bestfit');
+print(fig, strrep(file_body,'.pdf','.png'), '-dpng');
 close(fig);
 fprintf('Saved plot: %s\n', file_body);
 
@@ -229,26 +247,4 @@ save_vars = {'pos_est_ned','vel_est_ned','acc_est_ned','pos_est_ecef', ...
 save(out_mat, save_vars{:});
 fprintf('Saved Task 4 results to %s\n', out_mat);
 fprintf('Task 4 completed: All frame plots saved, variables ready for Task 5.\n');
-end
-
-% ------------------------------------------------------------------
-function plot_ned_comparison(p1,p2,v1,v2,a1,a2)
-    dims = {'N','E','D'};
-    for i=1:3
-        subplot(3,3,i); hold on; plot(p1(i,:), 'k'); plot(p2(i,:), 'b'); hold off; grid on; ylabel('m'); title(['Pos ' dims{i}]);
-        subplot(3,3,i+3); hold on; plot(v1(i,:), 'k'); plot(v2(i,:), 'b'); hold off; grid on; ylabel('m/s'); title(['Vel ' dims{i}]);
-        if i==3
-            subplot(3,3,i+6); hold on; plot([0 size(a1,2)-1], [0 0], 'k:'); hold on; plot(a2(i,:), 'b'); hold off; grid on; ylabel('m/s^2'); title(['Acc ' dims{i}]);
-        else
-            subplot(3,3,i+6); hold on; plot(a1(i,:), 'k'); plot(a2(i,:), 'b'); hold off; grid on; ylabel('m/s^2'); title(['Acc ' dims{i}]);
-        end
-    end
-end
-
-function plot_body_frame(accel, gyro)
-    dims = {'X','Y','Z'};
-    for i=1:3
-        subplot(2,3,i); plot(accel(:,i)); grid on; ylabel('m/s^2'); title(['Accel ' dims{i}]);
-        subplot(2,3,i+3); plot(gyro(:,i));  grid on; ylabel('rad/s');  title(['Gyro ' dims{i}]);
-    end
 end
