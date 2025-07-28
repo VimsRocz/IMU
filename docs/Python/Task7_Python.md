@@ -28,6 +28,8 @@ Residual position and velocity are compared with the GNSS data. When a truth tra
 - If the reference trajectory is provided, plot component-wise differences.
 - Figures are saved as `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf` for
   all frames (NED, ECEF and Body).
+- Use the `--show` flag with `evaluate_filter_results.py` to display the plots
+  interactively in addition to saving them.
 
 ## Result
 

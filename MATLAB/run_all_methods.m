@@ -11,6 +11,10 @@ function run_all_methods()
     dataset.gnss = 'GNSS_X002.csv';
     method = 'TRIAD';
 
+    [~, imu_name, ~]  = fileparts(dataset.imu);
+    [~, gnss_name, ~] = fileparts(dataset.gnss);
+    run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
+
     root_dir  = fileparts(fileparts(mfilename('fullpath')));
     imu_path  = fullfile(root_dir, dataset.imu);
     gnss_path = fullfile(root_dir, dataset.gnss);
