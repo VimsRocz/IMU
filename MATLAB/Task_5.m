@@ -390,6 +390,46 @@ fprintf('Task 5: Completed state logging for %d samples\n', num_imu_samples);
 fprintf('Method %s: IMU data integrated.\n', method);
 fprintf('Method %s: Kalman Filter completed. ZUPTcnt=%d\n', method, zupt_count);
 
+%% -----------------------------------------------------------------------
+% Compute fused trajectories in NED, ECEF and Body frames
+% ------------------------------------------------------------------------
+IDX_POS = 1:3; IDX_VEL = 4:6; % Acceleration not part of state; use log
+time = imu_time;
+pos_fused_ned = x_log(IDX_POS , :)';
+vel_fused_ned = x_log(IDX_VEL , :)';
+acc_fused_ned = acc_log';
+
+lat0_rad = deg2rad(lat_deg); lon0_rad = deg2rad(lon_deg);
+[pos_fused_ecef, vel_fused_ecef] = ned2ecef_series(pos_fused_ned, vel_fused_ned, lat0_rad, lon0_rad, ref_r0);
+acc_fused_ecef = ned2ecef_vector(acc_fused_ned, lat0_rad, lon0_rad);
+
+N = length(time);
+pos_fused_body = zeros(N,3);
+vel_fused_body = zeros(N,3);
+acc_fused_body = zeros(N,3);
+for k = 1:N
+    C_BN = euler_to_rot(euler_log(:,k));
+    pos_fused_body(k,:) = (C_BN' * pos_fused_ned(k,:)')';
+    vel_fused_body(k,:) = (C_BN' * vel_fused_ned(k,:)')';
+    acc_fused_body(k,:) = (C_BN' * acc_fused_ned(k,:)')';
+end
+
+plot_xyz_timeseries(time, pos_fused_ned, vel_fused_ned, acc_fused_ned,
+    sprintf('%s Task 5 \x2013 Fused (NED)', tag),
+    fullfile(results_dir, sprintf('%s_task5_fused_NED', tag)), {'North','East','Down'});
+plot_xyz_timeseries(time, pos_fused_ecef, vel_fused_ecef, acc_fused_ecef,
+    sprintf('%s Task 5 \x2013 Fused (ECEF)', tag),
+    fullfile(results_dir, sprintf('%s_task5_fused_ECEF', tag)), {'X','Y','Z'});
+plot_xyz_timeseries(time, pos_fused_body, vel_fused_body, acc_fused_body,
+    sprintf('%s Task 5 \x2013 Fused (Body)', tag),
+    fullfile(results_dir, sprintf('%s_task5_fused_Body', tag)), {'X','Y','Z'});
+
+save(fullfile(results_dir, sprintf('Task5_%s.mat', tag)), 'time', ...
+    'pos_fused_ned','vel_fused_ned','acc_fused_ned', ...
+    'pos_fused_ecef','vel_fused_ecef','acc_fused_ecef', ...
+    'pos_fused_body','vel_fused_body','acc_fused_body');
+fprintf('Task 5 fused plots saved to %s\n', results_dir);
+
 %% ========================================================================
 % Subtask 5.7: Handle Event at 5000s
 % =========================================================================
