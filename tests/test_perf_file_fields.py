@@ -18,7 +18,7 @@ def test_perf_file_fields(tmp_path):
         "omega_err_mean": 0.0,
         "omega_err_max": 0.0,
     }
-    scipy.io.savemat(perf_file, results)
+    scipy.io.savemat(perf_file, {"results": results})
     data = scipy.io.loadmat(perf_file, squeeze_me=True, struct_as_record=False)
     expected = [
         "rmse_pos",
@@ -30,6 +30,8 @@ def test_perf_file_fields(tmp_path):
         "omega_err_mean",
         "omega_err_max",
     ]
+    assert "results" in data, "Missing results struct"
+    res = data["results"]
     for field in expected:
-        assert field in data, f"Missing field {field}"
+        assert hasattr(res, field), f"Missing field {field}"
 
