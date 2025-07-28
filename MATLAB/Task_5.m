@@ -124,6 +124,10 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     acc_filt  = low_pass_filter(acc_body_raw, 10, fs);
     [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt, 80, 0.01, 1e-6);
 
+    % Use the detected static interval to compute biases and scale factor if
+    % Task 2 results are unavailable.  This mirrors the Python helper
+    % ``measure_body_vectors`` used during pipeline initialisation.
+
     % Load biases estimated in Task 2
     task2_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
     if isfile(task2_file)
@@ -137,19 +141,23 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
         if isfield(t2, 'g_body');         g_body = t2.g_body;         else; g_body = zeros(3,1); end
         if isfield(t2, 'omega_ie_body');  omega_ie_body = t2.omega_ie_body; else; omega_ie_body = zeros(3,1); end
     else
-        warning('Task 2 results not found, estimating biases from first samples');
-        N_static = min(4000, size(acc_body_raw,1));
-        accel_bias = mean(acc_body_raw(1:N_static,:),1)';
-        gyro_bias = mean(gyro_body_raw(1:N_static,:),1)';
-        g_body = -mean(acc_body_raw(1:N_static,:),1)';
-        omega_ie_body = mean(gyro_body_raw(1:N_static,:),1)';
+        warning('Task 2 results not found, estimating biases from static interval');
+        static_acc  = mean(acc_body_raw(static_start:static_end,:),1)';
+        static_gyro = mean(gyro_body_raw(static_start:static_end,:),1)';
+        C_N_B = C_B_N';
+        g_body_expected = C_N_B * [0;0;constants.GRAVITY];
+        omega_ie_body_expected = C_N_B * omega_ie_NED;
+        accel_bias = static_acc + g_body_expected;
+        gyro_bias  = static_gyro - omega_ie_body_expected;
+        g_body = -static_acc;
+        omega_ie_body = static_gyro;
     end
     % Load accelerometer scale factor estimated in Task 4. The value may
     % already be present in the ``task4_results`` workspace variable when
     % running the tasks sequentially.  Otherwise load it from the saved
     % MAT-file.  If neither source is available, fall back to a neutral
     % scale factor of 1.0 so processing can continue.
-    scale_factor = 1.0;                     % Default when no prior value found
+    scale_factor = constants.GRAVITY / norm(static_acc - accel_bias);
     task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
     if evalin('base','exist(''task4_results'',''var'')')
         t4 = evalin('base','task4_results');
@@ -209,10 +217,9 @@ P(7:9,7:9)   = eye(3) * deg2rad(5)^2; % Attitude uncertainty (5 deg)
 P(10:15,10:15) = eye(6) * 1e-4;      % Bias uncertainty
 
 Q = eye(15) * 0.01;                  % Base process noise
-Q(4:6,4:6) = eye(3) * 0.1;           % Velocity process noise
+Q(4:6,4:6) = eye(3) * (accel_noise^2);  % Velocity/acceleration noise
 % Define bias random walk terms based on IMU specs
-accel_bias_noise = 1e-3;             % Example value
-gyro_bias_noise  = 1e-4;             % Example value
+% Use the user-supplied bias random walk parameters (defaults match Python)
 Q(10:12,10:12) = eye(3) * (accel_bias_noise^2);
 Q(13:15,13:15) = eye(3) * (gyro_bias_noise^2);
 if pos_proc_noise ~= 0
@@ -222,8 +229,9 @@ if vel_proc_noise ~= 0
     Q(4:6,4:6) = Q(4:6,4:6) + eye(3) * (vel_proc_noise^2);
 end
 
-R = eye(6) * 0.1;                    % GNSS position noise
-R(4:6,4:6) = eye(3) * 0.25;          % GNSS velocity noise
+R = zeros(6);
+R(1:3,1:3) = eye(3) * (pos_meas_noise^2);
+R(4:6,4:6) = eye(3) * (vel_meas_noise^2);
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
