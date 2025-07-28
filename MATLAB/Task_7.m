@@ -55,5 +55,18 @@ function summary = Task_7(task5_file, truth_file)
     if ~isempty(fieldnames(summary))
         save_task_results(summary, imu_name, gnss_name, method, 7);
     end
+
+    %% Additional simple residual analysis using downsampled x\_log
+    task4_file = fullfile(results_dir, sprintf('Task4_results_%s_%s.mat', imu_name, gnss_name));
+    if isfile(task4_file)
+        try
+            task7_basic_residuals_plot(task5_file, task4_file, run_id, out_dir);
+        catch ME
+            fprintf('Task 7 basic residuals failed: %s\n', ME.message);
+        end
+    else
+        warning('Task 7 basic residuals skipped: missing %s', task4_file);
+    end
+
     fprintf('Task 7 complete. See %s for plots and metrics.\n', out_dir);
 end
