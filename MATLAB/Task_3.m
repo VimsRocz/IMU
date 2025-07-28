@@ -411,4 +411,3 @@ function eul = quat_to_euler(q)
     psi = atan2(R(2,1), R(1,1));
     eul = [phi; theta; psi];
 end
-
