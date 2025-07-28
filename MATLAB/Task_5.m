@@ -64,7 +64,7 @@ load(task4_file, 'pos_ned','vel_ned','acc_ned');
 fprintf('Subtask 5.2: Reading IMU & GNSS data.\n');
 imu  = load_imu_data(imu_path);
 try
-    gnss = readtable(gnss_path);
+    gnss = read_csv_table(gnss_path);
 catch e
     error('Failed to load GNSS file %s: %s', gnss_path, e.message);
 end
@@ -140,7 +140,7 @@ end
 % -------------------------------------------------------------------------
 function data = load_imu_data(path)
 %LOAD_IMU_DATA  Minimal loader returning time, accel_raw, gyro_raw.
-    raw = load(path);
+    raw = read_matrix(path);
     data.time = raw(:,1);
     data.accel_raw = raw(:,2:4).';
     data.gyro_raw  = raw(:,5:7).';

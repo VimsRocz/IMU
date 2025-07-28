@@ -1,0 +1,57 @@
+# Created by Octave 8.4.0, Mon Jul 28 11:01:56 2025 UTC <runner@pkrvmpptgkbjq6m>
+# name: g_NED
+# type: matrix
+# rows: 3
+# columns: 1
+ 0
+ 0
+ 9.7942475299999998
+
+
+# name: gravity_ned
+# type: matrix
+# rows: 3
+# columns: 1
+ 0
+ 0
+ 9.7942475299999998
+
+
+# name: lat
+# type: scalar
+-31.871172999999999
+
+
+# name: lat0_rad
+# type: scalar
+-0.55625690532271865
+
+
+# name: lon
+# type: scalar
+133.45581100000001
+
+
+# name: lon0_rad
+# type: scalar
+2.3292433078692665
+
+
+# name: omega_NED
+# type: matrix
+# rows: 3
+# columns: 1
+ 6.1927244183657498e-05
+ 0
+ 3.8503099470271986e-05
+
+
+# name: ref_r0
+# type: matrix
+# rows: 3
+# columns: 1
+ -3729051.709533887
+ 3935675.2143699937
+ -3348392.3504507705
+
+

@@ -19,6 +19,6 @@ function save_plot(fig, imu_name, gnss_name, method, task)
 
     set(fig, 'PaperPosition', [0 0 8 6]);
     print(fig, pdf_path, '-dpdf', '-bestfit');
-    exportgraphics(fig, png_path, 'Resolution', 300);
+    print(fig, png_path, '-dpng', '-r300');
     fprintf('Saved plot to %s and %s\n', pdf_path, png_path);
 end

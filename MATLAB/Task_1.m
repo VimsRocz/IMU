@@ -60,18 +60,29 @@ fprintf('TASK 1%s: Define reference vectors in NED frame\n', log_tag);
 % ================================
 fprintf('\nSubtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.\n');
 
-% Load GNSS data using readtable
+% Load GNSS data using read_csv_table (Octave-compatible)
 try
-    gnss_data = readtable(gnss_path);
+    gnss_data = read_csv_table(gnss_path);
 catch e
     error('Failed to load GNSS data file: %s\n%s', gnss_path, e.message);
 end
 
 % Display column names and first few rows for debugging
 disp('GNSS data columns:');
-disp(gnss_data.Properties.VariableNames');
+field_names = fieldnames(gnss_data);
+for i = 1:length(field_names)
+    fprintf('    ''%s''\n', field_names{i});
+end
 disp('First few rows of ECEF coordinates:');
-disp(head(gnss_data(:, {'X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m'})));
+if length(gnss_data.X_ECEF_m) >= 5
+    for i = 1:5
+        fprintf('%13.6e %13.6e %13.6e\n', gnss_data.X_ECEF_m(i), gnss_data.Y_ECEF_m(i), gnss_data.Z_ECEF_m(i));
+    end
+else
+    for i = 1:length(gnss_data.X_ECEF_m)
+        fprintf('%13.6e %13.6e %13.6e\n', gnss_data.X_ECEF_m(i), gnss_data.Y_ECEF_m(i), gnss_data.Z_ECEF_m(i));
+    end
+end
 
 % Find the first row with non-zero ECEF coordinates
 valid_idx = find((gnss_data.X_ECEF_m ~= 0) | ...
@@ -79,10 +90,9 @@ valid_idx = find((gnss_data.X_ECEF_m ~= 0) | ...
                  (gnss_data.Z_ECEF_m ~= 0), 1, 'first');
 
 if ~isempty(valid_idx)
-    initial_row = gnss_data(valid_idx, :);
-    x_ecef = initial_row.X_ECEF_m;
-    y_ecef = initial_row.Y_ECEF_m;
-    z_ecef = initial_row.Z_ECEF_m;
+    x_ecef = gnss_data.X_ECEF_m(valid_idx);
+    y_ecef = gnss_data.Y_ECEF_m(valid_idx);
+    z_ecef = gnss_data.Z_ECEF_m(valid_idx);
 
     % Store the first valid ECEF position for downstream tasks
     ref_r0 = [x_ecef; y_ecef; z_ecef];
@@ -185,14 +195,19 @@ end
 
 % Save results for later tasks
 
-
 lat = lat_deg; %#ok<NASGU>
 lon = lon_deg; %#ok<NASGU>
 omega_NED = omega_ie_NED; %#ok<NASGU>
 
+% Variables for Task 5 compatibility
+gravity_ned = g_NED;
+lat0_rad = deg2rad(lat_deg);
+lon0_rad = deg2rad(lon_deg);
+
 init_file = fullfile(results_dir, sprintf('Task1_%s_%s.mat', dataset_tag, method));
 init_struct = struct('lat', lat_deg, 'lon', lon_deg, ...
-                     'g_NED', g_NED, 'omega_NED', omega_ie_NED);
+                     'g_NED', g_NED, 'omega_NED', omega_ie_NED, ...
+                     'gravity_ned', gravity_ned, 'lat0_rad', lat0_rad, 'lon0_rad', lon0_rad);
 if exist('ref_r0', 'var')
     init_struct.ref_r0 = ref_r0; %#ok<STRNU>
 end

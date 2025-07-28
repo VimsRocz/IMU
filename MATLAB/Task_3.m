@@ -261,7 +261,10 @@ subplot(1, 2, 2);
 bar(omega_errors);
 set(gca, 'xticklabel', methods);
 title('Earth Rate Vector Error'); ylabel('Error (degrees)'); grid on;
-sgtitle('Attitude Initialization Method Errors (Case 1)');
+% sgtitle('Attitude Initialization Method Errors (Case 1)'); % Not available in Octave
+% Add overall title as text annotation instead
+axes('Position',[0 0 1 1],'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
+text(0.5, 0.95,'Attitude Initialization Method Errors (Case 1)','HorizontalAlignment','center','VerticalAlignment', 'top','FontSize',12,'FontWeight','bold');
 err_file = fullfile(results_dir, sprintf('%s_%s_%s_Task3_ErrorComparison.pdf', imu_name, gnss_name, method_tag));
 set(gcf, 'PaperPositionMode','auto');
 print(gcf, err_file, '-dpdf', '-bestfit');

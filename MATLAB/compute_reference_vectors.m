@@ -25,7 +25,7 @@ if nargin < 2 || isempty(mag_file)
     mag_file = '';
 end
 
-T = readtable(gnss_file);
+T = read_csv_table(gnss_file);
 
 valid_idx = find(T.X_ECEF_m ~= 0 | T.Y_ECEF_m ~= 0 | T.Z_ECEF_m ~= 0, 1, 'first');
 if isempty(valid_idx)
