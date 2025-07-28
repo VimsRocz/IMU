@@ -1,4 +1,6 @@
-import numpy as np
+import pytest
+
+np = pytest.importorskip("numpy")
 from src.plot_fused_vs_truth import plot_fused_vs_truth
 
 

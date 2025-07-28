@@ -1,4 +1,6 @@
-import numpy as np
+import pytest
+
+np = pytest.importorskip("numpy")
 import warnings
 
 from task6_overlay_plot import interpolate_truth, ensure_equal_length

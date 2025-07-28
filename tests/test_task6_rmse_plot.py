@@ -1,4 +1,6 @@
-import numpy as np
+import pytest
+
+np = pytest.importorskip("numpy")
 from task6_overlay_plot import plot_rmse
 
 def test_task6_rmse_plot(tmp_path):

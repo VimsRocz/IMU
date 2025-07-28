@@ -1,5 +1,7 @@
-import scipy.io
-import numpy as np
+import pytest
+
+scipy = pytest.importorskip("scipy")
+np = pytest.importorskip("numpy")
 
 def test_perf_file_fields(tmp_path):
     perf_file = tmp_path / "IMU_GNSS_bias_and_performance.mat"
