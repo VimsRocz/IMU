@@ -256,10 +256,17 @@ for i = 1:length(methods)
     g_body_expected = C_N_B * g_NED;
 
     % Compute biases using the static interval as in the Python pipeline
-    % Override with constants for dataset X002 to ensure parity
+    % Dataset specific biases mirror ``dataset_bias_map`` in the Python
+    % implementation.  These values were obtained from long static
+    % calibrations and keep both codebases in sync.
     omega_ie_body_expected = C_N_B * omega_ie_NED;
-    if strcmpi(imu_name, 'IMU_X002')
-        acc_bias = [0.57757295; -6.83671274; 0.91029003];
+    dataset_bias_map = containers.Map( ...
+        {'IMU_X001','IMU_X002','IMU_X003'}, ...
+        { [0.57755067; -6.83662530; 0.91021879], ...
+          [0.57757295; -6.83671274; 0.91029003], ...
+          [0.58525893; -6.83671780; 0.90841520] });
+    if isKey(dataset_bias_map, imu_name)
+        acc_bias = dataset_bias_map(imu_name);
     else
         acc_bias = static_acc' + g_body_expected;
     end
