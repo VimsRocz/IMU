@@ -584,7 +584,9 @@ vel_ned = x_log(4:6,:)';
 ref_lat = deg2rad(lat_deg); %#ok<NASGU>
 ref_lon = deg2rad(lon_deg); %#ok<NASGU>
 
-results_file = fullfile(results_dir, sprintf('Task5_results_%s.mat', pair_tag));
+% Save using the same naming convention as the Python pipeline
+% <IMU>_<GNSS>_<METHOD>_task5_results.mat
+results_file = fullfile(results_dir, sprintf('%s_task5_results.mat', tag));
 save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
     'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
     'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', ...
