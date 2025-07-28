@@ -30,9 +30,7 @@ import numpy as np
 def main() -> None:
     start_time = time.time()
     parser = argparse.ArgumentParser(
-        description=(
-            "Plot fused IMU/GNSS output with the reference trajectory."
-        )
+        description=("Plot fused IMU/GNSS output with the reference trajectory.")
     )
     parser.add_argument(
         "--est-file",
@@ -41,8 +39,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--truth-file",
-        required=True,
-        help="STATE_X001.txt or similar ground truth file",
+        help=(
+            "STATE_X001.txt or similar ground truth file. If omitted the"
+            " script attempts to infer the path from --est-file"
+        ),
     )
     parser.add_argument(
         "--imu-file",
@@ -97,6 +97,24 @@ def main() -> None:
     method = m.group(3)
     tag = args.tag or f"{m.group(1)}_{m.group(2)}_{method}"
 
+    truth_file = args.truth_file
+    if truth_file is None:
+        dataset_match = re.match(r"IMU_(X\d+)", m.group(1))
+        if dataset_match:
+            dataset_id = dataset_match.group(1)
+            candidates = [
+                root / f"STATE_{dataset_id}.txt",
+                root / f"STATE_{dataset_id}_small.txt",
+            ]
+            for cand in candidates:
+                if cand.is_file():
+                    truth_file = str(cand)
+                    break
+    if truth_file is None:
+        raise FileNotFoundError(
+            "Truth file not specified and could not be inferred from --est-file"
+        )
+
     # output directory for overlay figures
     out_dir = Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -109,10 +127,10 @@ def main() -> None:
             pass
 
     est = load_estimate(str(est_path))
-    frames = assemble_frames(est, imu_file, gnss_file, args.truth_file)
+    frames = assemble_frames(est, imu_file, gnss_file, truth_file)
 
     # Load raw truth data without interpolation
-    truth_raw = np.loadtxt(args.truth_file, comments="#")
+    truth_raw = np.loadtxt(truth_file, comments="#")
     t_truth = truth_raw[:, 1]
     pos_truth_ecef = truth_raw[:, 2:5]
     vel_truth_ecef = truth_raw[:, 5:8]
@@ -241,9 +259,9 @@ def main() -> None:
             err_p = p_f - p_t
             err_v = v_f - v_t
             err_a = a_f - a_t
-            rmse_p = float(np.sqrt(np.mean(np.sum(err_p ** 2, axis=1))))
-            rmse_v = float(np.sqrt(np.mean(np.sum(err_v ** 2, axis=1))))
-            rmse_a = float(np.sqrt(np.mean(np.sum(err_a ** 2, axis=1))))
+            rmse_p = float(np.sqrt(np.mean(np.sum(err_p**2, axis=1))))
+            rmse_v = float(np.sqrt(np.mean(np.sum(err_v**2, axis=1))))
+            rmse_a = float(np.sqrt(np.mean(np.sum(err_a**2, axis=1))))
             final_p = float(np.linalg.norm(err_p[-1]))
             final_v = float(np.linalg.norm(err_v[-1]))
             final_a = float(np.linalg.norm(err_a[-1]))

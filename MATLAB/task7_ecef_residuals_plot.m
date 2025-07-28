@@ -15,6 +15,21 @@ end
 out_dir = output_dir;
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
+if (nargin < 4 || isempty(truth_file)) && nargin >= 5
+    m = regexp(dataset, 'X(\d+)', 'tokens', 'once');
+    if ~isempty(m)
+        cand1 = fullfile(sprintf('STATE_X%s.txt', m{1}));
+        cand2 = fullfile(sprintf('STATE_X%s_small.txt', m{1}));
+        if exist(cand1, 'file')
+            truth_file = cand1;
+        elseif exist(cand2, 'file')
+            truth_file = cand2;
+        else
+            error('Truth file not specified and could not be inferred from dataset');
+        end
+    end
+end
+
 [t_est, pos_est, vel_est, ~] = load_est(est_file);
 [t_truth, pos_truth, vel_truth, ~] = load_est(truth_file);
 
