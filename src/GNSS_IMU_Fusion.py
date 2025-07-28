@@ -1,3 +1,16 @@
+"""Run the GNSS/IMU fusion pipeline for a single dataset pair.
+
+This script mirrors the MATLAB ``GNSS_IMU_Fusion.m`` workflow and provides
+the same command-line interface.  It performs attitude initialisation and
+extended Kalman filtering given IMU and GNSS logs.
+
+Usage
+-----
+python src/GNSS_IMU_Fusion.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
+
+All results are written to ``results/``.
+"""
+
 import argparse
 import logging
 import sys
