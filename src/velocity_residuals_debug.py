@@ -4,9 +4,10 @@ Usage:
     python velocity_residuals_debug.py --gnss-file GNSS.csv --imu-file IMU.dat \
         --fused-file estimate.npz --output-dir results
 
-This script prints basic statistics to help debug high velocity residuals
-gravity check and optionally plots the Z velocity component.  Figures are
-stored in the specified output directory.
+This script prints basic statistics to help debug high velocity residuals,
+uses the ``GRAVITY`` constant from ``constants.py`` (mirroring
+``MATLAB/constants.m``) for gravity checks, and optionally plots the Z
+velocity component.  Figures are stored in the specified output directory.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from validate_with_truth import load_estimate
+from constants import GRAVITY
 
 
 
@@ -77,7 +79,8 @@ def main() -> None:
     )
 
     # --- Section 3: Gravity compensation diagnostics --------------------------------
-    gravity_ecef = np.array([0.0, 0.0, 9.81])
+    # Use the shared gravity constant for parity with MATLAB
+    gravity_ecef = np.array([0.0, 0.0, GRAVITY])
     print("Gravity vector used for compensation (ECEF):", gravity_ecef)
     acc_mean = imu_acc.mean(axis=0)
     print("Mean raw IMU acceleration (ECEF):", acc_mean)
