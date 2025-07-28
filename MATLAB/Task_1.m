@@ -1,4 +1,5 @@
 function result = Task_1(imu_path, gnss_path, method)
+format long e
 % TASK 1: Define Reference Vectors in NED Frame
 % This function translates Task 1 from the Python file GNSS_IMU_Fusion.py
 % into MATLAB. In addition to the standard task1_results MAT-file, this
@@ -143,7 +144,7 @@ fprintf('Reference vectors validated successfully.\n');
 
 % Print reference vectors
 fprintf('\n==== Reference Vectors in NED Frame ====\n');
-fprintf('Gravity vector (NED):        [%.8f %.8f %.8f] m/s^2\n', g_NED);
+fprintf('Gravity vector (NED):        [% .8e % .8e % .8e] m/s^2\n', g_NED);
 fprintf('Earth rotation rate (NED):   [%.8e %.8e %.8e] rad/s\n', omega_ie_NED);
 fprintf('Latitude (deg):              %.6f\n', lat_deg);
 fprintf('Longitude (deg):             %.6f\n', lon_deg);

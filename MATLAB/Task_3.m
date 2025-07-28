@@ -1,5 +1,6 @@
 
 function task3_results = Task_3(imu_path, gnss_path, method)
+format long e
 % TASK 3: Solve Wahba's Problem
 % This function estimates the initial body-to-NED attitude using several
 % approaches (TRIAD, Davenport, SVD). It loads the reference and measured
@@ -139,7 +140,7 @@ R_tri = M_ned_1 * M_body';
 [U,~,V] = svd(R_tri);
 R_tri = U*V';
 fprintf('Rotation matrix (TRIAD method, Case 1):\n');
-disp(R_tri);
+print_matrix(R_tri);
 fig_tri = figure; plot(R_tri(:)); title('TRIAD Rotation Matrix'); xlabel('Element'); ylabel('Value'); grid on;
 save_plot(fig_tri, imu_name, gnss_name, method, 3);
 expected_C_b_n = [0.23364698, -0.04540352, 0.971260835; ...
@@ -158,7 +159,7 @@ R_tri_doc = M_ned_2 * M_body';
 [U,~,V] = svd(R_tri_doc);
 R_tri_doc = U*V';
 fprintf('Rotation matrix (TRIAD method, Case 2):\n');
-disp(R_tri_doc);
+print_matrix(R_tri_doc);
 
 
 %% ========================================================================
@@ -168,13 +169,13 @@ fprintf('\nSubtask 3.3: Computing rotation matrix using Davenport’s Q-Method.\
 % Case 1
 [R_dav, q_dav] = davenport_q_method(v1_B, v2_B, v1_N, v2_N);
 fprintf('Rotation matrix (Davenport’s Q-Method, Case 1):\n');
-disp(R_dav);
+print_matrix(R_dav);
 fprintf('Davenport quaternion (Case 1): [%.6f, %.6f, %.6f, %.6f]\n', q_dav(1), q_dav(2), q_dav(3), q_dav(4));
 
 % Case 2
 [R_dav_doc, q_dav_doc] = davenport_q_method(v1_B, v2_B, v1_N, v2_N_doc);
 fprintf('Rotation matrix (Davenport’s Q-Method, Case 2):\n');
-disp(R_dav_doc);
+print_matrix(R_dav_doc);
 fprintf('Davenport quaternion (Case 2): [%.6f, %.6f, %.6f, %.6f]\n', q_dav_doc(1), q_dav_doc(2), q_dav_doc(3), q_dav_doc(4));
 
 
@@ -185,7 +186,7 @@ fprintf('\nSubtask 3.4: Computing rotation matrix using SVD method.\n');
 R_svd = svd_alignment({g_body, omega_ie_body}, {g_NED, omega_ie_NED});
 R_svd_doc = R_svd; % In the python script, SVD method is not re-run for Case 2
 fprintf('Rotation matrix (SVD method):\n');
-disp(R_svd);
+print_matrix(R_svd);
 
 
 %% ========================================================================
@@ -240,7 +241,7 @@ if diff_err < tol
     warning('All Earth-rate errors are very close; differences are within %.1e\xB0', tol);
 end
 
-fprintf('\n==== Method Comparison for Case 1 ====\n');
+fprintf('\n==== Method Comparison for %s ====\n', pair_tag);
 fprintf('%-10s  %-18s  %-22s\n', 'Method', 'Gravity Err (deg)', 'Earth-Rate Err (deg)');
 for i = 1:length(methods)
     fprintf('%-10s  %18.4f  %22.4f\n', methods{i}, grav_errors(i), omega_errors(i));
@@ -410,5 +411,11 @@ function eul = quat_to_euler(q)
     theta = -asin(R(3,1));
     psi = atan2(R(2,1), R(1,1));
     eul = [phi; theta; psi];
+end
+
+function print_matrix(M)
+    for r = 1:size(M,1)
+        fprintf('[% .8e % .8e % .8e]\n', M(r,:));
+    end
 end
 
