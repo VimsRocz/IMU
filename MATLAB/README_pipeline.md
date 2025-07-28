@@ -152,8 +152,8 @@ The comparison figures `<method>_<frame>_overlay_truth.pdf` are stored in the
 Task 5 result file and the associated data paths:
 
 ```matlab
-task5 = fullfile('MATLAB','results','IMU_X001_GNSS_X001_TRIAD_task5_results.mat');
-Task_6(task5,'IMU_X001.dat','GNSS_X001.csv','STATE_X001.txt');
+task5 = fullfile(get_results_dir(), 'IMU_X001_GNSS_X001_TRIAD_task5_results.mat');
+Task_6(task5, 'STATE_X001.txt', 'IMU_X001_GNSS_X001_TRIAD');
 ```
 
 The function loads `<IMU>_<GNSS>_<METHOD>_kf_output.mat`, reads the matching

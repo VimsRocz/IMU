@@ -1,10 +1,21 @@
 
 
+function Task_6(task5_matfile, truth_file, run_id)
+%TASK_6  Overlay fused estimator results with ground truth trajectory.
+%   TASK_6(TASK5_MATFILE, TRUTH_FILE, RUN_ID) loads the fused navigation
+%   solution saved by Task 5 and the corresponding ``STATE_X`` truth
+%   file. All series are interpolated to the estimator time base and
+%   overlay plots for the NED, ECEF and body frames are produced. Figures
+%   are written to ``<results>/<run_id>/`` within the repository using the
+%   naming convention ``<run_id>_task6_overlay_state_<frame>.pdf``.
+
 % ------------------------------------------------------------------
 % Ensure results directory
 % ------------------------------------------------------------------
-if ~exist('results', 'dir')
-    mkdir('results');
+results_root = get_results_dir();
+out_dir = fullfile(results_root, run_id);
+if ~exist(out_dir, 'dir')
+    mkdir(out_dir);
 end
 
 % ------------------------------------------------------------------
@@ -21,6 +32,7 @@ end
 pos_est_ned  = S.pos_est_ned;
 pos_est_ecef = S.pos_est_ecef;
 C_b_n        = S.C_b_n;
+if isfield(S,'time_s'); t_est = S.time_s(:); elseif isfield(S,'time'); t_est = S.time(:); else; t_est = (0:size(pos_est_ned,1)-1).'; end
 
 % ------------------------------------------------------------------
 % Load ground truth data
@@ -28,6 +40,7 @@ C_b_n        = S.C_b_n;
 fprintf('Loading ground truth from %s\n', truth_file);
 if endsWith(lower(truth_file), '.txt')
     data = readmatrix(truth_file);
+    t_truth = data(:,2);
     pos_truth_ecef = data(:,3:5);
     if size(data,2) >= 11
         pos_truth_ned = data(:,9:11);
@@ -45,7 +58,11 @@ else
     end
     pos_truth_ecef = T.pos_truth_ecef;
     pos_truth_ned  = T.pos_truth_ned;
+    if isfield(T,'time'); t_truth = T.time(:); else; t_truth = (0:size(pos_truth_ecef,1)-1).'; end
 end
+
+pos_truth_ecef = interp1(t_truth, pos_truth_ecef, t_est, 'linear', 'extrap');
+pos_truth_ned  = interp1(t_truth, pos_truth_ned,  t_est, 'linear', 'extrap');
 
 % ------------------------------------------------------------------
 % Convert NED positions to body frame
@@ -91,7 +108,7 @@ for f = 1:numel(frames)
     end
     legend('Fused','Truth','Location','best');
     drawnow;
-    pdf = fullfile('results', sprintf('%s_task6_overlay_state_%s.pdf', output_tag, fr));
+    pdf = fullfile(out_dir, sprintf('%s_task6_overlay_state_%s.pdf', run_id, fr));
     png = strrep(pdf, '.pdf', '.png');
     saveas(gcf, pdf);
     saveas(gcf, png);

@@ -57,8 +57,8 @@ task5_file = fullfile(results_dir, sprintf('Task5_%s_%s.mat', dataset_tag, metho
 truth_file = fullfile(root_dir, 'STATE_X001.txt');
 if isfile(task5_file) && isfile(truth_file)
     disp('--- Running Task 6: Truth Overlay/Validation ---');
-    Task_6(dataset_tag, method);
     run_id = sprintf('%s_%s', dataset_tag, method);
+    Task_6(task5_file, truth_file, run_id);
     out_dir = fullfile(results_dir, run_id);
     fprintf('Task 6 overlay plots saved under: %s\n', out_dir);
     disp('--- Running Task 7: Residuals & Summary ---');

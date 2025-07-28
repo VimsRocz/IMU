@@ -101,7 +101,8 @@ for k = 1:size(pairs,1)
             if isfile(cand)
                 fprintf('Starting Task 6 for %s + %s ...\n', imuStem, gnssStem);
                 try
-                    Task_6(task5File, imu, gnss, cand);
+                    tag = sprintf('%s_%s_%s', imuStem, gnssStem, method);
+                    Task_6(task5File, cand, tag);
                 catch ME
                     warning('Task 6 failed: %s', ME.message);
                 end
