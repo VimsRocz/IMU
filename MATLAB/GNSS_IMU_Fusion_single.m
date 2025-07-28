@@ -712,6 +712,9 @@ for i = 1:length(methods)
         pos(k,:) = pos(k-1,:) + (vel(k,:) + vel(k-1,:)) * 0.5 * dt_imu;
     end
     pos_integ.(method_i) = pos; vel_integ.(method_i) = vel; acc_integ.(method_i) = acc;
+    final_vel = vel(end, :);
+    fprintf('Final integrated NED velocity [%s | %s]: [%.3f %.3f %.3f] m/s\n', ...
+        pair_tag, method_i, final_vel(1), final_vel(2), final_vel(3));
 end
 
 fprintf('\nSubtask 4.13: Validating and plotting data.\n');
