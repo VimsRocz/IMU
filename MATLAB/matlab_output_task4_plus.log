@@ -1,0 +1,207 @@
+octave: X11 DISPLAY environment variable not set
+octave: disabling GUI features
+warning: using the gnuplot graphics toolkit is discouraged
+
+The gnuplot graphics toolkit is not actively maintained and has a number
+of limitations that are unlikely to be fixed.  Communication with gnuplot
+uses a one-directional pipe and limited information is passed back to the
+Octave interpreter so most changes made interactively in the plot window
+will not be reflected in the graphics properties managed by Octave.  For
+example, if the plot window is closed with a mouse click, Octave will not
+be notified and will not update its internal list of open figure windows.
+The qt toolkit is recommended instead.
+â–¶ IMU_X002_GNSS_X002_TRIAD
+Ensured '/home/runner/work/IMU/IMU/MATLAB/results' directory exists.
+â–¶ IMU_X002_GNSS_X002_TRIAD
+Ensured results directory /home/runner/work/IMU/IMU/MATLAB/results exists.
+Running attitude-estimation method: TRIAD
+TASK 1 (TRIAD): Define reference vectors in NED frame
+
+Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.
+GNSS data columns:
+{
+  [1,1] = UTC_yyyy
+  [2,1] = UTC_MM
+  [3,1] = UTC_dd
+  [4,1] = UTC_HH
+  [5,1] = UTC_mm
+  [6,1] = UTC_ss
+  [7,1] = Posix_Time
+  [8,1] = Latitude_deg
+  [9,1] = Longitude_deg
+  [10,1] = Height_deg
+  [11,1] = X_ECEF_m
+  [12,1] = Y_ECEF_m
+  [13,1] = Z_ECEF_m
+  [14,1] = VX_ECEF_mps
+  [15,1] = VY_ECEF_mps
+  [16,1] = VZ_ECEF_mps
+  [17,1] = HDOP
+  [18,1] = VDOP
+  [19,1] = PDOP
+  [20,1] = TDOP
+}
+First few rows of ECEF coordinates:
+     X_ECEF_m     Y_ECEF_m      Z_ECEF_m
+-3.729052e+06 3.935675e+06 -3.348392e+06
+-3.729050e+06 3.935676e+06 -3.348394e+06
+-3.729051e+06 3.935671e+06 -3.348399e+06
+-3.729050e+06 3.935675e+06 -3.348393e+06
+-3.729051e+06 3.935676e+06 -3.348392e+06
+Computed initial latitude: -31.871173Â°, longitude: 133.455811Â° from GNSS (overridden)
+
+Subtask 1.2: Defining gravity vector in NED frame.
+Gravity magnitude set to 9.79424753 m/s^2
+
+Subtask 1.3: Defining Earth rotation rate vector in NED frame.
+Earth rotation rate (NED):   [6.19272442e-05 0.00000000e+00 3.85030995e-05] rad/s
+
+Subtask 1.4: Validating reference vectors.
+Reference vectors validated successfully.
+
+==== Reference Vectors in NED Frame ====
+Gravity vector (NED):        [0.00000000 0.00000000 9.79424753] m/s^2
+Earth rotation rate (NED):   [6.19272442e-05 0.00000000e+00 3.85030995e-05] rad/s
+Latitude (deg):              -31.871173
+Longitude (deg):             133.455811
+
+Subtask 1.5: Plotting location on Earth map.
+warning: Mapping Toolbox not found. Skipping geographic plot.
+warning: called from
+    Task_1 at line 184 column 5
+    run_triad_only at line 47 column 1
+
+Saved to /home/runner/work/IMU/IMU/MATLAB/results/Task1_IMU_X002_GNSS_X002_TRIAD.mat
+Task 2: IMU sample interval dt = 0.002500 s
+Static interval indices (0-based): 296 to 479907 (479611 samples)
+Note: MATLAB uses 1-based indexing, Python is 0-based.
+Static interval duration: 1199.03 s of 1250.00 s total (95.9%)
+warning: Static interval covers 95.9% of the dataset. Verify motion data or adjust detection thresholds.
+warning: called from
+    Task_2 at line 82 column 9
+    run_triad_only at line 48 column 1
+
+Estimated gravity magnitude: 9.7943 m/s^2 (expected 9.7942)
+Task 2: g_body = [-9.52258814e+00  2.74812866e-05  2.29076402e+00]
+Task 2: omega_ie_body = [-2.32299880e-05 -2.80211817e-06  6.90007398e-05]
+Task 2 summary: static interval 297:479908, g_body = [-9.52258814e+00  2.74812866e-05  2.29076402e+00], omega_ie_body = [-2.32299880e-05 -2.80211817e-06  6.90007398e-05]
+Accelerometer bias = [ 0.577573 -6.836713  0.910290] m/s^2 (|b|=6.921189 m/s^2)
+Gyroscope bias     = [-2.322999e-05 -2.802118e-06  6.900074e-05] rad/s (|b|=7.286005e-05 rad/s)
+Accelerometer scale factor = 1.0000
+Saved to /home/runner/work/IMU/IMU/MATLAB/results/Task2_IMU_X002_GNSS_X002_TRIAD.mat
+Task 2 fields: {g_body, g_body_scaled, omega_ie_body, accel_bias, gyro_bias, static_start, static_end, accel_scale}
+  g_body        = [-9.52258814e+00  2.74812866e-05  2.29076402e+00]
+  omega_ie_body = [-2.32299880e-05 -2.80211817e-06  6.90007398e-05]
+  accel_bias    = [ 0.577573 -6.836713  0.910290] (|b|=6.921189)
+  gyro_bias     = [-2.322999e-05 -2.802118e-06  6.900074e-05] (|b|=7.286005e-05)
+  accel_scale   = 1.0000
+  static_start  = 297, static_end = 479908
+
+TASK 3 (TRIAD): Solve Wahba 19s problem (find initial attitude from body to NED)
+
+Subtask 3.1: Preparing vector pairs for attitude determination.
+-> Case 1 and Case 2 vectors prepared.
+
+Subtask 3.2: Computing rotation matrix using TRIAD method.
+Rotation matrix (TRIAD method, Case 1):
+[ 2.33647386e-01 -4.54042288e-02  9.71260704e-01;
+  1.06222622e-02  9.98968696e-01  4.41442131e-02;
+ -9.72263373e-01  2.80585992e-06  2.33888720e-01]
+Saved plot to /home/runner/work/IMU/IMU/MATLAB/results/IMU_X002_GNSS_X002_TRIAD_task3_results.pdf and /home/runner/work/IMU/IMU/MATLAB/results/IMU_X002_GNSS_X002_TRIAD_task3_results.png
+Rotation matrix (TRIAD method, Case 2):
+[ 2.33647386e-01 -4.54042288e-02  9.71260704e-01;
+  1.06222622e-02  9.98968696e-01  4.41442131e-02;
+ -9.72263373e-01  2.80585992e-06  2.33888720e-01]
+
+Subtask 3.3: Computing rotation matrix using Davenportâ€™s Q-Method.
+Rotation matrix (Davenportâ€™s Q-Method, Case 1):
+[ 2.33646987e-01 -4.54042288e-02  9.71260800e-01;
+  1.06222622e-02  9.98968696e-01  4.41442131e-02;
+ -9.72263469e-01  2.82446624e-06  2.33888322e-01]
+Davenport quaternion (Case 1): [0.785255, -0.014053, 0.618755, 0.017837]
+Rotation matrix (Davenportâ€™s Q-Method, Case 2):
+[ 2.33646987e-01 -4.54042288e-02  9.71260800e-01;
+  1.06222622e-02  9.98968696e-01  4.41442131e-02;
+ -9.72263469e-01  2.82446624e-06  2.33888322e-01]
+Davenport quaternion (Case 2): [0.785255, -0.014053, 0.618755, 0.017837]
+
+Subtask 3.4: Computing rotation matrix using SVD method.
+Rotation matrix (SVD method):
+[ 2.31654758e-01 -4.54041277e-02  9.71737896e-01;
+  1.06222622e-02  9.98968696e-01  4.41442131e-02;
+ -9.72740068e-01  9.58376897e-05  2.31898146e-01]
+
+Subtask 3.5: Converting TRIAD and SVD DCMs to quaternions.
+Quaternion (TRIAD, Case 1): [0.785256, -0.014053, 0.618755, 0.017837]
+Quaternion (SVD, Case 1):   [0.784621, -0.014035, 0.619559, 0.017851]
+Quaternion (TRIAD, Case 2): [0.785256, -0.014053, 0.618755, 0.017837]
+Quaternion (SVD, Case 2):   [0.784621, -0.014035, 0.619559, 0.017851]
+TRIAD initial attitude (deg): roll=0.001 pitch=76.474 yaw=2.603
+
+Subtask 3.6: Validating attitude determination and comparing methods.
+
+Attitude errors using reference vectors (Case 1):
+TRIAD      -> Gravity error (deg): 0.000000
+TRIAD      -> Earth rate error (deg):  0.234795
+Davenport  -> Gravity error (deg): 0.000023
+Davenport  -> Earth rate error (deg):  0.234771
+SVD        -> Gravity error (deg): 0.117397
+SVD        -> Earth rate error (deg):  0.117397
+
+Detailed Earth-Rate Errors:
+  TRIAD     : 0.234795°
+  Davenport : 0.234771°
+  SVD       : 0.117397°
+
+Earth-rate errors by method:
+  TRIAD     : 0.234794662°
+  Davenport : 0.234771182°
+  SVD       : 0.117397331°
+  94 = 1.17e-01° (tolerance = 1.0e-05)
+
+==== Method Comparison for IMU_X002_GNSS_X002 ====
+Method      Gravity Err (deg)   Earth-Rate Err (deg)  
+TRIAD                   0.0000                  0.2348
+Davenport               0.0000                  0.2348
+SVD                     0.1174                  0.1174
+
+Subtask 3.7: Plotting validation errors and quaternion components.
+Saved plot: /home/runner/work/IMU/IMU/MATLAB/results/IMU_X002_GNSS_X002_TRIAD_Task3_ErrorComparison.pdf
+Saved plot: /home/runner/work/IMU/IMU/MATLAB/results/IMU_X002_GNSS_X002_TRIAD_Task3_QuaternionComparison.pdf
+
+Subtask 3.8: Storing rotation matrices for use in later tasks.
+Saved to /home/runner/work/IMU/IMU/MATLAB/results/Task3_IMU_X002_GNSS_X002_TRIAD.mat
+
+Rotation matrix C_{B}^{N}:
+[ 2.33647386e-01 -4.54042288e-02  9.71260704e-01;
+  1.06222622e-02  9.98968696e-01  4.41442131e-02;
+ -9.72263373e-01  2.80585992e-06  2.33888720e-01]
+Results saved to /home/runner/work/IMU/IMU/MATLAB/results
+Task 3 results stored in memory: TRIAD, Davenport, SVD
+Task 4: loading previous task outputs:
+  Task 1 -> /home/runner/work/IMU/IMU/MATLAB/results/Task1_IMU_X002_GNSS_X002_TRIAD.mat
+  Task 2 -> /home/runner/work/IMU/IMU/MATLAB/results/Task2_IMU_X002_GNSS_X002_TRIAD.mat
+  Task 3 -> /home/runner/work/IMU/IMU/MATLAB/results/Task3_IMU_X002_GNSS_X002_TRIAD.mat
+Loaded rotation matrix for TRIAD.
+Subtask 4.3: Loading GNSS data.
+Subtask 4.4: GNSS data shape: 1250 x 20
+Subtask 4.5: Reference point (ECEF) = [-3729051.7, 3935675.2, -3348392.4]
+Subtask 4.7: Converted GNSS to NED: first=[0.00,0.00,0.00], last=[18786.86,326.16,-32273.18]
+Subtask 4.8: GNSS accel RMS = 5.0970 m/s^2
+Subtask 4.9: Loading IMU data.
+Subtask 4.9: IMU data corrected: accel_bias=[0.5776 -6.8367 0.9103], scale=1.0000
+           gyro_bias=[-2.3230e-05 -2.8021e-06 6.9001e-05]
+Subtask 4.10: IMU dt = 0.0025 s
+Subtask 4.11: Initializing output arrays.
+Subtask 4.12: Integrated IMU data using TRIAD method.
+Subtask 4.13: Plotting GNSS vs IMU in NED frame.
+Saved plot: /home/runner/work/IMU/IMU/MATLAB/results/IMU_X002_GNSS_X002_TRIAD_task4_results_NED.pdf
+Saved plot: /home/runner/work/IMU/IMU/MATLAB/results/IMU_X002_GNSS_X002_TRIAD_task4_results_ECEF.pdf
+Saved plot: /home/runner/work/IMU/IMU/MATLAB/results/IMU_X002_GNSS_X002_TRIAD_task4_results_Body.pdf
+Saved Task 4 results to /home/runner/work/IMU/IMU/MATLAB/results/Task4_IMU_X002_GNSS_X002_TRIAD.mat
+Task 4 completed: All frame plots saved, variables ready for Task 5.
+Subtask 5.1: Loading Task 1-4 outputs.
+error: load: empty name keyword or no data found in file '/home/runner/work/IMU/IMU/MATLAB/results/Task1_IMU_X002_GNSS_X002_TRIAD.mat'
+error: called from
+    Task_5 at line 50 column 1
+    run_triad_only at line 53 column 1

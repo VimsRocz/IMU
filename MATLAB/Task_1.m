@@ -198,7 +198,7 @@ init_struct = struct('lat', lat_deg, 'lon', lon_deg, ...
 if exist('ref_r0', 'var')
     init_struct.ref_r0 = ref_r0; %#ok<STRNU>
 end
-save(init_file, '-struct', 'init_struct');
+save(init_file, '-struct', 'init_struct', '-mat');
 fprintf('Saved to %s\n', init_file);
 
 % Return results and store in base workspace for interactive use

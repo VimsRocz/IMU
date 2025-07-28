@@ -219,7 +219,7 @@ pos_est_ecef  = pos_imu_ecef;
 vel_est_ecef  = vel_imu_ecef;
 save_vars = {'pos_est_ned','vel_est_ned','acc_est_ned','pos_est_ecef', ...
     'vel_est_ecef','lat0_rad','lon0_rad','gravity_ned','accel_scale','C_b_n','C_e_n','r0'};
-save(out_mat, save_vars{:});
+save(out_mat, save_vars{:}, '-mat');
 fprintf('Saved Task 4 results to %s\n', out_mat);
 fprintf('Task 4 completed: All frame plots saved, variables ready for Task 5.\n');
 end

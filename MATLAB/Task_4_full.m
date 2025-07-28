@@ -118,7 +118,7 @@ fprintf('-> Rotation matrices accessed for methods: %s\n', strjoin(methods, ', '
 % =========================================================================
 fprintf('\nSubtask 4.3: Loading GNSS data.\n');
 try
-    gnss_data = readtable(gnss_path);
+    gnss_data = read_csv_table(gnss_path);
 catch e
     error('Failed to load GNSS data file: %s', e.message);
 end
@@ -180,7 +180,7 @@ dt_gnss = diff(gnss_time(:));
 % Prepend a zero row to maintain size, as diff reduces length by 1
 gnss_accel_ned = [zeros(1,3); bsxfun(@rdivide, diff(gnss_vel_ned), dt_gnss)];
 fprintf('-> GNSS acceleration estimated in NED frame.\n');
-fprintf('   GNSS accel RMS = %.4f m/s^2\n', rms(gnss_accel_ned(:)) );
+fprintf('   GNSS accel RMS = %.4f m/s^2\n', sqrt(mean(gnss_accel_ned(:).^2)) );
 
 
 %% ========================================================================

@@ -148,7 +148,7 @@ function body_data = Task_2(imu_path, gnss_path, method, dataset_tag)
     out_file = fullfile(results_dir, sprintf('Task2_%s_%s.mat', dataset_tag, method));
 
     save(out_file, 'g_body', 'g_body_scaled', 'omega_ie_body', ...
-        'accel_bias', 'gyro_bias', 'static_start', 'static_end', 'scale_factor');
+        'accel_bias', 'gyro_bias', 'static_start', 'static_end', 'accel_scale', '-mat');
 
     assignin('base','task2_results', body_data);
     fprintf('Saved to %s\n', out_file);

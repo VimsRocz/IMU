@@ -39,7 +39,7 @@ if isfield(S,'time_s'); t_est = S.time_s(:); elseif isfield(S,'time'); t_est = S
 % ------------------------------------------------------------------
 fprintf('Loading ground truth from %s\n', truth_file);
 if endsWith(lower(truth_file), '.txt')
-    data = readmatrix(truth_file);
+    data = dlmread(truth_file);
     t_truth = data(:,2);
     pos_truth_ecef = data(:,3:5);
     if size(data,2) >= 11

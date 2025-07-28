@@ -261,12 +261,7 @@ subplot(1, 2, 2);
 bar(omega_errors);
 set(gca, 'xticklabel', methods);
 title('Earth Rate Vector Error'); ylabel('Error (degrees)'); grid on;
-% sgtitle is not available in Octave, use a text annotation instead
-annotation('textbox', [0 0.9 1 0.1], ...
-           'String', 'Attitude Initialization Method Errors (Case 1)', ...
-           'EdgeColor', 'none', ...
-           'HorizontalAlignment', 'center', ...
-           'FontSize', 14, 'FontWeight', 'bold');
+sgtitle('Attitude Initialization Method Errors (Case 1)');
 err_file = fullfile(results_dir, sprintf('%s_%s_%s_Task3_ErrorComparison.pdf', imu_name, gnss_name, method_tag));
 set(gcf, 'PaperPositionMode','auto');
 print(gcf, err_file, '-dpdf', '-bestfit');
@@ -300,7 +295,7 @@ task3_results.TRIAD.R = R_tri;
 task3_results.Davenport.R = R_dav;
 task3_results.SVD.R = R_svd;
 out_file = fullfile(results_dir, sprintf('Task3_%s_%s.mat', dataset_tag, method));
-save(out_file, 'task3_results');
+save(out_file, 'task3_results', '-mat');
 fprintf('Saved to %s\n', out_file);
 
 % Return and store in base workspace

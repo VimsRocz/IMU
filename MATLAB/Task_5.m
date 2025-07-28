@@ -57,7 +57,7 @@ load(task4_file, 'pos_ned','vel_ned','acc_ned');
 fprintf('Subtask 5.2: Reading IMU & GNSS data.\n');
 imu  = load_imu_data(imu_path);
 try
-    gnss = readtable(gnss_path);
+    gnss = read_csv_table(gnss_path);
 catch e
     error('Failed to load GNSS file %s: %s', gnss_path, e.message);
 end
@@ -112,7 +112,7 @@ fprintf('Subtask 5.6: Extracting fused pos/vel/acc.\n');
 pos_fused_ned = x_log(1:3,:);
 vel_fused_ned = x_log(4:6,:);
 acc_fused_ned = diff(vel_fused_ned,1,2)/dt;
-save(out_mat, 'x_log','pos_fused_ned','vel_fused_ned','acc_fused_ned','P');
+save(out_mat, 'x_log','pos_fused_ned','vel_fused_ned','acc_fused_ned','P', '-mat');
 fprintf('Saved Task 5 results to %s\n', out_mat);
 
 % Generate and save plots
