@@ -16,7 +16,10 @@ function run_all_datasets_py(varargin)
 %
 %   This function assumes GNSS_IMU_Fusion.m produces files named
 %   <IMU>_<GNSS>_<METHOD>_kf_output.npz in the current results directory.
+
 %   Metrics are derived from these files to mirror the Python summary.
+
+format long g % mirror Python full-precision printing
 
 % Default dataset list and methods
 DEFAULT_DATASETS = {
