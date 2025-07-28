@@ -1330,6 +1330,7 @@ def main():
     res_vel_all = {}
     time_res_all = {}
     P_hist_all = {}
+    x_log_all = {}
     zupt_counts = {}
     zupt_events_all = {}
 
@@ -1373,6 +1374,10 @@ def main():
         q_cur = orientations[0]
         roll, pitch, yaw = quat2euler(q_cur)
         euler_list.append([roll, pitch, yaw])
+
+        # State history log (states x time)
+        x_log = np.zeros((kf.dim_x, len(imu_time)))
+        x_log[:, 0] = kf.x
 
         # Run Kalman Filter
         for i in range(1, len(imu_time)):
@@ -1441,6 +1446,7 @@ def main():
             fused_vel[m][i] = kf.x[3:6]
             fused_acc[m][i] = imu_acc[m][i]  # Use integrated acceleration
             P_hist.append(kf.P.copy())
+            x_log[:, i] = kf.x
 
         logging.info(f"Method {m}: Kalman Filter completed. ZUPTcnt={zupt_count}")
         with open("triad_init_log.txt", "a") as logf:
@@ -1466,6 +1472,7 @@ def main():
         res_vel_all[m] = res_vel
         time_res_all[m] = time_res_arr
         P_hist_all[m] = np.stack(P_hist)
+        x_log_all[m] = x_log
 
         if m == "Davenport":
             pos_finite = np.all(np.isfinite(fused_pos[m]), axis=0)
@@ -1949,6 +1956,7 @@ def main():
         time_residuals=time_res_all[method],
         attitude_q=attitude_q_all[method],
         P_hist=P_hist_all[method],
+        x_log=x_log_all[method],
         ref_lat=np.array([ref_lat]),
         ref_lon=np.array([ref_lon]),
         ref_r0=ref_r0,
@@ -1983,6 +1991,7 @@ def main():
             "time_residuals": time_res_all[method],
             "attitude_q": attitude_q_all[method],
             "P_hist": P_hist_all[method],
+            "x_log": x_log_all[method],
             "ref_lat": np.array([ref_lat]),
             "ref_lon": np.array([ref_lon]),
             "ref_r0": ref_r0,
