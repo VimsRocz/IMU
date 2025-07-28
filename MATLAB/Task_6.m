@@ -138,10 +138,18 @@ if ~isfield(S, 'gnss_time')
 end
 
 if ~isfield(S,'pos_ned')
-    S.pos_ned = S.x_log(1:3,:)';
+    if isfield(S,'fused_pos')
+        S.pos_ned = S.fused_pos;
+    else
+        S.pos_ned = S.x_log(1:3,:)';
+    end
 end
 if ~isfield(S,'vel_ned')
-    S.vel_ned = S.x_log(4:6,:)';
+    if isfield(S,'fused_vel')
+        S.vel_ned = S.fused_vel;
+    else
+        S.vel_ned = S.x_log(4:6,:)';
+    end
 end
 
 % Interpolate truth data to estimator time

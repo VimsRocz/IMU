@@ -21,8 +21,12 @@ function S = reconstruct_x_log(S)
     % Determine number of samples from the available fields
     if isfield(S, 'pos_ned')
         N = size(S.pos_ned, 1);
+    elseif isfield(S, 'fused_pos')
+        N = size(S.fused_pos, 1);
     elseif isfield(S, 'vel_ned')
         N = size(S.vel_ned, 1);
+    elseif isfield(S, 'fused_vel')
+        N = size(S.fused_vel, 1);
     elseif isfield(S, 'euler_log')
         N = size(S.euler_log, 2);
     elseif isfield(S, 'quat_log')
@@ -40,9 +44,13 @@ function S = reconstruct_x_log(S)
 
     if isfield(S, 'pos_ned')
         x_log(1:3, :) = S.pos_ned';
+    elseif isfield(S, 'fused_pos')
+        x_log(1:3, :) = S.fused_pos';
     end
     if isfield(S, 'vel_ned')
         x_log(4:6, :) = S.vel_ned';
+    elseif isfield(S, 'fused_vel')
+        x_log(4:6, :) = S.fused_vel';
     end
 
     if isfield(S, 'euler_log')
