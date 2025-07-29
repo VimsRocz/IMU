@@ -1,12 +1,12 @@
-function ecef = ned2ecef_vector(ned, lat_rad, lon_rad)
+function ecef = ned2ecef_vector(ned, lat, lon)
 %NED2ECEF_VECTOR Rotate a single NED vector to ECEF.
-%   ECEF = NED2ECEF_VECTOR(NED, LAT_RAD, LON_RAD) converts the 1x3 vector NED
-%   from the local North-East-Down frame to Earth-Centred Earth-Fixed.
+%   ECEF = NED2ECEF_VECTOR(NED, LAT, LON) converts the 1x3 vector NED from
+%   the local North-East-Down frame to Earth-Centred Earth-Fixed. Mirrors
+%   the Python helper ``frames.ned_to_ecef_vector``.
 
-R_n2e = [ -sin(lat_rad)*cos(lon_rad), -sin(lon_rad), -cos(lat_rad)*cos(lon_rad);
-          -sin(lat_rad)*sin(lon_rad),  cos(lon_rad), -cos(lat_rad)*sin(lon_rad);
-           cos(lat_rad)            ,             0 , -sin(lat_rad)           ];
+R = [ -sin(lat)*cos(lon), -sin(lon),          -cos(lat)*cos(lon);
+      -sin(lat)*sin(lon),  cos(lon),          -cos(lat)*sin(lon);
+       cos(lat)        ,  0       ,          -sin(lat)        ];
 
-ecef = R_n2e * ned(:);
-ecef = ecef.';  % return as row vector
+ecef = (R * ned(:)).';
 end
