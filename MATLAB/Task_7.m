@@ -1,12 +1,16 @@
 function Task_7()
-%TASK_7 Plot ECEF errors between truth and fused estimate.
-%   TASK_7() loads the fused state history ``x_log`` produced by Task 5 and
-%   the ground truth trajectory ``STATE_X001.txt``. The estimator NED states
-%   are converted to the ECEF frame using the reference latitude and
-%   longitude from Task 5. Position and velocity errors ``truth - estimate``
-%   are computed after interpolating the estimator output to the truth time
-%   vector. A figure with six subplots (position X/Y/Z on the first row,
-%   velocity X/Y/Z on the second) is generated and saved under ``results``.
+%TASK_7 Plot ECEF residuals between truth and fused estimate.
+%   TASK_7() loads the fused state history ``x_log`` produced by Task 5 and
+%   the ground truth trajectory.  The function first attempts to read
+%   ``truth_pos_ecef`` and ``truth_vel_ecef`` from the Task 4 results MAT
+%   file.  If those fields are absent (as may happen when running the
+%   pipeline from scratch), the STATE_X text log is parsed using
+%   ``read_state_file``.  The estimator NED states are converted to ECEF
+%   using the reference latitude and longitude from Task 5.  Position and
+%   velocity errors ``truth - estimate`` are computed after interpolating
+%   the estimator output to the truth time vector.  A figure with six
+%   subplots (position X/Y/Z on the first row, velocity X/Y/Z on the second)
+%   is generated and saved under ``results``.
 
     fprintf('--- Starting Task 7: Residual Analysis with Task4 truth (ECEF) ---\n');
 
@@ -25,10 +29,31 @@ function Task_7()
         error('Task 7: Failed to load x_log from %s. %s', res_file, ME.message);
     end
 
-    %% Load ground truth from Task 4 results
+    %% Load ground truth
+    % Prefer the Task 4 results file which may contain the truth ECEF
+    % trajectory. If not available, fall back to the STATE_X text log as in
+    % Task 6.
     truth_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
-    d = load(truth_file, 'truth_pos_ecef', 'truth_vel_ecef');
-    truth_data = [zeros(size(d.truth_pos_ecef,1),1), (0:size(d.truth_pos_ecef,1)-1)', d.truth_pos_ecef, d.truth_vel_ecef];
+    if isfile(truth_file)
+        d = load(truth_file);
+    else
+        d = struct();
+    end
+
+    if isfield(d, 'truth_pos_ecef') && isfield(d, 'truth_vel_ecef')
+        truth_pos_ecef = d.truth_pos_ecef';
+        truth_vel_ecef = d.truth_vel_ecef';
+        t_truth = (0:size(truth_pos_ecef,2)-1)';
+        fprintf('Task 7: Loaded truth ECEF from %s\n', truth_file);
+    else
+        fprintf('Task 7: truth_pos_ecef not found in %s. Using STATE_X001.txt\n', truth_file);
+        root_dir = fileparts(fileparts(results_dir));
+        state_file = fullfile(root_dir, 'STATE_X001.txt');
+        raw = read_state_file(state_file);
+        t_truth = raw(:,2); % time column in seconds
+        truth_pos_ecef = raw(:,3:5)';
+        truth_vel_ecef = raw(:,6:8)';
+    end
 
     %% Extract truth position and velocity
     t_truth = truth_data(:,2);
