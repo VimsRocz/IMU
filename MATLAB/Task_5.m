@@ -344,6 +344,11 @@ for i = 1:num_imu_samples
     x(4:6) = vel_new;
     x(1:3) = pos_new;
     x(7:9) = quat_to_euler(q_b_n);
+    if norm(x(4:6)) > 500
+        warning('Velocity blew up (%.1f m/s); zeroing \x0394v and continuing.', ...
+                norm(x(4:6)));
+        x(4:6) = 0;
+    end
     acc_log(:,i) = a_ned;
     % --- 3. Measurement Update (Correction) ---
     z = [gnss_pos_interp(i,:)'; gnss_vel_interp(i,:)'];
