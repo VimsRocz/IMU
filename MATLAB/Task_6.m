@@ -112,7 +112,16 @@ if nargin < 4 || isempty(truth_file)
     truth_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
 end
 
-load(truth_file, 'truth_pos_ecef', 'truth_vel_ecef');
+% Support text-based STATE_X files in addition to MAT files
+if endsWith(truth_file, '.txt')
+    raw = read_state_file(truth_file);
+    truth_pos_ecef = raw(:,3:5);
+    truth_vel_ecef = raw(:,6:8);
+else
+    S_truth = load(truth_file, 'truth_pos_ecef', 'truth_vel_ecef');
+    truth_pos_ecef = S_truth.truth_pos_ecef;
+    truth_vel_ecef = S_truth.truth_vel_ecef;
+end
 truth_time = (0:size(truth_pos_ecef,1)-1)';
 truth = [zeros(size(truth_time)), truth_time, truth_pos_ecef, truth_vel_ecef];
 
