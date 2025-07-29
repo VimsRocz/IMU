@@ -1877,6 +1877,12 @@ def main():
     )
     final_pos = np.linalg.norm(gnss_pos_ned_interp[-1] - fused_pos[method][-1])
 
+    final_vel_mag = float(np.linalg.norm(fused_vel[method][-1]))
+    if final_vel_mag > 500:
+        raise RuntimeError(
+            f"KF diverged: final velocity {final_vel_mag:.2f} m/s exceeds 500 m/s - check F & H matrices"
+        )
+
     # --- Additional residual metrics ---------------------------------------
     pos_interp = interpolate_series(gnss_time, imu_time, fused_pos[method])
     vel_interp = interpolate_series(gnss_time, imu_time, fused_vel[method])

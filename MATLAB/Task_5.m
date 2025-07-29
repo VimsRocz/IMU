@@ -529,9 +529,9 @@ final_pos_err = norm(x_log(1:3,end) - gnss_pos_ned(end,:)');
 final_vel_err = norm(vel_log(:,end) - gnss_vel_ned(end,:)');
 final_vel = norm(vel_log(:,end));
 final_acc_err = norm(accel_from_vel(:,end) - gnss_accel_ned(end,:)');
-rms_guard = all(abs(x_log(4:6,end)) < 500);
-assert(rms_guard, ...
-    'KF diverged: final velocity > 500 m/s - check F & H matrices');
+final_vel_mag = norm(x_log(4:6,end));
+assert(final_vel_mag < 500, ...
+    sprintf('KF diverged: final velocity %.2f m/s exceeds 500 m/s - check F & H matrices', final_vel_mag));
 rms_resid_pos = sqrt(mean(res_pos.^2,'all'));
 rms_resid_vel = sqrt(mean(res_vel.^2,'all'));
 max_resid_pos = max(vecnorm(res_pos,2,2));
