@@ -29,6 +29,7 @@ from typing import Iterable, List, Dict
 import numpy as np
 import pandas as pd
 from scipy.spatial.transform import Rotation as R
+import scipy.io as sio
 from tabulate import tabulate
 
 from evaluate_filter_results import run_evaluation_npz
@@ -255,6 +256,18 @@ def main(argv: Iterable[str] | None = None) -> None:
             "quat_log": quat,
         }
         save_mat(npz_path.with_suffix(".mat"), mat_out)
+
+        # ------------------------------------------------------------------
+        # Export estimator time vector and sampling interval for MATLAB Task 7
+        # ------------------------------------------------------------------
+        x_log = data.get("x_log")
+        if x_log is not None and time_s is not None:
+            imu_dt = float(np.mean(np.diff(time_s)))
+            t_est = np.arange(x_log.shape[1]) * imu_dt
+            mat_time = {"t_est": t_est, "dt": imu_dt, "x_log": x_log}
+            time_path = results_dir / f"{tag}_task5_time.mat"
+            sio.savemat(str(time_path), mat_time)
+            logger.info("Saved Task 5 time data to %s", time_path)
 
         logger.info(
             "Subtask 6.8.2: Plotted %s position North: First = %.4f, Last = %.4f",
