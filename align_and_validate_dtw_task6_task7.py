@@ -1,6 +1,7 @@
 # Updated script for aligning IMU/GNSS estimate with truth using DTW
 # and generating Task 6/7 plots. Designed for IMU_X001_GNSS_X001_TRIAD
-# filter output.
+# filter output. Estimator and truth logs may have different time bases;
+# ``summarize_timebase`` prints their ranges and effective sample rates.
 
 import argparse
 import os
@@ -44,12 +45,41 @@ def load_estimator_data(path: str):
 
 
 def load_truth_data(path: str):
-    """Return NED position and time from STATE_X001.txt."""
+    """Return position and time from ``STATE_X*.txt`` truth logs.
+
+    The text files start with a sample counter followed by the timestamp and
+    ECEF coordinates.  Earlier versions of this helper mistakenly treated the
+    counter as the time column, leading to misaligned overlays when the first
+    column was used.  We now explicitly skip the counter and extract the time
+    from column 1 and the position from columns 2–4.
+    """
     data = np.loadtxt(path)
-    time = data[:, 0]
-    pos = data[:, 1:4]
+    time = data[:, 1]
+    pos = data[:, 2:5]
     frame = "ned" if np.abs(pos).max() < 1e6 else "ecef"
     return pos, time, frame
+
+
+def summarize_timebase(label: str, time: np.ndarray) -> None:
+    """Print basic timing statistics for a dataset.
+
+    Parameters
+    ----------
+    label : str
+        Identifier for the dataset (e.g. ``"Estimator"``).
+    time : np.ndarray
+        Time vector in seconds.
+    """
+    if time.size < 2:
+        print(f"{label} time vector too short for statistics")
+        return
+    dt = np.diff(time)
+    mean_dt = np.mean(dt)
+    freq = 1.0 / mean_dt if mean_dt > 0 else float('inf')
+    print(
+        f"{label} time start={time[0]:.3f}s end={time[-1]:.3f}s "
+        f"mean_dt={mean_dt:.3f}s ({freq:.2f} Hz)"
+    )
 
 
 def ned_to_ecef(pos_ned: np.ndarray, lat: float, lon: float, r0: np.ndarray) -> np.ndarray:
@@ -210,6 +240,9 @@ def main() -> None:
 
     est_pos, est_vel, est_quat, est_time, ref_lat, ref_lon, ref_r0 = load_estimator_data(args.est_file)
     truth_pos, truth_time, truth_frame = load_truth_data(args.truth_file)
+
+    summarize_timebase("Estimator", est_time)
+    summarize_timebase("Truth", truth_time)
 
     if truth_frame != "ned":
         raise RuntimeError("Truth trajectory must be in NED frame")
