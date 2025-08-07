@@ -3,6 +3,10 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %   Expects Task 1 outputs saved in the results directory for gravity
 %   initialization.
 %
+%   The accelerometer scale factor estimated in Task 4 is applied once to
+%   bias-corrected accelerations.  When no scale factor is supplied or
+%   available, a neutral factor of 1.0 is used.
+%
 %   result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 %   Optional name/value arguments mirror the Python Kalman filter defaults:
 %       'accel_noise'      - process noise for acceleration  [m/s^2] (0.1)
@@ -12,6 +16,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %       'vel_meas_noise'   - GNSS velocity measurement noise [m/s]   (1.0)
 %       'accel_bias_noise' - accelerometer bias random walk  [m/s^2] (1e-5)
 %       'gyro_bias_noise'  - gyroscope bias random walk      [rad/s] (1e-5)
+%       'scale_factor'     - accelerometer scale factor      [-]     (1.0)
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
@@ -31,14 +36,16 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     addParameter(p, 'vel_meas_noise', 1.0);    % [m/s]
     addParameter(p, 'accel_bias_noise', 1e-5); % [m/s^2]
     addParameter(p, 'gyro_bias_noise', 1e-5);  % [rad/s]
+    addParameter(p, 'scale_factor', []);       % [-]
     parse(p, varargin{:});
-    accel_noise    = p.Results.accel_noise;
-    vel_proc_noise = p.Results.vel_proc_noise;
-    pos_proc_noise = p.Results.pos_proc_noise;
-    pos_meas_noise = p.Results.pos_meas_noise;
-    vel_meas_noise = p.Results.vel_meas_noise;
+    accel_noise     = p.Results.accel_noise;
+    vel_proc_noise  = p.Results.vel_proc_noise;
+    pos_proc_noise  = p.Results.pos_proc_noise;
+    pos_meas_noise  = p.Results.pos_meas_noise;
+    vel_meas_noise  = p.Results.vel_meas_noise;
     accel_bias_noise = p.Results.accel_bias_noise;
     gyro_bias_noise  = p.Results.gyro_bias_noise;
+    scale_factor    = p.Results.scale_factor;
 
     % Store all outputs under the repository "results" directory
     here = fileparts(mfilename('fullpath'));
@@ -149,22 +156,21 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     % running the tasks sequentially.  Otherwise load it from the saved
     % MAT-file.  If neither source is available, fall back to a neutral
     % scale factor of 1.0 so processing can continue.
-    scale_factor = 1.0;                     % Default when no prior value found
-    task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-    if evalin('base','exist(''task4_results'',''var'')')
-        t4 = evalin('base','task4_results');
-        if isfield(t4,'scale_factors') && isfield(t4.scale_factors, method)
-            scale_factor = t4.scale_factors.(method);
-        end
-    elseif isfile(task4_file)
-        d4 = load(task4_file, 'scale_factors');
-        if isfield(d4, 'scale_factors') && isfield(d4.scale_factors, method)
-            scale_factor = d4.scale_factors.(method);
+    if isempty(scale_factor)
+        scale_factor = 1.0; % Neutral default
+        task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
+        if evalin('base','exist(''task4_results'',''var'')')
+            t4 = evalin('base','task4_results');
+            if isfield(t4,'scale_factors') && isfield(t4.scale_factors, method)
+                scale_factor = t4.scale_factors.(method);
+            end
+        elseif isfile(task4_file)
+            d4 = load(task4_file, 'scale_factors');
+            if isfield(d4, 'scale_factors') && isfield(d4.scale_factors, method)
+                scale_factor = d4.scale_factors.(method);
+            end
         end
     end
-    % Override erroneous scale factors with neutral scaling for MATLAB parity
-    % with the Python implementation.
-    scale_factor = 1.0;
     % Biases are provided by Task 2. Do not override them with
     % dataset-specific constants so that both MATLAB and Python remain
     % consistent.
@@ -173,7 +179,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 
     % Apply bias correction to IMU data
     gyro_body_raw = gyro_body_raw - gyro_bias';
-    acc_body_raw  = (acc_body_raw  - accel_bias') / scale_factor;
+    acc_body_raw  = scale_factor * (acc_body_raw - accel_bias');
 
 
 

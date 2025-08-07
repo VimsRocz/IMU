@@ -4,6 +4,10 @@ This script mirrors the MATLAB ``GNSS_IMU_Fusion.m`` workflow and provides
 the same command-line interface.  It performs attitude initialisation and
 extended Kalman filtering given IMU and GNSS logs.
 
+The accelerometer scale factor estimated in Task 4 is applied once when
+correcting raw accelerometer measurements.  If no prior estimate exists a
+neutral factor of ``1.0`` is used.
+
 Usage
 -----
 python src/GNSS_IMU_Fusion.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
