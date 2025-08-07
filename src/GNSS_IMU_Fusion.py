@@ -1355,6 +1355,8 @@ def main():
         gyro_win = []
         zupt_count = 0
         zupt_events = []
+        vel_blow_count = 0
+        vel_blow_logged = False
         P_hist = [kf.P.copy()]
 
         # attitude initialisation for logging
@@ -1384,6 +1386,16 @@ def main():
             kf.F[0:3, 3:6] = np.eye(3) * dt
             kf.F[3:6, 6:9] = np.eye(3) * dt
             kf.predict()
+
+            if np.linalg.norm(kf.x[3:6]) > 500:
+                vel_blow_count += 1
+                if not vel_blow_logged:
+                    logging.warning(
+                        "Velocity blew up (%.1f m/s); zeroing Δv and continuing.",
+                        np.linalg.norm(kf.x[3:6]),
+                    )
+                    vel_blow_logged = True
+                kf.x[3:6] = 0.0
 
             # ---------- save attitude BEFORE measurement update ----------
             attitude_q.append(q_cur)
@@ -1438,7 +1450,12 @@ def main():
             P_hist.append(kf.P.copy())
             x_log[:, i] = kf.x
 
-        logging.info(f"Method {m}: Kalman Filter completed. ZUPTcnt={zupt_count}")
+        logging.info(
+            f"Method {m}: Kalman Filter completed. ZUPTcnt={zupt_count}"
+        )
+        logging.info(
+            f"Method {m}: velocity blow-up events={vel_blow_count}"
+        )
         with open("triad_init_log.txt", "a") as logf:
             for s, e in zupt_events:
                 logf.write(f"{imu_file}: ZUPT {s}-{e}\n")
