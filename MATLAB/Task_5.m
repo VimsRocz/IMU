@@ -344,6 +344,12 @@ task5_gnss_interp_ned_plot(gnss_time, gnss_pos_ned, gnss_vel_ned, imu_time, ...
 % --- Main Filter Loop ---
 fprintf('-> Starting filter loop over %d IMU samples...\n', num_imu_samples);
 for i = 1:num_imu_samples
+    % Interpolate GNSS to the current IMU timestamp so the measurement
+    % aligns with the state about to be propagated.  This mirrors the
+    % Python helper ``interpolate_series`` used in GNSS_IMU_Fusion.py.
+    gnss_pos_i = gnss_pos_interp(i,:)';
+    gnss_vel_i = gnss_vel_interp(i,:)';
+
     if mod(i, 1e5) == 0
         fprintf('[DBG-KF] k=%d   posN=%.1f  velN=%.2f  accN=%.2f\n', ...
             i, x(1), x(4), a_ned(1));
@@ -358,6 +364,8 @@ for i = 1:num_imu_samples
     corrected_accel = acc_body_raw(i,:)' - x(10:12);
     current_omega_ie_b = C_B_N' * omega_ie_NED;
     w_b = corrected_gyro - current_omega_ie_b;
+    % Quaternion propagation mirrors ``quat_from_rate`` in the Python
+    % pipeline and keeps the attitude normalised for numerical stability.
     q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
     C_B_N = quat_to_rot(q_b_n);
     % The accelerometer measures specific force which already includes
@@ -371,6 +379,8 @@ for i = 1:num_imu_samples
             i, x(1), x(4), a_ned(1));
     end
     if i > 1
+        % Trapezoidal integration mirrors the Python fusion pipeline and
+        % improves numerical stability over simple Euler steps.
         vel_new = prev_vel + 0.5 * (a_ned + prev_a_ned) * dt_imu;
         pos_new = x(1:3) + 0.5 * (vel_new + prev_vel) * dt_imu;
     else
@@ -380,6 +390,17 @@ for i = 1:num_imu_samples
     x(4:6) = vel_new;
     x(1:3) = pos_new;
     x(7:9) = quat_to_euler(q_b_n);
+    acc_log(:,i) = a_ned;
+
+    % --- 3. Measurement Update (Correction) ---
+    z = [gnss_pos_i; gnss_vel_i];
+    y = z - H * x;
+    S = H * P * H' + R;
+    K = (P * H') / S;
+    x = x + K * y;
+    P = (eye(15) - K * H) * P;
+
+    % --- 4. Velocity magnitude check ---
     if norm(x(4:6)) > 500
         vel_blow_count = vel_blow_count + 1;
         if vel_blow_count == 1 || ...
@@ -389,19 +410,12 @@ for i = 1:num_imu_samples
         end
         x(4:6) = 0;
     end
-    acc_log(:,i) = a_ned;
-    % --- 3. Measurement Update (Correction) ---
-    z = [gnss_pos_interp(i,:)'; gnss_vel_interp(i,:)'];
-    y = z - H * x;
-    S = H * P * H' + R;
-    K = (P * H') / S;
-    x = x + K * y;
-    P = (eye(15) - K * H) * P;
 
     % update integrator history after correction
     prev_vel = x(4:6);
     prev_a_ned = a_ned;
-    % --- 4. Zero-Velocity Update (ZUPT) ---
+
+    % --- 5. Zero-Velocity Update (ZUPT) ---
     win_size = 80;
 
     if i >= static_start && i < static_end  % static_end is exclusive
