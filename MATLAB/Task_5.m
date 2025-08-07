@@ -290,11 +290,13 @@ x_log = zeros(15, num_steps);
 fprintf('Task 5: x_log initialized with size %dx%d\n', size(x_log));
 euler_log = zeros(3, num_steps);
 zupt_log = zeros(1, num_steps);
+zupt_vel_norm = nan(1, num_steps); % velocity norm after each ZUPT
 acc_log = zeros(3, num_steps); % Acceleration from propagated IMU data
 num_imu_samples = num_steps;
 zupt_count = 0;
-vel_blow_count = 0;               % track number of velocity blow-ups
-vel_blow_warn_interval = 0;       % set >0 to re-warn every N events
+zupt_fail_count = 0;            % count ZUPT events not clamped to zero
+vel_blow_count = 0;             % track number of velocity blow-ups
+vel_blow_warn_interval = 0;     % set >0 to re-warn every N events
 fprintf('-> 15-State filter initialized.\n');
 fprintf('Subtask 5.4: Integrating IMU data for each method.\n');
 
@@ -370,7 +372,7 @@ for i = 1:num_imu_samples
     % --- 4. Zero-Velocity Update (ZUPT) ---
     win_size = 80;
 
-    if i >= static_start && i <= static_end
+    if i >= static_start && i < static_end  % static_end is exclusive
         zupt_count = zupt_count + 1;
         zupt_log(i) = 1;
         H_z = [zeros(3,3), eye(3), zeros(3,9)];
@@ -380,6 +382,10 @@ for i = 1:num_imu_samples
         K_z = (P * H_z') / S_z;
         x = x + K_z * y_z;
         P = (eye(15) - K_z * H_z) * P;
+        zupt_vel_norm(i) = norm(x(4:6));
+        if zupt_vel_norm(i) > 1e-6
+            zupt_fail_count = zupt_fail_count + 1;
+        end
         x(4:6) = 0;
     elseif i > win_size
         acc_win = acc_body_raw(i-win_size+1:i, :);
@@ -394,6 +400,10 @@ for i = 1:num_imu_samples
             K_z = (P * H_z') / S_z;
             x = x + K_z * y_z;
             P = (eye(15) - K_z * H_z) * P;
+            zupt_vel_norm(i) = norm(x(4:6));
+            if zupt_vel_norm(i) > 1e-6
+                zupt_fail_count = zupt_fail_count + 1;
+            end
             x(4:6) = 0;
         end
     end
@@ -408,6 +418,7 @@ end
 fprintf('Method %s: IMU data integrated.\n', method);
 fprintf('Method %s: Kalman Filter completed. ZUPTcnt=%d\n', method, zupt_count);
 fprintf('Method %s: velocity blow-up events=%d\n', method, vel_blow_count);
+fprintf('Method %s: ZUPT clamp failures=%d\n', method, zupt_fail_count);
 
 %% ========================================================================
 % Subtask 5.7: Handle Event at 5000s
@@ -500,6 +511,19 @@ xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
 % set(gcf,'PaperPositionMode','auto');
 % print(gcf, att_file, '-dpdf', '-bestfit');
 % fprintf('Saved plot: %s\n', att_file);
+
+% --- Plot 5: Velocity Magnitude After ZUPTs ---
+zupt_indices = find(zupt_log);
+if ~isempty(zupt_indices)
+    fig_zupt = figure('Name', 'Post-ZUPT Velocity', 'Position', [300 300 800 400]);
+    plot(imu_time(zupt_indices), zupt_vel_norm(zupt_indices), 'bo-');
+    grid on; box on;
+    xlabel('Time (s)'); ylabel('|v| after ZUPT [m/s]');
+    title('Velocity magnitude following each ZUPT');
+    legend('|v|');
+    save_plot(fig_zupt, imu_name, gnss_name, [method '_ZUPT'], 5);
+end
+
 plot_task5_mixed_frame(imu_time, x_log(1:3,:), x_log(4:6,:), ...
     acc_log, euler_log, C_ECEF_to_NED, ref_r0, g_NED, tag, method, results_dir, all_file);
 fprintf('Fused mixed frames plot saved\n');
@@ -626,7 +650,7 @@ ref_lon = deg2rad(lon_deg); %#ok<NASGU>
 results_file = fullfile(results_dir, sprintf('%s_task5_results.mat', tag));
 save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
     'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
-    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', ...
+    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', 'zupt_vel_norm', ...
     'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
     'states');
 % Provide compatibility with the Python pipeline and downstream tasks
@@ -649,8 +673,8 @@ end
     method_struct = struct('gnss_pos_ned', gnss_pos_ned, 'gnss_vel_ned', gnss_vel_ned, ...
         'gnss_accel_ned', gnss_accel_ned, 'gnss_pos_ecef', gnss_pos_ecef, ...
         'gnss_vel_ecef', gnss_vel_ecef, 'gnss_accel_ecef', gnss_accel_ecef, ...
-        'x_log', x_log, 'vel_log', vel_log, 'accel_from_vel', accel_from_vel, ...
-        'euler_log', euler_log, 'zupt_log', zupt_log, 'time', time, ...
+    'x_log', x_log, 'vel_log', vel_log, 'accel_from_vel', accel_from_vel, ...
+    'euler_log', euler_log, 'zupt_log', zupt_log, 'zupt_vel_norm', zupt_vel_norm, 'time', time, ...
         'gnss_time', gnss_time, 'pos_ned', pos_ned, 'vel_ned', vel_ned, ...
         'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0);
     % ``method`` already stores the algorithm name (e.g. 'TRIAD'). Use it
