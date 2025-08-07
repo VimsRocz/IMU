@@ -1,74 +1,80 @@
 function Task_7()
 %TASK_7 Plot ECEF residuals between truth and fused estimate.
 %   TASK_7() loads the fused state history ``x_log`` produced by Task 5 and
-%   the ground truth trajectory from Task 4.  Earlier versions of the
+%   the ground truth trajectory from Task 4. Earlier versions of the
 %   pipeline saved an estimator state matrix without the corresponding time
-%   vector and the Task 4 MAT file omitted ``t_truth``.  This function
+%   vector and the Task 4 MAT file omitted ``t_truth``. This function
 %   reconstructs both time vectors, creates a common sampling grid and then
 %   interpolates the estimator and truth trajectories prior to computing
-%   residuals.  All outputs are written to the ``results`` directory.
+%   residuals. All outputs are written to the ``results`` directory.
+%
+%   Usage:
+%       Task_7()
 
     fprintf('--- Starting Task 7: Residual Analysis with Task4 truth (ECEF) ---\n');
 
     %% Load state history from Task 5
     results_dir = get_results_dir();
-    run_id = 'IMU_X002_GNSS_X002_TRIAD';
-    res_file = fullfile(results_dir, sprintf('%s_task5_results.mat', run_id));
-    S5 = load(res_file);
+    files = dir(fullfile(results_dir, '*_task5_results.mat'));
+    if isempty(files)
+        error('Task_7: no Task 5 results found.');
+    end
+    [~, fname, ~] = fileparts(files(1).name);
+    run_id = erase(fname, '_task5_results');
+    mat5 = fullfile(results_dir, files(1).name);
+    S5 = load(mat5);
     x_log = S5.x_log; % 15xN state log
-    % Reconstruct estimator time vector if absent
-    if isfield(S5, 'dt')
-        dt_est = S5.dt;
-    elseif isfield(S5, 't_est')
-        dt_est = median(diff(S5.t_est));
+    if isfield(S5, 't_est') && isfield(S5, 'dt')
+        t_est = S5.t_est(:);
+        dt    = S5.dt;
+    elseif isfield(S5, 'x_log') && isfield(S5, 'imu_rate_hz')
+        N      = size(S5.x_log, 2);
+        dt     = 1 / S5.imu_rate_hz;
+        t_est  = (0:N-1)' * dt;
     else
         error('Task_7: estimator time vector missing and dt not provided.');
     end
-    N = size(x_log, 2);
-    t_est = (0:N-1)' * dt_est;
     ref_lat = S5.ref_lat;
     ref_lon = S5.ref_lon;
     ref_r0  = S5.ref_r0;
-    fprintf('Task 7: Loaded x_log from %s, size: %dx%d\n', res_file, size(x_log));
+    fprintf('Task 7: Loaded x_log from %s, size: %dx%d\n', mat5, size(x_log));
 
     %% Load ground truth
     % Task 4 may not save the truth time vector. Reconstruct it from the
     % GNSS CSV if needed.
-    pair_tag = regexp(run_id, '(IMU_[^_]+_GNSS_[^_]+)', 'match', 'once');
-    truth_mat = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-    if exist(truth_mat, 'file')
-        S4 = load(truth_mat);
+    data_dir = fileparts(fileparts(results_dir));
+    mat4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', run_id));
+    if ~isfile(mat4)
+        pair_tag = regexp(run_id, 'IMU_[^_]+_GNSS_[^_]+', 'match', 'once');
+        mat4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
+    end
+    if isfile(mat4)
+        S4 = load(mat4);
     else
         error('Task_7: missing Task4 results to get truth data.');
     end
 
-    if isfield(S4, 'truth_pos_ecef')
-        truth_pos_ecef = S4.truth_pos_ecef';
-    elseif isfield(S4, 'pos_truth')
-        truth_pos_ecef = S4.pos_truth';
+    if isfield(S4, 'pos_truth')
+        pos_truth_ecef = S4.pos_truth';
+    elseif isfield(S4, 'truth_pos_ecef')
+        pos_truth_ecef = S4.truth_pos_ecef';
     else
-        error('Task_7: truth positions missing in %s.', truth_mat);
+        error('Task_7: truth positions missing in %s.', mat4);
     end
     if isfield(S4, 'truth_vel_ecef')
-        truth_vel_ecef = S4.truth_vel_ecef';
+        vel_truth_ecef = S4.truth_vel_ecef';
     else
-        truth_vel_ecef = [];
+        vel_truth_ecef = [];
     end
 
     if isfield(S4, 't_truth')
         t_truth = S4.t_truth(:);
-    elseif isfield(S4, 'truth_time')
-        t_truth = S4.truth_time(:);
     else
-        root_dir = fileparts(fileparts(results_dir));
-        gnss_tag = regexp(run_id, '(GNSS_[^_]+)', 'match', 'once');
-        csv_file = fullfile(root_dir, sprintf('%s.csv', gnss_tag));
-        T = readtable(csv_file);
-        t_truth = T.Posix_Time - T.Posix_Time(1); % seconds
+        tokens = regexp(run_id, 'GNSS_(\w+)', 'tokens', 'once');
+        csv = fullfile(data_dir, sprintf('GNSS_%s.csv', tokens{1}));
+        T = readtable(csv);
+        t_truth = T.Posix_Time - T.Posix_Time(1);
     end
-
-    pos_truth_ecef = truth_pos_ecef;
-    vel_truth_ecef = truth_vel_ecef;
 
     %% Convert estimates from NED to ECEF
     C_n_e = compute_C_ECEF_to_NED(ref_lat, ref_lon)';
@@ -148,7 +154,7 @@ function Task_7()
         grid on;
     end
     sgtitle('Truth - Estimate Errors (ECEF)');
-    out_pdf = fullfile(results_dir, 'IMU_X002_GNSS_X002_TRIAD_task7_3_residuals_position_velocity_ecef.pdf');
+    out_pdf = fullfile(results_dir, sprintf('%s_task7_3_residuals_position_velocity_ecef.pdf', run_id));
     saveas(fig, out_pdf);
     fprintf('Task 7: Saved error plot: %s\n', out_pdf);
 
@@ -167,7 +173,7 @@ function Task_7()
     end
 
     %% Save results
-    results_out = fullfile(results_dir, 'IMU_X002_GNSS_X002_TRIAD_task7_results.mat');
+    results_out = fullfile(results_dir, sprintf('%s_task7_results.mat', run_id));
     save(results_out, 'pos_error', 'vel_error', 'pos_est_i', 'vel_est_i', 't_grid');
     fprintf('Task 7: Results saved to %s\n', results_out);
     fprintf('[SUMMARY] method=KF rmse_pos=%.2f m final_pos=%.2f m ', ...
