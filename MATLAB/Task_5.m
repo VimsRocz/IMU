@@ -97,10 +97,18 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     C_ECEF_to_NED = compute_C_ECEF_to_NED(deg2rad(lat_deg), deg2rad(lon_deg));
     omega_E = constants.EARTH_RATE;
     omega_ie_NED = omega_E * [cosd(lat_deg); 0; -sind(lat_deg)];
-    if nargin < 4 || isempty(gnss_pos_ned)
-        gnss_pos_ned = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
-    end
+    % Convert GNSS measurements from ECEF to NED to guarantee a common frame
+    gnss_pos_ned_calc = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
     gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
+    if nargin >= 4 && ~isempty(gnss_pos_ned)
+        diff_pos = max(abs(gnss_pos_ned(:) - gnss_pos_ned_calc(:)));
+        if diff_pos > 1e-3
+            warning('Provided gnss\_pos\_ned differs from computed NED positions (max %.3f m); using computed values.', diff_pos);
+            gnss_pos_ned = gnss_pos_ned_calc;
+        end
+    else
+        gnss_pos_ned = gnss_pos_ned_calc;
+    end
     dt_gnss = diff(gnss_time);
     gnss_accel_ned  = [zeros(1,3); diff(gnss_vel_ned) ./ dt_gnss];
     gnss_accel_ecef = [zeros(1,3); diff(gnss_vel_ecef) ./ dt_gnss];
@@ -304,8 +312,20 @@ fprintf('Subtask 5.4: Integrating IMU data for each method.\n');
 fprintf('\nSubtask 5.6: Running Kalman Filter for sensor fusion for each method.\n');
 
 % Interpolate GNSS measurements to IMU timestamps
-gnss_pos_interp = interp1(gnss_time, gnss_pos_ned, imu_time, 'linear', 'extrap');
-gnss_vel_interp = interp1(gnss_time, gnss_vel_ned, imu_time, 'linear', 'extrap');
+gnss_pos_interp = zeros(num_imu_samples,3);
+gnss_vel_interp = zeros(num_imu_samples,3);
+for k = 1:3
+    gnss_pos_interp(:,k) = interp1(gnss_time, gnss_pos_ned(:,k), imu_time, 'linear', 'extrap');
+    gnss_vel_interp(:,k) = interp1(gnss_time, gnss_vel_ned(:,k), imu_time, 'linear', 'extrap');
+    % Clamp out-of-bounds values to nearest GNSS sample to mirror np.interp
+    gnss_pos_interp(imu_time < gnss_time(1),k) = gnss_pos_ned(1,k);
+    gnss_pos_interp(imu_time > gnss_time(end),k) = gnss_pos_ned(end,k);
+    gnss_vel_interp(imu_time < gnss_time(1),k) = gnss_vel_ned(1,k);
+    gnss_vel_interp(imu_time > gnss_time(end),k) = gnss_vel_ned(end,k);
+end
+% Compare raw and interpolated GNSS data
+task5_gnss_interp_ned_plot(gnss_time, gnss_pos_ned, gnss_vel_ned, imu_time, ...
+    gnss_pos_interp, gnss_vel_interp, tag, results_dir);
 
 % --- Main Filter Loop ---
 fprintf('-> Starting filter loop over %d IMU samples...\n', num_imu_samples);
