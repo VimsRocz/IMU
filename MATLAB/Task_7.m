@@ -44,6 +44,8 @@ function Task_7()
         truth_pos_ecef = d.truth_pos_ecef';
         truth_vel_ecef = d.truth_vel_ecef';
         t_truth = (0:size(truth_pos_ecef,2)-1)';
+        pos_truth_ecef = truth_pos_ecef;
+        vel_truth_ecef = truth_vel_ecef;
         fprintf('Task 7: Loaded truth ECEF from %s\n', truth_file);
     else
         fprintf('Task 7: truth_pos_ecef not found in %s. Using STATE_X001.txt\n', truth_file);
@@ -53,12 +55,9 @@ function Task_7()
         t_truth = raw(:,2); % time column in seconds
         truth_pos_ecef = raw(:,3:5)';
         truth_vel_ecef = raw(:,6:8)';
+        pos_truth_ecef = truth_pos_ecef;
+        vel_truth_ecef = truth_vel_ecef;
     end
-
-    %% Extract truth position and velocity
-    t_truth = truth_data(:,2);
-    pos_truth_ecef = truth_data(:,3:5)';
-    vel_truth_ecef = truth_data(:,6:8)';
 
     %% Convert estimates from NED to ECEF
     C_n_e = compute_C_ECEF_to_NED(ref_lat, ref_lon)';
@@ -78,7 +77,7 @@ function Task_7()
     pos_error = pos_truth_ecef - pos_est_i;
     vel_error = vel_truth_ecef - vel_est_i;
     pos_residual = pos_est_i - pos_truth_ecef;
-    assert(max(abs(pos_residual), [], 'all') < 100, ...
+    assert(max(abs(pos_residual(:))) < 100, ...
         'Task-7: Position residual blew up - transform error?');
 
     final_pos = norm(pos_error(:,end));
@@ -119,7 +118,11 @@ function Task_7()
         xlabel('Time [s]');
         grid on;
     end
-    sgtitle('Truth - Estimate Errors (ECEF)');
+    try
+        sgtitle('Truth - Estimate Errors (ECEF)');
+    catch
+        % sgtitle may be unavailable in some Octave configurations
+    end
     out_pdf = fullfile(results_dir, 'IMU_X002_GNSS_X002_TRIAD_task7_3_residuals_position_velocity_ecef.pdf');
     saveas(fig, out_pdf);
     fprintf('Task 7: Saved error plot: %s\n', out_pdf);
