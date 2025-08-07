@@ -15,6 +15,9 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 % Usage:
 %   Task_6(task5_file, imu_path, gnss_path, truth_file)
 
+% add utils folder to path
+addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))),'src','utils'));
+
 if nargin < 4
     error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');
 end

@@ -20,6 +20,8 @@ else
     script_dir = fileparts(mfilename('fullpath'));
 end
 addpath(script_dir);
+% add utils folder to path
+addpath(fullfile(fileparts(script_dir),'src','utils'));
 
 imu_file  = 'IMU_X002.dat';
 gnss_file = 'GNSS_X002.csv';

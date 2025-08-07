@@ -14,6 +14,9 @@ function result = Task_4(imu_path, gnss_path, method)
 % Usage:
 %   Task_4(imu_path, gnss_path, method)
 
+% add utils folder to path
+addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))),'src','utils'));
+
 if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');
 end
