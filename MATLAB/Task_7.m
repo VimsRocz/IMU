@@ -69,16 +69,30 @@ function Task_7()
     pos_est_ecef = C_n_e * pos_est_ned + ref_r0;
     vel_est_ecef = C_n_e * vel_est_ned;
 
+    %% Validate time vectors and compute common window
+    if isempty(t_est) || isempty(t_truth)
+        error('Task_7: time vectors empty—cannot compute residuals.');
+    end
+    t_start = max(min(t_est), min(t_truth));
+    t_end   = min(max(t_est), max(t_truth));
+    if t_end <= t_start
+        error('Task_7: no overlap between estimated and truth time-series.');
+    end
+
+    %% Determine interpolation resolution using finer sample interval
+    dt_est   = median(diff(t_est));
+    dt_truth = median(diff(t_truth));
+    dt_r = min(dt_est, dt_truth);
+
     %% Synchronise time using position/velocity cross-correlation
-    dt_r = max(mean(diff(t_est)), mean(diff(t_truth)));
-    t_grid = (min([t_est(1), t_truth(1)]):dt_r:max([t_est(end), t_truth(end)]))';
-    pos_est_rs = interp1(t_est, pos_est_ecef', t_grid, 'linear', 'extrap');
-    pos_truth_rs = interp1(t_truth, truth_pos_ecef', t_grid, 'linear', 'extrap');
-    vel_est_rs = interp1(t_est, vel_est_ecef', t_grid, 'linear', 'extrap');
-    vel_truth_rs = interp1(t_truth, truth_vel_ecef', t_grid, 'linear', 'extrap');
-    pos_norm_est = vecnorm(pos_est_rs, 2, 2);
+    t_grid = (t_start:dt_r:t_end)';
+    pos_est_rs   = interp1(t_est,   pos_est_ecef',   t_grid, 'linear');
+    pos_truth_rs = interp1(t_truth, truth_pos_ecef', t_grid, 'linear');
+    vel_est_rs   = interp1(t_est,   vel_est_ecef',   t_grid, 'linear');
+    vel_truth_rs = interp1(t_truth, truth_vel_ecef', t_grid, 'linear');
+    pos_norm_est   = vecnorm(pos_est_rs, 2, 2);
     pos_norm_truth = vecnorm(pos_truth_rs, 2, 2);
-    vel_norm_est = vecnorm(vel_est_rs, 2, 2);
+    vel_norm_est   = vecnorm(vel_est_rs, 2, 2);
     vel_norm_truth = vecnorm(vel_truth_rs, 2, 2);
     [xc_pos, lags_pos] = xcorr(pos_norm_est - mean(pos_norm_est), pos_norm_truth - mean(pos_norm_truth));
     [~, idx_pos] = max(xc_pos);
@@ -90,8 +104,14 @@ function Task_7()
     fprintf('Task 7: Applied time offset %.3f s via pos/vel alignment\n', mean([offset_pos, offset_vel]));
 
     %% Interpolate estimator output to aligned truth timestamps
-    pos_est_i = interp1(t_est, pos_est_ecef', t_truth, 'linear', 'extrap')';
-    vel_est_i = interp1(t_est, vel_est_ecef', t_truth, 'linear', 'extrap')';
+    t_start = max(min(t_est), min(t_truth));
+    t_end   = min(max(t_est), max(t_truth));
+    mask = (t_truth >= t_start) & (t_truth <= t_end);
+    t_truth = t_truth(mask);
+    truth_pos_ecef = truth_pos_ecef(:, mask);
+    truth_vel_ecef = truth_vel_ecef(:, mask);
+    pos_est_i = interp1(t_est, pos_est_ecef', t_truth, 'linear')';
+    vel_est_i = interp1(t_est, vel_est_ecef', t_truth, 'linear')';
     fprintf('Task 7: Interpolated estimates to %d truth samples\n', numel(t_truth));
 
     %% Compute errors (truth - estimate)
