@@ -350,6 +350,28 @@ fprintf('-> IMU-derived position, velocity, and acceleration computed for all me
 
 
 %% ========================================================================
+% Subtask 4.12b: Load truth ECEF trajectory if available
+% =========================================================================
+state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
+truth_pos_ecef = [];
+truth_vel_ecef = [];
+truth_time = [];
+if isfile(state_file)
+    try
+        truth_data = read_state_file(state_file);
+        truth_time = truth_data(:,2);
+        truth_pos_ecef = truth_data(:,3:5);
+        truth_vel_ecef = truth_data(:,6:8);
+        fprintf('Loaded truth ECEF trajectory from %s\n', state_file);
+    catch ME
+        warning('Failed to load truth state file: %s', ME.message);
+    end
+else
+    fprintf('Truth state file not found: %s\n', state_file);
+end
+
+
+%% ========================================================================
 % Subtask 4.13: Validate and Plot Data
 % =========================================================================
 fprintf('\nSubtask 4.13: Validating and plotting data.\n');
@@ -367,21 +389,27 @@ fprintf('-> All data plots saved for all methods.\n');
 % Save GNSS positions for use by Task 5
 task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
 if isfile(task4_file)
-    save(task4_file, 'gnss_pos_ned', 'acc_biases', 'gyro_biases', 'scale_factors', '-append');
+    save(task4_file, 'gnss_pos_ned', 'acc_biases', 'gyro_biases', 'scale_factors', ...
+        'truth_pos_ecef', 'truth_vel_ecef', 'truth_time', '-append');
 else
-    save(task4_file, 'gnss_pos_ned', 'acc_biases', 'gyro_biases', 'scale_factors');
+    save(task4_file, 'gnss_pos_ned', 'acc_biases', 'gyro_biases', 'scale_factors', ...
+        'truth_pos_ecef', 'truth_vel_ecef', 'truth_time');
 end
 fprintf('GNSS NED positions saved to %s\n', task4_file);
 
 % Save method-specific results using helper
 result_struct = struct('gnss_pos_ned', gnss_pos_ned, 'acc_biases', acc_biases, ...
-                'gyro_biases', gyro_biases, 'scale_factors', scale_factors);
+                'gyro_biases', gyro_biases, 'scale_factors', scale_factors, ...
+                'truth_pos_ecef', truth_pos_ecef, 'truth_vel_ecef', truth_vel_ecef, ...
+                'truth_time', truth_time);
 save_task_results(result_struct, imu_name, gnss_name, method_tag, 4);
 % Task 5 loads these positions when initialising the Kalman filter
 
 % Return results structure and store in base workspace
 result = struct('gnss_pos_ned', gnss_pos_ned, 'acc_biases', acc_biases, ...
-                'gyro_biases', gyro_biases, 'scale_factors', scale_factors);
+                'gyro_biases', gyro_biases, 'scale_factors', scale_factors, ...
+                'truth_pos_ecef', truth_pos_ecef, 'truth_vel_ecef', truth_vel_ecef, ...
+                'truth_time', truth_time);
 assignin('base', 'task4_results', result);
 
 end % End of main function: run_task4
