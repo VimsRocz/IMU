@@ -748,9 +748,16 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
 
     if t_truth is not None and pos_truth_ecef is not None:
         dt_r = max(np.mean(np.diff(t_est)), np.mean(np.diff(t_truth)))
-        t_grid = np.arange(
-            min(t_est[0], t_truth[0]), max(t_est[-1], t_truth[-1]) + dt_r, dt_r
-        )
+        if not np.isfinite(dt_r) or dt_r <= 0:
+            dt_r = max(t_est[-1] - t_est[0], t_truth[-1] - t_truth[0]) / max(
+                len(t_est), len(t_truth), 1
+            )
+        t_start = min(t_est[0], t_truth[0])
+        t_end = max(t_est[-1], t_truth[-1])
+        max_steps = 1e6
+        if (t_end - t_start) / dt_r > max_steps:
+            dt_r = (t_end - t_start) / max_steps
+        t_grid = np.arange(t_start, t_end + dt_r, dt_r)
         pos_est_rs = np.vstack(
             [np.interp(t_grid, t_est, fused_ecef[0][:, i]) for i in range(3)]
         ).T
