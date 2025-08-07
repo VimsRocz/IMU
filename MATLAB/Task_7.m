@@ -27,12 +27,27 @@ function Task_7()
     if isfield(S5, 't_est') && isfield(S5, 'dt')
         t_est = S5.t_est(:);
         dt    = S5.dt;
-    elseif isfield(S5, 'x_log') && isfield(S5, 'imu_rate_hz')
-        N      = size(S5.x_log, 2);
-        dt     = 1 / S5.imu_rate_hz;
-        t_est  = (0:N-1)' * dt;
     else
-        error('Task_7: estimator time vector missing and dt not provided.');
+        time_file = fullfile(results_dir, sprintf('%s_task5_time.mat', run_id));
+        if isfile(time_file)
+            Stime = load(time_file, 't_est', 'dt', 'x_log');
+            if isfield(Stime, 't_est') && isfield(Stime, 'dt')
+                t_est = Stime.t_est(:);
+                dt    = Stime.dt;
+                if ~exist('x_log', 'var') || isempty(x_log)
+                    if isfield(Stime, 'x_log'); x_log = Stime.x_log; end
+                end
+            end
+        end
+        if ~(exist('t_est','var') && exist('dt','var'))
+            if isfield(S5, 'x_log') && isfield(S5, 'imu_rate_hz')
+                N     = size(S5.x_log, 2);
+                dt    = 1 / S5.imu_rate_hz;
+                t_est = (0:N-1)' * dt;
+            else
+                error('Task_7: estimator time vector missing and dt not provided.');
+            end
+        end
     end
     ref_lat = S5.ref_lat;
     ref_lon = S5.ref_lon;
