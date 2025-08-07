@@ -139,13 +139,19 @@ def main():
         "--vel-q-scale",
         type=float,
         default=10.0,
-        help="Scale factor applied to Q[3:6,3:6] for velocity process noise",
+        help=(
+            "Scale applied to velocity process noise block Q[3:6,3:6] "
+            "(base 0.01 m^2/s^2)"
+        ),
     )
     parser.add_argument(
         "--vel-r",
         type=float,
         default=0.25,
-        help="Diagonal value for R[3:6,3:6] velocity measurement noise",
+        help=(
+            "Diagonal variance for GNSS velocity measurements R[3:6,3:6] "
+            "[m^2/s^2]"
+        ),
     )
     parser.add_argument(
         "--zupt-acc-var",
@@ -1338,8 +1344,8 @@ def main():
         kf.F = np.eye(13)
         kf.H = np.hstack((np.eye(6), np.zeros((6, 7))))
         kf.P *= 1.0
-        kf.R = np.eye(6) * 0.1
-        kf.Q = np.eye(13) * 0.01
+        kf.R = np.eye(6) * 0.1  # position/velocity measurement variance [m^2/s^2]
+        kf.Q = np.eye(13) * 0.01  # process noise base [m^2/s^2]
         kf.Q[3:6, 3:6] *= args.vel_q_scale
         kf.R[3:6, 3:6] = np.eye(3) * args.vel_r
         logging.info(f"Adjusted Q[3:6,3:6]: {kf.Q[3:6,3:6]}")
