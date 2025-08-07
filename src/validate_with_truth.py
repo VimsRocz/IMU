@@ -519,6 +519,9 @@ def load_estimate(path, times=None):
             else data.get("ref_r0_m")
             if data.get("ref_r0_m") is not None
             else data.get("r0"),
+            "truth_pos_ecef": data.get("truth_pos_ecef"),
+            "truth_vel_ecef": data.get("truth_vel_ecef"),
+            "truth_time": data.get("truth_time"),
         }
     else:
         m = loadmat(path)
@@ -563,6 +566,9 @@ def load_estimate(path, times=None):
             else m.get("ref_r0_m")
             if m.get("ref_r0_m") is not None
             else m.get("r0"),
+            "truth_pos_ecef": m.get("truth_pos_ecef"),
+            "truth_vel_ecef": m.get("truth_vel_ecef"),
+            "truth_time": m.get("truth_time"),
         }
 
     if est["time"] is None:
@@ -611,6 +617,10 @@ def load_estimate(path, times=None):
 
 def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     """Return aligned datasets in NED/ECEF/Body frames.
+
+    When a truth trajectory is supplied, its time vector is synchronised to
+    the estimator output via cross-correlation of position and velocity
+    magnitudes before interpolation.
 
     Parameters
     ----------
@@ -714,45 +724,107 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     # Optional ground truth
     # ------------------------------------------------------------------
     truth_body = None
+    t_truth = None
+    pos_truth_ecef = None
+    vel_truth_ecef = None
     if truth_file is not None:
         try:
             truth = np.loadtxt(truth_file, comments="#")
             t_truth = truth[:, 1]
             pos_truth_ecef = truth[:, 2:5]
             vel_truth_ecef = truth[:, 5:8]
-            acc_truth_ecef = np.zeros_like(vel_truth_ecef)
-            if len(t_truth) > 1:
-                dt_t = np.diff(t_truth, prepend=t_truth[0])
-                acc_truth_ecef[1:] = np.diff(vel_truth_ecef, axis=0) / dt_t[1:, None]
-            pos_truth_ned = np.array([C @ (p - ref_r0) for p in pos_truth_ecef])
-            vel_truth_ned = np.array([C @ v for v in vel_truth_ecef])
-            acc_truth_ned = np.array([C @ a for a in acc_truth_ecef])
-
-            def interp(arr):
-                return np.vstack(
-                    [np.interp(t_est, t_truth, arr[:, i]) for i in range(3)]
-                ).T
-
-            pos_truth_ecef_i = interp(pos_truth_ecef)
-            vel_truth_ecef_i = interp(vel_truth_ecef)
-            acc_truth_ecef_i = interp(acc_truth_ecef)
-            pos_truth_ned_i = interp(pos_truth_ned)
-            vel_truth_ned_i = interp(vel_truth_ned)
-            acc_truth_ned_i = interp(acc_truth_ned)
         except Exception as e:
             print(f"Failed to load truth file {truth_file}: {e}")
             truth_file = None
+    elif (
+        est.get("truth_pos_ecef") is not None
+        and est.get("truth_vel_ecef") is not None
+        and est.get("truth_time") is not None
+        and np.asarray(est["truth_pos_ecef"]).size > 0
+    ):
+        t_truth = np.asarray(est["truth_time"]).squeeze()
+        pos_truth_ecef = np.asarray(est["truth_pos_ecef"])
+        vel_truth_ecef = np.asarray(est["truth_vel_ecef"])
+
+    if t_truth is not None and pos_truth_ecef is not None:
+        dt_r = max(np.mean(np.diff(t_est)), np.mean(np.diff(t_truth)))
+        t_grid = np.arange(
+            min(t_est[0], t_truth[0]), max(t_est[-1], t_truth[-1]) + dt_r, dt_r
+        )
+        pos_est_rs = np.vstack(
+            [np.interp(t_grid, t_est, fused_ecef[0][:, i]) for i in range(3)]
+        ).T
+        pos_truth_rs = np.vstack(
+            [np.interp(t_grid, t_truth, pos_truth_ecef[:, i]) for i in range(3)]
+        ).T
+        vel_est_rs = np.vstack(
+            [np.interp(t_grid, t_est, fused_ecef[1][:, i]) for i in range(3)]
+        ).T
+        vel_truth_rs = np.vstack(
+            [np.interp(t_grid, t_truth, vel_truth_ecef[:, i]) for i in range(3)]
+        ).T
+        pos_norm_est = np.linalg.norm(pos_est_rs, axis=1)
+        pos_norm_truth = np.linalg.norm(pos_truth_rs, axis=1)
+        vel_norm_est = np.linalg.norm(vel_est_rs, axis=1)
+        vel_norm_truth = np.linalg.norm(vel_truth_rs, axis=1)
+        lags = np.arange(-len(pos_norm_truth) + 1, len(pos_norm_est))
+        lag_pos = lags[
+            np.argmax(
+                np.correlate(
+                    pos_norm_est - pos_norm_est.mean(),
+                    pos_norm_truth - pos_norm_truth.mean(),
+                    mode="full",
+                )
+            )
+        ]
+        lag_vel = lags[
+            np.argmax(
+                np.correlate(
+                    vel_norm_est - vel_norm_est.mean(),
+                    vel_norm_truth - vel_norm_truth.mean(),
+                    mode="full",
+                )
+            )
+        ]
+        time_offset = 0.5 * (lag_pos + lag_vel) * dt_r
+        t_truth = t_truth + time_offset
+        print(
+            f"assemble_frames: applied time offset {time_offset:.3f} s via pos/vel alignment"
+        )
+
+        acc_truth_ecef = np.zeros_like(vel_truth_ecef)
+        if len(t_truth) > 1:
+            dt_t = np.diff(t_truth, prepend=t_truth[0])
+            acc_truth_ecef[1:] = np.diff(vel_truth_ecef, axis=0) / dt_t[1:, None]
+        pos_truth_ned = np.array([C @ (p - ref_r0) for p in pos_truth_ecef])
+        vel_truth_ned = np.array([C @ v for v in vel_truth_ecef])
+        acc_truth_ned = np.array([C @ a for a in acc_truth_ecef])
+
+        def interp(arr):
+            return np.vstack(
+                [np.interp(t_est, t_truth, arr[:, i]) for i in range(3)]
+            ).T
+
+        pos_truth_ecef_i = interp(pos_truth_ecef)
+        vel_truth_ecef_i = interp(vel_truth_ecef)
+        acc_truth_ecef_i = interp(acc_truth_ecef)
+        pos_truth_ned_i = interp(pos_truth_ned)
+        vel_truth_ned_i = interp(vel_truth_ned)
+        acc_truth_ned_i = interp(acc_truth_ned)
+    else:
+        pos_truth_ned = vel_truth_ned = acc_truth_ned = None
+        pos_truth_ecef_i = vel_truth_ecef_i = acc_truth_ecef_i = None
 
     # --------------------------------------------------------------
     # Normalise all time vectors to a common origin for plotting
     # --------------------------------------------------------------
     t0_candidates = [t_gnss[0], t_est[0]]
-    if truth_file is not None:
+    if t_truth is not None:
         t0_candidates.append(t_truth[0])
     t0 = float(np.min(t0_candidates))
     t_gnss = t_gnss - t0
     t_est = t_est - t0
-    if truth_file is not None:
+    if t_truth is not None:
         t_truth = t_truth - t0
 
     q = est.get("quat")
@@ -775,7 +847,7 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
                 [np.interp(t_est, t_gnss, acc_gnss_ned[:, i]) for i in range(3)]
             ).T,
         )
-        if truth_file is not None:
+        if t_truth is not None:
             truth_body = to_body(pos_truth_ned_i, vel_truth_ned_i, acc_truth_ned_i)
     else:
         imu_body = imu_pos, imu_vel, imu_acc
@@ -791,7 +863,7 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
                 [np.interp(t_est, t_gnss, acc_gnss_ned[:, i]) for i in range(3)]
             ).T,
         )
-        if truth_file is not None:
+        if t_truth is not None:
             truth_body = pos_truth_ned_i, vel_truth_ned_i, acc_truth_ned_i
 
     frames = {
@@ -812,7 +884,7 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
         },
     }
 
-    if truth_file is not None:
+    if t_truth is not None:
         frames["NED"]["truth"] = (
             t_est,
             pos_truth_ned_i,

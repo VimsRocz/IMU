@@ -2,16 +2,20 @@
 
 Usage:
     python task7_ecef_residuals_plot.py --est-file <fused.npz> \
-        --imu-file <IMU.dat> --gnss-file <GNSS.csv> \
-        --truth-file <STATE_X.txt> --output-dir results
+        --imu-file <IMU.dat> --gnss-file <GNSS.csv> [--truth-file <STATE_X.txt>] \
+        --output-dir results
 
-This script loads a fused estimator output file and a ground truth
-trajectory, interpolates the truth to the estimator time vector and
-plots position, velocity and acceleration residuals. The time axis is
+This script loads a fused estimator output file and the corresponding
+ground truth trajectory.  If the estimator output already contains the
+``truth_pos_ecef``, ``truth_vel_ecef`` and ``truth_time`` fields produced
+by Task 4, the ``--truth-file`` argument is optional.  Otherwise the
+STATE_X text log must be provided or inferrable from the dataset name.
+The truth trajectory is synchronised to the estimator by cross-correlating
+position and velocity magnitudes before interpolation to the estimator time
+vector.  Position, velocity and acceleration residuals are plotted.  The time axis is
 converted to ``t - t[0]`` so Task 6 and Task 7 share the same reference.
-Figures are saved as PDF and PNG under ``results/<tag>/`` within the
-chosen output directory, where ``tag`` combines the dataset, GNSS file
-and method.
+Figures are saved as PDF and PNG under ``results/<tag>/`` where ``tag``
+combines the dataset, GNSS file and method.
 """
 
 from __future__ import annotations
@@ -123,8 +127,9 @@ def main() -> None:
     ap.add_argument(
         "--truth-file",
         help=(
-            "ground truth STATE_X file. If omitted the script attempts to infer"
-            " the correct file from --dataset"
+            "ground truth STATE_X file. If omitted the script uses truth data "
+            "embedded in the estimator output or attempts to infer the path "
+            "from --dataset"
         ),
     )
     ap.add_argument("--dataset", required=True, help="IMU dataset file")
@@ -133,8 +138,13 @@ def main() -> None:
     ap.add_argument("--output-dir", default="results", help="directory for plots")
     args = ap.parse_args()
 
+    est = load_estimate(args.est_file)
     truth_file = args.truth_file
-    if truth_file is None:
+    has_embedded_truth = (
+        est.get("truth_pos_ecef") is not None
+        and np.asarray(est.get("truth_pos_ecef")).size > 0
+    )
+    if truth_file is None and not has_embedded_truth:
         m = re.search(r"X(\d+)", Path(args.dataset).stem)
         if m:
             dataset_id = m.group(1)
@@ -146,16 +156,18 @@ def main() -> None:
                 if cand.is_file():
                     truth_file = str(cand)
                     break
-    if truth_file is None:
+    if truth_file is None and not has_embedded_truth:
         raise FileNotFoundError(
             "Truth file not specified and could not be inferred from --dataset"
         )
 
-    est = load_estimate(args.est_file)
     frames = assemble_frames(est, args.imu_file, args.gnss_file, truth_file)
     try:
         t_est, pos_est, vel_est, _ = frames["ECEF"]["fused"]
-        _, pos_truth, vel_truth, _ = frames["ECEF"]["truth"]
+        truth_tuple = frames["ECEF"].get("truth")
+        if truth_tuple is None:
+            raise KeyError("truth")
+        _, pos_truth, vel_truth, _ = truth_tuple
     except KeyError as exc:
         raise ValueError("Truth data required for ECEF residuals") from exc
 

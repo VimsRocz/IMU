@@ -359,7 +359,9 @@ truth_time = [];
 if isfile(state_file)
     try
         truth_data = read_state_file(state_file);
+        % Preserve time as a column vector for downstream tasks
         truth_time = truth_data(:,2);
+        truth_time = truth_time(:);
         truth_pos_ecef = truth_data(:,3:5);
         truth_vel_ecef = truth_data(:,6:8);
         fprintf('Loaded truth ECEF trajectory from %s\n', state_file);
