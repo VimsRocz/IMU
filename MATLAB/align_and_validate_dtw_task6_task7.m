@@ -9,6 +9,10 @@ function align_and_validate_dtw_task6_task7(est_file, truth_file, output_dir, du
 %   corresponding ``STATE_X001.txt``. OUTPUT_DIR defaults to ``results`` and
 %   DURATION to 1250 seconds.
 %
+%   The estimator and truth logs may start at different times and run at
+%   different sample rates. ``summarize_timebase`` prints their ranges and
+%   effective frequencies so downstream tasks can track these differences.
+%
 %   This script requires the Signal Processing Toolbox for the DTW
 %   implementation and uses ``py.numpy.load`` to read NPZ files.
 %
@@ -38,14 +42,18 @@ ref_r0 = double(npz{'ref_r0_m'});
 % -------------------------------------------------------------------------
 % Load truth trajectory
 % -------------------------------------------------------------------------
-% Truth logs contain a comment header
+% Truth logs contain a comment header. Columns are:
+%   1-count, 2-time [s], 3:5-ECEF position [m]
 truth_raw = read_state_file(truth_file);
-truth_time = truth_raw(:,1);
-truth_pos_ecef = truth_raw(:,2:4);
+truth_time = truth_raw(:,2);
+truth_pos_ecef = truth_raw(:,3:5);
 
 % Convert truth ECEF to NED relative to estimator reference
 C_e2n = compute_C_ECEF_to_NED(ref_lat, ref_lon);
 truth_pos = (C_e2n * (truth_pos_ecef' - ref_r0)).';
+
+summarize_timebase('Estimator', time_s);
+summarize_timebase('Truth', truth_time);
 
 % -------------------------------------------------------------------------
 % Smooth and normalise for DTW
@@ -127,4 +135,17 @@ s_lon = sin(lon_rad); c_lon = cos(lon_rad);
 C = [-s_lat*c_lon, -s_lat*s_lon,  c_lat;
      -s_lon,       c_lon,       0;
      -c_lat*c_lon, -c_lat*s_lon, -s_lat];
+end
+
+function summarize_timebase(label, t)
+%SUMMARIZE_TIMEBASE  Print basic timing statistics for a dataset.
+if numel(t) < 2
+    fprintf('%s time vector too short for statistics\n', label);
+    return;
+end
+dt = diff(t);
+mean_dt = mean(dt);
+freq = 1./mean_dt;
+fprintf('%s time start=%.3f s end=%.3f s mean_dt=%.3f s (%.2f Hz)\n', ...
+    label, t(1), t(end), mean_dt, freq);
 end
