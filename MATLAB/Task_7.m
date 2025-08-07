@@ -44,6 +44,8 @@ function Task_7()
         truth_pos_ecef = d.truth_pos_ecef';
         truth_vel_ecef = d.truth_vel_ecef';
         t_truth = (0:size(truth_pos_ecef,2)-1)';
+        pos_truth_ecef = truth_pos_ecef;
+        vel_truth_ecef = truth_vel_ecef;
         fprintf('Task 7: Loaded truth ECEF from %s\n', truth_file);
     else
         fprintf('Task 7: truth_pos_ecef not found in %s. Using STATE_X001.txt\n', truth_file);
@@ -53,12 +55,9 @@ function Task_7()
         t_truth = raw(:,2); % time column in seconds
         truth_pos_ecef = raw(:,3:5)';
         truth_vel_ecef = raw(:,6:8)';
+        pos_truth_ecef = truth_pos_ecef;
+        vel_truth_ecef = truth_vel_ecef;
     end
-
-    %% Extract truth position and velocity
-    t_truth = truth_data(:,2);
-    pos_truth_ecef = truth_data(:,3:5)';
-    vel_truth_ecef = truth_data(:,6:8)';
 
     %% Convert estimates from NED to ECEF
     C_n_e = compute_C_ECEF_to_NED(ref_lat, ref_lon)';
