@@ -1356,8 +1356,8 @@ def main():
         gyro_win = []
         zupt_count = 0
         zupt_events = []
-        vel_blow_count = 0
-        vel_blow_logged = False
+        vel_blow_count = 0  # track number of velocity blow-ups
+        vel_blow_warn_interval = 0  # set >0 to re-warn every N events
         P_hist = [kf.P.copy()]
 
         # attitude initialisation for logging
@@ -1390,12 +1390,14 @@ def main():
 
             if np.linalg.norm(kf.x[3:6]) > 500:
                 vel_blow_count += 1
-                if not vel_blow_logged:
+                if vel_blow_count == 1 or (
+                    vel_blow_warn_interval > 0
+                    and vel_blow_count % vel_blow_warn_interval == 0
+                ):
                     logging.warning(
                         "Velocity blew up (%.1f m/s); zeroing Δv and continuing.",
                         np.linalg.norm(kf.x[3:6]),
                     )
-                    vel_blow_logged = True
                 kf.x[3:6] = 0.0
 
             # ---------- save attitude BEFORE measurement update ----------
@@ -1948,6 +1950,7 @@ def main():
             grav_err_max=grav_err_max,
             earth_rate_err_mean=omega_err_mean,
             earth_rate_err_max=omega_err_max,
+            vel_blow_events=vel_blow_count,
         ),
         time=imu_time,
         pos_ned=fused_pos[method],
@@ -1987,6 +1990,7 @@ def main():
             "grav_err_max": np.array([grav_err_max]),
             "earth_rate_err_mean": np.array([omega_err_mean]),
             "earth_rate_err_max": np.array([omega_err_max]),
+            "vel_blow_events": np.array([vel_blow_count]),
             "time": imu_time,
             "pos_ned": fused_pos[method],
             "vel_ned": fused_vel[method],

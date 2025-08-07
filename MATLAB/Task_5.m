@@ -293,8 +293,8 @@ zupt_log = zeros(1, num_steps);
 acc_log = zeros(3, num_steps); % Acceleration from propagated IMU data
 num_imu_samples = num_steps;
 zupt_count = 0;
-vel_blow_count = 0;
-vel_blow_logged = false;
+vel_blow_count = 0;               % track number of velocity blow-ups
+vel_blow_warn_interval = 0;       % set >0 to re-warn every N events
 fprintf('-> 15-State filter initialized.\n');
 fprintf('Subtask 5.4: Integrating IMU data for each method.\n');
 
@@ -348,10 +348,10 @@ for i = 1:num_imu_samples
     x(7:9) = quat_to_euler(q_b_n);
     if norm(x(4:6)) > 500
         vel_blow_count = vel_blow_count + 1;
-        if ~vel_blow_logged
+        if vel_blow_count == 1 || ...
+                (vel_blow_warn_interval > 0 && mod(vel_blow_count, vel_blow_warn_interval) == 0)
             warning('Velocity blew up (%.1f m/s); zeroing \x0394v and continuing.', ...
                     norm(x(4:6)));
-            vel_blow_logged = true;
         end
         x(4:6) = 0;
     end
@@ -592,7 +592,8 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
     'final_pos_error', final_pos_err, 'final_vel_error', final_vel_err, ...
     'final_vel', final_vel, 'final_acc_error', final_acc_err, 'accel_bias', accel_bias, 'gyro_bias', gyro_bias, ...
     'grav_err_mean', grav_err_mean, 'grav_err_max', grav_err_max, ...
-    'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max);
+    'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max, ...
+    'vel_blow_events', vel_blow_count);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
 % Result Logging -- store the metrics struct under the variable name
 % ``results`` to stay in sync with the Python pipeline.
