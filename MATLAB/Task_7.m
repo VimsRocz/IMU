@@ -1,61 +1,70 @@
 function Task_7()
 %TASK_7 Plot ECEF residuals between truth and fused estimate.
 %   TASK_7() loads the fused state history ``x_log`` produced by Task 5 and
-%   the ground truth trajectory.  The function first attempts to read
-%   ``truth_pos_ecef`` and ``truth_vel_ecef`` from the Task 4 results MAT
-%   file.  If those fields are absent (as may happen when running the
-%   pipeline from scratch), the STATE_X text log is parsed using
-%   ``read_state_file``.  The estimator NED states are converted to ECEF
-%   using the reference latitude and longitude from Task 5.  The truth time
-%   vector is synchronised to the estimator by cross-correlating position
-%   and velocity magnitudes before interpolating the estimator output to
-%   the aligned truth timestamps.  Position and velocity errors
-%   ``truth - estimate`` are then computed.  A figure with six
-%   subplots (position X/Y/Z on the first row, velocity X/Y/Z on the second)
-%   is generated and saved under ``results``.
+%   the ground truth trajectory from Task 4.  Earlier versions of the
+%   pipeline saved an estimator state matrix without the corresponding time
+%   vector and the Task 4 MAT file omitted ``t_truth``.  This function
+%   reconstructs both time vectors, creates a common sampling grid and then
+%   interpolates the estimator and truth trajectories prior to computing
+%   residuals.  All outputs are written to the ``results`` directory.
 
     fprintf('--- Starting Task 7: Residual Analysis with Task4 truth (ECEF) ---\n');
 
     %% Load state history from Task 5
     results_dir = get_results_dir();
-    res_file = fullfile(results_dir, 'IMU_X002_GNSS_X002_TRIAD_task5_results.mat');
-    try
-        S = load(res_file, 'x_log', 'time', 'ref_lat', 'ref_lon', 'ref_r0');
-        x_log  = S.x_log;
-        t_est  = S.time(:);
-        ref_lat = S.ref_lat;
-        ref_lon = S.ref_lon;
-        ref_r0  = S.ref_r0;
-        fprintf('Task 7: Loaded x_log from %s, size: %dx%d\n', res_file, size(x_log));
-    catch ME
-        error('Task 7: Failed to load x_log from %s. %s', res_file, ME.message);
+    run_id = 'IMU_X002_GNSS_X002_TRIAD';
+    res_file = fullfile(results_dir, sprintf('%s_task5_results.mat', run_id));
+    S5 = load(res_file);
+    x_log = S5.x_log; % 15xN state log
+    % Reconstruct estimator time vector if absent
+    if isfield(S5, 'dt')
+        dt_est = S5.dt;
+    elseif isfield(S5, 't_est')
+        dt_est = median(diff(S5.t_est));
+    else
+        error('Task_7: estimator time vector missing and dt not provided.');
     end
+    N = size(x_log, 2);
+    t_est = (0:N-1)' * dt_est;
+    ref_lat = S5.ref_lat;
+    ref_lon = S5.ref_lon;
+    ref_r0  = S5.ref_r0;
+    fprintf('Task 7: Loaded x_log from %s, size: %dx%d\n', res_file, size(x_log));
 
     %% Load ground truth
-    % Prefer the Task 4 results file which may contain the truth ECEF
-    % trajectory. If not available, fall back to the STATE_X text log as in
-    % Task 6.
-    truth_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
-    if isfile(truth_file)
-        d = load(truth_file);
+    % Task 4 may not save the truth time vector. Reconstruct it from the
+    % GNSS CSV if needed.
+    pair_tag = regexp(run_id, '(IMU_[^_]+_GNSS_[^_]+)', 'match', 'once');
+    truth_mat = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
+    if exist(truth_mat, 'file')
+        S4 = load(truth_mat);
     else
-        d = struct();
+        error('Task_7: missing Task4 results to get truth data.');
     end
 
-    if isfield(d, 'truth_pos_ecef') && isfield(d, 'truth_vel_ecef') && isfield(d, 'truth_time')
-        % Use truth trajectory saved by Task 4, avoiding a re-read of STATE_X log
-        truth_pos_ecef = d.truth_pos_ecef';
-        truth_vel_ecef = d.truth_vel_ecef';
-        t_truth = d.truth_time(:);
-        fprintf('Task 7: Loaded truth ECEF from %s\n', truth_file);
+    if isfield(S4, 'truth_pos_ecef')
+        truth_pos_ecef = S4.truth_pos_ecef';
+    elseif isfield(S4, 'pos_truth')
+        truth_pos_ecef = S4.pos_truth';
     else
-        fprintf('Task 7: truth_pos_ecef not found in %s. Using STATE_X001.txt\n', truth_file);
+        error('Task_7: truth positions missing in %s.', truth_mat);
+    end
+    if isfield(S4, 'truth_vel_ecef')
+        truth_vel_ecef = S4.truth_vel_ecef';
+    else
+        truth_vel_ecef = [];
+    end
+
+    if isfield(S4, 't_truth')
+        t_truth = S4.t_truth(:);
+    elseif isfield(S4, 'truth_time')
+        t_truth = S4.truth_time(:);
+    else
         root_dir = fileparts(fileparts(results_dir));
-        state_file = fullfile(root_dir, 'STATE_X001.txt');
-        raw = read_state_file(state_file);
-        t_truth = raw(:,2); % time column in seconds
-        truth_pos_ecef = raw(:,3:5)';
-        truth_vel_ecef = raw(:,6:8)';
+        gnss_tag = regexp(run_id, '(GNSS_[^_]+)', 'match', 'once');
+        csv_file = fullfile(root_dir, sprintf('%s.csv', gnss_tag));
+        T = readtable(csv_file);
+        t_truth = T.Posix_Time - T.Posix_Time(1); % seconds
     end
 
     pos_truth_ecef = truth_pos_ecef;
@@ -83,42 +92,20 @@ function Task_7()
     dt_est   = median(diff(t_est));
     dt_truth = median(diff(t_truth));
     dt_r = min(dt_est, dt_truth);
-
-    %% Synchronise time using position/velocity cross-correlation
     t_grid = (t_start:dt_r:t_end)';
-    pos_est_rs   = interp1(t_est,   pos_est_ecef',   t_grid, 'linear');
-    pos_truth_rs = interp1(t_truth, truth_pos_ecef', t_grid, 'linear');
-    vel_est_rs   = interp1(t_est,   vel_est_ecef',   t_grid, 'linear');
-    vel_truth_rs = interp1(t_truth, truth_vel_ecef', t_grid, 'linear');
-    pos_norm_est   = vecnorm(pos_est_rs, 2, 2);
-    pos_norm_truth = vecnorm(pos_truth_rs, 2, 2);
-    vel_norm_est   = vecnorm(vel_est_rs, 2, 2);
-    vel_norm_truth = vecnorm(vel_truth_rs, 2, 2);
-    [xc_pos, lags_pos] = xcorr(pos_norm_est - mean(pos_norm_est), pos_norm_truth - mean(pos_norm_truth));
-    [~, idx_pos] = max(xc_pos);
-    [xc_vel, lags_vel] = xcorr(vel_norm_est - mean(vel_norm_est), vel_norm_truth - mean(vel_norm_truth));
-    [~, idx_vel] = max(xc_vel);
-    offset_pos = lags_pos(idx_pos) * dt_r;
-    offset_vel = lags_vel(idx_vel) * dt_r;
-    t_truth = t_truth + mean([offset_pos, offset_vel]);
-    fprintf('Task 7: Applied time offset %.3f s via pos/vel alignment\n', mean([offset_pos, offset_vel]));
 
-    %% Interpolate estimator output to aligned truth timestamps
-    t_start = max(min(t_est), min(t_truth));
-    t_end   = min(max(t_est), max(t_truth));
-    mask = (t_truth >= t_start) & (t_truth <= t_end);
-    t_truth = t_truth(mask);
-    truth_pos_ecef = truth_pos_ecef(:, mask);
-    truth_vel_ecef = truth_vel_ecef(:, mask);
-    pos_est_i = interp1(t_est, pos_est_ecef', t_truth, 'linear')';
-    vel_est_i = interp1(t_est, vel_est_ecef', t_truth, 'linear')';
-    fprintf('Task 7: Interpolated estimates to %d truth samples\n', numel(t_truth));
+    %% Interpolate estimator and truth to common grid
+    pos_est_i   = interp1(t_est,   pos_est_ecef',   t_grid, 'linear')';
+    vel_est_i   = interp1(t_est,   vel_est_ecef',   t_grid, 'linear')';
+    truth_pos_i = interp1(t_truth, pos_truth_ecef', t_grid, 'linear')';
+    truth_vel_i = interp1(t_truth, vel_truth_ecef', t_grid, 'linear')';
+    fprintf('Task 7: Interpolated estimates and truth onto %d samples\n', numel(t_grid));
 
     %% Compute errors (truth - estimate)
     fprintf('Task 7: Computing errors...\n');
-    pos_error = truth_pos_ecef - pos_est_i;
-    vel_error = truth_vel_ecef - vel_est_i;
-    pos_residual = pos_est_i - truth_pos_ecef;
+    pos_error = truth_pos_i - pos_est_i;
+    vel_error = truth_vel_i - vel_est_i;
+    pos_residual = pos_est_i - truth_pos_i;
     assert(max(abs(pos_residual(:))) < 100, ...
         'Task-7: Position residual blew up - transform error?');
 
@@ -136,7 +123,7 @@ function Task_7()
     fprintf('Velocity error std  [m/s]: [%.8f %.8f %.8f]\n', vel_err_std(1), vel_err_std(2), vel_err_std(3));
 
     fprintf('Final fused_vel_ecef: [%.8f %.8f %.8f]\n', vel_est_i(1,end), vel_est_i(2,end), vel_est_i(3,end));
-    fprintf('Final truth_vel_ecef: [%.8f %.8f %.8f]\n', truth_vel_ecef(1,end), truth_vel_ecef(2,end), truth_vel_ecef(3,end));
+    fprintf('Final truth_vel_ecef: [%.8f %.8f %.8f]\n', truth_vel_i(1,end), truth_vel_i(2,end), truth_vel_i(3,end));
     fprintf('[SUMMARY] method=KF rmse_pos=%.2f m final_pos=%.2f m ', ...
             sqrt(mean(sum(pos_error.^2,2))), final_pos);
     fprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', ...
@@ -148,14 +135,14 @@ function Task_7()
     labels = {'X','Y','Z'};
     for j = 1:3
         subplot(2,3,j);
-        plot(t_truth, pos_error(j,:), 'k');
+        plot(t_grid, pos_error(j,:), 'k');
         title(labels{j});
         ylabel('Position Error [m]');
         grid on;
     end
     for j = 1:3
         subplot(2,3,3+j);
-        plot(t_truth, vel_error(j,:), 'k');
+        plot(t_grid, vel_error(j,:), 'k');
         ylabel('Velocity Error [m/s]');
         xlabel('Time [s]');
         grid on;
@@ -181,7 +168,7 @@ function Task_7()
 
     %% Save results
     results_out = fullfile(results_dir, 'IMU_X002_GNSS_X002_TRIAD_task7_results.mat');
-    save(results_out, 'pos_error', 'vel_error', 'pos_est_i', 'vel_est_i');
+    save(results_out, 'pos_error', 'vel_error', 'pos_est_i', 'vel_est_i', 't_grid');
     fprintf('Task 7: Results saved to %s\n', results_out);
     fprintf('[SUMMARY] method=KF rmse_pos=%.2f m final_pos=%.2f m ', ...
             sqrt(mean(sum(pos_error.^2,2))), final_pos);
