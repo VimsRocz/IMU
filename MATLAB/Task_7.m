@@ -6,9 +6,11 @@ function Task_7()
 %   file.  If those fields are absent (as may happen when running the
 %   pipeline from scratch), the STATE_X text log is parsed using
 %   ``read_state_file``.  The estimator NED states are converted to ECEF
-%   using the reference latitude and longitude from Task 5.  Position and
-%   velocity errors ``truth - estimate`` are computed after interpolating
-%   the estimator output to the truth time vector.  A figure with six
+%   using the reference latitude and longitude from Task 5.  The truth time
+%   vector is synchronised to the estimator by cross-correlating position
+%   and velocity magnitudes before interpolating the estimator output to
+%   the aligned truth timestamps.  Position and velocity errors
+%   ``truth - estimate`` are then computed.  A figure with six
 %   subplots (position X/Y/Z on the first row, velocity X/Y/Z on the second)
 %   is generated and saved under ``results``.
 
@@ -41,6 +43,7 @@ function Task_7()
     end
 
     if isfield(d, 'truth_pos_ecef') && isfield(d, 'truth_vel_ecef') && isfield(d, 'truth_time')
+        % Use truth trajectory saved by Task 4, avoiding a re-read of STATE_X log
         truth_pos_ecef = d.truth_pos_ecef';
         truth_vel_ecef = d.truth_vel_ecef';
         t_truth = d.truth_time(:);
@@ -66,7 +69,27 @@ function Task_7()
     pos_est_ecef = C_n_e * pos_est_ned + ref_r0;
     vel_est_ecef = C_n_e * vel_est_ned;
 
-    %% Interpolate estimator output to truth timestamps
+    %% Synchronise time using position/velocity cross-correlation
+    dt_r = max(mean(diff(t_est)), mean(diff(t_truth)));
+    t_grid = (min([t_est(1), t_truth(1)]):dt_r:max([t_est(end), t_truth(end)]))';
+    pos_est_rs = interp1(t_est, pos_est_ecef', t_grid, 'linear', 'extrap');
+    pos_truth_rs = interp1(t_truth, truth_pos_ecef', t_grid, 'linear', 'extrap');
+    vel_est_rs = interp1(t_est, vel_est_ecef', t_grid, 'linear', 'extrap');
+    vel_truth_rs = interp1(t_truth, truth_vel_ecef', t_grid, 'linear', 'extrap');
+    pos_norm_est = vecnorm(pos_est_rs, 2, 2);
+    pos_norm_truth = vecnorm(pos_truth_rs, 2, 2);
+    vel_norm_est = vecnorm(vel_est_rs, 2, 2);
+    vel_norm_truth = vecnorm(vel_truth_rs, 2, 2);
+    [xc_pos, lags_pos] = xcorr(pos_norm_est - mean(pos_norm_est), pos_norm_truth - mean(pos_norm_truth));
+    [~, idx_pos] = max(xc_pos);
+    [xc_vel, lags_vel] = xcorr(vel_norm_est - mean(vel_norm_est), vel_norm_truth - mean(vel_norm_truth));
+    [~, idx_vel] = max(xc_vel);
+    offset_pos = lags_pos(idx_pos) * dt_r;
+    offset_vel = lags_vel(idx_vel) * dt_r;
+    t_truth = t_truth + mean([offset_pos, offset_vel]);
+    fprintf('Task 7: Applied time offset %.3f s via pos/vel alignment\n', mean([offset_pos, offset_vel]));
+
+    %% Interpolate estimator output to aligned truth timestamps
     pos_est_i = interp1(t_est, pos_est_ecef', t_truth, 'linear', 'extrap')';
     vel_est_i = interp1(t_est, vel_est_ecef', t_truth, 'linear', 'extrap')';
     fprintf('Task 7: Interpolated estimates to %d truth samples\n', numel(t_truth));
