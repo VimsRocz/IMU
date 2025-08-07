@@ -348,6 +348,48 @@ for i = 1:length(methods)
 end
 fprintf('-> IMU-derived position, velocity, and acceleration computed for all methods.\n');
 
+% -------------------------------------------------------------------------
+% Generate comparison plots for all methods in NED, ECEF, BODY and Mixed
+% frames using the helper ``plot_frame_comparison``.
+% -------------------------------------------------------------------------
+t = imu_time; % Common time vector at IMU rate
+pos_ned_GNSS = interp1(gnss_time, gnss_pos_ned, t, 'linear', 'extrap')';
+
+% NED positions for each method
+pos_ned_TRIAD    = pos_integ.TRIAD';
+pos_ned_Davenport = pos_integ.Davenport';
+pos_ned_SVD      = pos_integ.SVD';
+
+% Convert to ECEF
+pos_ecef_GNSS = interp1(gnss_time, gnss_pos_ecef, t, 'linear', 'extrap')';
+pos_ecef_TRIAD = C_NED_to_ECEF * pos_ned_TRIAD + ref_r0;
+pos_ecef_Davenport = C_NED_to_ECEF * pos_ned_Davenport + ref_r0;
+pos_ecef_SVD   = C_NED_to_ECEF * pos_ned_SVD + ref_r0;
+
+% Body-frame positions (use TRIAD attitude as reference)
+C_N_B_ref = C_B_N_methods.TRIAD';
+pos_body_GNSS = C_N_B_ref * pos_ned_GNSS;
+pos_body_TRIAD = C_N_B_ref * pos_ned_TRIAD;
+pos_body_Davenport = C_N_B_ref * pos_ned_Davenport;
+pos_body_SVD   = C_N_B_ref * pos_ned_SVD;
+
+run_id = pair_tag;
+out_dir = fullfile(results_dir, run_id);
+if ~exist(out_dir, 'dir'); mkdir(out_dir); end
+prefix = fullfile(out_dir, [run_id '_task4']);
+
+data_sets = {pos_ned_GNSS, pos_ned_TRIAD, pos_ned_Davenport, pos_ned_SVD};
+labels    = {'GNSS','IMU-TRIAD','IMU-Davenport','IMU-SVD'};
+plot_frame_comparison(t, data_sets, labels, 'NED',  prefix);
+
+data_sets_ecef = {pos_ecef_GNSS, pos_ecef_TRIAD, pos_ecef_Davenport, pos_ecef_SVD};
+plot_frame_comparison(t, data_sets_ecef, labels, 'ECEF', prefix);
+
+data_sets_body = {pos_body_GNSS, pos_body_TRIAD, pos_body_Davenport, pos_body_SVD};
+plot_frame_comparison(t, data_sets_body, labels, 'BODY', prefix);
+
+plot_frame_comparison(t, data_sets, labels, 'Mixed', prefix);
+
 
 %% ========================================================================
 % Subtask 4.12b: Load truth ECEF trajectory if available

@@ -95,6 +95,9 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
         error('Method %s not found in task3_results', method);
     end
     C_B_N = task3_results.(method).R;
+    if strcmpi(method,'TRIAD')
+        assignin('base','C_B_N_ref', C_B_N);
+    end
 
     fprintf('Subtask 5.3: Loading GNSS and IMU data.\n');
     % Load GNSS data to obtain time and velocity
@@ -110,6 +113,10 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     C_ECEF_to_NED = compute_C_ECEF_to_NED(deg2rad(lat_deg), deg2rad(lon_deg));
     omega_E = constants.EARTH_RATE;
     omega_ie_NED = omega_E * [cosd(lat_deg); 0; -sind(lat_deg)];
+    % Make reference parameters available for later plotting scripts
+    assignin('base','ref_lat', deg2rad(lat_deg));
+    assignin('base','ref_lon', deg2rad(lon_deg));
+    assignin('base','ref_r0',  ref_r0);
     % Convert GNSS measurements from ECEF to NED to guarantee a common frame
     gnss_pos_ned_calc = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
     gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
@@ -726,6 +733,10 @@ end
     % ``method`` already stores the algorithm name (e.g. 'TRIAD'). Use it
     % directly when saving so filenames match the Python pipeline.
     save_task_results(method_struct, imu_name, gnss_name, method, 5);
+
+    % Expose fused position for comparison plots across methods
+    assignin('base', ['pos_kf_' method], x_log(1:3,:)');
+    assignin('base', 't_kf', imu_time);
 
 % Return results structure and store in base workspace
 result = results;

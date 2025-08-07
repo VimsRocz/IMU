@@ -310,6 +310,22 @@ plot_overlay('Body', run_id, t_est, pos_body, vel_body, acc_body, ...
     'vel_truth', vel_truth_body, 'acc_truth', acc_truth_body, ...
     'filename', sprintf('%s_task6_overlay_state_Body', run_id));
 
+% ------------------------------------------------------------------
+% Comparison plots using helper for NED, ECEF, Body and mixed frames
+% ------------------------------------------------------------------
+data_sets = {pos_ned', pos_truth_ned_i'};
+labels = {'Estimate','Truth'};
+prefix = fullfile(out_dir, [run_id '_task6']);
+plot_frame_comparison(t_est, data_sets, labels, 'NED',  prefix);
+
+data_ecef = {pos_ecef', pos_truth_ecef_i'};
+plot_frame_comparison(t_est, data_ecef, labels, 'ECEF', prefix);
+
+data_body = {pos_body', pos_truth_body'};
+plot_frame_comparison(t_est, data_body, labels, 'BODY', prefix);
+
+plot_frame_comparison(t_est, data_sets, labels, 'Mixed', prefix);
+
 files = dir(fullfile(out_dir, sprintf('%s_task6_overlay_state_*.pdf', run_id)));
 fprintf('Task 6 overlay plots saved under: %s\n', out_dir);
 for k = 1:numel(files)
