@@ -55,6 +55,9 @@ function Task_7()
         truth_vel_ecef = raw(:,6:8)';
     end
 
+    pos_truth_ecef = truth_pos_ecef;
+    vel_truth_ecef = truth_vel_ecef;
+
     %% Convert estimates from NED to ECEF
     C_n_e = compute_C_ECEF_to_NED(ref_lat, ref_lon)';
     fprintf('Task 7: Extracting and converting estimates to ECEF...\n');
@@ -73,7 +76,7 @@ function Task_7()
     pos_error = truth_pos_ecef - pos_est_i;
     vel_error = truth_vel_ecef - vel_est_i;
     pos_residual = pos_est_i - truth_pos_ecef;
-    assert(max(abs(pos_residual), [], 'all') < 100, ...
+    assert(max(abs(pos_residual(:))) < 100, ...
         'Task-7: Position residual blew up - transform error?');
 
     final_pos = norm(pos_error(:,end));
