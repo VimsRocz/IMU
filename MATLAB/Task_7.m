@@ -40,10 +40,10 @@ function Task_7()
         d = struct();
     end
 
-    if isfield(d, 'truth_pos_ecef') && isfield(d, 'truth_vel_ecef')
+    if isfield(d, 'truth_pos_ecef') && isfield(d, 'truth_vel_ecef') && isfield(d, 'truth_time')
         truth_pos_ecef = d.truth_pos_ecef';
         truth_vel_ecef = d.truth_vel_ecef';
-        t_truth = (0:size(truth_pos_ecef,2)-1)';
+        t_truth = d.truth_time(:);
         fprintf('Task 7: Loaded truth ECEF from %s\n', truth_file);
     else
         fprintf('Task 7: truth_pos_ecef not found in %s. Using STATE_X001.txt\n', truth_file);
@@ -54,11 +54,6 @@ function Task_7()
         truth_pos_ecef = raw(:,3:5)';
         truth_vel_ecef = raw(:,6:8)';
     end
-
-    %% Extract truth position and velocity
-    t_truth = truth_data(:,2);
-    pos_truth_ecef = truth_data(:,3:5)';
-    vel_truth_ecef = truth_data(:,6:8)';
 
     %% Convert estimates from NED to ECEF
     C_n_e = compute_C_ECEF_to_NED(ref_lat, ref_lon)';
@@ -75,9 +70,9 @@ function Task_7()
 
     %% Compute errors (truth - estimate)
     fprintf('Task 7: Computing errors...\n');
-    pos_error = pos_truth_ecef - pos_est_i;
-    vel_error = vel_truth_ecef - vel_est_i;
-    pos_residual = pos_est_i - pos_truth_ecef;
+    pos_error = truth_pos_ecef - pos_est_i;
+    vel_error = truth_vel_ecef - vel_est_i;
+    pos_residual = pos_est_i - truth_pos_ecef;
     assert(max(abs(pos_residual), [], 'all') < 100, ...
         'Task-7: Position residual blew up - transform error?');
 
@@ -95,7 +90,7 @@ function Task_7()
     fprintf('Velocity error std  [m/s]: [%.8f %.8f %.8f]\n', vel_err_std(1), vel_err_std(2), vel_err_std(3));
 
     fprintf('Final fused_vel_ecef: [%.8f %.8f %.8f]\n', vel_est_i(1,end), vel_est_i(2,end), vel_est_i(3,end));
-    fprintf('Final truth_vel_ecef: [%.8f %.8f %.8f]\n', vel_truth_ecef(1,end), vel_truth_ecef(2,end), vel_truth_ecef(3,end));
+    fprintf('Final truth_vel_ecef: [%.8f %.8f %.8f]\n', truth_vel_ecef(1,end), truth_vel_ecef(2,end), truth_vel_ecef(3,end));
     fprintf('[SUMMARY] method=KF rmse_pos=%.2f m final_pos=%.2f m ', ...
             sqrt(mean(sum(pos_error.^2,2))), final_pos);
     fprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', ...

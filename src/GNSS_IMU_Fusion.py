@@ -919,6 +919,7 @@ def main():
     t_rel_gnss = gnss_time - t0
     truth_pos_ecef_i = truth_vel_ecef_i = None
     truth_pos_ned_i = truth_vel_ned_i = None
+    t_truth = pos_truth_ecef = vel_truth_ecef = None
     if truth_file:
         try:
             truth = np.loadtxt(truth_file, comments="#")
@@ -1938,6 +1939,9 @@ def main():
         fused_vel=fused_vel[method],
         pos_ecef=pos_ecef,
         vel_ecef=vel_ecef,
+        truth_pos_ecef=pos_truth_ecef if pos_truth_ecef is not None else np.array([]),
+        truth_vel_ecef=vel_truth_ecef if vel_truth_ecef is not None else np.array([]),
+        truth_time=t_truth if t_truth is not None else np.array([]),
         pos_body=pos_body,
         vel_body=vel_body,
         innov_pos=innov_pos_all[method],
@@ -1973,6 +1977,9 @@ def main():
             "fused_vel": fused_vel[method],
             "pos_ecef": pos_ecef,
             "vel_ecef": vel_ecef,
+            "truth_pos_ecef": pos_truth_ecef if pos_truth_ecef is not None else np.empty((0, 3)),
+            "truth_vel_ecef": vel_truth_ecef if vel_truth_ecef is not None else np.empty((0, 3)),
+            "truth_time": t_truth if t_truth is not None else np.empty(0),
             "pos_body": pos_body,
             "vel_body": vel_body,
             "innov_pos": innov_pos_all[method],
