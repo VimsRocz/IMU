@@ -293,6 +293,8 @@ zupt_log = zeros(1, num_steps);
 acc_log = zeros(3, num_steps); % Acceleration from propagated IMU data
 num_imu_samples = num_steps;
 zupt_count = 0;
+vel_blow_count = 0;
+vel_blow_logged = false;
 fprintf('-> 15-State filter initialized.\n');
 fprintf('Subtask 5.4: Integrating IMU data for each method.\n');
 
@@ -345,8 +347,12 @@ for i = 1:num_imu_samples
     x(1:3) = pos_new;
     x(7:9) = quat_to_euler(q_b_n);
     if norm(x(4:6)) > 500
-        warning('Velocity blew up (%.1f m/s); zeroing \x0394v and continuing.', ...
-                norm(x(4:6)));
+        vel_blow_count = vel_blow_count + 1;
+        if ~vel_blow_logged
+            warning('Velocity blew up (%.1f m/s); zeroing \x0394v and continuing.', ...
+                    norm(x(4:6)));
+            vel_blow_logged = true;
+        end
         x(4:6) = 0;
     end
     acc_log(:,i) = a_ned;
@@ -401,6 +407,7 @@ for i = 1:num_imu_samples
 end
 fprintf('Method %s: IMU data integrated.\n', method);
 fprintf('Method %s: Kalman Filter completed. ZUPTcnt=%d\n', method, zupt_count);
+fprintf('Method %s: velocity blow-up events=%d\n', method, vel_blow_count);
 
 %% ========================================================================
 % Subtask 5.7: Handle Event at 5000s
