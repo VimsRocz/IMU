@@ -135,13 +135,13 @@ def main():
         "--vel-q-scale",
         type=float,
         default=10.0,
-        help="Scale factor applied to Q[3:6,3:6] for velocity process noise",
+        help="Scale factor applied to Q[3:6,3:6] for velocity process noise (dimensionless, default 10.0)",
     )
     parser.add_argument(
         "--vel-r",
         type=float,
         default=0.25,
-        help="Diagonal value for R[3:6,3:6] velocity measurement noise",
+        help="Diagonal value for R[3:6,3:6] velocity measurement noise variance [m^2/s^2] (default 0.25)",
     )
     parser.add_argument(
         "--zupt-acc-var",
@@ -1334,10 +1334,10 @@ def main():
         kf.F = np.eye(13)
         kf.H = np.hstack((np.eye(6), np.zeros((6, 7))))
         kf.P *= 1.0
-        kf.R = np.eye(6) * 0.1
-        kf.Q = np.eye(13) * 0.01
-        kf.Q[3:6, 3:6] *= args.vel_q_scale
-        kf.R[3:6, 3:6] = np.eye(3) * args.vel_r
+        kf.R = np.eye(6) * 0.1  # GNSS position measurement noise variance [m^2]
+        kf.Q = np.eye(13) * 0.01  # Process noise covariance
+        kf.Q[3:6, 3:6] *= args.vel_q_scale  # Velocity process noise scale
+        kf.R[3:6, 3:6] = np.eye(3) * args.vel_r  # GNSS velocity noise var [m^2/s^2]
         logging.info(f"Adjusted Q[3:6,3:6]: {kf.Q[3:6,3:6]}")
         logging.info(f"Adjusted R[3:6,3:6]: {kf.R[3:6,3:6]}")
         fused_pos[m][0] = imu_pos[m][0]

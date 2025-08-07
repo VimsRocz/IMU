@@ -5,13 +5,14 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %
 %   result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 %   Optional name/value arguments mirror the Python Kalman filter defaults:
-%       'accel_noise'      - process noise for acceleration  [m/s^2] (0.1)
-%       'vel_proc_noise'   - extra velocity process noise    [m/s^2] (0.0)
-%       'pos_proc_noise'   - position process noise          [m]     (0.0)
-%       'pos_meas_noise'   - GNSS position measurement noise [m]     (1.0)
-%       'vel_meas_noise'   - GNSS velocity measurement noise [m/s]   (1.0)
-%       'accel_bias_noise' - accelerometer bias random walk  [m/s^2] (1e-5)
-%       'gyro_bias_noise'  - gyroscope bias random walk      [rad/s] (1e-5)
+%       'accel_noise'      - process noise for acceleration        [m/s^2] (0.1)
+%       'vel_proc_noise'   - extra velocity process noise          [m/s^2] (0.0)
+%       'pos_proc_noise'   - position process noise                [m]     (0.0)
+%       'pos_meas_noise'   - GNSS position measurement noise var   [m^2]   (0.1)
+%       'vel_q_scale'      - scale factor for velocity process cov  []      (10.0)
+%       'vel_r'            - GNSS velocity measurement noise var   [m^2/s^2] (0.25)
+%       'accel_bias_noise' - accelerometer bias random walk        [m/s^2] (1e-5)
+%       'gyro_bias_noise'  - gyroscope bias random walk            [rad/s] (1e-5)
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
@@ -27,8 +28,9 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     addParameter(p, 'accel_noise', 0.1);       % [m/s^2]
     addParameter(p, 'vel_proc_noise', 0.0);    % [m/s^2]
     addParameter(p, 'pos_proc_noise', 0.0);    % [m]
-    addParameter(p, 'pos_meas_noise', 1.0);    % [m]
-    addParameter(p, 'vel_meas_noise', 1.0);    % [m/s]
+    addParameter(p, 'pos_meas_noise', 0.1);    % [m^2]
+    addParameter(p, 'vel_q_scale', 10.0);      % []
+    addParameter(p, 'vel_r', 0.25);            % [m^2/s^2]
     addParameter(p, 'accel_bias_noise', 1e-5); % [m/s^2]
     addParameter(p, 'gyro_bias_noise', 1e-5);  % [rad/s]
     parse(p, varargin{:});
@@ -36,7 +38,8 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     vel_proc_noise = p.Results.vel_proc_noise;
     pos_proc_noise = p.Results.pos_proc_noise;
     pos_meas_noise = p.Results.pos_meas_noise;
-    vel_meas_noise = p.Results.vel_meas_noise;
+    vel_q_scale    = p.Results.vel_q_scale;
+    vel_r          = p.Results.vel_r;
     accel_bias_noise = p.Results.accel_bias_noise;
     gyro_bias_noise  = p.Results.gyro_bias_noise;
 
@@ -211,13 +214,13 @@ P = eye(15);                         % Larger initial uncertainty
 P(7:9,7:9)   = eye(3) * deg2rad(5)^2; % Attitude uncertainty (5 deg)
 P(10:15,10:15) = eye(6) * 1e-4;      % Bias uncertainty
 
-% Process noise terms tuned to match the Python implementation
-Q = eye(15) * 1e-4;
-Q(4:6,4:6) = diag([0.1, 0.1, 0.1]);
+% Process noise covariance (velocity entries scaled)
+Q = eye(15) * 0.01;
+Q(4:6,4:6) = Q(4:6,4:6) * vel_q_scale; % [m^2/s^2]
 
 % Measurement noise covariance
-R = eye(6) * 1;
-R(4:6,4:6) = diag([0.25, 0.25, 0.25]);
+R = eye(6) * pos_meas_noise;         % Position variance [m^2]
+R(4:6,4:6) = eye(3) * vel_r;         % Velocity variance [m^2/s^2]
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
