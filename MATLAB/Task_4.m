@@ -354,40 +354,54 @@ fprintf('-> IMU-derived position, velocity, and acceleration computed for all me
 % -------------------------------------------------------------------------
 t = imu_time; % Common time vector at IMU rate
 pos_ned_GNSS = interp1(gnss_time, gnss_pos_ned, t, 'linear', 'extrap')';
-
-% NED positions for each method
-pos_ned_TRIAD    = pos_integ.TRIAD';
-pos_ned_Davenport = pos_integ.Davenport';
-pos_ned_SVD      = pos_integ.SVD';
-
-% Convert to ECEF
 pos_ecef_GNSS = interp1(gnss_time, gnss_pos_ecef, t, 'linear', 'extrap')';
-pos_ecef_TRIAD = C_NED_to_ECEF * pos_ned_TRIAD + ref_r0;
-pos_ecef_Davenport = C_NED_to_ECEF * pos_ned_Davenport + ref_r0;
-pos_ecef_SVD   = C_NED_to_ECEF * pos_ned_SVD + ref_r0;
 
-% Body-frame positions (use TRIAD attitude as reference)
-C_N_B_ref = C_B_N_methods.TRIAD';
+% NED/ECEF/BODY positions for each method
+pos_ned = struct();
+pos_ecef = struct();
+pos_body = struct();
+for i = 1:length(methods)
+    m = methods{i};
+    pos_ned.(m)  = pos_integ.(m)';
+    pos_ecef.(m) = C_NED_to_ECEF * pos_ned.(m) + ref_r0;
+end
+
+% Body-frame positions (use TRIAD attitude if available, otherwise first method)
+if isfield(C_B_N_methods, 'TRIAD')
+    C_N_B_ref = C_B_N_methods.TRIAD';
+else
+    C_N_B_ref = C_B_N_methods.(methods{1})';
+end
 pos_body_GNSS = C_N_B_ref * pos_ned_GNSS;
-pos_body_TRIAD = C_N_B_ref * pos_ned_TRIAD;
-pos_body_Davenport = C_N_B_ref * pos_ned_Davenport;
-pos_body_SVD   = C_N_B_ref * pos_ned_SVD;
+for i = 1:length(methods)
+    m = methods{i};
+    pos_body.(m) = C_N_B_ref * pos_ned.(m);
+end
 
 run_id = pair_tag;
 out_dir = fullfile(results_dir, run_id);
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 prefix = fullfile(out_dir, [run_id '_task4']);
 
-data_sets = {pos_ned_GNSS, pos_ned_TRIAD, pos_ned_Davenport, pos_ned_SVD};
-labels    = {'GNSS','IMU-TRIAD','IMU-Davenport','IMU-SVD'};
+% Assemble datasets in a fixed method order for plotting
+method_order = {'TRIAD','Davenport','SVD'};
+data_sets = {pos_ned_GNSS};
+data_sets_ecef = {pos_ecef_GNSS};
+data_sets_body = {pos_body_GNSS};
+labels = {'GNSS'};
+for i = 1:length(method_order)
+    m = method_order{i};
+    if isfield(pos_ned, m)
+        data_sets{end+1} = pos_ned.(m);
+        data_sets_ecef{end+1} = pos_ecef.(m);
+        data_sets_body{end+1} = pos_body.(m);
+        labels{end+1} = ['IMU-' m];
+    end
+end
+
 plot_frame_comparison(t, data_sets, labels, 'NED',  prefix);
-
-data_sets_ecef = {pos_ecef_GNSS, pos_ecef_TRIAD, pos_ecef_Davenport, pos_ecef_SVD};
 plot_frame_comparison(t, data_sets_ecef, labels, 'ECEF', prefix);
-
-data_sets_body = {pos_body_GNSS, pos_body_TRIAD, pos_body_Davenport, pos_body_SVD};
 plot_frame_comparison(t, data_sets_body, labels, 'BODY', prefix);
-
 plot_frame_comparison(t, data_sets, labels, 'Mixed', prefix);
 
 
