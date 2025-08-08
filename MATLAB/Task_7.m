@@ -13,6 +13,9 @@ function Task_7()
 
     fprintf('--- Starting Task 7: Residual Analysis with Task4 truth (ECEF) ---\n');
 
+    % add utils folder to path
+    addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
+
     %% Load state history from Task 5
     results_dir = get_results_dir();
     files = dir(fullfile(results_dir, '*_task5_results.mat'));
@@ -49,6 +52,7 @@ function Task_7()
             end
         end
     end
+    t_est = zero_base_time(t_est);
     ref_lat = S5.ref_lat;
     ref_lon = S5.ref_lon;
     ref_r0  = S5.ref_r0;
@@ -85,10 +89,10 @@ function Task_7()
     if isfield(S4, 't_truth')
         t_truth = S4.t_truth(:);
     else
-        tokens = regexp(run_id, 'GNSS_(\w+)', 'tokens', 'once');
+        tokens = regexp(run_id, 'GNSS_([^_]+)', 'tokens', 'once');
         csv = fullfile(data_dir, sprintf('GNSS_%s.csv', tokens{1}));
         T = readtable(csv);
-        t_truth = T.Posix_Time - T.Posix_Time(1);
+        t_truth = zero_base_time(T.Posix_Time);
     end
 
     %% Convert estimates from NED to ECEF

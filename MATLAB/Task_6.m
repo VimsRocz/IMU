@@ -17,6 +17,7 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 
 % add utils folder to path
 addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))),'src','utils'));
+addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
 
 if nargin < 4
     error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');
@@ -103,6 +104,28 @@ end
 
 if nargin < 4 || isempty(truth_file)
     truth_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
+end
+
+if ~isfile(truth_file)
+    warning('Truth file %s not found; using GNSS as truth.', truth_file);
+    t_truth = S.gnss_time;
+    pos_truth_ned_i_raw = S.gnss_pos_ned;
+    vel_truth_ned_i_raw = S.gnss_vel_ned;
+    acc_truth_ned_i_raw = [zeros(1,3); diff(vel_truth_ned_i_raw)./diff(t_truth)];
+    pos_truth_ned_i = centre(pos_truth_ned_i_raw .* sign_ned);
+    vel_truth_ned_i = vel_truth_ned_i_raw .* sign_ned;
+    acc_truth_ned_i = acc_truth_ned_i_raw .* sign_ned;
+    pos_ned_raw = S.pos_ned;
+    vel_ned_raw = S.vel_ned;
+    acc_ned_raw = [zeros(1,3); diff(vel_ned_raw)./diff(t_est)];
+    pos_ned = centre(pos_ned_raw .* sign_ned);
+    vel_ned = vel_ned_raw .* sign_ned;
+    acc_ned = [zeros(1,3); diff(vel_ned)./diff(t_est)];
+    t_imu = zero_base_time(t_est);
+    t_truth = zero_base_time(t_truth);
+    plot_state_grid(t_imu, {pos_truth_ned_i, pos_ned}, {vel_truth_ned_i, vel_ned}, {acc_truth_ned_i, acc_ned}, ...
+        'NED', [run_id '_' method '_Task6_TruthOverlay'], out_dir, {'Truth','Fused'});
+    return;
 end
 
 % Support text-based STATE_X files in addition to MAT files
@@ -219,6 +242,10 @@ acc_ned_raw = [zeros(1,3); diff(vel_ned_raw)./diff(t_est)];
 pos_ned = centre(pos_ned_raw .* sign_ned);
 vel_ned = vel_ned_raw .* sign_ned;
 acc_ned = [zeros(1,3); diff(vel_ned)./diff(t_est)];
+
+t_imu = zero_base_time(t_est);
+plot_state_grid(t_imu, {pos_truth_ned_i, pos_ned}, {vel_truth_ned_i, vel_ned}, {acc_truth_ned_i, acc_ned}, ...
+    'NED', [run_id '_' method '_Task6_TruthOverlay'], out_dir, {'Truth','Fused'});
 
 C_N_E = C';
 pos_ecef = (C_N_E*pos_ned_raw')' + ref_r0';

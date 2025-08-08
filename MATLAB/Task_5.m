@@ -19,6 +19,9 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %       'vel_q_scale'      - scale for Q(4:6,4:6) velocity process noise [-]      (10.0)
 %       'vel_r'            - R(4:6,4:6) velocity measurement variance   [m^2/s^2] (0.25)
 %       'scale_factor'     - accelerometer scale factor                 [-]      (1.0)
+
+% add utils folder to path
+addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
@@ -102,7 +105,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     fprintf('Subtask 5.3: Loading GNSS and IMU data.\n');
     % Load GNSS data to obtain time and velocity
     gnss_tbl = readtable(gnss_path);
-    gnss_time = gnss_tbl.Posix_Time;
+    gnss_time = zero_base_time(gnss_tbl.Posix_Time);
     vel_cols = {'VX_ECEF_mps','VY_ECEF_mps','VZ_ECEF_mps'};
     pos_cols = {'X_ECEF_m','Y_ECEF_m','Z_ECEF_m'};
     gnss_pos_ecef = gnss_tbl{:, pos_cols};
@@ -139,7 +142,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     if dt_imu <= 0 || isnan(dt_imu)
         dt_imu = 1/400;
     end
-    imu_time = (0:size(imu_raw,1)-1)' * dt_imu + gnss_time(1);
+    imu_time = (0:size(imu_raw,1)-1)' * dt_imu;
     gyro_body_raw = imu_raw(:,3:5) / dt_imu;
     acc_body_raw = imu_raw(:,6:8) / dt_imu;
 
@@ -164,6 +167,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
         gyro_bias = t2.gyro_bias;
         if isfield(t2, 'g_body');         g_body = t2.g_body;         else; g_body = zeros(3,1); end
         if isfield(t2, 'omega_ie_body');  omega_ie_body = t2.omega_ie_body; else; omega_ie_body = zeros(3,1); end
+        if isfield(t2, 'accel_scale'); accel_scale = t2.accel_scale; else; accel_scale = 1.0; end
     else
         warning('Task 2 results not found, estimating biases from first samples');
         N_static = min(4000, size(acc_body_raw,1));
@@ -171,26 +175,11 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
         gyro_bias = mean(gyro_body_raw(1:N_static,:),1)';
         g_body = -mean(acc_body_raw(1:N_static,:),1)';
         omega_ie_body = mean(gyro_body_raw(1:N_static,:),1)';
+        accel_scale = 1.0;
     end
-    % Load accelerometer scale factor estimated in Task 4. The value may
-    % already be present in the ``task4_results`` workspace variable when
-    % running the tasks sequentially.  Otherwise load it from the saved
-    % MAT-file.  If neither source is available, fall back to a neutral
-    % scale factor of 1.0 so processing can continue.
+    % Use accelerometer scale factor from Task 2 when not supplied
     if isempty(scale_factor)
-        scale_factor = 1.0; % Neutral default
-        task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-        if evalin('base','exist(''task4_results'',''var'')')
-            t4 = evalin('base','task4_results');
-            if isfield(t4,'scale_factors') && isfield(t4.scale_factors, method)
-                scale_factor = t4.scale_factors.(method);
-            end
-        elseif isfile(task4_file)
-            d4 = load(task4_file, 'scale_factors');
-            if isfield(d4, 'scale_factors') && isfield(d4.scale_factors, method)
-                scale_factor = d4.scale_factors.(method);
-            end
-        end
+        scale_factor = accel_scale;
     end
     % Biases are provided by Task 2. Do not override them with
     % dataset-specific constants so that both MATLAB and Python remain
@@ -508,6 +497,12 @@ else
     accel_from_vel = zeros(3, numel(imu_time));
 end
 
+% 3x3 state grid for fused output
+p_n_fused = x_log(1:3,:)' ;
+v_n_fused = x_log(4:6,:)' ;
+a_n_fused = accel_from_vel';
+plot_state_grid(imu_time, p_n_fused, v_n_fused, a_n_fused, 'NED', ...
+    sprintf('%s_%s_%s_Task5_FUSED', imu_name, gnss_name, method), results_dir, {'Fused'});
 
 % --- Combined Position, Velocity and Acceleration ---
 fig = figure('Name', 'KF Results: P/V/A', 'Position', [100 100 1200 900]);

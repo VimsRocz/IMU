@@ -99,6 +99,7 @@ function body_data = Task_2(imu_path, gnss_path, method)
     body_data.gyro_bias     = gyro_bias;
     body_data.static_start  = static_start;
     body_data.static_end    = static_end;
+    body_data.accel_scale   = accel_scale;
 
     [~, imu_name, ~] = fileparts(imu_path);
     if ~isempty(gnss_path)
@@ -122,8 +123,14 @@ function body_data = Task_2(imu_path, gnss_path, method)
     fprintf(['Task 2 summary: static interval %d:%d, g_body = [% .4f % .4f % .4f], ' ...
             'omega_ie_body = [% .6f % .6f % .6f]\n'], ...
             static_start, static_end, g_body, omega_ie_body);
+    % Compute accelerometer scale factor from static gravity norm
+    g_ned_mag  = 9.79424753;                          % from Task 1
+    g_body_mag = norm(g_body);                        % using static interval mean
+    accel_scale = g_ned_mag / g_body_mag;             % ~1.0 for X002
+
     fprintf('Accelerometer bias = [% .6f % .6f % .6f] m/s^2\n', accel_bias);
     fprintf('Gyroscope bias     = [% .6f % .6f % .6f] rad/s\n', gyro_bias);
+    fprintf('Accelerometer scale factor (norm-based) = %.4f\n', accel_scale);
     pair_tag = [imu_name '_' gnss_name];
     if isempty(method)
         tag = pair_tag;
@@ -142,9 +149,9 @@ function body_data = Task_2(imu_path, gnss_path, method)
 
     % Save individual variables for easy loading in later tasks
     save(legacy_file, 'g_body', 'g_body_scaled', 'omega_ie_body', ...
-        'accel_bias', 'gyro_bias', 'static_start', 'static_end');
+        'accel_bias', 'gyro_bias', 'static_start', 'static_end', 'accel_scale');
     save(generic_file, 'g_body', 'g_body_scaled', 'omega_ie_body', ...
-        'accel_bias', 'gyro_bias', 'static_start', 'static_end');
+        'accel_bias', 'gyro_bias', 'static_start', 'static_end', 'accel_scale');
 
     % Also store a struct for interactive use
     save(legacy_file, '-append', 'body_data');
