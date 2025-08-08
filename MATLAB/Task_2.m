@@ -89,18 +89,6 @@ function body_data = Task_2(imu_path, gnss_path, method)
     gyro_bias  = static_gyro';
 
 
-    % Use consistent variable names across all MATLAB tasks
-
-    body_data = struct();
-    body_data.g_body        = g_body;
-    body_data.g_body_scaled = g_body; % retained for backwards compatibility
-    body_data.omega_ie_body = omega_ie_body;
-    body_data.accel_bias    = accel_bias;
-    body_data.gyro_bias     = gyro_bias;
-    body_data.static_start  = static_start;
-    body_data.static_end    = static_end;
-    body_data.accel_scale   = accel_scale;
-
     [~, imu_name, ~] = fileparts(imu_path);
     if ~isempty(gnss_path)
         [~, gnss_name, ~] = fileparts(gnss_path);
@@ -115,7 +103,6 @@ function body_data = Task_2(imu_path, gnss_path, method)
         'IMU_X003', [0.58525893; -6.8367178; 0.9084152] );
     if isfield(dataset_bias_map, imu_name)
         accel_bias = dataset_bias_map.(imu_name);
-        body_data.accel_bias = accel_bias;
     end
 
     fprintf('Task 2: g_body = [% .4f % .4f % .4f]\n', g_body);
@@ -123,42 +110,36 @@ function body_data = Task_2(imu_path, gnss_path, method)
     fprintf(['Task 2 summary: static interval %d:%d, g_body = [% .4f % .4f % .4f], ' ...
             'omega_ie_body = [% .6f % .6f % .6f]\n'], ...
             static_start, static_end, g_body, omega_ie_body);
-    % Compute accelerometer scale factor from static gravity norm
-    g_ned_mag  = 9.79424753;                          % from Task 1
-    g_body_mag = norm(g_body);                        % using static interval mean
-    accel_scale = g_ned_mag / g_body_mag;             % ~1.0 for X002
-
     fprintf('Accelerometer bias = [% .6f % .6f % .6f] m/s^2\n', accel_bias);
     fprintf('Gyroscope bias     = [% .6f % .6f % .6f] rad/s\n', gyro_bias);
-    fprintf('Accelerometer scale factor (norm-based) = %.4f\n', accel_scale);
-    pair_tag = [imu_name '_' gnss_name];
-    if isempty(method)
-        tag = pair_tag;
-        method_tag = 'AllMethods';
-    else
-        tag = [pair_tag '_' method];
-        method_tag = method;
-    end
 
     results_dir = get_results_dir();
     if ~exist(results_dir,'dir'); mkdir(results_dir); end
 
-    legacy_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
-    generic_file = fullfile(results_dir, ...
-        sprintf('%s_%s_%s_task2_results.mat', imu_name, gnss_name, method_tag));
+    imu_id = imu_name; gnss_id = gnss_name; method_tag = method;
 
-    % Save individual variables for easy loading in later tasks
-    save(legacy_file, 'g_body', 'g_body_scaled', 'omega_ie_body', ...
-        'accel_bias', 'gyro_bias', 'static_start', 'static_end', 'accel_scale');
-    save(generic_file, 'g_body', 'g_body_scaled', 'omega_ie_body', ...
-        'accel_bias', 'gyro_bias', 'static_start', 'static_end', 'accel_scale');
+    % ---- store Task 2 body-frame results ----
+    body_data = struct();
+    body_data.g_body        = g_body(:).';
+    body_data.g_body_scaled = g_body_scaled(:).';
+    body_data.omega_ie_body = omega_ie_body(:).';
+    body_data.accel_bias    = accel_bias(:).';
+    body_data.gyro_bias     = gyro_bias(:).';
+    body_data.static_start  = static_start;
+    body_data.static_end    = static_end;
 
-    % Also store a struct for interactive use
-    save(legacy_file, '-append', 'body_data');
-    save(generic_file, '-append', 'body_data');
+    % IMPORTANT: accel_scale is not known yet here; leave default=1.0.
+    if ~exist('accel_scale','var') || isempty(accel_scale)
+        accel_scale = 1.0;
+    end
+    body_data.accel_scale   = accel_scale;
+
+    task2_file = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', ...
+        imu_id, gnss_id, method_tag));
+    save(task2_file, 'body_data', '-v7.3');
 
     assignin('base','task2_results', body_data);
-    fprintf('Task 2 results saved to %s\n', legacy_file);
+    fprintf('Task 2 results saved to %s\n', task2_file);
     fprintf('Task 2 fields:\n');
-    disp(fieldnames(body_data));
+    disp({'g_body','g_body_scaled','omega_ie_body','accel_bias','gyro_bias','static_start','static_end','accel_scale'});
 end
