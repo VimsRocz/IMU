@@ -18,15 +18,39 @@ end
 
 % Robust import that skips comment lines and blanks
 try
-    opts = detectImportOptions(filename, 'FileType','text');
-    opts = setvaropts(opts, opts.VariableNames, ...
-                      'WhitespaceRule','preserve', 'EmptyFieldRule','auto');
+    opts = detectImportOptions(filename, 'FileType','text', ...
+                               'Delimiter',' ', ...
+                               'ConsecutiveDelimitersRule','join');
     opts.CommentStyle = '#';
+    % Avoid per-variable varopts to support older MATLAB versions
     T = readtable(filename, opts);
     % Drop rows that are completely empty (all NaN)
     T = T(~all(ismissing(T),2), :);
     data = table2array(T);
 catch ME
-    error('read_state_file:ReadFailed','Failed to read %s: %s', filename, ME.message);
+    % Fallback: use readmatrix with comment handling via textscan
+    try
+        fid = fopen(filename,'r');
+        C = textscan(fid, '%f', 'CommentStyle','#', 'MultipleDelimsAsOne',true);
+        fclose(fid);
+        v = C{1};
+        % Infer column count from first non-comment line
+        fid = fopen(filename,'r');
+        ncols = [];
+        while ~feof(fid)
+            ln = fgetl(fid);
+            if ischar(ln) && ~startsWith(strtrim(ln),'#') && ~isempty(strtrim(ln))
+                ncols = numel(str2num(ln)); %#ok<ST2NM>
+                break;
+            end
+        end
+        fclose(fid);
+        if isempty(ncols) || mod(numel(v), ncols) ~= 0
+            error('read_state_file:ParseFailed','Could not infer consistent columns.');
+        end
+        data = reshape(v, [ncols, numel(v)/ncols]).';
+    catch
+        error('read_state_file:ReadFailed','Failed to read %s: %s', filename, ME.message);
+    end
 end
 end
