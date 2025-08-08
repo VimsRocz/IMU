@@ -46,9 +46,13 @@ if ~isfile(imu_path)
           imu_path);
 end
 
-[~, imu_name, ~] = fileparts(imu_path);
-[~, gnss_name, ~] = fileparts(gnss_path);
-pair_tag = [imu_name '_' gnss_name];
+[~, imu_base, ~]  = fileparts(imu_path);
+[~, gnss_base, ~] = fileparts(gnss_path);
+imu_id  = erase(imu_base, '.dat');
+gnss_id = erase(gnss_base, '.csv');
+imu_name = imu_id;    % legacy variable names
+gnss_name = gnss_id;
+pair_tag = [imu_id '_' gnss_id];
 if isempty(method)
     tag = pair_tag;
     method_tag = 'AllMethods';
@@ -56,11 +60,11 @@ else
     tag = [pair_tag '_' method];
     method_tag = method;
 end
-run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
+run_id = sprintf('%s_%s_%s', imu_id, gnss_id, method);
 
 % Load accelerometer and gyroscope biases estimated in Task 2
 task2_file = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', ...
-    imu_name, gnss_name, method_tag));
+    imu_id, gnss_id, method_tag));
 assert(isfile(task2_file), 'Task 4: missing %s', task2_file);
 S2 = load(task2_file);
 if isfield(S2, 'body_data')
@@ -72,19 +76,20 @@ acc_bias = bd.accel_bias(:).';
 gyro_bias = bd.gyro_bias(:).';
 
 % Load rotation matrices produced by Task 3
-results_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
-if evalin('base','exist(''task3_results'',''var'')')
-    task3_results = evalin('base','task3_results');
+cand1 = fullfile(results_dir, sprintf('Task3_results_IMU_%s_GNSS_%s.mat', imu_id, gnss_id));
+cand2 = fullfile(results_dir, sprintf('IMU_%s_GNSS_%s_%s_task3_results.mat', imu_id, gnss_id, method));
+if isfile(cand1)
+    task3_file = cand1;
+elseif isfile(cand2)
+    task3_file = cand2;
 else
-    if ~isfile(results_file)
-        error('Task 3 results not found: %s', results_file);
-    end
-    data = load(results_file);
-    if ~isfield(data, 'task3_results')
-        error('Variable ''task3_results'' missing from %s', results_file);
-    end
-    task3_results = data.task3_results;
+    error('Task 4: Task 3 results missing. Tried:\n  %s\n  %s', cand1, cand2);
 end
+S3 = load(task3_file);
+if ~isfield(S3, 'task3_results')
+    error('Variable ''task3_results'' missing from %s', task3_file);
+end
+task3_results = S3.task3_results;
 
 if isempty(method)
     log_tag = '';
@@ -97,7 +102,7 @@ fprintf('\nTASK 4%s: GNSS and IMU Data Integration and Comparison\n', log_tag);
 % Subtask 4.1: Access Rotation Matrices from Task 3
 % =========================================================================
 fprintf('\nSubtask 4.1: Accessing rotation matrices from Task 3.\n');
-all_methods = fieldnames(task3_results); % e.g., 'TRIAD', 'Davenport', 'SVD'
+all_methods = task3_results.methods; % e.g., 'TRIAD', 'Davenport', 'SVD'
 if ~isempty(method)
     methods = {method};
 else
@@ -106,7 +111,7 @@ end
 C_B_N_methods = struct();
 for i = 1:length(methods)
     method_name = methods{i};
-    C_B_N_methods.(method_name) = task3_results.(method_name).R;
+    C_B_N_methods.(method_name) = task3_results.Rbn.(method_name);
 end
 fprintf('-> Rotation matrices accessed for methods: %s\n', strjoin(methods, ', '));
 
