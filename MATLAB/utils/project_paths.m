@@ -1,28 +1,29 @@
 function paths = project_paths()
-%PROJECT_PATHS Robust paths for the MATLAB pipeline (independent from Python).
-%   paths = PROJECT_PATHS() returns a struct with paths.root, paths.matlab,
-%   and paths.matlab_results. The function also adds nearby utils directories
-%   to the MATLAB path so that helper functions are found reliably.
+%PROJECT_PATHS Return key directories for MATLAB pipeline.
+%   PATHS = PROJECT_PATHS() returns paths for root, MATLAB and results.
 %
-%   Usage:
-%       p = project_paths();
+% Usage:
+%   p = project_paths();
 %
-%   The results directory (MATLAB/results) is created if it does not exist.
+% Robust paths for the MATLAB pipeline (independent from Python).
+% Returns:
+%   paths.root            = project root (parent of MATLAB/)
+%   paths.matlab          = .../MATLAB
+%   paths.matlab_results  = .../MATLAB/results (created if missing)
+% Also adds known utils dirs *if* they exist (no fatal errors if not).
 
-here = fileparts(mfilename('fullpath'));  % .../IMU/MATLAB
-paths.matlab = here;
-paths.root   = fileparts(here);           % .../IMU (project root)
+here = fileparts(mfilename('fullpath'));        % .../MATLAB/utils
+paths.matlab = fileparts(here);                 % .../MATLAB
+paths.root   = fileparts(paths.matlab);         % .../
 
-% results dir (MATLAB-only)
-paths.matlab_results = fullfile(paths.matlab,'results');
-if ~exist(paths.matlab_results,'dir'), mkdir(paths.matlab_results), end
+paths.matlab_results = fullfile(paths.matlab, 'results');
+if ~exist(paths.matlab_results,'dir'), mkdir(paths.matlab_results); end
 
-% candidate utils dirs (add only if they exist)
+% Candidate utils dirs to add (add only if they exist)
 utils_candidates = {
     fullfile(paths.matlab,'utils')
     fullfile(paths.matlab,'src','utils')
     fullfile(paths.root,'MATLAB','utils')
-    fullfile(paths.root,'MATLAB','src','utils')
     fullfile(paths.root,'src','utils')
 };
 
@@ -38,4 +39,3 @@ if ~found_any
     warning('utils folder not found near %s', fullfile(paths.matlab,'src','utils'));
 end
 end
-
