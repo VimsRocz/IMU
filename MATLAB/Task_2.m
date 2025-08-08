@@ -113,7 +113,8 @@ function body_data = Task_2(imu_path, gnss_path, method)
     fprintf('Accelerometer bias = [% .6f % .6f % .6f] m/s^2\n', accel_bias);
     fprintf('Gyroscope bias     = [% .6f % .6f % .6f] rad/s\n', gyro_bias);
 
-    results_dir = get_matlab_results_dir();
+    paths = project_paths();
+    results_dir = paths.matlab_results;
     if ~exist(results_dir,'dir'); mkdir(results_dir); end
 
     imu_id = imu_name; gnss_id = gnss_name; method_tag = method;

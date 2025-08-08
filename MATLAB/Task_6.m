@@ -8,17 +8,17 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 %   estimator's local NED coordinates using ``compute_C_ECEF_to_NED`` so
 %   that residuals are expressed in a consistent frame.  The resulting
 %   ``*_overlay_truth.pdf`` files are written to the directory returned by
-%   ``get_matlab_results_dir()``.  This function expects the initialization output
+%   ``project_paths()``.  This function expects the initialization output
 %   from Task 1 and the filter output from Task 5 to reside in that same
 %   directory.
 %
 % Usage:
 %   Task_6(task5_file, imu_path, gnss_path, truth_file)
 
-% add utils folder to path
-addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))),'src','utils'));
-addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
-addpath(fullfile(fileparts(mfilename('fullpath')),'lib'));
+paths = project_paths();
+results_dir = paths.matlab_results;
+addpath(fullfile(paths.root,'MATLAB','lib'));
+if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 
 if nargin < 4
     error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');
@@ -35,11 +35,7 @@ start_time = tic;
 [~, imu_name, ~]  = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 
-here = fileparts(mfilename('fullpath'));
-root = fileparts(here);
-% Results directory under repository root
-results_dir = get_matlab_results_dir();
-if ~exist(results_dir, 'dir'); mkdir(results_dir); end
+% paths and results_dir already defined above
 
 
 if ~isfile(task5_file)

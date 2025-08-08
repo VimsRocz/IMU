@@ -5,10 +5,9 @@ cfg.dataset_id = 'X002';
 cfg.method     = 'TRIAD';
 cfg.imu_file   = 'IMU_X002.dat';
 cfg.gnss_file  = 'GNSS_X002.csv';
-cfg.truth_file = '';  % optional; set to 'STATE_X001.txt' if available
+cfg.truth_file = '';  % optional; set 'STATE_X001.txt' if you actually have it
 
-% plotting/runtime knobs (explicit, not hidden in tasks)
-cfg.plots.popup = true;      % show figures interactively
-cfg.plots.save  = true;      % also save PDFs/PNGs
-cfg.strict = true;           % tasks should error on missing inputs
+cfg.plots.popup = true;   % show figures
+cfg.plots.save  = true;   % and save to disk
+cfg.strict      = true;   % tasks should error on missing inputs
 end
