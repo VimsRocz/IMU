@@ -14,8 +14,10 @@ function result = Task_4(imu_path, gnss_path, method)
 %   Task_4(imu_path, gnss_path, method)
 
 % Ensure utils path (if run standalone)
-here = fileparts(mfilename('fullpath'));
-addpath(fullfile(here,'src','utils'));
+here = fileparts(mfilename('fullpath'));   % e.g., .../MATLAB or .../MATLAB/src
+project_root = fileparts(here);            % go up one level
+utils_dir = fullfile(project_root, 'src', 'utils');
+if exist(utils_dir,'dir'), addpath(utils_dir); end
 
 paths = project_paths();
 results_dir = paths.matlab_results;
