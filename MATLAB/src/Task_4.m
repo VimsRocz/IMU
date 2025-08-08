@@ -26,6 +26,14 @@ catch
     error('cfg not found in caller workspace');
 end
 
+visibleFlag = 'off';
+try
+    if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
+        visibleFlag = 'on';
+    end
+catch
+end
+
 if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');
 end
@@ -219,13 +227,36 @@ fprintf('   GNSS accel RMS = %.4f m/s^2\n', rms(gnss_accel_ned(:)) );
 % =========================================================================
 fprintf('\nSubtask 4.9: Loading IMU data and correcting for bias for each method.\n');
 Ti = readmatrix(imu_path);
-t_imu = detect_imu_time(Ti, 0.0025);   % unwrap rollover or fallback to 400 Hz
 imu_raw_data = Ti;
-dt_imu = median(diff(t_imu));
-if dt_imu <= 0 || isnan(dt_imu), dt_imu = 0.0025; end
-imu_time = t_imu;
+imu_accel_raw = imu_raw_data(:,6:8);
 
-acc_body_raw = imu_raw_data(:, 6:8) / dt_imu;
+% --- IMU time (monotonic). Many devices log sub-second clock that resets at 1s. ---
+n_imu = size(imu_accel_raw,1);
+if exist('dt','var') && ~isempty(dt) && isfinite(dt) && dt>0
+    t_i = (0:n_imu-1)' * dt;
+    fprintf('[Task4] Using synthesized IMU time from dt=%.6f (n=%d)\n', dt, n_imu);
+else
+    if size(imu_raw_data,2) >= 2
+        imu_time_col = imu_raw_data(:,2);
+    else
+        imu_time_col = [];
+    end
+    t_raw = imu_time_col(:);
+    if max(t_raw)-min(t_raw) < 2 || any(diff(t_raw) <= 0)
+        dt_synth = 0.0025;  % 400 Hz default for X002 (from Task 2/timeline)
+        t_i = (0:n_imu-1)' * dt_synth;
+        fprintf('[Task4] Unwrapped IMU time by synthesis (dt=%.6f). Raw IMU time resets.\n', dt_synth);
+        dt = dt_synth;
+    else
+        t_i = t_raw - t_raw(1);
+        dt = median(diff(t_i));
+        fprintf('[Task4] Using IMU time from file (normalized to start@0).\n');
+    end
+end
+dt_imu = dt;
+imu_time = t_i;
+
+acc_body_raw = imu_accel_raw / dt_imu;
 
 % === Correct IMU raw acc and transform to NED linear acceleration ===
 imu_acc_corr_body = acc_body_raw - acc_bias;                 % bias removal
@@ -412,26 +443,30 @@ t_g = t_gnss(:); t_i = t_imu(:);
 
 % sanitize time vectors to satisfy interp1 requirements
 [t_i_u, pos_u] = ensure_unique_increasing('IMU time', t_i, pos_integ.(method_first));
-[~,       vel_u] = ensure_unique_increasing('IMU time', t_i, vel_integ.(method_first));
-[~,       acc_u] = ensure_unique_increasing('IMU time', t_i, acc_integ.(method_first));
-[t_g_u, gnss_pos_u] = ensure_unique_increasing('GNSS time', t_g, gnss_pos_ned);
-[~,      gnss_vel_u] = ensure_unique_increasing('GNSS time', t_g, gnss_vel_ned);
-[~,      gnss_acc_u] = ensure_unique_increasing('GNSS time', t_g, gnss_acc_ned);
+[~,      vel_u] = ensure_unique_increasing('IMU time', t_i, vel_integ.(method_first));
+[~,      acc_u] = ensure_unique_increasing('IMU time', t_i, acc_integ.(method_first));
 
+[t_g_u, ~] = ensure_unique_increasing('GNSS time', t_g, []);
 fprintf('[Task4] unique t_i: %d -> %d (dups dropped=%d)\n', ...
     numel(t_i), numel(t_i_u), numel(t_i)-numel(t_i_u));
 fprintf('[Task4] unique t_g: %d -> %d (dups dropped=%d)\n', ...
     numel(t_g), numel(t_g_u), numel(t_g)-numel(t_g_u));
 
-imu_pos_g  = interp1(t_i_u, pos_u, t_g_u, 'linear','extrap');
-imu_vel_g  = interp1(t_i_u, vel_u, t_g_u, 'linear','extrap');
-imu_acc_g  = interp1(t_i_u, acc_u, t_g_u, 'linear','extrap');
+imu_pos_g = interp1(t_i_u, pos_u, t_g_u, 'linear','extrap');
+imu_vel_g = interp1(t_i_u, vel_u, t_g_u, 'linear','extrap');
+imu_acc_g = interp1(t_i_u, acc_u, t_g_u, 'linear','extrap');
+gnss_acc_u = interp1(t_g, gnss_acc_ned, t_g_u, 'linear','extrap');
+
+% Save aligned data for downstream tasks
+t4_mat = fullfile(results_dir, sprintf('%s_task4_results.mat', run_id));
+save(t4_mat, 't_g_u','gnss_pos_ned','imu_pos_g','imu_vel_g','imu_acc_g','-v7.3');
+
 valid = all(isfinite(gnss_acc_u),2) & all(isfinite(imu_acc_g),2);
 t_v = t_g_u(valid);
 pos_v = imu_pos_g(valid,:); vel_v = imu_vel_g(valid,:); acc_v = imu_acc_g(valid,:);
 
 plot_state_grid(t_v, pos_v, vel_v, acc_v, 'NED', ...
-    'visible','on', 'save_dir', results_dir, 'run_id', run_id);
+    'visible',visibleFlag, 'save_dir', results_dir, 'run_id', run_id);
 
 % -------------------------------------------------------------------------
 % Generate comparison plots for all methods in NED, ECEF, BODY and Mixed
@@ -741,7 +776,7 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     fused_col = [0 0.4470 0.7410];
     % ----- NED frame -----
     base = fullfile(cfg.paths.matlab_results, sprintf('%s_task4', run_id));
-    fig = figure('Visible', ternary(cfg.plots.popup_figures,'on','off'), 'Position',[100 100 1200 900]);
+    fig = figure('Visible', visibleFlag, 'Position',[100 100 1200 900]);
     for i = 1:3
         subplot(3,3,i); hold on;
         plot(t_gnss, p_gnss_ned(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
@@ -773,7 +808,7 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     % ----- ECEF frame -----
     fprintf('Plotting all data in ECEF frame.\n');
     C_n2e = C_e2n';
-    fig = figure('Visible', ternary(cfg.plots.popup_figures,'on','off'), 'Position',[100 100 1200 900]);
+    fig = figure('Visible', visibleFlag, 'Position',[100 100 1200 900]);
     p_gnss_ecef = (C_n2e*p_gnss_ned' + r0_ecef)';
     v_gnss_ecef = (C_n2e*v_gnss_ned')';
     a_gnss_ecef = (C_n2e*a_gnss_ned')';
@@ -811,7 +846,7 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
 
     % ----- Body frame -----
     fprintf('Plotting all data in body frame.\n');
-    fig = figure('Visible', ternary(cfg.plots.popup_figures,'on','off'), 'Position',[100 100 1200 900]);
+    fig = figure('Visible', visibleFlag, 'Position',[100 100 1200 900]);
     C_N_B = C_B_N';
     pos_body = (C_N_B*p_gnss_ned')';
     vel_body = (C_N_B*v_gnss_ned')';

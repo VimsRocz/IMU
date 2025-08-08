@@ -15,7 +15,14 @@ require_files({cfg.imu_path, cfg.gnss_path});
 
 % --- Deterministic plots & RNG
 rng(0);
-set(0,'DefaultFigureVisible', ternary(cfg.plots.popup_figures,'on','off'));
+visibleFlag = 'off';
+try
+    if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
+        visibleFlag = 'on';
+    end
+catch
+end
+set(0,'DefaultFigureVisible', visibleFlag);
 
 % --- Run ID + standard filenames
 [~,imu_name,~]  = fileparts(cfg.imu_path);

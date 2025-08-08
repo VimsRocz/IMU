@@ -11,16 +11,21 @@ if nargin < 8 || isempty(results_dir)
     results_dir = 'results';
 end
 if nargin < 9 || isempty(cfg)
-    cfg.plots.popup_figures = true;
-    cfg.plots.save_pdf = true;
-    cfg.plots.save_png = true;
+    cfg = default_cfg();
+end
+visibleFlag = 'off';
+try
+    if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
+        visibleFlag = 'on';
+    end
+catch
 end
 
 comp_labels = { 'North (m)', 'East (m)', 'Down (m)' };
 
 % Position comparison ---------------------------------------------------
 fig = figure('Name', 'GNSS Position Interpolation', 'Position', [100 100 1200 600], ...
-    'Visible', ternary(cfg.plots.popup_figures,'on','off'));
+    'Visible', visibleFlag);
 for i = 1:3
     subplot(2,3,i); hold on; grid on; box on;
     plot(gnss_time, gnss_pos_ned(:,i), 'o', 'DisplayName', 'GNSS raw');
