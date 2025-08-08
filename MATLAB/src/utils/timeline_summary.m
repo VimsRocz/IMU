@@ -47,13 +47,15 @@ fprintf('GNSS  | n=%d     hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3f
 notes = {};
 truth_line = 'TRUTH | (not provided)';
 if ~isempty(truth_path) && isfile(truth_path)
-    St = readmatrix(truth_path);
-    t_truth = St(:,1);
-    t_truth = t_truth - t_truth(1);
-    truth_dt = diff(t_truth);
-    truth_hz = 1/median(truth_dt,'omitnan');
-    fprintf('TRUTH | n=%d    hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
-        numel(t_truth), truth_hz, median(truth_dt,'omitnan'), min(truth_dt), max(truth_dt), t_truth(end)-t_truth(1), t_truth(1), t_truth(end), string(all(truth_dt>0)));
+    t_truth = read_truth_time(truth_path, notes);
+    if ~isempty(t_truth)
+        truth_dt = diff(t_truth);
+        truth_hz = 1/median(truth_dt,'omitnan');
+        fprintf('TRUTH | n=%d    hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
+            numel(t_truth), truth_hz, median(truth_dt,'omitnan'), min(truth_dt), max(truth_dt), t_truth(end)-t_truth(1), t_truth(1), t_truth(end), string(all(truth_dt>0)));
+    else
+        fprintf('TRUTH | present but unreadable (see Notes).\n');
+    end
 else
     fprintf('%s\n', truth_line);
 end
@@ -66,9 +68,11 @@ if nargin>=5 && ~isempty(out_txt)
         numel(t_imu), imu_hz, median(imu_dt,'omitnan'), min(imu_dt), max(imu_dt), t_imu(end)-t_imu(1), t_imu(1), t_imu(end), string(all(imu_dt>0)));
     fprintf(fid,'GNSS  | n=%d     hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
         numel(t_gnss), gnss_hz, median(gnss_dt,'omitnan'), min(gnss_dt), max(gnss_dt), t_gnss(end)-t_gnss(1), t_gnss(1), t_gnss(end), string(all(gnss_dt>0)));
-    if exist('t_truth','var')
+    if exist('t_truth','var') && ~isempty(t_truth)
         fprintf(fid,'TRUTH | n=%d    hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
             numel(t_truth), truth_hz, median(truth_dt,'omitnan'), min(truth_dt), max(truth_dt), t_truth(end)-t_truth(1), t_truth(1), t_truth(end), string(all(truth_dt>0)));
+    elseif ~isempty(truth_path) && isfile(truth_path)
+        fprintf(fid,'TRUTH | present but unreadable (see Notes).\n');
     else
         fprintf(fid,'%s\n', truth_line);
     end
