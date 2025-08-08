@@ -4,99 +4,241 @@ This module prints and optionally saves concise timing summaries for IMU,
 GNSS and optional truth files. A MATLAB counterpart lives in
 ``MATLAB/src/utils/timeline_summary.m``.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 import numpy as np
 import pandas as pd
 
-def _unwrap_seconds(subsec: np.ndarray, dt_hint: float | None = None) -> np.ndarray:
-    """Unwrap a fractional-second counter that resets each second."""
-    subsec = np.asarray(subsec, float)
+
+def _read_imu_numeric(path: str | Path) -> pd.DataFrame:
+    """Read an IMU ``.dat`` file coercing all columns to numeric.
+
+    Any non-numeric tokens become ``NaN`` which keeps ``np.isfinite`` safe.
+    """
+
+    df = pd.read_csv(
+        path,
+        delim_whitespace=True,
+        header=None,
+        comment="#",
+        engine="python",
+        na_values=["NaN", "nan", "INF", "-INF", "inf", "-inf", ""],
+        keep_default_na=True,
+    )
+    for c in df.columns:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    df = df.dropna(how="all")
+    return df
+
+
+def _unwrap_seconds(subsec: np.ndarray, dt_hint: float = 0.0025) -> np.ndarray:
+    """Convert fractional seconds that reset each second into a uniform grid."""
+
+    subsec = np.asarray(subsec, dtype=np.float64)
     d = np.diff(subsec)
     wrap = d < -0.5
-    step = np.concatenate([[0], np.cumsum(wrap)])
+    step = np.concatenate([[0.0], np.cumsum(wrap.astype(float))])
     t = subsec + step
     t -= t[0]
-    if dt_hint is None:
-        dgood = np.diff(subsec)
-        m = np.median(dgood[(np.abs(dgood)>0) & (np.abs(dgood)<0.5)])
-        if not np.isfinite(m) or m <= 0:
-            dt_hint = 0.0025
-        else:
-            dt_hint = m
     n = len(t)
-    return np.arange(n) * dt_hint
+    return np.arange(n, dtype=np.float64) * float(dt_hint)
 
-def print_timeline(run_id: str, imu_path: str, gnss_path: str,
-                   truth_path: str | None = None, out_dir: str | None = None) -> None:
-    """Print dataset timeline summary and optionally save to ``out_dir``.
 
-    Parameters
-    ----------
-    run_id : str
-        Identifier for header and filenames.
-    imu_path, gnss_path : str
-        Data file paths.
-    truth_path : str, optional
-        Optional truth file path.
-    out_dir : str, optional
-        Directory to save ``*_timeline.txt``.
+def _detect_imu_time(imu_path: str | Path, dt_hint: float, notes: list[str]) -> np.ndarray:
+    """Detect or construct a monotonic IMU time vector.
+
+    The algorithm tries each column as a fractional-second counter or a
+    strictly monotonic column. If all fail it falls back to a uniform grid.
     """
-    print(f"== Timeline summary: {run_id} ==")
-    # IMU
-    imu = pd.read_csv(imu_path, delim_whitespace=True, header=None, engine="python")
-    t_raw = imu.iloc[:,1].to_numpy()
-    d = np.diff(t_raw)
-    if np.any(d < -0.5) or np.any(d > 0.5):
-        t_imu = _unwrap_seconds(t_raw, 0.0025)
+
+    df = _read_imu_numeric(imu_path)
+    n = len(df)
+    best_t: np.ndarray | None = None
+    best_score = np.inf
+
+    for c in df.columns:
+        col = df[c].to_numpy(dtype=np.float64)
+        finite = np.isfinite(col)
+        if finite.mean() < 0.9:
+            continue
+
+        cmin = np.nanmin(col)
+        cmax = np.nanmax(col)
+        if (cmin >= -1e-3) and (cmax <= 1.001):
+            t = _unwrap_seconds(col, dt_hint)
+            dt = np.diff(t)
+            score = abs(np.median(dt) - dt_hint)
+            if np.all(dt > 0) and score < best_score:
+                best_t = t
+                best_score = score
+
+        d = np.diff(col[finite])
+        if d.size > 0 and np.all(d > 0):
+            med = float(np.median(d))
+            if np.isfinite(med) and med > 0:
+                score = abs(med - dt_hint)
+                t = col - np.nanmin(col)
+                if score < best_score:
+                    best_t = t
+                    best_score = score
+
+    if best_t is None:
+        notes.append("IMU: could not detect a valid time column; using uniform grid via dt_hint.")
+        best_t = np.arange(n, dtype=np.float64) * float(dt_hint)
     else:
-        t_imu = t_raw - t_raw[0]
-    dt = np.diff(t_imu)
-    hz = 1/np.median(dt)
-    line_imu = ("IMU    | n={n}  hz={hz:.6f}  dt_med={dtmed:.6f}  "
-                "min/max dt=({dtmin:.6f},{dtmax:.6f})  dur={dur:.3f}s  "
-                "t0={t0:.6f}  t1={t1:.6f}  monotonic={mono}").format(
-                    n=len(t_imu), hz=hz, dtmed=np.median(dt),
-                    dtmin=dt.min(), dtmax=dt.max(), dur=t_imu[-1]-t_imu[0],
-                    t0=t_imu[0], t1=t_imu[-1], mono=np.all(dt>0))
-    print(line_imu)
-    # GNSS
+        notes.append("IMU: detected/constructed time column successfully.")
+
+    return np.asarray(best_t, dtype=np.float64)
+
+
+def print_timeline_summary(
+    run_id: str,
+    imu_path: str | Path,
+    gnss_path: str | Path,
+    truth_path: str | Path | None = None,
+    out_dir: str | Path | None = None,
+) -> str | None:
+    """Print dataset timeline summary and optionally save to ``out_dir``."""
+
+    notes: list[str] = []
+
+    # --- IMU ---
+    t_imu = _detect_imu_time(imu_path, 0.0025, notes)
+    imu_dt = np.diff(t_imu)
+    imu_hz = 1.0 / np.median(imu_dt)
+    print(f"== Timeline summary: {run_id} ==")
+    print(
+        "IMU   | n={:d}   hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+        "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}".format(
+            len(t_imu),
+            imu_hz,
+            np.median(imu_dt),
+            np.min(imu_dt),
+            np.max(imu_dt),
+            t_imu[-1] - t_imu[0],
+            t_imu[0],
+            t_imu[-1],
+            bool(np.all(imu_dt > 0)),
+        )
+    )
+
+    # --- GNSS ---
     g = pd.read_csv(gnss_path)
-    tg = g["Posix_Time"].to_numpy()
+    tg = g["Posix_Time"].to_numpy(np.float64)
     tg = tg - tg[0]
-    d = np.diff(tg)
-    hz = 1/np.median(d)
-    line_gnss = ("GNSS   | n={n}    hz={hz:.6f}  dt_med={dtmed:.6f}  "
-                 "min/max dt=({dtmin:.6f},{dtmax:.6f})  dur={dur:.3f}s  "
-                 "t0={t0:.6f}  t1={t1:.6f}  monotonic={mono}").format(
-                     n=len(tg), hz=hz, dtmed=np.median(d), dtmin=d.min(),
-                     dtmax=d.max(), dur=tg[-1]-tg[0], t0=tg[0], t1=tg[-1],
-                     mono=np.all(d>0))
-    print(line_gnss)
-    # TRUTH (optional)
-    line_truth = "TRUTH  | (not provided)"
+    gdt = np.diff(tg)
+    ghz = 1.0 / np.median(gdt)
+    print(
+        "GNSS  | n={:d}     hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+        "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}".format(
+            len(tg),
+            ghz,
+            np.median(gdt),
+            np.min(gdt),
+            np.max(gdt),
+            tg[-1] - tg[0],
+            tg[0],
+            tg[-1],
+            bool(np.all(gdt > 0)),
+        )
+    )
+
+    # --- TRUTH (optional) ---
     if truth_path and Path(truth_path).exists():
         st = pd.read_csv(truth_path, delim_whitespace=True, header=None)
-        tt = st.iloc[:,0].to_numpy()
+        tt = st.iloc[:, 0].to_numpy(np.float64)
         tt = tt - tt[0]
-        d = np.diff(tt)
-        hz = 1/np.median(d)
-        line_truth = ("TRUTH  | n={n}   hz={hz:.6f}  dt_med={dtmed:.6f}  "
-                      "min/max dt=({dtmin:.6f},{dtmax:.6f})  dur={dur:.3f}s  "
-                      "t0={t0:.6f}  t1={t1:.6f}  monotonic={mono}").format(
-                          n=len(tt), hz=hz, dtmed=np.median(d),
-                          dtmin=d.min(), dtmax=d.max(), dur=tt[-1]-tt[0],
-                          t0=tt[0], t1=tt[-1], mono=np.all(d>0))
-        print(line_truth)
+        tdt = np.diff(tt)
+        thz = 1.0 / np.median(tdt)
+        print(
+            "TRUTH | n={:d}    hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+            "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}".format(
+                len(tt),
+                thz,
+                np.median(tdt),
+                np.min(tdt),
+                np.max(tdt),
+                tt[-1] - tt[0],
+                tt[0],
+                tt[-1],
+                bool(np.all(tdt > 0)),
+            )
+        )
     else:
-        print(line_truth)
+        print("TRUTH | (not provided)")
+
+    if notes:
+        print("Notes:")
+        for n in notes:
+            print(f"- {n}")
+
     if out_dir:
         Path(out_dir).mkdir(parents=True, exist_ok=True)
-        out_path = Path(out_dir) / f"{run_id}_timeline.txt"
-        with out_path.open("w", encoding="utf-8") as f:
+        out = Path(out_dir) / f"{run_id}_timeline.txt"
+        with open(out, "w", encoding="utf-8") as f:
             f.write(f"== Timeline summary: {run_id} ==\n")
-            f.write(line_imu + "\n")
-            f.write(line_gnss + "\n")
-            f.write(line_truth + "\n")
-        print(f"[DATA TIMELINE] Saved {out_path}")
+            f.write(
+                "IMU   | n={:d}   hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+                "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}".format(
+                    len(t_imu),
+                    imu_hz,
+                    np.median(imu_dt),
+                    np.min(imu_dt),
+                    np.max(imu_dt),
+                    t_imu[-1] - t_imu[0],
+                    t_imu[0],
+                    t_imu[-1],
+                    bool(np.all(imu_dt > 0)),
+                )
+            )
+            f.write("\n")
+            f.write(
+                "GNSS  | n={:d}     hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+                "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}".format(
+                    len(tg),
+                    ghz,
+                    np.median(gdt),
+                    np.min(gdt),
+                    np.max(gdt),
+                    tg[-1] - tg[0],
+                    tg[0],
+                    tg[-1],
+                    bool(np.all(gdt > 0)),
+                )
+            )
+            f.write("\n")
+            if truth_path and Path(truth_path).exists():
+                f.write(
+                    "TRUTH | n={:d}    hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+                    "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}".format(
+                        len(tt),
+                        thz,
+                        np.median(tdt),
+                        np.min(tdt),
+                        np.max(tdt),
+                        tt[-1] - tt[0],
+                        tt[0],
+                        tt[-1],
+                        bool(np.all(tdt > 0)),
+                    )
+                )
+                f.write("\n")
+            else:
+                f.write("TRUTH | (not provided)\n")
+            if notes:
+                f.write("Notes:\n")
+                for n in notes:
+                    f.write(f"- {n}\n")
+        return str(out)
+
+    return None
+
+
+# Backward compatibility with existing callers
+print_timeline = print_timeline_summary
+
+
+__all__ = ["print_timeline_summary", "print_timeline"]
+
