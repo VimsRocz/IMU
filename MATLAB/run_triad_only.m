@@ -1,65 +1,44 @@
-%RUN_TRIAD_ONLY  Process dataset X002 using the TRIAD method.
-%   This script mirrors ``src/run_triad_only.py`` but follows the
-%   ``run_all_methods.m`` approach where Tasks 1--7 are executed
-%   sequentially in MATLAB. Dataset files are referenced directly from the
-%   repository root and all outputs are written to ``results/`` using the
-%   standard naming convention. The printed rotation matrix should match
-%   the Python value
-%   ``[0.2336 -0.0454 0.9713; 0.0106 0.9990 0.0441; -0.9723 0.0000 0.2339]``
-%   up to numerical precision.
+%RUN_TRIAD_ONLY  Process dataset with TRIAD method via a structured driver.
+% Usage (recommended):
+%   cfg = default_cfg();           % edit fields explicitly below if needed
+%   cfg.dataset_id = 'X002';       % REQUIRED: dataset tag
+%   cfg.method     = 'TRIAD';      % REQUIRED: 'TRIAD' (others ok if implemented)
+%   cfg.imu_file   = 'IMU_X002.dat';
+%   cfg.gnss_file  = 'GNSS_X002.csv';
+%   cfg.truth_file = 'STATE_X001.txt';  % optional for Task 6/7
+%   run_triad(cfg);
 %
-%   Usage:
-%       run_triad_only
+% Usage (legacy “just run”):
+%   run_triad_only   % uses default_cfg(), then you EDIT the struct below.
+%
+% NOTE: No hidden defaults are used inside tasks. All inputs come from cfg.
 
+% --- Edit this block instead of hard-coding inside tasks ---
+cfg = default_cfg();
 
-%% Resolve helper path
-st = dbstack('-completenames');
-if ~isempty(st)
-    script_dir = fileparts(st(1).file);
+% REQUIRED: declare exactly (no hidden defaults)
+cfg.dataset_id = 'X002';
+cfg.method     = 'TRIAD';
+cfg.imu_file   = 'IMU_X002.dat';
+cfg.gnss_file  = 'GNSS_X002.csv';
+cfg.truth_file = 'STATE_X001.txt';     % leave as '' if not available
+
+% Plotting policy (pop-up & save)
+cfg.plots.popup_figures = true;        % show MATLAB figures
+cfg.plots.save_pdf      = true;
+cfg.plots.save_png      = true;
+
+% Consistent naming/paths
+cfg.paths = project_paths();            % root, results, src/utils added to path
+
+% Resolve absolute input paths
+cfg.imu_path  = fullfile(cfg.paths.root, cfg.imu_file);
+cfg.gnss_path = fullfile(cfg.paths.root, cfg.gnss_file);
+if ~isempty(cfg.truth_file)
+    cfg.truth_path = fullfile(cfg.paths.root, cfg.truth_file);
 else
-    script_dir = fileparts(mfilename('fullpath'));
+    cfg.truth_path = '';
 end
-addpath(script_dir);
-% add utils folder to path
-addpath(fullfile(fileparts(script_dir),'src','utils'));
 
-imu_file  = 'IMU_X002.dat';
-gnss_file = 'GNSS_X002.csv';
-method    = 'TRIAD';
-
-root_dir  = fileparts(fileparts(mfilename('fullpath')));
-imu_path  = fullfile(root_dir, imu_file);
-gnss_path = fullfile(root_dir, gnss_file);
-
-results_dir = get_results_dir();
-if ~exist(results_dir, 'dir'); mkdir(results_dir); end
-
-% ------------------------------------------------------------------
-% Execute Tasks 1--5 sequentially using the TRIAD initialisation
-% ------------------------------------------------------------------
-Task_1(imu_path, gnss_path, method);
-Task_2(imu_path, gnss_path, method);
-Task_3(imu_path, gnss_path, method);
-Task_4(imu_path, gnss_path, method);
-Task_5(imu_path, gnss_path, method);
-
-% ------------------------------------------------------------------
-% Tasks 6 and 7: validation and residual analysis
-% ------------------------------------------------------------------
-task5_file = fullfile(results_dir, sprintf('IMU_X002_GNSS_X002_%s_task5_results.mat', method));
-truth_file = fullfile(root_dir, 'STATE_X001.txt');
-if isfile(task5_file) && isfile(truth_file)
-    disp('--- Running Task 6: Truth Overlay/Validation ---');
-    Task_6(task5_file, imu_path, gnss_path, truth_file);
-    [~, imu_name, ~]  = fileparts(imu_path);
-    [~, gnss_name, ~] = fileparts(gnss_path);
-    run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
-    out_dir = fullfile(results_dir, run_id);
-    fprintf('Task 6 overlay plots saved under: %s\n', out_dir);
-    disp('--- Running Task 7: Residuals & Summary ---');
-    Task_7();
-    fprintf('Task 7 evaluation plots saved under: %s\n', out_dir);
-    disp('Task 6 and Task 7 complete. See results directory for plots and PDF summaries.');
-else
-    warning('Task 6 or Task 7 skipped: Missing Task 5 results or truth file.');
-end
+% Run
+run_triad(cfg);
