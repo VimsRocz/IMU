@@ -23,6 +23,11 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 % add utils folder to path
 addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
 addpath(fullfile(fileparts(mfilename('fullpath')),'lib'));
+try
+    cfg = evalin('caller','cfg');
+catch
+    error('cfg not found in caller workspace');
+end
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
@@ -57,13 +62,7 @@ addpath(fullfile(fileparts(mfilename('fullpath')),'lib'));
     vel_r           = p.Results.vel_r;
     scale_factor    = p.Results.scale_factor;
 
-    % Store all outputs under the repository "results" directory
-    here = fileparts(mfilename('fullpath'));
-    root = fileparts(here);
-    results_dir = get_matlab_results_dir();
-    if ~exist(results_dir,'dir')
-        mkdir(results_dir);
-    end
+
     if ~isfile(gnss_path)
         error('Task_5:GNSSFileNotFound', ...
               'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
@@ -76,8 +75,7 @@ addpath(fullfile(fileparts(mfilename('fullpath')),'lib'));
     end
     [~, imu_name, ~] = fileparts(imu_path);
     [~, gnss_name, ~] = fileparts(gnss_path);
-    pair_tag = [imu_name '_' gnss_name];
-    tag = [pair_tag '_' method];
+    run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
 
     if isempty(method)
         log_tag = '';
@@ -251,14 +249,14 @@ q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
     % Task 1 results may be saved under two naming schemes. First check the
     % legacy ``Task1_init_*`` file, then fall back to the unified
     % ``*_task1_results`` produced by ``save_task_results``.
-    task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
+    task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', run_id));
     if ~isfile(task1_file)
         alt_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
         if isfile(alt_file)
             task1_file = alt_file;
         else
             % Look for the newer naming convention
-            alt_file = fullfile(results_dir, sprintf('%s_task1_results.mat', tag));
+            alt_file = fullfile(results_dir, sprintf('%s_task1_results.mat', run_id));
             if ~isfile(alt_file)
                 alt_file = fullfile(results_dir, sprintf('%s_task1_results.mat', pair_tag));
             end
@@ -342,7 +340,7 @@ for k = 1:3
 end
 % Compare raw and interpolated GNSS data
 task5_gnss_interp_ned_plot(gnss_time, gnss_pos_ned, gnss_vel_ned, imu_time, ...
-    gnss_pos_interp, gnss_vel_interp, tag, results_dir);
+    gnss_pos_interp, gnss_vel_interp, run_id, results_dir, cfg);
 
 % --- Main Filter Loop ---
 fprintf('-> Starting filter loop over %d IMU samples...\n', num_imu_samples);
@@ -509,12 +507,12 @@ p_n_fused = x_log(1:3,:)' ;
 v_n_fused = x_log(4:6,:)' ;
 a_n_fused = accel_from_vel';
 plot_state_grid(imu_time, p_n_fused, v_n_fused, a_n_fused, 'NED', ...
-    sprintf('%s_%s_%s_Task5_FUSED', imu_name, gnss_name, method), results_dir, {'Fused'});
+    sprintf('%s_task5', run_id), results_dir, {'Fused'}, cfg);
 
 % --- Combined Position, Velocity and Acceleration ---
 fig = figure('Name', 'KF Results: P/V/A', 'Position', [100 100 1200 900]);
 labels = {'North', 'East', 'Down'};
-all_file = fullfile(results_dir, sprintf('%s_Task5_AllResults.pdf', tag));
+all_file = fullfile(results_dir, sprintf('%s_Task5_AllResults.pdf', run_id));
 if exist(all_file, 'file'); delete(all_file); end
 for i = 1:3
     % Position
@@ -580,26 +578,26 @@ if ~isempty(zupt_indices)
 end
 
 plot_task5_mixed_frame(imu_time, x_log(1:3,:), x_log(4:6,:), ...
-    acc_log, euler_log, C_ECEF_to_NED, ref_r0, g_NED, tag, method, results_dir, all_file);
+    acc_log, euler_log, C_ECEF_to_NED, ref_r0, g_NED, run_id, method, results_dir, all_file, cfg);
 fprintf('Fused mixed frames plot saved\n');
 
 fprintf('Plotting all data in NED frame.\n');
 plot_task5_ned_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-    gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method);
+    gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, run_id, cfg);
 
 fprintf('Plotting all data in ECEF frame.\n');
 plot_task5_ecef_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-    gnss_time, gnss_pos_ecef, gnss_vel_ecef, gnss_accel_ecef, C_ECEF_to_NED, ref_r0, method);
+    gnss_time, gnss_pos_ecef, gnss_vel_ecef, gnss_accel_ecef, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
 
 fprintf('Plotting all data in body frame.\n');
 plot_task5_body_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, euler_log, ...
-    gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, g_NED);
+    gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, g_NED, run_id, cfg);
 
 state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
 if exist(state_file, 'file')
     fprintf('Plotting fused ECEF trajectory with truth overlay.\n');
     plot_task5_ecef_truth(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-        state_file, C_ECEF_to_NED, ref_r0, method);
+        state_file, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
 end
 
 %% --- End-of-run summary statistics --------------------------------------
@@ -662,7 +660,7 @@ fprintf('%s\n', summary_line);
 fprintf('[SUMMARY] method=%s rmse_pos=%.2f m final_pos=%.2f m ', ...
         method, rmse_pos, final_pos_err);
 fprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', rmse_vel, final_vel);
-fid = fopen(fullfile(results_dir, [tag '_summary.txt']), 'w');
+fid = fopen(fullfile(results_dir, [run_id '_summary.txt']), 'w');
 fprintf(fid, '%s\n', summary_line);
 fclose(fid);
 
@@ -705,7 +703,7 @@ ref_lon = deg2rad(lon_deg); %#ok<NASGU>
 
 % Save using the same naming convention as the Python pipeline
 % <IMU>_<GNSS>_<METHOD>_task5_results.mat
-results_file = fullfile(results_dir, sprintf('%s_task5_results.mat', tag));
+results_file = fullfile(results_dir, sprintf('%s_task5_results.mat', run_id));
 save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
     'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
     'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', 'zupt_vel_norm', ...
@@ -729,7 +727,7 @@ catch
 end
 
 % Export estimator time vector for compatibility with Python pipeline
-time_file = fullfile(results_dir, sprintf('%s_task5_time.mat', tag));
+time_file = fullfile(results_dir, sprintf('%s_task5_time.mat', run_id));
 save(time_file, 't_est', 'dt', 'x_log');
 fprintf('Task 5: Saved time vector to %s\n', time_file);
 
@@ -895,9 +893,9 @@ end % End of main function
              -sp,   cp*sr,            cp*cr];
     end
 
-    function plot_task5_mixed_frame(t, pos_ned, vel_ned, acc_ned, eul_log, C_E_N, r0, g_N, tag, method, results_dir, all_file)
+    function plot_task5_mixed_frame(t, pos_ned, vel_ned, acc_ned, eul_log, C_E_N, r0, g_N, run_id, method, results_dir, all_file, cfg)
         %PLOT_TASK5_MIXED_FRAME Plot ECEF position/velocity and body accel.
-        %   Saves a multi-panel figure using the given METHOD and TAG.
+        %   Saves a multi-panel figure using the given METHOD and RUN_ID.
         pos_ecef = (C_E_N' * pos_ned) + r0;
         vel_ecef = C_E_N' * vel_ned;
         N = size(acc_ned,2);
@@ -906,7 +904,8 @@ end % End of main function
             C_B_N = euler_to_rot(eul_log(:,k));
             acc_body(:,k) = C_B_N' * (acc_ned(:,k) - g_N);
         end
-        fig = figure('Name','Task5 Mixed Frame','Position',[100 100 1200 900]);
+        fig = figure('Name','Task5 Mixed Frame','Position',[100 100 1200 900], ...
+            'Visible', ternary(cfg.plots.popup_figures,'on','off'));
         dims_e = {'X','Y','Z'}; dims_b = {'X','Y','Z'};
         for i = 1:3
             subplot(3,3,i);   plot(t, pos_ecef(i,:), 'b-'); grid on;
@@ -919,18 +918,21 @@ end % End of main function
             title(['Acc ' dims_b{i} ' Body']); ylabel('m/s^2'); xlabel('Time [s]');
         end
         sgtitle([method ' Mixed Frame Data']);
-        % fname = fullfile(results_dir, sprintf('%s_Task5_MixedFrame.pdf', tag));
-        % set(fig,'PaperPositionMode','auto');
-        % print(fig, fname, '-dpdf', '-bestfit');
-        % exportgraphics(fig, all_file, 'Append', true);
-        % fprintf('Saved plot: %s\n', fname);
-        % close(fig);
+        fname = fullfile(results_dir, sprintf('%s_task5_Mixed_state', run_id));
+        if cfg.plots.save_pdf
+            print(fig, [fname '.pdf'], '-dpdf', '-bestfit');
+        end
+        if cfg.plots.save_png
+            print(fig, [fname '.png'], '-dpng');
+        end
+        close(fig);
     end
 
-    function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_gnss, vel_gnss, acc_gnss, method)
+    function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_gnss, vel_gnss, acc_gnss, method, run_id, cfg)
         %PLOT_TASK5_NED_FRAME Plot fused vs GNSS data in the NED frame.
         labels = {'North','East','Down'};
-        figure('Name','Task5 NED Frame','Position',[100 100 1200 900]);
+        figure('Name','Task5 NED Frame','Position',[100 100 1200 900], ...
+            'Visible', ternary(cfg.plots.popup_figures,'on','off'));
         for k = 1:3
             subplot(3,3,k); hold on;
             plot(t_gnss, pos_gnss(:,k),'k:','DisplayName','GNSS');
@@ -948,15 +950,24 @@ end % End of main function
             hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend;
         end
         sgtitle([method ' - All data in NED frame']);
+        fname = fullfile(cfg.paths.results, sprintf('%s_task5_NED_state', run_id));
+        if cfg.plots.save_pdf
+            print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
+        end
+        if cfg.plots.save_png
+            print(gcf, [fname '.png'], '-dpng');
+        end
+        close(gcf);
     end
 
-    function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_ecef, vel_ecef, acc_ecef, C_E_N, r0, method)
+    function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_ecef, vel_ecef, acc_ecef, C_E_N, r0, method, run_id, cfg)
         %PLOT_TASK5_ECEF_FRAME Plot fused vs GNSS data in the ECEF frame.
         labels = {'X','Y','Z'};
         pos_fused = (C_E_N' * pos_ned) + r0;
         vel_fused = C_E_N' * vel_ned;
         acc_fused = C_E_N' * acc_ned;
-        figure('Name','Task5 ECEF Frame','Position',[100 100 1200 900]);
+        figure('Name','Task5 ECEF Frame','Position',[100 100 1200 900], ...
+            'Visible', ternary(cfg.plots.popup_figures,'on','off'));
         for k = 1:3
             subplot(3,3,k); hold on;
             plot(t_gnss, pos_ecef(:,k),'k:','DisplayName','GNSS');
@@ -974,9 +985,17 @@ end % End of main function
             hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend;
         end
         sgtitle([method ' - All data in ECEF frame']);
+        fname = fullfile(cfg.paths.results, sprintf('%s_task5_ECEF_state', run_id));
+        if cfg.plots.save_pdf
+            print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
+        end
+        if cfg.plots.save_png
+            print(gcf, [fname '.png'], '-dpng');
+        end
+        close(gcf);
     end
 
-    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, eul_log, t_gnss, pos_gnss_ned, vel_gnss_ned, acc_gnss_ned, method, g_N)
+    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, eul_log, t_gnss, pos_gnss_ned, vel_gnss_ned, acc_gnss_ned, method, g_N, run_id, cfg)
         %PLOT_TASK5_BODY_FRAME Plot fused results in body frame coordinates.
         labels = {'X','Y','Z'};
         N = size(pos_ned,2);
@@ -996,7 +1015,8 @@ end % End of main function
             vel_gnss_body(:,k) = C_B_N' * vel_gnss_ned(k,:)';
             acc_gnss_body(:,k) = C_B_N' * (acc_gnss_ned(k,:)' - g_N);
         end
-        figure('Name','Task5 Body Frame','Position',[100 100 1200 900]);
+        figure('Name','Task5 Body Frame','Position',[100 100 1200 900], ...
+            'Visible', ternary(cfg.plots.popup_figures,'on','off'));
         for j = 1:3
             subplot(3,3,j); hold on;
             plot(t_gnss, pos_gnss_body(j,:),'k:','DisplayName','GNSS');
@@ -1014,9 +1034,17 @@ end % End of main function
             hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{j}']); legend;
         end
         sgtitle([method ' - All data in body frame']);
+        fname = fullfile(cfg.paths.results, sprintf('%s_task5_BODY_state', run_id));
+        if cfg.plots.save_pdf
+            print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
+        end
+        if cfg.plots.save_png
+            print(gcf, [fname '.png'], '-dpng');
+        end
+        close(gcf);
     end
 
-    function plot_task5_ecef_truth(t, pos_ned, vel_ned, acc_ned, state_file, C_E_N, r0, method)
+    function plot_task5_ecef_truth(t, pos_ned, vel_ned, acc_ned, state_file, C_E_N, r0, method, run_id, cfg)
         %PLOT_TASK5_ECEF_TRUTH Overlay fused output with provided truth data.
         if ~exist(state_file,'file'); return; end
         truth = readmatrix(state_file);
@@ -1030,7 +1058,8 @@ end % End of main function
         vel_fused = C_E_N' * vel_ned;
         acc_fused = C_E_N' * acc_ned;
 
-        figure('Name','Task5 ECEF with Truth','Position',[100 100 1200 900]);
+        figure('Name','Task5 ECEF with Truth','Position',[100 100 1200 900], ...
+            'Visible', ternary(cfg.plots.popup_figures,'on','off'));
         labels = {'X','Y','Z'};
         for k = 1:3
             subplot(3,3,k); hold on;
@@ -1049,4 +1078,12 @@ end % End of main function
             hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend;
         end
         sgtitle([method ' - ECEF frame with Truth']);
+        fname = fullfile(cfg.paths.results, sprintf('%s_task5_ECEF_truth', run_id));
+        if cfg.plots.save_pdf
+            print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
+        end
+        if cfg.plots.save_png
+            print(gcf, [fname '.png'], '-dpng');
+        end
+        close(gcf);
     end

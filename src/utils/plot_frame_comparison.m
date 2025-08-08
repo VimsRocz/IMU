@@ -1,13 +1,20 @@
-function plot_frame_comparison(t, data_sets, labels, frame_name, out_prefix)
+function plot_frame_comparison(t, data_sets, labels, frame_name, out_prefix, cfg)
 %PLOT_FRAME_COMPARISON Plot 3-axis data in either 3-subplot or 1-panel mixed form.
 %   t           : time vector (Nx1)
 %   data_sets   : cell array of M×N or N×3 datasets (each dataset rows are axes)
 %   labels      : cell array of legend strings
 %   frame_name  : 'NED','ECEF','BODY','Mixed'
 %   out_prefix  : full path prefix, e.g. results/.../RUNID_taskX
+%   cfg         : struct with plotting policy
+
+if nargin < 6 || isempty(cfg)
+    cfg.plots.popup_figures = true;
+    cfg.plots.save_pdf = true;
+    cfg.plots.save_png = true;
+end
 
 % Create figure
-figure('Visible','off');
+figure('Visible', ternary(cfg.plots.popup_figures,'on','off'));
 if strcmpi(frame_name,'Mixed')
     % single axes
     hold on; grid on;
@@ -36,7 +43,12 @@ else
     end
 end
 % Save PDF & PNG
-saveas(gcf, [out_prefix '_' frame_name '_comparison.pdf'], 'pdf');
-saveas(gcf, [out_prefix '_' frame_name '_comparison.png'], 'png');
+fname = [out_prefix '_' frame_name '_comparison'];
+if cfg.plots.save_pdf
+    saveas(gcf, [fname '.pdf'], 'pdf');
+end
+if cfg.plots.save_png
+    saveas(gcf, [fname '.png'], 'png');
+end
 close;
 end

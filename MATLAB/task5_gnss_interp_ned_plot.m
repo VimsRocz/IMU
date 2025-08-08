@@ -1,23 +1,26 @@
-function task5_gnss_interp_ned_plot(gnss_time, gnss_pos_ned, gnss_vel_ned, imu_time, pos_interp, vel_interp, tag, results_dir)
+function task5_gnss_interp_ned_plot(gnss_time, gnss_pos_ned, gnss_vel_ned, imu_time, pos_interp, vel_interp, run_id, results_dir, cfg)
 %TASK5_GNSS_INTERP_NED_PLOT  Compare raw and interpolated GNSS trajectories.
 %   TASK5_GNSS_INTERP_NED_PLOT(GNSS_TIME, GNSS_POS_NED, GNSS_VEL_NED,
-%   IMU_TIME, POS_INTERP, VEL_INTERP, TAG, RESULTS_DIR) creates position and
-%   velocity plots in the NED frame showing raw GNSS samples and the
-%   interpolated trajectories at IMU timestamps.  Plots are saved in the
-%   provided results directory with filenames based on TAG.
-%
-%   Usage:
-%       task5_gnss_interp_ned_plot(t_gnss, pos_gnss, vel_gnss, t_imu,
-%                                  pos_interp, vel_interp, tag, out_dir)
+%   IMU_TIME, POS_INTERP, VEL_INTERP, RUN_ID, RESULTS_DIR, CFG) creates
+%   position and velocity plots in the NED frame showing raw GNSS samples
+%   and the interpolated trajectories at IMU timestamps.  Plots are saved in
+%   the provided results directory with filenames based on RUN_ID. CFG
+%   controls plot visibility and saving policy.
 
-if nargin < 8
-    results_dir = get_results_dir();
+if nargin < 8 || isempty(results_dir)
+    results_dir = 'results';
+end
+if nargin < 9 || isempty(cfg)
+    cfg.plots.popup_figures = true;
+    cfg.plots.save_pdf = true;
+    cfg.plots.save_png = true;
 end
 
 comp_labels = { 'North (m)', 'East (m)', 'Down (m)' };
 
 % Position comparison ---------------------------------------------------
-fig = figure('Name', 'GNSS Position Interpolation', 'Position', [100 100 1200 600]);
+fig = figure('Name', 'GNSS Position Interpolation', 'Position', [100 100 1200 600], ...
+    'Visible', ternary(cfg.plots.popup_figures,'on','off'));
 for i = 1:3
     subplot(2,3,i); hold on; grid on; box on;
     plot(gnss_time, gnss_pos_ned(:,i), 'o', 'DisplayName', 'GNSS raw');
@@ -37,8 +40,12 @@ for i = 1:3
     legend('Location','best');
 end
 
-fname = fullfile(results_dir, sprintf('%s_task5_gnss_interp_ned', tag));
-saveas(fig, [fname '.png']);
-saveas(fig, [fname '.pdf']);
+fname = fullfile(results_dir, sprintf('%s_task5_gnss_interp_ned', run_id));
+if cfg.plots.save_png
+    saveas(fig, [fname '.png']);
+end
+if cfg.plots.save_pdf
+    saveas(fig, [fname '.pdf']);
+end
 close(fig);
 end

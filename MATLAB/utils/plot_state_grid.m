@@ -1,11 +1,12 @@
-function plot_state_grid(t, pos, vel, acc, frame, tag, outdir, legendEntries)
+function plot_state_grid(t, pos, vel, acc, frame, tag, outdir, legendEntries, cfg)
 %PLOT_STATE_GRID 3x3 pop-up of Position/Velocity/Acceleration for N/E/D.
-%   PLOT_STATE_GRID(T, POS, VEL, ACC, FRAME, TAG, OUTDIR, LEGENDENTRIES)
+%   PLOT_STATE_GRID(T, POS, VEL, ACC, FRAME, TAG, OUTDIR, LEGENDENTRIES, CFG)
 %   displays a 3×3 grid of plots showing position, velocity and
 %   acceleration components over time. FRAME is a string identifying the
-%   coordinate frame (e.g. 'NED'), TAG is used for the figure name and file
-%   prefix. OUTDIR is where plots are saved. LEGENDENTRIES is optional and
-%   allows custom legend labels when multiple series are provided.
+%   coordinate frame (e.g. 'NED'), TAG is used for the file prefix. OUTDIR
+%   is where plots are saved. LEGENDENTRIES is optional and allows custom
+%   legend labels when multiple series are provided. CFG controls plotting
+%   policy (popup_figures, save_pdf, save_png).
 %
 %   POS, VEL and ACC may be either N×3 arrays or cell arrays of such arrays
 %   to overlay multiple series. Each array must have the same number of rows
@@ -14,8 +15,14 @@ function plot_state_grid(t, pos, vel, acc, frame, tag, outdir, legendEntries)
 if nargin < 8
     legendEntries = {};
 end
+if nargin < 9 || isempty(cfg)
+    cfg.plots.popup_figures = true;
+    cfg.plots.save_pdf = true;
+    cfg.plots.save_png = true;
+end
 
-figure('Name', sprintf('%s %s', frame, tag), 'NumberTitle','off', 'Visible','on');
+figure('Name', sprintf('%s %s', frame, tag), 'NumberTitle','off', ...
+       'Visible', ternary(cfg.plots.popup_figures,'on','off'));
 tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
 rows = {'Position [m]','Velocity [m/s]','Acceleration [m/s^2]'};
 cols = {'North','East','Down'};
@@ -62,8 +69,12 @@ if nargin >= 7 && ~isempty(outdir)
     if ~exist(outdir,'dir')
         mkdir(outdir);
     end
-    base = sprintf('%s_%s_state_%s', tag, frame, datestr(now,'yyyymmdd_HHMMSS'));
-    exportgraphics(gcf, fullfile(outdir, [base '.pdf']), 'ContentType','vector');
-    saveas(gcf, fullfile(outdir, [base '.png']));
+    base = sprintf('%s_%s_state', tag, frame);
+    if cfg.plots.save_pdf
+        exportgraphics(gcf, fullfile(outdir, [base '.pdf']), 'ContentType','vector');
+    end
+    if cfg.plots.save_png
+        saveas(gcf, fullfile(outdir, [base '.png']));
+    end
 end
 end
