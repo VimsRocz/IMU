@@ -39,6 +39,8 @@ from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
 from utils import save_mat
 
+sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -529,6 +531,32 @@ def main(argv: Iterable[str] | None = None) -> None:
             ],
         )
         df.to_csv(results_dir / "summary.csv", index=False)
+
+    # --- Append timeline & fz summary -----------------------------------------
+    try:
+        from tools.inspect_timing import describe_files, table_for_terminal, write_reports
+        run_id = tag
+        truth_path = str(truth_file) if truth_file.exists() else None
+        rows_t = describe_files(str(imu_path), str(gnss_path), truth_path)
+        print("\n[Timing] File timelines & rates")
+        print(table_for_terminal(rows_t))
+
+        timeline_json = results_dir / f"{run_id}_timeline.json"
+        timeline_md = results_dir / f"{run_id}_timeline.md"
+        write_reports(rows_t, timeline_json, timeline_md)
+        print(f"Saved timeline -> {timeline_md}")
+
+        runmeta_path = results_dir / f"{run_id}_runmeta.json"
+        try:
+            meta = json.load(open(runmeta_path)) if runmeta_path.exists() else {}
+        except Exception:
+            meta = {}
+        meta["timeline"] = [r.__dict__ for r in rows_t]
+        with open(runmeta_path, "w") as f:
+            json.dump(meta, f, indent=2)
+        print(f"Updated run meta -> {runmeta_path}")
+    except Exception as e:
+        print(f"[Timing] Skipped timeline summary: {e}")
 
     print("TRIAD processing complete for X002")
 
