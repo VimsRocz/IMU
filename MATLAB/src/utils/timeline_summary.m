@@ -2,7 +2,8 @@ function timeline_summary(run_id, imu_path, gnss_path, truth_path, out_txt)
 %TIMELINE_SUMMARY Print and save dataset timelines (IMU/GNSS/TRUTH).
 %   TIMELINE_SUMMARY(RUN_ID, IMU_PATH, GNSS_PATH, TRUTH_PATH, OUT_TXT)
 %   prints a concise summary of the dataset timebases and writes it to
-%   OUT_TXT. The summary mirrors ``print_timeline`` in ``src/utils/timeline.py``.
+%   OUT_TXT. The summary mirrors ``print_timeline_summary`` in
+%   ``src/utils/timeline.py``.
 %
 %   Usage:
 %       timeline_summary(run_id, imu_path, gnss_path, truth_path, out_txt)
