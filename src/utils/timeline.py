@@ -8,236 +8,260 @@ Functions
 ---------
 print_timeline_summary
     Read dataset files, emit a console summary and write ``*_timeline``
-    ``.txt`` and ``.json`` files.
+    ``.txt`` files.
 """
 
 from __future__ import annotations
 
-import json
-import os
+from pathlib import Path
 from typing import List
 
 import numpy as np
 import pandas as pd
 
 
-def _unwrap_subsec(v: np.ndarray) -> np.ndarray:
-    """Unwrap a [0,1) sub-second counter that resets each second."""
+def _read_imu_numeric(path: str | Path) -> pd.DataFrame:
+    """Read an IMU ``.dat`` file coercing all columns to numeric.
 
-    v = np.asarray(v).astype(float).ravel()
-    out = np.empty_like(v)
-    wraps = 0.0
-    out[0] = v[0]
-    for i in range(1, v.size):
-        dv = v[i] - v[i - 1]
-        if dv < -0.5:  # rolled over
-            wraps += 1.0
-        out[i] = v[i] + wraps
-    return out
+    Any non-numeric token is converted to ``NaN`` allowing ``np.isfinite``
+    checks without raising ``TypeError``.
+    """
 
-
-def _detect_imu_time(imu_path: str, dt_fallback: float = 0.0025,
-                     notes: List[str] | None = None) -> np.ndarray:
-    """Return inferred IMU time vector from ``imu_path``."""
-
-    if notes is None:
-        notes = []
-    try:
-        # be liberal: whitespace or comma-delimited, no header
-        try:
-            M = pd.read_csv(imu_path, header=None).values
-        except Exception:
-            M = np.loadtxt(imu_path)
-    except Exception as e:
-        notes.append(f"IMU: failed to read ({e}); fallback uniform dt={dt_fallback}")
-        n = 500000
-        return np.arange(n) * dt_fallback
-
-    # 1) look for a [0,1) sub-second column near the end
-    for c in range(M.shape[1] - 1, max(-1, M.shape[1] - 4), -1):
-        col = M[:, c]
-        if np.isfinite(col).all() and (col.min() >= 0) and (col.max() < 1):
-            notes.append(f"IMU: used sub-second column {c} with unwrap()")
-            return _unwrap_subsec(col)
-
-    # 2) look for a monotonic-ish small step column near the front
-    for c in range(min(6, M.shape[1])):
-        col = M[:, c]
-        if np.isfinite(col).all():
-            d = np.diff(col)
-            med = np.median(np.abs(d))
-            if 1e-4 < med < 1.0:
-                notes.append(f"IMU: used time-like column {c} (median dt={med:.6f})")
-                return col.astype(float).ravel()
-
-    # 3) fallback to constant rate
-    notes.append(f"IMU: no time column; fallback uniform dt={dt_fallback}")
-    return np.arange(M.shape[0]) * dt_fallback
-
-
-def _timeline_stats(t: np.ndarray) -> dict:
-    """Return timing statistics for a time vector ``t``."""
-
-    t = np.asarray(t).astype(float).ravel()
-    n = len(t)
-    if n <= 1:
-        return dict(
-            n=n,
-            hz=float("nan"),
-            dt_med=float("nan"),
-            dt_min=float("nan"),
-            dt_max=float("nan"),
-            dur=0.0,
-            t0=(t[0] if n else float("nan")),
-            t1=(t[-1] if n else float("nan")),
-            monotonic=False,
-        )
-    dt = np.diff(t)
-    dt_med = float(np.median(dt))
-    hz = (1.0 / dt_med) if dt_med > 0 else float("inf")
-    return dict(
-        n=int(n),
-        hz=hz,
-        dt_med=dt_med,
-        dt_min=float(np.min(dt)),
-        dt_max=float(np.max(dt)),
-        dur=float(t[-1] - t[0]),
-        t0=float(t[0]),
-        t1=float(t[-1]),
-        monotonic=bool(np.all(dt > 0)),
+    df = pd.read_csv(
+        path,
+        delim_whitespace=True,
+        header=None,
+        comment="#",
+        engine="python",
+        na_values=["NaN", "nan", "INF", "-INF", "inf", "-inf", ""],
+        keep_default_na=True,
     )
+    for c in df.columns:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    df = df.dropna(how="all")
+    return df
 
 
-def _gnss_time(gnss_path: str, notes: List[str] | None = None) -> np.ndarray:
-    """Return GNSS time vector from CSV file at ``gnss_path``."""
+def _unwrap_seconds(subsec: np.ndarray, dt_hint: float = 0.0025) -> np.ndarray:
+    """Unwrap fractional seconds that reset each second.
 
-    if notes is None:
-        notes = []
-    T = pd.read_csv(gnss_path)
-    for name in [
-        "Posix_Time",
-        "posix_time",
-        "time",
-        "Time",
-        "TIME",
-        "gps_time",
-        "GPSTime",
-    ]:
-        if name in T.columns:
-            notes.append(f"GNSS: used '{name}' column")
-            return T[name].to_numpy(dtype=float)
-    notes.append("GNSS: no time column; assume 1 Hz")
-    return np.arange(len(T), dtype=float)  # 1 Hz synthetic
+    The returned vector is locked to a uniform grid using ``dt_hint``.
+    """
+
+    subsec = np.asarray(subsec, dtype=np.float64)
+    d = np.diff(subsec)
+    wrap = d < -0.5
+    step = np.concatenate([[0.0], np.cumsum(wrap.astype(np.float64))])
+    t = subsec + step
+    t -= t[0]
+    n = len(t)
+    return np.arange(n, dtype=np.float64) * float(dt_hint)
 
 
-def _truth_time(truth_path: str | None, notes: List[str] | None = None) -> np.ndarray | None:
-    """Return truth time vector or ``None`` if ``truth_path`` is empty."""
+def _detect_imu_time(imu_path: str | Path, dt_hint: float, notes: List[str]) -> np.ndarray:
+    """Robustly detect or synthesize IMU timestamps."""
 
-    if not truth_path or not os.path.isfile(truth_path):
-        return None
-    if notes is None:
-        notes = []
-    try:
-        T = pd.read_csv(truth_path, sep=None, engine="python")
-    except Exception:
-        T = pd.read_csv(truth_path, delim_whitespace=True, header=None)
-    for name in [
-        "time",
-        "Time",
-        "t",
-        "T",
-        "posix",
-        "Posix_Time",
-        "sec",
-        "seconds",
-    ]:
-        if name in T.columns:
-            notes.append(f"TRUTH: used '{name}' column")
-            return T[name].to_numpy(dtype=float)
-    col0 = T.iloc[:, 0].to_numpy(dtype=float)
-    d = np.diff(col0)
-    if np.all(np.isfinite(d)) and np.median(np.abs(d)) > 1e-5:
-        notes.append("TRUTH: used column 0 as time")
-        return col0
-    notes.append("TRUTH: no time; assume 10 Hz synthetic")
-    return np.arange(len(T), dtype=float) * 0.1
+    df = _read_imu_numeric(imu_path)
+    n = len(df)
+    best_t: np.ndarray | None = None
+    best_score = np.inf
+
+    for c in df.columns:
+        col = df[c].to_numpy(dtype=np.float64)
+        finite = np.isfinite(col)
+        if finite.mean() < 0.9:
+            continue
+
+        # Fractional-second candidate
+        cmin = np.nanmin(col)
+        cmax = np.nanmax(col)
+        if (cmin >= -1e-3) and (cmax <= 1.001):
+            t = _unwrap_seconds(col, dt_hint)
+            dt = np.diff(t)
+            score = abs(np.median(dt) - dt_hint)
+            if np.all(dt > 0) and score < best_score:
+                best_t = t
+                best_score = score
+
+        # Monotonic absolute time candidate
+        d = np.diff(col[finite])
+        if d.size > 0 and np.all(d > 0):
+            med = float(np.median(d))
+            if np.isfinite(med) and med > 0:
+                score = abs(med - dt_hint)
+                t = col - np.nanmin(col)
+                if score < best_score:
+                    best_t = t
+                    best_score = score
+
+    if best_t is None:
+        notes.append(
+            "IMU: could not detect a valid time column; using uniform grid via dt_hint."
+        )
+        best_t = np.arange(n, dtype=np.float64) * float(dt_hint)
+    else:
+        notes.append("IMU: detected/constructed time column successfully.")
+
+    return np.asarray(best_t, dtype=np.float64)
 
 
 def print_timeline_summary(
     run_id: str,
-    imu_path: str,
-    gnss_path: str,
-    truth_path: str | None,
-    results_dir: str,
-) -> str:
-    """Print and save timeline summary.
+    imu_path: str | Path,
+    gnss_path: str | Path,
+    truth_path: str | Path | None = None,
+    out_dir: str | Path | None = None,
+) -> str | None:
+    """Print a concise timeline summary and optionally save to ``out_dir``.
 
     Parameters
     ----------
     run_id : str
         Identifier appended to output filenames.
-    imu_path, gnss_path, truth_path : str
-        Data file paths. ``truth_path`` may be ``None``.
-    results_dir : str
-        Directory in which ``*_timeline`` files are written.
+    imu_path, gnss_path, truth_path : str or Path
+        Dataset file paths. ``truth_path`` may be ``None``.
+    out_dir : str or Path, optional
+        Directory in which ``*_timeline.txt`` is written.
 
     Returns
     -------
-    str
-        Path to the written ``*_timeline.txt`` file.
+    str or None
+        Path to the written ``*_timeline.txt`` file if ``out_dir`` is provided,
+        otherwise ``None``.
     """
 
-    os.makedirs(results_dir, exist_ok=True)
     notes: List[str] = []
 
+    # --- IMU ---
     t_imu = _detect_imu_time(imu_path, 0.0025, notes)
-    t_gnss = _gnss_time(gnss_path, notes)
-    t_truth = _truth_time(truth_path, notes) if truth_path else None
-
-    s_imu = _timeline_stats(t_imu)
-    s_gnss = _timeline_stats(t_gnss)
-    s_tru = _timeline_stats(t_truth) if t_truth is not None else None
-
-    def fmt(s, label):
-        if s is None:
-            return f"{label:<6}| (missing)"
-        return (
-            f"{label:<6}| n={s['n']:<7d}  hz={s['hz']:.6f}  dt_med={s['dt_med']:.6f}  "
-            f"min/max dt=({s['dt_min']:.6f},{s['dt_max']:.6f})  "
-            f"dur={s['dur']:.3f}s  t0={s['t0']:.6f}  t1={s['t1']:.6f}  "
-            f"monotonic={'true' if s['monotonic'] else 'false'}"
+    imu_dt = np.diff(t_imu)
+    imu_hz = 1.0 / np.median(imu_dt)
+    print(f"== Timeline summary: {run_id} ==")
+    print(
+        "IMU   | n={:d}   hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+        "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}".format(
+            len(t_imu),
+            imu_hz,
+            np.median(imu_dt),
+            np.min(imu_dt),
+            np.max(imu_dt),
+            t_imu[-1] - t_imu[0],
+            t_imu[0],
+            t_imu[-1],
+            bool(np.all(imu_dt > 0)),
         )
+    )
 
-    header = f"== Timeline summary: {run_id} =="
-    lines = [
-        header,
-        fmt(s_imu, "IMU"),
-        fmt(s_gnss, "GNSS"),
-        fmt(s_tru, "TRUTH"),
-        "Notes:" if notes else "Notes: (none)",
-    ]
+    # --- GNSS ---
+    g = pd.read_csv(gnss_path)
+    tg = g["Posix_Time"].to_numpy(np.float64)
+    tg = tg - tg[0]
+    gdt = np.diff(tg)
+    ghz = 1.0 / np.median(gdt)
+    print(
+        "GNSS  | n={:d}     hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+        "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}".format(
+            len(tg),
+            ghz,
+            np.median(gdt),
+            np.min(gdt),
+            np.max(gdt),
+            tg[-1] - tg[0],
+            tg[0],
+            tg[-1],
+            bool(np.all(gdt > 0)),
+        )
+    )
+
+    # --- TRUTH (optional) ---
+    if truth_path and Path(truth_path).exists():
+        st = pd.read_csv(truth_path, delim_whitespace=True, header=None)
+        tt = st.iloc[:, 0].to_numpy(np.float64)
+        tt = tt - tt[0]
+        tdt = np.diff(tt)
+        thz = 1.0 / np.median(tdt)
+        print(
+            "TRUTH | n={:d}    hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+            "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}".format(
+                len(tt),
+                thz,
+                np.median(tdt),
+                np.min(tdt),
+                np.max(tdt),
+                tt[-1] - tt[0],
+                tt[0],
+                tt[-1],
+                bool(np.all(tdt > 0)),
+            )
+        )
+    else:
+        print("TRUTH | (not provided)")
+
+    # Print notes
     if notes:
+        print("Notes:")
         for n in notes:
-            lines.append(f"- {n}")
+            print(f"- {n}")
 
-    # print to console
-    print("\n".join(lines))
+    # Save to file if requested
+    if out_dir:
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out = out_dir / f"{run_id}_timeline.txt"
+        with open(out, "w") as f:
+            f.write(f"== Timeline summary: {run_id} ==\n")
+            f.write(
+                "IMU   | n={:d}   hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+                "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}\n".format(
+                    len(t_imu),
+                    imu_hz,
+                    np.median(imu_dt),
+                    np.min(imu_dt),
+                    np.max(imu_dt),
+                    t_imu[-1] - t_imu[0],
+                    t_imu[0],
+                    t_imu[-1],
+                    bool(np.all(imu_dt > 0)),
+                )
+            )
+            f.write(
+                "GNSS  | n={:d}     hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+                "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}\n".format(
+                    len(tg),
+                    ghz,
+                    np.median(gdt),
+                    np.min(gdt),
+                    np.max(gdt),
+                    tg[-1] - tg[0],
+                    tg[0],
+                    tg[-1],
+                    bool(np.all(gdt > 0)),
+                )
+            )
+            if truth_path and Path(truth_path).exists():
+                f.write(
+                    "TRUTH | n={:d}    hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+                    "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}\n".format(
+                        len(tt),
+                        thz,
+                        np.median(tdt),
+                        np.min(tdt),
+                        np.max(tdt),
+                        tt[-1] - tt[0],
+                        tt[0],
+                        tt[-1],
+                        bool(np.all(tdt > 0)),
+                    )
+                )
+            else:
+                f.write("TRUTH | (not provided)\n")
+            if notes:
+                f.write("Notes:\n")
+                for n in notes:
+                    f.write(f"- {n}\n")
+        return str(out)
 
-    # write text file
-    txt_path = os.path.join(results_dir, f"{run_id}_timeline.txt")
-    with open(txt_path, "w") as f:
-        f.write("\n".join(lines) + "\n")
-
-    # write json file
-    json_path = os.path.join(results_dir, f"{run_id}_timeline.json")
-    with open(json_path, "w") as f:
-        json.dump(
-            dict(run_id=run_id, imu=s_imu, gnss=s_gnss, truth=s_tru, notes=notes),
-            f,
-            indent=2,
-        )
-
-    return txt_path
+    return None
 
 
 __all__ = ["print_timeline_summary"]
