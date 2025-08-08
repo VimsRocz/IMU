@@ -222,6 +222,56 @@ imu_acc_corr_body = acc_body_raw - acc_bias;                 % bias removal
 C_bn = C_B_N_methods.TRIAD;                                  % body->NED
 imu_acc_ned = (C_bn * imu_acc_corr_body.').';               % Nx3
 
+%% ========================================================================
+% Subtask 4.10: Setting IMU parameters and gravity vector.
+% =========================================================================
+% Try to load gravity from Task 1; otherwise compute from WGS-84.
+p = project_paths();
+results_dir = p.matlab_results;
+
+[~, imu_base, ~]  = fileparts(imu_path);
+[~, gnss_base, ~] = fileparts(gnss_path);
+imu_id  = erase(imu_base, '.dat');
+gnss_id = erase(gnss_base, '.csv');
+
+t1_file = fullfile(results_dir, sprintf('Task1_init_%s_%s_%s.mat', imu_id, gnss_id, method));
+g_loaded = false;
+g_NED = [NaN;NaN;NaN];
+
+if isfile(t1_file)
+    S1 = load(t1_file);
+    cand_names = {'g_ned','gravity_ned','gravity_vec_ned','gravity_vector','gNED'};
+    for k = 1:numel(cand_names)
+        if isfield(S1, cand_names{k})
+            g_NED = S1.(cand_names{k})(:);
+            g_loaded = all(isfinite(g_NED)) && numel(g_NED)==3;
+            if g_loaded, break; end
+        end
+    end
+end
+
+if ~g_loaded
+    % Compute normal gravity at current latitude / height (WGS-84)
+    h_m = 0;   % default height if we can\u2019t read it
+    if exist('GNSS','var') && istable(GNSS) && any(strcmpi(GNSS.Properties.VariableNames,'Height_deg'))
+        h_m = GNSS.Height_deg(1);  % file uses "Height_deg" but values are meters
+    elseif exist('gnss_data','var') && istable(gnss_data) && any(strcmpi(gnss_data.Properties.VariableNames,'Height_deg'))
+        h_m = gnss_data.Height_deg(1);
+    elseif exist('height_m','var')
+        h_m = height_m;
+    end
+    g_mag = normal_gravity_wgs84(lat_rad, h_m);
+    g_NED = [0; 0; g_mag];
+    fprintf('Gravity (fallback): WGS-84 at lat=%.6f rad, h=%.1f m -> %.8f m/s^2 (NED +Z down)\n', ...
+            lat_rad, h_m, g_mag);
+else
+    fprintf('Gravity loaded from Task 1: [%.8f %.8f %.8f] m/s^2 (NED)\n', g_NED);
+end
+
+% IMU sample interval dt expected earlier as "dt"
+dt = dt_imu;
+assert(exist('dt','var')==1, 'IMU dt not set before Subtask 4.10');
+
 gravity_mag = norm(g_NED);
 gNED = [0 0 gravity_mag];
 imu_linacc_ned = imu_acc_ned - gNED;                        % remove gravity
@@ -269,34 +319,6 @@ fprintf('Static gyro mean =[%.6f %.6f %.6f]\n', static_gyro);
 fprintf('Static acc var   =[%.4g %.4g %.4g]\n', acc_var);
 fprintf('Static gyro var  =[%.4g %.4g %.4g]\n', gyro_var);
 
-% Gravity vector and Earth rotation in NED frame
-% Attempt to reuse the gravity vector estimated in Task 1; if unavailable,
-% fall back to the nominal constant.
-task1_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
-if ~isfile(task1_file)
-    % Fallback to method-agnostic filename for older runs
-    alt_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', pair_tag));
-    if isfile(alt_file)
-        task1_file = alt_file;
-    end
-end
-
-if isfile(task1_file)
-    t1 = load(task1_file);
-    if isfield(t1, 'gravity_ned')
-        g_NED = t1.gravity_ned(:);
-    elseif isfield(t1, 'g_NED')
-        g_NED = t1.g_NED(:);
-    else
-        warning('Gravity vector missing from %s, using default %.3f m/s^2', task1_file, constants.GRAVITY);
-        g_NED = [0; 0; constants.GRAVITY];
-    end
-    fprintf('Loaded gravity from %s\n', task1_file);
-else
-    warning('Task1 init file %s not found, using default gravity %.3f m/s^2', task1_file, constants.GRAVITY);
-    g_NED = [0; 0; constants.GRAVITY];
-end
-
 omega_E = constants.EARTH_RATE;                     % rad/s
 omega_ie_NED = omega_E * [cos(ref_lat); 0; -sin(ref_lat)];
 
@@ -326,16 +348,6 @@ for i = 1:length(methods)
     fprintf('Task 4: applied accelerometer scale factor = %.4f, bias = [% .4f % .4f % .4f]\n', ...
         scale_factors.(m), acc_biases.(m));
 end
-
-%% ========================================================================
-% Subtask 4.10: Set IMU Parameters and Gravity Vector
-% =========================================================================
-fprintf('\nSubtask 4.10: Setting IMU parameters and gravity vector.\n');
-fprintf('-> IMU sample interval dt = %.6f s\n', dt_imu);
-fprintf('Gravity vector applied: [%.2f %.2f %.2f]\n', g_NED);
-
-
-
 %% ========================================================================
 % Subtask 4.11: Initialize Output Arrays
 % =========================================================================
@@ -887,4 +899,23 @@ function q = rot_to_quaternion(R)
     q = [qw; qx; qy; qz];
     if q(1) < 0, q = -q; end
     q = q / norm(q);
+end
+
+function g = normal_gravity_wgs84(phi, h)
+%NORMAL_GRAVITY_WGS84 Normal gravity magnitude at latitude phi (rad) and height h (m)
+% Somigliana + free-air correction (good enough for our use here).
+if nargin < 2, h = 0; end
+a = 6378137.0;               % WGS-84 semi-major axis [m]
+f = 1/298.257223563;         % flattening
+e2 = f*(2-f);
+
+gamma_e = 9.7803253359;      % equatorial gravity [m/s^2]
+k = 0.00193185265241;        % Somigliana constant
+
+s = sin(phi);
+s2 = s.*s;
+
+gamma = gamma_e * (1 + k*s2) ./ sqrt(1 - e2*s2);
+gamma = gamma - 3.086e-6 * h;   % free-air correction (~0.3086 mGal/m)
+g = gamma;
 end
