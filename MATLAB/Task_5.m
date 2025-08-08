@@ -20,9 +20,9 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %       'vel_r'            - R(4:6,4:6) velocity measurement variance   [m^2/s^2] (0.25)
 %       'scale_factor'     - accelerometer scale factor                 [-]      (required)
 
-% add utils folder to path
-addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
-addpath(fullfile(fileparts(mfilename('fullpath')),'lib'));
+paths = project_paths();
+results_dir = paths.matlab_results;
+addpath(fullfile(paths.root,'MATLAB','lib'));
 try
     cfg = evalin('caller','cfg');
 catch

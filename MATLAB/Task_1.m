@@ -23,9 +23,9 @@ if ~isfile(imu_path)
           imu_path);
 end
 
-% Remove command-line side effects to behave like a normal function
-
-results_dir = get_matlab_results_dir();
+% Determine results directory via project_paths
+paths = project_paths();
+results_dir = paths.matlab_results;
 if ~exist(results_dir,'dir')
     mkdir(results_dir);
 end

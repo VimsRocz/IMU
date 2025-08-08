@@ -13,11 +13,10 @@ function Task_7()
 
     fprintf('--- Starting Task 7: Residual Analysis with Task4 truth (ECEF) ---\n');
 
-    % add utils folder to path
-    addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
+    paths = project_paths();
+    results_dir = paths.matlab_results;
 
     %% Load state history from Task 5
-    results_dir = get_matlab_results_dir();
     files = dir(fullfile(results_dir, '*_task5_results.mat'));
     if isempty(files)
         error('Task_7: no Task 5 results found.');

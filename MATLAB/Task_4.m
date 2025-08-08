@@ -14,10 +14,9 @@ function result = Task_4(imu_path, gnss_path, method)
 % Usage:
 %   Task_4(imu_path, gnss_path, method)
 
-% add utils folders to path
-addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))),'src','utils'));
-addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
-addpath(fullfile(fileparts(mfilename('fullpath')),'lib'));
+paths = project_paths();
+results_dir = paths.matlab_results;
+addpath(fullfile(paths.root,'MATLAB','lib'));
 
 % pull configuration from caller
 try

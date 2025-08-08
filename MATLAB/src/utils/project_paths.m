@@ -16,5 +16,5 @@ if ~exist(paths.matlab_results,'dir'), mkdir(paths.matlab_results); end
 
 % Add MATLAB code to path (idempotent)
 addpath(paths.matlab_src);
-addpath(paths.matlab_utils);
+addpath(genpath(paths.matlab_utils));
 end

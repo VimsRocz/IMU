@@ -32,7 +32,7 @@ tasks = { ...
     @( ) Task_5(cfg.imu_path, cfg.gnss_path, cfg.method)  ...
 };
 
-fprintf('\u25b6 %s\n', run_id);
+fprintf('%s %s\n', char(hex2dec('25B6')), run_id);
 for k = 1:numel(tasks)
     t0 = tic;
     try

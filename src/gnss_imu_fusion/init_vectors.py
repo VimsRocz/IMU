@@ -251,3 +251,40 @@ def davenport_q_method(
     )
 
     return R, q
+
+
+def svd_wahba(
+    n: np.ndarray,
+    b: np.ndarray,
+    w: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """Return body->NED rotation solving Wahba's problem via SVD.
+
+    Parameters
+    ----------
+    n : np.ndarray
+        3xK matrix of reference vectors expressed in the NED frame.
+    b : np.ndarray
+        3xK matrix of the same vectors measured in the body frame.
+    w : Optional[np.ndarray]
+        Optional 1xK array of weights. Defaults to equal weighting.
+    """
+
+    n = np.asarray(n)
+    b = np.asarray(b)
+    if n.shape != b.shape or n.shape[0] != 3:
+        raise ValueError("n and b must be 3xK matrices")
+
+    if w is None:
+        w = np.ones(n.shape[1])
+    else:
+        w = np.asarray(w)
+        if w.shape != (n.shape[1],):
+            raise ValueError("w must have length K")
+
+    H = np.zeros((3, 3))
+    for k in range(n.shape[1]):
+        H += w[k] * np.outer(b[:, k], n[:, k])
+    U, _, Vt = np.linalg.svd(H)
+    D = np.diag([1.0, 1.0, np.linalg.det(U @ Vt)])
+    return U @ D @ Vt
