@@ -2,7 +2,7 @@
 %   This script mirrors ``src/run_triad_only.py`` but follows the
 %   ``run_all_methods.m`` approach where Tasks 1--7 are executed
 %   sequentially in MATLAB. Dataset files are referenced directly from the
-%   repository root and all outputs are written to ``results/`` using the
+%   repository root and all outputs are written to ``MATLAB/results/`` using the
 %   standard naming convention. The printed rotation matrix should match
 %   the Python value
 %   ``[0.2336 -0.0454 0.9713; 0.0106 0.9990 0.0441; -0.9723 0.0000 0.2339]``
@@ -31,7 +31,7 @@ root_dir  = fileparts(fileparts(mfilename('fullpath')));
 imu_path  = fullfile(root_dir, imu_file);
 gnss_path = fullfile(root_dir, gnss_file);
 
-results_dir = get_results_dir();
+results_dir = get_matlab_results_dir();
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 
 % ------------------------------------------------------------------

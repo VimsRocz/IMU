@@ -60,7 +60,7 @@ addpath(fullfile(fileparts(mfilename('fullpath')),'lib'));
     % Store all outputs under the repository "results" directory
     here = fileparts(mfilename('fullpath'));
     root = fileparts(here);
-    results_dir = get_results_dir();
+    results_dir = get_matlab_results_dir();
     if ~exist(results_dir,'dir')
         mkdir(results_dir);
     end

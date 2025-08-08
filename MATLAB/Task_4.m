@@ -39,7 +39,7 @@ if ~isfile(imu_path)
           'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
           imu_path);
 end
-results_dir = get_results_dir();
+results_dir = get_matlab_results_dir();
 if ~exist(results_dir, 'dir')
     mkdir(results_dir);
 end

@@ -6,7 +6,7 @@ function Task_7()
 %   vector and the Task 4 MAT file omitted ``t_truth``. This function
 %   reconstructs both time vectors, creates a common sampling grid and then
 %   interpolates the estimator and truth trajectories prior to computing
-%   residuals. All outputs are written to the ``results`` directory.
+%   residuals. All outputs are written to the ``MATLAB/results`` directory.
 %
 %   Usage:
 %       Task_7()
@@ -17,7 +17,7 @@ function Task_7()
     addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
 
     %% Load state history from Task 5
-    results_dir = get_results_dir();
+    results_dir = get_matlab_results_dir();
     files = dir(fullfile(results_dir, '*_task5_results.mat'));
     if isempty(files)
         error('Task_7: no Task 5 results found.');
