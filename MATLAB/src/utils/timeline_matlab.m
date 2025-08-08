@@ -14,76 +14,76 @@ function timeline_matlab(run_id, imu_path, gnss_path, truth_path)
 %       gnss_path - path to GNSS CSV file
 %       truth_path- optional path to truth file
 
-paths = project_paths();
-out_txt = fullfile(paths.matlab_results, [run_id '_timeline.txt']);
-if exist(out_txt,'file'), delete(out_txt); end
+    paths = project_paths();
+    out_txt = fullfile(paths.matlab_results, [run_id '_timeline.txt']);
+    if exist(out_txt,'file'), delete(out_txt); end
 
-fprintf('%s\n', ['== Timeline summary: ' run_id ' ==']);
+    notes = strings(0,1);
 
-% --- IMU ---
-imu = readmatrix(imu_path);
-% Heuristic: if 2nd column looks like fractional secs, unwrap it
-t_imu_raw = imu(:,2);
-dt = diff(t_imu_raw);
-looks_wrap = any(dt < -0.5) || any(dt > 0.5);
-if looks_wrap
-    dt_hint = 1/round(1/median(abs(dt(abs(dt)>0 & abs(dt)<0.5)), 'omitnan'));
-    if ~isfinite(dt_hint) || dt_hint<=0, dt_hint = 0.0025; end
-    t_imu = unwrap_seconds(t_imu_raw, dt_hint);
-else
-    t_imu = t_imu_raw - t_imu_raw(1);
-end
-imu_dt = diff(t_imu);
-imu_hz = 1/median(imu_dt, 'omitnan');
-fprintf('IMU   | n=%d   hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
-    numel(t_imu), imu_hz, median(imu_dt,'omitnan'), min(imu_dt), max(imu_dt), t_imu(end)-t_imu(1), t_imu(1), t_imu(end), string(all(imu_dt>0)));
+    fprintf('%s\n', ['== Timeline summary: ' run_id ' ==']);
 
-% --- GNSS ---
-Tg = readtable(gnss_path);
-t_gnss = Tg.Posix_Time - Tg.Posix_Time(1);
-gnss_dt = diff(t_gnss);
-gnss_hz = 1/median(gnss_dt,'omitnan');
-fprintf('GNSS  | n=%d     hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
-    numel(t_gnss), gnss_hz, median(gnss_dt,'omitnan'), min(gnss_dt), max(gnss_dt), t_gnss(end)-t_gnss(1), t_gnss(1), t_gnss(end), string(all(gnss_dt>0)));
+    % --- IMU ---
+    imu = readmatrix(imu_path);
+    [t_imu, n_i] = fix_time_vector(imu(:,2), 1/400);
+    imu_dt = diff(t_imu);
+    imu_hz = 1/median(imu_dt);
+    fprintf('IMU   | n=%d  hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur≈%.3fs  monotonic=%s\n', ...
+        numel(t_imu), imu_hz, median(imu_dt), min(imu_dt), max(imu_dt), t_imu(end)-t_imu(1), lower(string(all(imu_dt>0))));
+    notes = [notes; n_i]; %#ok<AGROW>
 
-% --- TRUTH ---
-notes = {};
-truth_line = 'TRUTH | (not provided)';
-if ~isempty(truth_path) && isfile(truth_path)
-    try
-        ts = read_truth_state(truth_path);
-        t_truth = ts.t;
-    catch
-        t_truth = [];
-    end
-    if ~isempty(t_truth)
-        truth_dt = diff(t_truth);
-        truth_hz = 1/median(truth_dt,'omitnan');
-        fprintf('TRUTH | n=%d    hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
-            numel(t_truth), truth_hz, median(truth_dt,'omitnan'), min(truth_dt), max(truth_dt), t_truth(end)-t_truth(1), t_truth(1), t_truth(end), string(all(truth_dt>0)));
+    % --- GNSS ---
+    Tg = readtable(gnss_path);
+    if any(strcmpi(Tg.Properties.VariableNames, 'Posix_Time'))
+        t_g_raw = Tg.Posix_Time;
     else
-        fprintf('TRUTH | present but unreadable.\n');
+        t_g_raw = (0:height(Tg)-1)';
     end
-else
-    fprintf('%s\n', truth_line);
-end
+    [t_gnss, n_g] = fix_time_vector(t_g_raw, 1);
+    gnss_dt = diff(t_gnss);
+    gnss_hz = 1/median(gnss_dt);
+    fprintf('GNSS  | n=%d    hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur≈%.3fs  monotonic=%s\n', ...
+        numel(t_gnss), gnss_hz, median(gnss_dt), min(gnss_dt), max(gnss_dt), t_gnss(end)-t_gnss(1), lower(string(all(gnss_dt>0))));
+    notes = [notes; n_g]; %#ok<AGROW>
 
-% Save to file
-fid = fopen(out_txt,'w');
+    % --- TRUTH ---
+    truth_line = 'TRUTH | (not provided)';
+    if ~isempty(truth_path) && isfile(truth_path)
+        fid = fopen(truth_path,'r');
+        C = textscan(fid,'%f%f%f%f%f%f%f%f%f%f','CommentStyle','#');
+        fclose(fid);
+        [t_truth, n_t] = fix_time_vector(C{1}, 0.1);
+        if ~isempty(t_truth)
+            truth_dt = diff(t_truth);
+            truth_hz = 1/median(truth_dt);
+            fprintf('TRUTH | n=%d   hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur≈%.3fs  monotonic=%s\n', ...
+                numel(t_truth), truth_hz, median(truth_dt), min(truth_dt), max(truth_dt), t_truth(end)-t_truth(1), lower(string(all(truth_dt>0))));
+            truth_line = '';
+        else
+            fprintf('TRUTH | present but unreadable.\n');
+        end
+        notes = [notes; n_t]; %#ok<AGROW>
+    else
+        fprintf('%s\n', truth_line);
+    end
+
+    % Save to file
+    fid = fopen(out_txt,'w');
     fprintf(fid,'== Timeline summary: %s ==\n', run_id);
-    fprintf(fid,'IMU   | n=%d   hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
-        numel(t_imu), imu_hz, median(imu_dt,'omitnan'), min(imu_dt), max(imu_dt), t_imu(end)-t_imu(1), t_imu(1), t_imu(end), string(all(imu_dt>0)));
-    fprintf(fid,'GNSS  | n=%d     hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
-        numel(t_gnss), gnss_hz, median(gnss_dt,'omitnan'), min(gnss_dt), max(gnss_dt), t_gnss(end)-t_gnss(1), t_gnss(1), t_gnss(end), string(all(gnss_dt>0)));
-if exist('t_truth','var') && ~isempty(t_truth)
-    fprintf(fid,'TRUTH | n=%d    hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
-        numel(t_truth), truth_hz, median(truth_dt,'omitnan'), min(truth_dt), max(truth_dt), t_truth(end)-t_truth(1), t_truth(1), t_truth(end), string(all(truth_dt>0)));
-elseif ~isempty(truth_path) && isfile(truth_path)
-    fprintf(fid,'TRUTH | present but unreadable.\n');
-else
-    fprintf(fid,'%s\n', truth_line);
+    fprintf(fid,'IMU   | n=%d  hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur≈%.3fs  monotonic=%s\n', ...
+        numel(t_imu), imu_hz, median(imu_dt), min(imu_dt), max(imu_dt), t_imu(end)-t_imu(1), lower(string(all(imu_dt>0))));
+    fprintf(fid,'GNSS  | n=%d    hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur≈%.3fs  monotonic=%s\n', ...
+        numel(t_gnss), gnss_hz, median(gnss_dt), min(gnss_dt), max(gnss_dt), t_gnss(end)-t_gnss(1), lower(string(all(gnss_dt>0))));
+    if exist('t_truth','var') && ~isempty(t_truth)
+        fprintf(fid,'TRUTH | n=%d   hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur≈%.3fs  monotonic=%s\n', ...
+            numel(t_truth), truth_hz, median(truth_dt), min(truth_dt), max(truth_dt), t_truth(end)-t_truth(1), lower(string(all(truth_dt>0))));
+    else
+        fprintf(fid,'%s\n', truth_line);
+    end
+    if ~isempty(notes)
+        fprintf(fid,'Notes: %s\n', strjoin(notes,'; '));
+    else
+        fprintf(fid,'Notes:\n');
+    end
+    fclose(fid);
+    fprintf('[DATA TIMELINE] Saved %s\n', out_txt);
 end
-fclose(fid);
-fprintf('[DATA TIMELINE] Saved %s\n', out_txt);
-end
-

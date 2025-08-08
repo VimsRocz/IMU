@@ -6,7 +6,9 @@ function run_triad_only(cfg)
 
     % Ensure utils on path
     here = fileparts(mfilename('fullpath'));
-    addpath(fullfile(here,'src','utils'));
+    project_root = fileparts(here);
+    utils_dir = fullfile(project_root,'src','utils');
+    if exist(utils_dir,'dir'), addpath(utils_dir); end
 
     % Config
     if nargin==0 || isempty(cfg)
@@ -26,8 +28,14 @@ function run_triad_only(cfg)
     cfg.gnss_path = fullfile(cfg.paths.root, cfg.gnss_file);
 
     % TRUTH: canonical preferred path; copy if missing
-    preferred_truth = '/Users/vimalchawda/Desktop/IMU/STATE_IMU_X001.txt';
-    cfg.truth_path  = resolve_truth(preferred_truth);
+    preferred_truth = fullfile(cfg.paths.root, 'STATE_IMU_X001.txt');
+    fallback_truth  = fullfile(cfg.paths.root, 'STATE_X001.txt');
+    if ~isfile(preferred_truth) && isfile(fallback_truth)
+        copyfile(fallback_truth, preferred_truth);
+        fprintf('Truth missing at preferred path; copying %s -> %s\n', fallback_truth, preferred_truth);
+    end
+    cfg.truth_path = preferred_truth;
+    fprintf('Using TRUTH: %s\n', cfg.truth_path);
 
     % Build run_id and print timeline
     rid = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
@@ -41,6 +49,11 @@ function run_triad_only(cfg)
     Task_2(cfg.imu_path, cfg.gnss_path, cfg.method);
     Task_3(cfg.imu_path, cfg.gnss_path, cfg.method);
     Task_4(cfg.imu_path, cfg.gnss_path, cfg.method);
+    t4_mat = fullfile(cfg.paths.matlab_results, ...
+        sprintf('%s_%s_%s_task4_results.mat', erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
+    if ~isfile(t4_mat)
+        error('Task 4 results was not created: %s', t4_mat);
+    end
     Task_5(cfg.imu_path, cfg.gnss_path, cfg.method);
 
     % Tasks 6–7 mandatory (graceful if no truth)
