@@ -2,15 +2,16 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 %TASK_6 Overlay ground truth on Task 5 results.
 %   TASK_6(TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE) loads the
 %   Task 5 results MAT file along with the raw IMU, GNSS and ground truth
-%   trajectories.  All series are interpolated to the estimator time
+%   trajectories. All series are interpolated to the estimator time
 %   vector and ``plot_overlay`` is called for the NED, ECEF and body
-%   frames.  Truth data in the ECEF frame is first converted to the
+%   frames. Truth data in the ECEF frame is first converted to the
 %   estimator's local NED coordinates using ``compute_C_ECEF_to_NED`` so
-%   that residuals are expressed in a consistent frame.  The resulting
+%   that residuals are expressed in a consistent frame. The resulting
 %   ``*_overlay_truth.pdf`` files are written to the directory returned by
-%   ``project_paths()``.  This function expects the initialization output
-%   from Task 1 and the filter output from Task 5 to reside in that same
-%   directory.
+%   ``project_paths()``. If TRUTH_FILE is empty it will be resolved using
+%   ``resolve_truth_path``. This function expects the initialization
+%   output from Task 1 and the filter output from Task 5 to reside in that
+%   same directory.
 %
 % Usage:
 %   Task_6(task5_file, imu_path, gnss_path, truth_file)
@@ -111,7 +112,7 @@ else
 end
 
 if nargin < 4 || isempty(truth_file)
-    truth_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
+    truth_file = resolve_truth_path();
 end
 
 % Reference coordinates from estimator or defaults
