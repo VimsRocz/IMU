@@ -15,7 +15,8 @@ function result = Task_4(imu_path, gnss_path, method)
 
 paths = project_paths();
 results_dir = paths.matlab_results;
-addpath(fullfile(paths.root,'MATLAB','lib'));
+lib_path = fullfile(paths.root,'MATLAB','lib');
+if exist(lib_path,'dir'), addpath(lib_path); end
 
 % pull configuration from caller
 try
