@@ -147,8 +147,9 @@ fprintf('-> Reference point: lat=%.6f rad, lon=%.6f rad, r0=[%.1f, %.1f, %.1f]''
 % Subtask 4.6: Compute Rotation Matrix from ECEF to NED
 % =========================================================================
 fprintf('\nSubtask 4.6: Computing ECEF to NED rotation matrix.\n');
-C_ECEF_to_NED = compute_C_ECEF_to_NED(ref_lat, ref_lon);
-C_NED_to_ECEF = C_ECEF_to_NED';
+[R_en, R_ne] = ecef_ned_rot(ref_lat, ref_lon);
+C_ECEF_to_NED = R_en;
+C_NED_to_ECEF = R_ne;
 fprintf('-> ECEF to NED rotation matrix computed.\n');
 fprintf('-> NED to ECEF rotation matrix computed.\n');
 
@@ -204,19 +205,15 @@ dyn = vecnorm(gnss_acc_ned,2,2) > 0.05;                      % threshold m/s^2
 mask = valid & dyn;
 
 if ~any(mask)
-    warning('Task 4: no dynamic samples for scale fit; using previous or 1.0');
-    if isfield(bd, 'accel_scale') && ~isempty(bd.accel_scale)
-        accel_scale = bd.accel_scale;
-    else
-        accel_scale = 1.0;
-    end
-else
-    A = imu_linacc_ned(mask,:);
-    B = gnss_acc_ned(mask,:);
-    num = sum(sum(A.*B));
-    den = sum(sum(A.*A));
-    accel_scale = num / max(den, eps);
-    accel_scale = max(0.7, min(1.3, accel_scale));
+    error('Task 4: cannot estimate accelerometer scale \x2014 not enough dynamics. Increase motion or lower threshold.');
+end
+A = imu_linacc_ned(mask,:);
+B = gnss_acc_ned(mask,:);
+num = sum(sum(A.*B));
+den = sum(sum(A.*A));
+accel_scale = num / max(den, eps);
+if accel_scale < 0.7 || accel_scale > 1.3
+    warning('Task 4: accel\_scale=%.4f looks off. Check biases & frames.', accel_scale);
 end
 fprintf('Task 4: estimated accelerometer scale factor = %.4f\n', accel_scale);
 

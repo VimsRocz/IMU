@@ -132,49 +132,45 @@ fprintf('-> Case 1 and Case 2 vectors prepared.\n');
 % Subtask 3.2: TRIAD Method
 % =========================================================================
 fprintf('\nSubtask 3.2: Computing rotation matrix using TRIAD method.\n');
-% Case 1
-M_body = triad_basis(v1_B, v2_B);
-M_ned_1 = triad_basis(v1_N, v2_N);
-R_tri = M_ned_1 * M_body';
-[U,~,V] = svd(R_tri);
-R_tri = U*V';
-fprintf('Rotation matrix (TRIAD method, Case 1):\n');
-disp(R_tri);
-fig_tri = figure; plot(R_tri(:)); title('TRIAD Rotation Matrix'); xlabel('Element'); ylabel('Value'); grid on;
-save_plot(fig_tri, imu_name, gnss_name, method, 3);
-expected_C_b_n = [0.23364698, -0.04540352, 0.971260835; ...
-                   0.0106220955, 0.998968728, 0.0441435243; ...
-                  -0.972263472, 2.82418914e-06, 0.233888307];
-triad_err = norm(R_tri - expected_C_b_n);
-tol = 1e-3;  % allow small numerical differences
-if triad_err > tol
-    warning('TRIAD matrix differs from expected by %.3e (> %.1e)', ...
-            triad_err, tol);
-end
 
-% Case 2
-M_ned_2 = triad_basis(v1_N, v2_N_doc);
-R_tri_doc = M_ned_2 * M_body';
-[U,~,V] = svd(R_tri_doc);
-R_tri_doc = U*V';
-fprintf('Rotation matrix (TRIAD method, Case 2):\n');
-disp(R_tri_doc);
+% Ensure column vectors for consistency
+gN = g_NED(:).';        wN = omega_ie_NED(:).';
+gB = g_body(:).';       wB = omega_ie_body(:).';
+
+% Case 1: primary = gravity, secondary = earth rate
+M_ned_1  = triad_matrix(gN, wN);
+M_body_1 = triad_matrix(gB, wB);
+C_bn_triad_1 = M_ned_1 * M_body_1.';
+
+% Case 2: swap vectors
+M_ned_2  = triad_matrix(wN, gN);
+M_body_2 = triad_matrix(wB, gB);
+C_bn_triad_2 = M_ned_2 * M_body_2.';
+
+assert(all(size(C_bn_triad_1)==[3 3]) && all(size(C_bn_triad_2)==[3 3]), ...
+    'TRIAD returned non-3x3');
+
+q_triad_1 = dcm_to_quat(C_bn_triad_1);
+q_triad_2 = dcm_to_quat(C_bn_triad_2);
+
+fprintf('Rotation matrix (TRIAD case 1):\n'); disp(C_bn_triad_1);
+fprintf('Rotation matrix (TRIAD case 2):\n'); disp(C_bn_triad_2);
 
 
 %% ========================================================================
 % Subtask 3.3: Davenport’s Q-Method
 % =========================================================================
-fprintf('\nSubtask 3.3: Computing rotation matrix using Davenport’s Q-Method.\n');
+fprintf('\nSubtask 3.3: Computing rotation matrix using Davenport\x2019s Q-Method.\n');
 % Case 1
-[R_dav, q_dav] = davenport_q_method(v1_B, v2_B, v1_N, v2_N);
-fprintf('Rotation matrix (Davenport’s Q-Method, Case 1):\n');
-disp(R_dav);
+[C_bn_davenport, q_dav] = davenport_q_method(v1_B, v2_B, v1_N, v2_N);
+fprintf('Rotation matrix (Davenport\x2019s Q-Method, Case 1):\n');
+disp(C_bn_davenport);
 fprintf('Davenport quaternion (Case 1): [%.6f, %.6f, %.6f, %.6f]\n', q_dav(1), q_dav(2), q_dav(3), q_dav(4));
 
 % Case 2
-[R_dav_doc, q_dav_doc] = davenport_q_method(v1_B, v2_B, v1_N, v2_N_doc);
-fprintf('Rotation matrix (Davenport’s Q-Method, Case 2):\n');
-disp(R_dav_doc);
+[C_bn_davenport_doc, q_dav_doc] = davenport_q_method(v1_B, v2_B, v1_N, v2_N_doc);
+fprintf('Rotation matrix (Davenport\x2019s Q-Method, Case 2):\n');
+disp(C_bn_davenport_doc);
 fprintf('Davenport quaternion (Case 2): [%.6f, %.6f, %.6f, %.6f]\n', q_dav_doc(1), q_dav_doc(2), q_dav_doc(3), q_dav_doc(4));
 
 
@@ -182,23 +178,21 @@ fprintf('Davenport quaternion (Case 2): [%.6f, %.6f, %.6f, %.6f]\n', q_dav_doc(1
 % Subtask 3.4: SVD Method
 % =========================================================================
 fprintf('\nSubtask 3.4: Computing rotation matrix using SVD method.\n');
-R_svd = svd_alignment({g_body, omega_ie_body}, {g_NED, omega_ie_NED});
-R_svd_doc = R_svd; % In the python script, SVD method is not re-run for Case 2
+C_bn_svd = svd_alignment({g_body, omega_ie_body}, {g_NED, omega_ie_NED});
+C_bn_svd_doc = C_bn_svd; % SVD not re-run for Case 2
 fprintf('Rotation matrix (SVD method):\n');
-disp(R_svd);
+disp(C_bn_svd);
 
 
 %% ========================================================================
-% Subtask 3.5: Convert TRIAD and SVD DCMs to Quaternions
+% Subtask 3.5: Convert DCMs to Quaternions
 % =========================================================================
-fprintf('\nSubtask 3.5: Converting TRIAD and SVD DCMs to quaternions.\n');
-q_tri = rot_to_quaternion(R_tri);
-q_svd = rot_to_quaternion(R_svd);
-q_tri_doc = rot_to_quaternion(R_tri_doc);
-q_svd_doc = rot_to_quaternion(R_svd_doc);
-fprintf('Quaternion (TRIAD, Case 1): [%.6f, %.6f, %.6f, %.6f]\n', q_tri);
+fprintf('\nSubtask 3.5: Converting DCMs to quaternions.\n');
+q_svd = dcm_to_quat(C_bn_svd);
+q_svd_doc = dcm_to_quat(C_bn_svd_doc);
+fprintf('Quaternion (TRIAD, Case 1): [%.6f, %.6f, %.6f, %.6f]\n', q_triad_1);
 fprintf('Quaternion (SVD, Case 1):   [%.6f, %.6f, %.6f, %.6f]\n', q_svd);
-fprintf('Quaternion (TRIAD, Case 2): [%.6f, %.6f, %.6f, %.6f]\n', q_tri_doc);
+fprintf('Quaternion (TRIAD, Case 2): [%.6f, %.6f, %.6f, %.6f]\n', q_triad_2);
 fprintf('Quaternion (SVD, Case 2):   [%.6f, %.6f, %.6f, %.6f]\n', q_svd_doc);
 
 % Display roll/pitch/yaw for TRIAD case 1 (body->NED)
@@ -212,7 +206,7 @@ fprintf('TRIAD initial attitude (deg): roll=%.3f pitch=%.3f yaw=%.3f\n', ...
 % =========================================================================
 fprintf('\nSubtask 3.6: Validating attitude determination and comparing methods.\n');
 methods = {"TRIAD", "Davenport", "SVD"};
-rot_matrices = {R_tri, R_dav, R_svd};
+rot_matrices = {C_bn_triad_1, C_bn_davenport, C_bn_svd};
 grav_errors = zeros(1, 3);
 omega_errors = zeros(1, 3);
 
@@ -289,36 +283,22 @@ fprintf('Saved plot: %s\n', quat_file);
 % Subtask 3.8: Store Rotation Matrices for Later Tasks
 % =========================================================================
 fprintf('\nSubtask 3.8: Storing rotation matrices for use in later tasks.\n');
-task3_results = struct();
-task3_results.TRIAD.R = R_tri;
-task3_results.Davenport.R = R_dav;
-task3_results.SVD.R = R_svd;
-all_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
-save(all_file, 'task3_results');
-fprintf('-> Task 3 results (all methods) saved to %s\n', all_file);
+out3 = struct();
+out3.C_bn.TRIAD_case1 = C_bn_triad_1;
+out3.C_bn.TRIAD_case2 = C_bn_triad_2;
+out3.C_bn.SVD         = C_bn_svd;
+out3.C_bn.Davenport   = C_bn_davenport;
+out3.q.TRIAD_case1    = q_triad_1;
+out3.q.TRIAD_case2    = q_triad_2;
+out3.q.SVD            = q_svd;
+out3.q.Davenport      = q_dav;
+results_file = fullfile(results_dir, sprintf('Task3_results_%s_%s.mat', imu_name, gnss_name));
+save(results_file, '-struct', 'out3', '-v7.3');
+fprintf('Task 3 results stored in %s\n', results_file);
 
-% Also save a method-specific copy for later tasks using helper
-method_results = task3_results.(method_tag);
-save_task_results(method_results, imu_name, gnss_name, method_tag, 3);
-
-% Return and store in base workspace
-assignin('base', 'task3_results', task3_results);
-
-% -------------------------------------------------------------
-% Display stored rotation matrix for verification
-task3_file = fullfile(results_dir, 'Task3_results_IMU_X002_GNSS_X002.mat');
-if exist(task3_file, 'file')
-    data = load(task3_file);
-    if isfield(data, 'task3_results') && isfield(data.task3_results, 'TRIAD')
-        C_B_N = data.task3_results.TRIAD.R;
-        fprintf('\nRotation matrix C_{B}^{N}:\n');
-        disp(C_B_N);
-    end
-end
-fprintf('Results saved to %s\n', results_dir);
-
-stored_methods = fieldnames(task3_results); % cell array
-fprintf('Task 3 results stored in memory: %s\n', strjoin(stored_methods', ', '));
+% Return structure to caller and base workspace
+assignin('base', 'task3_results', out3);
+task3_results = out3; %#ok<NASGU>
 
 end
 
@@ -411,3 +391,5 @@ function eul = quat_to_euler(q)
     psi = atan2(R(2,1), R(1,1));
     eul = [phi; theta; psi];
 end
+% add utils to path
+addpath(genpath(fullfile(fileparts(mfilename('fullpath')), 'utils')));

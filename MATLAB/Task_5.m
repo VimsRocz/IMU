@@ -18,7 +18,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %       'gyro_bias_noise'  - gyroscope bias random walk                 [rad/s]  (1e-5)
 %       'vel_q_scale'      - scale for Q(4:6,4:6) velocity process noise [-]      (10.0)
 %       'vel_r'            - R(4:6,4:6) velocity measurement variance   [m^2/s^2] (0.25)
-%       'scale_factor'     - accelerometer scale factor                 [-]      (1.0)
+%       'scale_factor'     - accelerometer scale factor                 [-]      (required)
 
 % add utils folder to path
 addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
@@ -177,7 +177,11 @@ addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
     end
     % Use accelerometer scale factor from Task 2 when not supplied
     if isempty(scale_factor)
-        scale_factor = accel_scale;
+        if ~isempty(accel_scale) && isfinite(accel_scale)
+            scale_factor = accel_scale;
+        else
+            error('Task 5: accel_scale missing from Task 2/4 output');
+        end
     end
     % Biases are provided by Task 2. Do not override them with
     % dataset-specific constants so that both MATLAB and Python remain
