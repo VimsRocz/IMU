@@ -43,6 +43,7 @@ from utils import save_mat
 sys.path.append(str(Path(__file__).resolve().parent / "utils"))
 from timeline import print_timeline
 from resolve_truth_path import resolve_truth_path
+from run_id import run_id as build_run_id
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
 
@@ -171,14 +172,13 @@ def main(argv: Iterable[str] | None = None) -> None:
     imu_file = "IMU_X002.dat"
     gnss_file = "GNSS_X002.csv"
 
-    tag = f"{pathlib.Path(imu_file).stem}_{pathlib.Path(gnss_file).stem}_{method}"
-    log_path = results_dir / f"{tag}.log"
-    print(f"\u25b6 {tag}")
-
     imu_path, gnss_path = check_files(imu_file, gnss_file)
 
+    run_id = build_run_id(str(imu_path), str(gnss_path), method)
+    log_path = results_dir / f"{run_id}.log"
+    print(f"\u25b6 {run_id}")
+
     truth_path = resolve_truth_path()
-    run_id = tag
 
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
     print_timeline(run_id, str(imu_path), str(gnss_path), truth_path, out_dir=str(results_dir))
@@ -226,7 +226,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     # the loop becomes a no-op.
     base_results = pathlib.Path("results")
     if results_dir != base_results:
-        for file in base_results.glob(f"{tag}*"):
+        for file in base_results.glob(f"{run_id}*"):
             dest = results_dir / file.name
             try:
                 file.replace(dest)
@@ -252,7 +252,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     # ------------------------------------------------------------------
     # Convert NPZ output to a MATLAB file with explicit frame variables
     # ------------------------------------------------------------------
-    npz_path = results_dir / f"{tag}_kf_output.npz"
+    npz_path = results_dir / f"{run_id}_kf_output.npz"
     t_imu = None
     tmeta: Dict[str, float | int | str] = {}
     if npz_path.exists():
@@ -374,7 +374,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         if x_log is not None and imu_dt is not None:
             t_est = np.arange(x_log.shape[1]) * imu_dt
             mat_time = {"t_est": t_est, "dt": imu_dt, "x_log": x_log}
-            time_path = results_dir / f"{tag}_task5_time.mat"
+            time_path = results_dir / f"{run_id}_task5_time.mat"
             sio.savemat(str(time_path), mat_time)
             logger.info("Saved Task 5 time data to %s", time_path)
 
@@ -421,7 +421,6 @@ def main(argv: Iterable[str] | None = None) -> None:
             dt = np.median(np.diff(t))
             return None if dt <= 0 else 1.0 / float(dt)
 
-        run_id = tag
         meta = {
             "imu_file": str(imu_path),
             "gnss_file": str(gnss_path),
@@ -484,14 +483,14 @@ def main(argv: Iterable[str] | None = None) -> None:
         buf = io.StringIO()
         with redirect_stdout(buf):
             try:
-                run_evaluation_npz(str(npz_path), str(task7_dir), tag)
+                run_evaluation_npz(str(npz_path), str(task7_dir), run_id)
             except Exception as e:  # pragma: no cover - graceful failure
                 print(f"Task 7 failed: {e}")
         output = buf.getvalue()
         print(output, end="")
         log.write(output)
         print(
-            f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{tag}/"
+            f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{run_id}/"
         )
 
     # --- nicely formatted summary table --------------------------------------

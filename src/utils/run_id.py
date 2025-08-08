@@ -4,17 +4,11 @@ from pathlib import Path
 
 
 def run_id(imu_path: str, gnss_path: str, method: str) -> str:
-    """Return a standardised run identifier ``IMU_<id>_GNSS_<id>_<METHOD>``."""
+    """Return consistent run label like ``IMU_X002_GNSS_X002_TRIAD``."""
 
-    imu_name = Path(imu_path).stem
-    gnss_name = Path(gnss_path).stem
-
-    if not imu_name.lower().startswith("imu_"):
-        imu_name = f"IMU_{imu_name}"
-    if not gnss_name.lower().startswith("gnss_"):
-        gnss_name = f"GNSS_{gnss_name}"
-
-    return f"{imu_name}_{gnss_name}_{method.upper()}"
+    imu_tag = Path(imu_path).name.upper().replace(".DAT", "")
+    gnss_tag = Path(gnss_path).name.upper().replace(".CSV", "")
+    return f"{imu_tag}_{gnss_tag}_{method.upper()}"
 
 
 __all__ = ["run_id"]
