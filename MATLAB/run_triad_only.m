@@ -1,8 +1,9 @@
 function run_triad_only(cfg)
-% RUN_TRIAD_ONLY — Execute Tasks 1..7 for a dataset using the TRIAD method
+% RUN_TRIAD_ONLY Execute Tasks 1..7 for a dataset using the TRIAD method.
 % - MATLAB results go to <repo>/MATLAB/results (independent of Python's <repo>/results).
 % - No hidden defaults inside tasks; everything comes from cfg.
-% - Task 6 and 7 are MANDATORY (like Python). If truth is missing, we error out.
+% - Tasks 6 and 7 always run; if truth is missing, Task 6 falls back to
+%   a GNSS-only overlay.
 
 % --- ensure utils on path -------------------------------------------------
 here = fileparts(mfilename('fullpath'));
@@ -37,17 +38,21 @@ cfg.imu_path   = fullfile(cfg.paths.root, cfg.imu_file);
 cfg.gnss_path  = fullfile(cfg.paths.root, cfg.gnss_file);
 cfg.truth_path = fullfile(cfg.paths.root, cfg.truth_file);
 
-% Required inputs must exist (Task 6/7 mandatory like Python)
+% Required inputs must exist (truth optional)
 mustExist(cfg.imu_path,   'IMU file');
 mustExist(cfg.gnss_path,  'GNSS file');
-mustExist(cfg.truth_path, 'Truth file (required for Task 6/7)');
+if ~isfile(cfg.truth_path)
+    warning('Truth file not found: %s', cfg.truth_path);
+end
 
 imu_id  = erase(cfg.imu_file,  {'.dat','.DAT'});
 gnss_id = erase(cfg.gnss_file, {'.csv','.CSV'});
 run_id  = sprintf('%s_%s_%s', imu_id, gnss_id, cfg.method);
-fprintf('%s %s_%s_%s\n', char(9654), imu_id, gnss_id, cfg.method);
-fprintf('MATLAB results dir: %s\n', cfg.paths.matlab_results);
-timeline_summary(run_id, cfg.imu_path, cfg.gnss_path, cfg.truth_path, cfg.paths.matlab_results);
+results_dir = cfg.paths.matlab_results;
+timeline_txt = fullfile(results_dir, [run_id '_timeline.txt']);
+timeline_summary(run_id, cfg.imu_path, cfg.gnss_path, cfg.truth_path, timeline_txt);
+fprintf('> %s\n', run_id);
+fprintf('MATLAB results dir: %s\n', results_dir);
 
 % Expected outputs by task (for assertions)
 t1_mat = fullfile(mat_results, sprintf('Task1_init_%s_%s_%s.mat', ...
@@ -77,34 +82,15 @@ assertFile(t4_mat, 'Task 4 results');
 Task_5(cfg.imu_path, cfg.gnss_path, cfg.method);
 assertFile(t5_mat, 'Task 5 results');
 
-% --- Tasks 6..7 (mandatory, like Python) ---------------------------------
-p = project_paths();
-results_dir = p.matlab_results;
-
+% --- Tasks 6..7 -----------------------------------------------------------
 task5_file = fullfile(results_dir, sprintf('%s_%s_%s_task5_results.mat', ...
                    erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
 if ~isfile(task5_file)
     error('Task 6/7: Task 5 results not found: %s', task5_file);
 end
 
-if isempty(cfg.truth_file)
-    error('Task 6/7: cfg.truth_file not set (truth is mandatory).');
-end
-cfg.truth_path = fullfile(cfg.paths.root, cfg.truth_file);
-if ~isfile(cfg.truth_path)
-    error('Task 6/7: truth file not found: %s', cfg.truth_path);
-end
-
-disp('--- Running Task 6: Truth Overlay/Validation ---');
 Task_6(task5_file, cfg.imu_path, cfg.gnss_path, cfg.truth_path);
-run_id = sprintf('%s_%s_%s', erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method);
-out_dir = fullfile(results_dir, run_id);
-fprintf('Task 6 overlay plots saved under: %s\n', out_dir);
-
-disp('--- Running Task 7: Residuals & Summary ---');
-Task_7();  % reads its inputs from MATLAB/results
-fprintf('Task 7 evaluation plots saved under: %s\n', out_dir);
-disp('Task 6 and Task 7 complete. See MATLAB/results for plots and PDF summaries.');
+Task_7();   % reads its own inputs under MATLAB/results
 
 end % function
 

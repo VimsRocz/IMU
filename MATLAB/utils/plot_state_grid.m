@@ -1,80 +1,42 @@
-function plot_state_grid(t, pos, vel, acc, frame, tag, outdir, legendEntries, cfg)
-%PLOT_STATE_GRID 3x3 pop-up of Position/Velocity/Acceleration for N/E/D.
-%   PLOT_STATE_GRID(T, POS, VEL, ACC, FRAME, TAG, OUTDIR, LEGENDENTRIES, CFG)
-%   displays a 3×3 grid of plots showing position, velocity and
-%   acceleration components over time. FRAME is a string identifying the
-%   coordinate frame (e.g. 'NED'), TAG is used for the file prefix. OUTDIR
-%   is where plots are saved. LEGENDENTRIES is optional and allows custom
-%   legend labels when multiple series are provided. CFG controls plotting
-%   policy (popup_figures, save_pdf, save_png).
+function plot_state_grid(t, pos, vel, acc, frame, varargin)
+%PLOT_STATE_GRID Plot N/E/D position, velocity and acceleration over time.
+%   PLOT_STATE_GRID(T, POS, VEL, ACC, FRAME) creates three figures showing
+%   the components of POS, VEL and ACC in the specified FRAME. Additional
+%   name-value pairs:
+%       'visible' - 'on' or 'off' (default 'off')
+%       'save_dir' - directory to save plots (optional)
+%       'run_id'   - identifier used in filenames (optional)
 %
-%   POS, VEL and ACC may be either N×3 arrays or cell arrays of such arrays
-%   to overlay multiple series. Each array must have the same number of rows
-%   as T.
+%   Usage:
+%       plot_state_grid(t, pos, vel, acc, 'NED', 'visible','on', ...
+%                       'save_dir','results', 'run_id','IMU_GNSS_TRIAD')
+%
+%   This helper mirrors ``plot_state_grid`` in ``src/utils/plot_state_grid.py``.
 
-if nargin < 8
-    legendEntries = {};
-end
-if nargin < 9 || isempty(cfg)
-    cfg.plots.popup_figures = true;
-    cfg.plots.save_pdf = true;
-    cfg.plots.save_png = true;
-end
+p = inputParser;
+addParameter(p,'visible','off',@(s)ischar(s)||isstring(s));
+addParameter(p,'save_dir','',@(s)ischar(s)||isstring(s));
+addParameter(p,'run_id','',@(s)ischar(s)||isstring(s));
+parse(p,varargin{:});
+vis = p.Results.visible; outdir = char(p.Results.save_dir); run_id = char(p.Results.run_id);
 
-figure('Name', sprintf('%s %s', frame, tag), 'NumberTitle','off', ...
-       'Visible', ternary(cfg.plots.popup_figures,'on','off'));
-tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
-rows = {'Position [m]','Velocity [m/s]','Acceleration [m/s^2]'};
-cols = {'North','East','Down'};
-
-isCell = iscell(pos);
-
-for r = 1:3
-    for c = 1:3
-        nexttile; hold on; grid on;
-        switch r
-            case 1
-                series = pos;
-                ylab = rows{1};
-            case 2
-                series = vel;
-                ylab = rows{2};
-            case 3
-                series = acc;
-                ylab = rows{3};
-        end
-        if isCell
-            for j = 1:numel(series)
-                plot(t, series{j}(:,c), 'LineWidth',1);
-            end
-        else
-            plot(t, series(:,c), 'LineWidth',1);
-        end
-        if r == 1
-            title(cols{c});
-        end
-        if c == 1
-            ylabel(ylab);
-        end
-        if r == 3
-            xlabel('Time [s]');
-        end
-        if ~isempty(legendEntries) && c == 2 && r == 1
-            legend(legendEntries, 'Location', 'best'); legend boxoff;
-        end
-    end
-end
-
-if nargin >= 7 && ~isempty(outdir)
-    if ~exist(outdir,'dir')
-        mkdir(outdir);
-    end
-    base = sprintf('%s_%s_state', tag, frame);
-    if cfg.plots.save_pdf
-        exportgraphics(gcf, fullfile(outdir, [base '.pdf']), 'ContentType','vector');
-    end
-    if cfg.plots.save_png
-        saveas(gcf, fullfile(outdir, [base '.png']));
+labels = {'North','East','Down'};
+data = {pos, vel, acc};
+names = {'position','velocity','acceleration'};
+for k = 1:3
+    h = figure('Visible',vis); hold on; grid on;
+    plot(t, data{k}(:,1));
+    plot(t, data{k}(:,2));
+    plot(t, data{k}(:,3));
+    legend(labels, 'Location','best'); legend boxoff;
+    xlabel('Time [s]');
+    ylabel(sprintf('%s (%s)', names{k}, frame));
+    title(sprintf('%s vs time (%s)', names{k}, frame));
+    if ~isempty(outdir) && ~isempty(run_id)
+        if ~exist(outdir,'dir'), mkdir(outdir); end
+        saveas(h, fullfile(outdir, sprintf('%s_task4_%s_%s.png', run_id, frame, names{k})));
+        saveas(h, fullfile(outdir, sprintf('%s_task4_%s_%s.pdf', run_id, frame, names{k})));
+        close(h);
     end
 end
 end

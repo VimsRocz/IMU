@@ -293,34 +293,6 @@ gnss_pos_ned_imuT = interp1(t_gnss, gnss_pos_ned, t_imu, 'linear', 'extrap');
 gnss_vel_ned_imuT = interp1(t_gnss, gnss_vel_ned, t_imu, 'linear', 'extrap');
 gnss_acc_ned_imuT = interp1(t_gnss, gnss_acc_ned, t_imu, 'linear', 'extrap');
 
-% === Estimate accel scale (least-squares, dynamic-only) ===
-valid = all(isfinite(gnss_acc_ned_imuT),2) & all(isfinite(imu_linacc_ned),2);
-dyn = vecnorm(gnss_acc_ned_imuT,2,2) > 0.05;                      % threshold m/s^2
-mask = valid & dyn;
-
-hz_imu  = 1/median(diff(t_imu));
-hz_gnss = 1/median(diff(t_gnss));
-fprintf('Task 4: rates \u2014 IMU=%.3f Hz, GNSS=%.3f Hz\n', hz_imu, hz_gnss);
-
-if ~any(mask)
-    error('Task 4: cannot estimate accelerometer scale \x2014 not enough dynamics. Increase motion or lower threshold.');
-end
-A = imu_linacc_ned(mask,:);
-B = gnss_acc_ned_imuT(mask,:);
-num = sum(sum(A.*B));
-den = sum(sum(A.*A));
-accel_scale = num / max(den, eps);
-if accel_scale < 0.7 || accel_scale > 1.3
-    warning('Task 4: accel\_scale=%.4f looks off. Check biases & frames.', accel_scale);
-end
-fprintf('Task 4: estimated accelerometer scale factor = %.4f\n', accel_scale);
-
-imu_linacc_ned_scaled = accel_scale * imu_linacc_ned;
-
-bd.accel_scale = accel_scale;
-body_data = bd;
-save(task2_file, 'body_data', '-v7.3');
-
 acc_body_filt = butter_lowpass_filter(acc_body_raw, 5.0, 1/dt_imu);
 gyro_body_filt = butter_lowpass_filter(imu_raw_data(:, 3:5) / dt_imu, 5.0, 1/dt_imu);
 acc_rms  = sqrt(mean(acc_body_raw(:).^2));
@@ -337,6 +309,24 @@ fprintf('Static acc mean  =[%.4f %.4f %.4f]\n', static_acc);
 fprintf('Static gyro mean =[%.6f %.6f %.6f]\n', static_gyro);
 fprintf('Static acc var   =[%.4g %.4g %.4g]\n', acc_var);
 fprintf('Static gyro var  =[%.4g %.4g %.4g]\n', gyro_var);
+
+% --- accelerometer scale estimate from static segment ---
+body_static_acc = acc_body_filt(start_idx:end_idx, :);
+g = 9.79424753;  % close enough for scale estimate
+mag = mean(vecnorm(body_static_acc,2,2),'omitnan');
+scale_est = g / mag;
+if scale_est < 0.8 || scale_est > 1.2
+    warning('Task 4: accel scale %.4f out of [0.8,1.2]; falling back to 1.0', scale_est);
+    scale_est = 1.0;
+end
+accel_scale = scale_est;
+fprintf('Task 4: estimated accelerometer scale factor = %.4f\n', accel_scale);
+
+imu_linacc_ned_scaled = accel_scale * imu_linacc_ned;
+
+bd.accel_scale = accel_scale;
+body_data = bd;
+save(task2_file, 'body_data', '-v7.3');
 
 omega_E = constants.EARTH_RATE;                     % rad/s
 omega_ie_NED = omega_E * [cos(ref_lat); 0; -sin(ref_lat)];
@@ -413,12 +403,21 @@ for i = 1:length(methods)
     pos_integ.(method) = pos;
     vel_integ.(method) = vel;
     acc_integ.(method) = acc;
-
-    % 3x3 state plot for this method
-    plot_state_grid(imu_time, pos, vel, acc, 'NED', ...
-        sprintf('%s_task4', run_id), results_dir, {method}, cfg);
 end
 fprintf('-> IMU-derived position, velocity, and acceleration computed for all methods.\n');
+
+% --- Align rates for validation on the GNSS timeline ---
+method_first = methods{1};
+t_g = t_gnss(:); t_i = t_imu(:);
+imu_pos_g  = interp1(t_i, pos_integ.(method_first), t_g, 'linear','extrap');
+imu_vel_g  = interp1(t_i, vel_integ.(method_first), t_g, 'linear','extrap');
+imu_acc_g  = interp1(t_i, acc_integ.(method_first), t_g, 'linear','extrap');
+valid = all(isfinite(gnss_acc_ned),2) & all(isfinite(imu_acc_g),2);
+t_v = t_g(valid);
+pos_v = imu_pos_g(valid,:); vel_v = imu_vel_g(valid,:); acc_v = imu_acc_g(valid,:);
+
+plot_state_grid(t_v, pos_v, vel_v, acc_v, 'NED', ...
+    'visible','on', 'save_dir', results_dir, 'run_id', run_id);
 
 % -------------------------------------------------------------------------
 % Generate comparison plots for all methods in NED, ECEF, BODY and Mixed
