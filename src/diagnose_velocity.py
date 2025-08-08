@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 
 from validate_with_truth import load_estimate, assemble_frames
+from utils import zero_base_time
 
 
 logger = logging.getLogger(__name__)
@@ -199,10 +200,10 @@ def main() -> None:
 
     # GNSS timeline
     gnss = pd.read_csv(args.gnss_file)
-    t_gnss = gnss["Posix_Time"].to_numpy()
+    t_gnss = zero_base_time(gnss["Posix_Time"].to_numpy())
     plt.figure()
-    plt.plot(t_gnss - t_gnss[0], label="GNSS timestamps")
-    plt.plot(t_est - t_est[0], label="Fused timestamps")
+    plt.plot(t_gnss, label="GNSS timestamps")
+    plt.plot(t_est, label="Fused timestamps")
     plt.xlabel("Sample")
     plt.ylabel("Time [s]")
     plt.legend()

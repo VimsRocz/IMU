@@ -9,6 +9,8 @@ import scipy.io
 import os
 import logging
 
+from utils import zero_base_time
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
@@ -58,10 +60,10 @@ def load_matlab_metrics(mat_path: Path, imu_file: str, gnss_file: str) -> Tuple[
     gnss_pos = data["gnss_pos_ned"]
 
     gnss_df = pd.read_csv(gnss_file)
-    gnss_time = gnss_df["Posix_Time"].to_numpy()
+    gnss_time = zero_base_time(gnss_df["Posix_Time"].to_numpy())
     dt_imu = np.loadtxt(imu_file, usecols=1)
     dt = dt_imu[1] - dt_imu[0]
-    imu_time = np.arange(x_log.shape[1]) * dt + gnss_time[0]
+    imu_time = np.arange(x_log.shape[1]) * dt
 
     pos_interp = np.vstack([
         np.interp(gnss_time, imu_time, x_log[i])

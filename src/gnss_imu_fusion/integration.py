@@ -50,7 +50,7 @@ def integrate_trajectory(
         for i in range(1, n):
             dt = imu_time[i] - imu_time[i - 1]
             f_ned = C_B_N @ acc_body[i]
-            a_ned = f_ned - g_NED
+            a_ned = f_ned + g_NED
             acc[i] = a_ned
             vel[i] = vel[i - 1] + a_ned * dt
             pos[i] = pos[i - 1] + vel[i] * dt
@@ -79,7 +79,7 @@ def integrate_trajectory(
         C_e_n = compute_C_ECEF_to_NED(lat[i], lon[i])
         C_b_e = C_e_n.T @ C_B_N
         f_ecef = C_b_e @ acc_body[i]
-        a_ecef = f_ecef - g_ecef[i]
+        a_ecef = f_ecef + g_ecef[i]
         acc_ecef[i] = a_ecef
         vel_ecef[i] = vel_ecef[i - 1] + a_ecef * dt
         pos_ecef[i] = pos_ecef[i - 1] + vel_ecef[i] * dt
