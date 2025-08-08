@@ -19,6 +19,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from validate_with_truth import load_estimate
+from utils import zero_base_time
 
 
 
@@ -35,18 +36,18 @@ def main() -> None:
 
     # Load GNSS data
     gnss = pd.read_csv(args.gnss_file)
-    gnss_time = gnss["Posix_Time"].to_numpy()
+    gnss_time = zero_base_time(gnss["Posix_Time"].to_numpy())
     gnss_vel_ecef = gnss[["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]].to_numpy()
 
     # Load fused estimate
     est = load_estimate(args.fused_file)
-    fused_time = est["time"]
+    fused_time = zero_base_time(est["time"])
     fused_vel_ecef = est["vel"]
 
     # Load IMU data and derive timestamps
     imu_raw = np.loadtxt(args.imu_file)
     dt_imu = 1.0 / 400.0
-    imu_time = np.arange(len(imu_raw)) * dt_imu + gnss_time[0]
+    imu_time = np.arange(len(imu_raw)) * dt_imu
     if imu_raw.shape[1] >= 10:
         imu_acc = imu_raw[:, 5:8] / dt_imu
     else:

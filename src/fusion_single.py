@@ -19,7 +19,7 @@ from scipy.signal import butter, filtfilt
 from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
 from kalman import GNSSIMUKalman, rts_smoother
-from utils import compute_C_ECEF_to_NED
+from utils import compute_C_ECEF_to_NED, zero_base_time
 from constants import GRAVITY, EARTH_RATE
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -87,7 +87,7 @@ def main():
     gnss = pd.read_csv(args.gnss_file)
     imu = np.loadtxt(args.imu_file)
 
-    gnss_time = gnss['Posix_Time'].values
+    gnss_time = zero_base_time(gnss['Posix_Time'].values)
     pos_ecef = gnss[['X_ECEF_m','Y_ECEF_m','Z_ECEF_m']].values
     vel_ecef = gnss[['VX_ECEF_mps','VY_ECEF_mps','VZ_ECEF_mps']].values
 
@@ -109,6 +109,7 @@ def main():
     vel_ned = np.array([C @ v for v in vel_ecef])
 
     dt_imu = np.mean(np.diff(imu[:100,1]))
+    imu_time = np.arange(len(imu)) * dt_imu
     gyro = imu[:,2:5]/dt_imu
     acc = imu[:,5:8]/dt_imu
     acc = butter_lowpass_filter(acc)
@@ -179,7 +180,7 @@ def main():
     gnss_idx=0
     for i in range(N):
         if i>0:
-            dt=imu[i,1]-imu[i-1,1]
+            dt=imu_time[i]-imu_time[i-1]
         else:
             dt=dt_imu
         omega=gyro[i]-kf.kf.x[9:12]
@@ -189,9 +190,9 @@ def main():
         quats.append(q_cur.copy())
         R_bn=quat_to_rot(q_cur)
         kf.predict(dt,R_bn,acc[i],g_ned)
-        if gnss_idx<len(gnss_time)-1 and abs(imu[i,1]- (gnss_time[gnss_idx]-gnss_time[0]))<dt_imu/2:
+        if gnss_idx<len(gnss_time)-1 and abs(imu_time[i]- gnss_time[gnss_idx])<dt_imu/2:
             x_upd, resid, S = kf.update_gnss(pos_ned[gnss_idx],vel_ned[gnss_idx])
-            upd_times.append(imu[i,1])
+            upd_times.append(imu_time[i])
             pos_res.append(resid[0:3])
             vel_res.append(resid[3:6])
             std = np.sqrt(np.diag(S))
@@ -222,7 +223,7 @@ def main():
     if len(quats) > 0:
         rot = R.from_quat(quats[:, [1,2,3,0]])
         euler = rot.as_euler('xyz', degrees=True)
-        t = imu[:len(quats),1]
+        t = imu_time[:len(quats)]
 
         fig, ax = plt.subplots(3,1,sharex=True)
         lbl = ['roll','pitch','yaw']

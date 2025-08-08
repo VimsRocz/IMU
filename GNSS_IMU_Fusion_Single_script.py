@@ -28,7 +28,7 @@ args = parser.parse_args()
 INTERACTIVE = args.interactive
 
 from src.constants import EARTH_RATE
-from src.utils import compute_C_ECEF_to_NED
+from src.utils import compute_C_ECEF_to_NED, zero_base_time
 
 # Setup logging
 logging.basicConfig(
@@ -698,7 +698,7 @@ logging.info("Subtask 4.4: Extracting relevant columns.")
 time_col = "Posix_Time"
 pos_cols = ["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]
 vel_cols = ["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]
-gnss_time = gnss_data[time_col].values
+gnss_time = zero_base_time(gnss_data[time_col].values)
 gnss_pos_ecef = gnss_data[pos_cols].values
 gnss_vel_ecef = gnss_data[vel_cols].values
 logging.info(f"GNSS data shape: {gnss_pos_ecef.shape}")
@@ -748,9 +748,7 @@ logging.info("GNSS acceleration estimated in NED frame.")
 logging.info("Subtask 4.9: Loading IMU data and correcting for bias for each method.")
 try:
     imu_data = pd.read_csv("IMU_X001.dat", sep="\s+", header=None)
-    imu_time = (
-        np.arange(len(imu_data)) * dt_imu + gnss_time[0]
-    )  # Align with GNSS start time
+    imu_time = np.arange(len(imu_data)) * dt_imu
 
     # Convert velocity increments to acceleration (m/s²)
     # Columns 5,6,7 are velocity increments (m/s) over dt_imu
@@ -1122,7 +1120,7 @@ gnss_acc_ecef[1:] = (gnss_vel_ecef[1:] - gnss_vel_ecef[:-1]) / dt[1:, np.newaxis
 gnss_acc_ned = np.array([C_ECEF_to_NED @ a for a in gnss_acc_ecef])
 
 # Load IMU data
-imu_time = np.arange(len(imu_data)) * dt_imu + gnss_time[0]
+imu_time = np.arange(len(imu_data)) * dt_imu
 acc_body = imu_data[[5, 6, 7]].values / dt_imu
 N_static = 4000
 if len(imu_data) < N_static:
@@ -1168,7 +1166,7 @@ for m in methods:
 # --------------------------------
 logging.info("Subtask 5.5: Applying Zero-Velocity Updates (ZUPT) for each method.")
 stationary_threshold = 0.01
-t_rel_ilu = imu_time - gnss_time[0]
+t_rel_ilu = imu_time
 for m in methods:
     for i in range(len(imu_time)):
         if t_rel_ilu[i] < 5000 and np.linalg.norm(imu_vel[m][i]) < stationary_threshold:

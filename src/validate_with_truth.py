@@ -10,7 +10,7 @@ from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
 from tabulate import tabulate
 
-from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
+from utils import compute_C_ECEF_to_NED, ecef_to_geodetic, zero_base_time
 from plot_overlay import plot_overlay
 import pandas as pd
 import re
@@ -634,7 +634,7 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
         entry interpolated to the fused time vector.
     """
     gnss = pd.read_csv(gnss_file)
-    t_gnss = gnss["Posix_Time"].to_numpy()
+    t_gnss = zero_base_time(gnss["Posix_Time"].to_numpy())
     pos_ecef = gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].to_numpy()
     vel_ecef = gnss[["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]].to_numpy()
     dt_g = np.diff(t_gnss, prepend=t_gnss[0])
@@ -677,7 +677,7 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     vel_gnss_ned = np.array([C @ v for v in vel_ecef])
     acc_gnss_ned = np.array([C @ a for a in acc_ecef])
 
-    t_est = np.asarray(est["time"]).squeeze()
+    t_est = zero_base_time(np.asarray(est["time"]).squeeze())
     fused_pos = np.asarray(est["pos"])
     fused_vel = np.asarray(est["vel"])
     n = min(len(t_est), len(fused_pos), len(fused_vel))
@@ -730,7 +730,7 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     if truth_file is not None:
         try:
             truth = np.loadtxt(truth_file, comments="#")
-            t_truth = truth[:, 1]
+            t_truth = zero_base_time(truth[:, 1])
             pos_truth_ecef = truth[:, 2:5]
             vel_truth_ecef = truth[:, 5:8]
         except Exception as e:
@@ -742,7 +742,7 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
         and est.get("truth_time") is not None
         and np.asarray(est["truth_pos_ecef"]).size > 0
     ):
-        t_truth = np.asarray(est["truth_time"]).squeeze()
+        t_truth = zero_base_time(np.asarray(est["truth_time"]).squeeze())
         pos_truth_ecef = np.asarray(est["truth_pos_ecef"])
         vel_truth_ecef = np.asarray(est["truth_vel_ecef"])
 
@@ -794,6 +794,8 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
             )
         ]
         time_offset = 0.5 * (lag_pos + lag_vel) * dt_r
+        max_offset_s = 5.0
+        time_offset = float(np.clip(time_offset, -max_offset_s, max_offset_s))
         t_truth = t_truth + time_offset
         print(
             f"assemble_frames: applied time offset {time_offset:.3f} s via pos/vel alignment"

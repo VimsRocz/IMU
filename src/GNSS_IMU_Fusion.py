@@ -40,6 +40,7 @@ from utils import (
     compute_C_ECEF_to_NED,
     ecef_to_geodetic,
     interpolate_series,
+    zero_base_time,
 )
 from constants import GRAVITY, EARTH_RATE
 from .compute_biases import compute_biases
@@ -703,7 +704,7 @@ def main():
     time_col = "Posix_Time"
     pos_cols = ["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]
     vel_cols = ["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]
-    gnss_time = gnss_data[time_col].values
+    gnss_time = zero_base_time(gnss_data[time_col].values)
     gnss_pos_ecef = gnss_data[pos_cols].values
     gnss_vel_ecef = gnss_data[vel_cols].values
     logging.info(f"GNSS data shape: {gnss_pos_ecef.shape}")
@@ -769,7 +770,7 @@ def main():
     )
     try:
         imu_data = pd.read_csv(imu_file, sep=r"\s+", header=None)
-        imu_time = imu_data.iloc[:, 1].to_numpy() + gnss_time[0]
+        imu_time = np.arange(len(imu_data)) * dt_imu
         lat_interp = interpolate_series(imu_time, gnss_time, lat_series)
         lon_interp = interpolate_series(imu_time, gnss_time, lon_series)
 
@@ -817,12 +818,8 @@ def main():
             end_idx,
         )
 
-        dataset_bias_map = {
-            "IMU_X001.dat": np.array([0.57755067, -6.8366253, 0.91021879]),
-            "IMU_X002.dat": np.array([0.57757295, -6.83671274, 0.91029003]),
-            "IMU_X003.dat": np.array([0.58525893, -6.8367178, 0.9084152]),
-        }
-        dataset_bias = dataset_bias_map.get(Path(imu_file).name)
+        # Compute accelerometer scale factor using magnitude ratio
+        scale = np.linalg.norm(g_NED) / np.linalg.norm(static_acc)
 
         # Compute corrected acceleration and gyroscope data for each method
         acc_body_corrected = {}
@@ -833,9 +830,6 @@ def main():
 
             # Accelerometer bias: static_acc should equal -g_body_expected
             acc_bias = static_acc + g_body_expected  # measured minus expected
-            if dataset_bias is not None:
-                acc_bias = dataset_bias
-            scale = GRAVITY / np.linalg.norm(static_acc - acc_bias)
 
             # Gyroscope bias: static_gyro should equal C_N_B @ omega_ie_NED
             omega_ie_NED = np.array(
@@ -933,7 +927,7 @@ def main():
     if truth_file:
         try:
             truth = np.loadtxt(truth_file, comments="#")
-            t_truth = truth[:, 1]
+            t_truth = zero_base_time(truth[:, 1])
             pos_truth_ecef = truth[:, 2:5]
             vel_truth_ecef = truth[:, 5:8]
             truth_pos_ecef_i = interpolate_series(t_rel_ilu, t_truth, pos_truth_ecef)
@@ -1218,7 +1212,7 @@ def main():
     time_col = "Posix_Time"
     pos_cols = ["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]
     vel_cols = ["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]
-    gnss_time = gnss_data[time_col].values
+    gnss_time = zero_base_time(gnss_data[time_col].values)
     gnss_pos_ecef = gnss_data[pos_cols].values
     gnss_vel_ecef = gnss_data[vel_cols].values
 
@@ -1241,7 +1235,7 @@ def main():
     gnss_acc_ned = np.array([C_ECEF_to_NED @ a for a in gnss_acc_ecef])
 
     # Load IMU data
-    imu_time = np.arange(len(imu_data)) * dt_imu + gnss_time[0]
+    imu_time = np.arange(len(imu_data)) * dt_imu
     acc_body = imu_data[[5, 6, 7]].values / dt_imu
     acc_body = butter_lowpass_filter(acc_body)
     # Use at most 4000 samples but allow shorter sequences when running the
@@ -1253,12 +1247,12 @@ def main():
         )
     static_acc = np.mean(acc_body[:N_static], axis=0)
 
-    dataset_bias_map = {
-        "IMU_X001.dat": np.array([0.57755067, -6.8366253, 0.91021879]),
-        "IMU_X002.dat": np.array([0.57757295, -6.83671274, 0.91029003]),
-        "IMU_X003.dat": np.array([0.58525893, -6.8367178, 0.9084152]),
-    }
-    dataset_bias = dataset_bias_map.get(Path(imu_file).name)
+    # Estimate scale factor using bias-removed static acceleration
+    C_N_B_ref = C_B_N_methods[methods[0]].T
+    g_body_expected_ref = C_N_B_ref @ g_NED
+    bias_ref = static_acc + g_body_expected_ref
+    g_body_mag = np.linalg.norm(static_acc - bias_ref)
+    scale = np.linalg.norm(g_NED) / g_body_mag
 
     # Compute corrected acceleration for each method
     acc_body_corrected = {}
@@ -1266,9 +1260,6 @@ def main():
         C_N_B = C_B_N_methods[m].T
         g_body_expected = C_N_B @ g_NED
         bias = static_acc + g_body_expected
-        if dataset_bias is not None:
-            bias = dataset_bias
-        scale = GRAVITY / np.linalg.norm(static_acc - bias)
         acc_body_corrected[m] = scale * (acc_body - bias)
         logging.info(f"Method {m}: Bias computed: {bias}")
         logging.info(f"Method {m}: Scale factor: {scale:.4f}")

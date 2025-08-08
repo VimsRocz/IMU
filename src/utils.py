@@ -13,6 +13,12 @@ import sys
 import logging
 
 
+def zero_base_time(t):
+    """Return time vector shifted to start at zero."""
+    t = np.asarray(t, dtype=np.float64)
+    return t - t[0]
+
+
 def get_data_file(filename: str) -> pathlib.Path:
     """Return full path to a data file.
 
