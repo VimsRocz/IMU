@@ -11,11 +11,21 @@ import matplotlib.pyplot as plt
 from tabulate import tabulate
 
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic, zero_base_time
+import importlib.util
+from pathlib import Path as _Path
+
+_frames_path = _Path(__file__).resolve().parent / "utils" / "frames.py"
+_spec = importlib.util.spec_from_file_location("_frames", _frames_path)
+_frames = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_frames)
+R_ecef_to_ned = _frames.R_ecef_to_ned
+ecef_vec_to_ned = _frames.ecef_vec_to_ned
 from plot_overlay import plot_overlay
 import pandas as pd
 import re
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "load_estimate",
@@ -635,8 +645,10 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
     """
     gnss = pd.read_csv(gnss_file)
     t_gnss = zero_base_time(gnss["Posix_Time"].to_numpy())
-    pos_ecef = gnss[["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]].to_numpy()
-    vel_ecef = gnss[["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]].to_numpy()
+    cols_pos = ["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]
+    cols_vel = ["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]
+    pos_ecef = gnss.loc[:, cols_pos].to_numpy()
+    vel_ecef = gnss.loc[:, cols_vel].to_numpy()
     dt_g = np.diff(t_gnss, prepend=t_gnss[0])
     acc_ecef = np.zeros_like(vel_ecef)
     acc_ecef[1:] = np.diff(vel_ecef, axis=0) / dt_g[1:, None]
@@ -672,10 +684,11 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
         ref_lat = float(np.asarray(ref_lat).squeeze())
         ref_lon = float(np.asarray(ref_lon).squeeze())
         ref_r0 = np.asarray(ref_r0).squeeze()
-    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
-    pos_gnss_ned = np.array([C @ (p - ref_r0) for p in pos_ecef])
-    vel_gnss_ned = np.array([C @ v for v in vel_ecef])
-    acc_gnss_ned = np.array([C @ a for a in acc_ecef])
+    C = R_ecef_to_ned(ref_lat, ref_lon)
+    assert np.allclose(C @ C.T, np.eye(3), atol=1e-9), "R_ecef_to_ned not orthonormal"
+    pos_gnss_ned = ecef_vec_to_ned(pos_ecef - ref_r0, ref_lat, ref_lon)
+    vel_gnss_ned = ecef_vec_to_ned(vel_ecef, ref_lat, ref_lon)
+    acc_gnss_ned = ecef_vec_to_ned(acc_ecef, ref_lat, ref_lon)
 
     t_est = zero_base_time(np.asarray(est["time"]).squeeze())
     fused_pos = np.asarray(est["pos"])
@@ -908,6 +921,24 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
         )
         if truth_body is not None:
             frames["Body"]["truth"] = (t_est, *truth_body)
+
+        def _corr(a, b):
+            if a.ndim > 1:
+                a = a.ravel()
+            if b.ndim > 1:
+                b = b.ravel()
+            if np.std(a) == 0 or np.std(b) == 0:
+                return 0.0
+            return np.corrcoef(a, b)[0, 1]
+
+        for name, f, t in [
+            ("N vel North", fused_vel[:, 0], vel_truth_ned_i[:, 0]),
+            ("N vel East", fused_vel[:, 1], vel_truth_ned_i[:, 1]),
+            ("ECEF vel X", fused_ecef[1][:, 0], vel_truth_ecef_i[:, 0]),
+            ("ECEF vel Y", fused_ecef[1][:, 1], vel_truth_ecef_i[:, 1]),
+        ]:
+            c = _corr(f, t)
+            logger.info(f"[Sanity] corr({name}) = {c:+.3f}")
 
     return frames
 

@@ -17,6 +17,7 @@ function result = Task_4(imu_path, gnss_path, method)
 % add utils folders to path
 addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))),'src','utils'));
 addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
+addpath(fullfile(fileparts(mfilename('fullpath')),'lib'));
 
 if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');
@@ -123,10 +124,12 @@ end
 fprintf('\nSubtask 4.4: Extracting relevant columns.\n');
 time_col = 'Posix_Time';
 pos_cols = {'X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m'};
-vel_cols = {'VX_ECEF_mps', 'VY_ECEF_mps', 'VZ_ECEF_mps'};
 gnss_time = zero_base_time(gnss_data.(time_col));
 gnss_pos_ecef = gnss_data{:, pos_cols};
-gnss_vel_ecef = gnss_data{:, vel_cols};
+vx = gnss_data.VX_ECEF_mps;
+vy = gnss_data.VY_ECEF_mps;
+vz = gnss_data.VZ_ECEF_mps;
+gnss_vel_ecef = [vx vy vz];
 fprintf('-> GNSS data shape: %d x %d\n', size(gnss_pos_ecef));
 
 
@@ -147,9 +150,11 @@ fprintf('-> Reference point: lat=%.6f rad, lon=%.6f rad, r0=[%.1f, %.1f, %.1f]''
 % Subtask 4.6: Compute Rotation Matrix from ECEF to NED
 % =========================================================================
 fprintf('\nSubtask 4.6: Computing ECEF to NED rotation matrix.\n');
-[R_en, R_ne] = ecef_ned_rot(ref_lat, ref_lon);
-C_ECEF_to_NED = R_en;
-C_NED_to_ECEF = R_ne;
+R = R_ecef_to_ned(ref_lat, ref_lon);
+I = R * R';
+assert(max(abs(I(:) - eye(3))) < 1e-9, 'R_ecef_to_ned not orthonormal');
+C_ECEF_to_NED = R;
+C_NED_to_ECEF = R';
 fprintf('-> ECEF to NED rotation matrix computed.\n');
 fprintf('-> NED to ECEF rotation matrix computed.\n');
 

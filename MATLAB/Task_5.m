@@ -22,6 +22,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 
 % add utils folder to path
 addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
+addpath(fullfile(fileparts(mfilename('fullpath')),'lib'));
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
@@ -106,14 +107,18 @@ addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
     % Load GNSS data to obtain time and velocity
     gnss_tbl = readtable(gnss_path);
     gnss_time = zero_base_time(gnss_tbl.Posix_Time);
-    vel_cols = {'VX_ECEF_mps','VY_ECEF_mps','VZ_ECEF_mps'};
     pos_cols = {'X_ECEF_m','Y_ECEF_m','Z_ECEF_m'};
     gnss_pos_ecef = gnss_tbl{:, pos_cols};
-    gnss_vel_ecef = gnss_tbl{:, vel_cols};
+    vx = gnss_tbl.VX_ECEF_mps;
+    vy = gnss_tbl.VY_ECEF_mps;
+    vz = gnss_tbl.VZ_ECEF_mps;
+    gnss_vel_ecef = [vx vy vz];
     first_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
     ref_r0 = gnss_pos_ecef(first_idx, :)';
     [lat_deg, lon_deg, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
-    C_ECEF_to_NED = compute_C_ECEF_to_NED(deg2rad(lat_deg), deg2rad(lon_deg));
+    C_ECEF_to_NED = R_ecef_to_ned(deg2rad(lat_deg), deg2rad(lon_deg));
+    I = C_ECEF_to_NED * C_ECEF_to_NED';
+    assert(max(abs(I(:) - eye(3))) < 1e-9, 'R_ecef_to_ned not orthonormal');
     omega_E = constants.EARTH_RATE;
     omega_ie_NED = omega_E * [cosd(lat_deg); 0; -sind(lat_deg)];
     % Make reference parameters available for later plotting scripts
