@@ -689,6 +689,9 @@ fclose(fid_sum);
 % Persist IMU and GNSS time vectors for Tasks 6 and 7
 time      = imu_time; %#ok<NASGU>  used by Task_6
 gnss_time = gnss_time; %#ok<NASGU>
+t_est = imu_time; %#ok<NASGU> time vector for downstream tasks
+dt = dt_imu; %#ok<NASGU> IMU sample interval
+imu_rate_hz = 1 / dt_imu; %#ok<NASGU> IMU sampling rate
 
 % Convenience fields matching the Python pipeline
 pos_ned = x_log(1:3,:)';
@@ -705,7 +708,7 @@ save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
     'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
     'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', 'zupt_vel_norm', ...
     'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
-    'states');
+    'states', 't_est', 'dt', 'imu_rate_hz');
 % Provide compatibility with the Python pipeline and downstream tasks
 % by storing the fused position under the generic ``pos`` field as well.
 pos = pos_ned; %#ok<NASGU>
@@ -722,6 +725,11 @@ try
 catch
     warning('Task 5: Failed to verify x_log save in %s', results_file);
 end
+
+% Export estimator time vector for compatibility with Python pipeline
+time_file = fullfile(results_dir, sprintf('%s_task5_time.mat', tag));
+save(time_file, 't_est', 'dt', 'x_log');
+fprintf('Task 5: Saved time vector to %s\n', time_file);
 
     method_struct = struct('gnss_pos_ned', gnss_pos_ned, 'gnss_vel_ned', gnss_vel_ned, ...
         'gnss_accel_ned', gnss_accel_ned, 'gnss_pos_ecef', gnss_pos_ecef, ...
