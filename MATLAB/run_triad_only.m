@@ -61,8 +61,13 @@ t2_mat = fullfile(mat_results, sprintf('Task2_body_%s_%s_%s.mat', ...
     erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
 t3_mat = fullfile(mat_results, sprintf('%s_%s_%s_task3_results.mat', ...
     erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
-t4_mat = fullfile(mat_results, sprintf('IMU_%s_GNSS_%s_%s_task4_results.mat', ...
-    erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
+results_dir = get_results_dir();
+[~, imu_base, ~]  = fileparts(cfg.imu_path);
+[~, gnss_base, ~] = fileparts(cfg.gnss_path);
+imu_base  = erase(imu_base,  '.dat');
+gnss_base = erase(gnss_base, '.csv');
+run_id = sprintf('%s_%s_%s', imu_base, gnss_base, cfg.method);
+t4_mat = fullfile(results_dir, sprintf('%s_task4_results.mat', run_id));
 t5_mat = fullfile(mat_results, sprintf('%s_%s_%s_task5_results.mat', ...
     erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
 
