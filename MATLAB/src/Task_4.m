@@ -17,6 +17,7 @@ function result = Task_4(imu_path, gnss_path, method)
 paths = project_paths();
 results_dir = paths.matlab_results;
 addpath(fullfile(paths.root,'MATLAB','lib'));
+addpath(fullfile(paths.root,'src','utils'));  % for detect_imu_time
 
 % pull configuration from caller
 try
@@ -132,7 +133,6 @@ end
 fprintf('\nSubtask 4.4: Extracting relevant columns.\n');
 time_col = 'Posix_Time';
 pos_cols = {'X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m'};
-gnss_time = zero_base_time(gnss_data.(time_col));
 gnss_pos_ecef = gnss_data{:, pos_cols};
 vx = gnss_data.VX_ECEF_mps;
 vy = gnss_data.VY_ECEF_mps;
@@ -194,12 +194,20 @@ fprintf('-> GNSS data transformed to NED frame.\n');
 fprintf('   GNSS NED pos first=[%.2f %.2f %.2f], last=[%.2f %.2f %.2f]\n', ...
     gnss_pos_ned(1,:), gnss_pos_ned(end,:));
 
+% Build GNSS time vector
+Tg = readtable(gnss_path);
+if any(strcmp(Tg.Properties.VariableNames,'Posix_Time'))
+    t_gnss = zero_base_time(Tg.Posix_Time(:));
+else
+    t_gnss = (0:height(Tg)-1)';   % assume 1 Hz if missing
+end
+
 
 %% ========================================================================
 % Subtask 4.8: Estimate GNSS Acceleration in NED
 % =========================================================================
 fprintf('\nSubtask 4.8: Estimating GNSS acceleration in NED.\n');
-dt_gnss = diff(gnss_time(:));
+dt_gnss = diff(t_gnss(:));
 % Prepend a zero row to maintain size, as diff reduces length by 1
 gnss_accel_ned = [zeros(1,3); bsxfun(@rdivide, diff(gnss_vel_ned), dt_gnss)];
 fprintf('-> GNSS acceleration estimated in NED frame.\n');
@@ -210,10 +218,12 @@ fprintf('   GNSS accel RMS = %.4f m/s^2\n', rms(gnss_accel_ned(:)) );
 % Subtask 4.9: Load IMU Data and Correct for Bias for Each Method
 % =========================================================================
 fprintf('\nSubtask 4.9: Loading IMU data and correcting for bias for each method.\n');
-imu_raw_data = readmatrix(imu_path);
-dt_imu = mean(diff(imu_raw_data(1:100,2)));
-if dt_imu <= 0 || isnan(dt_imu), dt_imu = 1/400; end
-imu_time = (0:size(imu_raw_data,1)-1)' * dt_imu;
+Ti = readmatrix(imu_path);
+t_imu = detect_imu_time(Ti, 0.0025);   % unwrap rollover or fallback to 400 Hz
+imu_raw_data = Ti;
+dt_imu = median(diff(t_imu));
+if dt_imu <= 0 || isnan(dt_imu), dt_imu = 0.0025; end
+imu_time = t_imu;
 
 acc_body_raw = imu_raw_data(:, 6:8) / dt_imu;
 
@@ -278,16 +288,25 @@ imu_linacc_ned = imu_acc_ned - gNED;                        % remove gravity
 
 gnss_acc_ned = gnss_accel_ned;                              % from GNSS
 
+% Interpolate GNSS NED signals onto IMU time grid (so lengths match)
+gnss_pos_ned_imuT = interp1(t_gnss, gnss_pos_ned, t_imu, 'linear', 'extrap');
+gnss_vel_ned_imuT = interp1(t_gnss, gnss_vel_ned, t_imu, 'linear', 'extrap');
+gnss_acc_ned_imuT = interp1(t_gnss, gnss_acc_ned, t_imu, 'linear', 'extrap');
+
 % === Estimate accel scale (least-squares, dynamic-only) ===
-valid = all(isfinite(gnss_acc_ned),2) & all(isfinite(imu_linacc_ned),2);
-dyn = vecnorm(gnss_acc_ned,2,2) > 0.05;                      % threshold m/s^2
+valid = all(isfinite(gnss_acc_ned_imuT),2) & all(isfinite(imu_linacc_ned),2);
+dyn = vecnorm(gnss_acc_ned_imuT,2,2) > 0.05;                      % threshold m/s^2
 mask = valid & dyn;
+
+hz_imu  = 1/median(diff(t_imu));
+hz_gnss = 1/median(diff(t_gnss));
+fprintf('Task 4: rates \u2014 IMU=%.3f Hz, GNSS=%.3f Hz\n', hz_imu, hz_gnss);
 
 if ~any(mask)
     error('Task 4: cannot estimate accelerometer scale \x2014 not enough dynamics. Increase motion or lower threshold.');
 end
 A = imu_linacc_ned(mask,:);
-B = gnss_acc_ned(mask,:);
+B = gnss_acc_ned_imuT(mask,:);
 num = sum(sum(A.*B));
 den = sum(sum(A.*A));
 accel_scale = num / max(den, eps);
@@ -371,9 +390,9 @@ for i = 1:length(methods)
     vel = zeros(size(imu_time,1), 3);
     acc = zeros(size(imu_time,1), 3);
     
-    % Initialize with first GNSS measurement
-    vel(1,:) = gnss_vel_ned(1,:);
-    pos(1,:) = gnss_pos_ned(1,:);
+    % Initialize with first GNSS measurement (aligned to IMU time)
+    vel(1,:) = gnss_vel_ned_imuT(1,:);
+    pos(1,:) = gnss_pos_ned_imuT(1,:);
     
     for k = 2:length(imu_time)
         % Propagate attitude using corrected gyro measurements
@@ -405,9 +424,9 @@ fprintf('-> IMU-derived position, velocity, and acceleration computed for all me
 % Generate comparison plots for all methods in NED, ECEF, BODY and Mixed
 % frames using the helper ``plot_frame_comparison``.
 % -------------------------------------------------------------------------
-t = imu_time; % Common time vector at IMU rate
-pos_ned_GNSS = interp1(gnss_time, gnss_pos_ned, t, 'linear', 'extrap')';
-pos_ecef_GNSS = interp1(gnss_time, gnss_pos_ecef, t, 'linear', 'extrap')';
+t = t_imu; % Common time vector at IMU rate
+pos_ned_GNSS = gnss_pos_ned_imuT';
+pos_ecef_GNSS = C_NED_to_ECEF * pos_ned_GNSS + ref_r0;
 
 % NED/ECEF/BODY positions for each method
 pos_ned = struct();
@@ -486,8 +505,8 @@ fprintf('\nSubtask 4.13: Validating and plotting data.\n');
 
 for i = 1:length(methods)
     m = methods{i};
-    plot_single_method(m, gnss_time, imu_time, C_B_N_methods.(m), ...
-        gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, ...
+    plot_single_method(m, t_imu, t_imu, C_B_N_methods.(m), ...
+        gnss_pos_ned_imuT, gnss_vel_ned_imuT, gnss_acc_ned_imuT, ...
         pos_integ.(m), vel_integ.(m), acc_integ.(m), ...
         acc_body_corrected.(m), run_id, ref_r0, C_ECEF_to_NED, cfg);
 end
@@ -497,10 +516,12 @@ fprintf('-> All data plots saved for all methods.\n');
 task4_file = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
 if isfile(task4_file)
     save(task4_file, 'gnss_pos_ned', 'acc_biases', 'gyro_biases', 'scale_factors', ...
-        'truth_pos_ecef', 'truth_vel_ecef', 'truth_time', '-append');
+        'truth_pos_ecef', 'truth_vel_ecef', 'truth_time', ...
+        't_imu','t_gnss', 'gnss_pos_ned_imuT','gnss_vel_ned_imuT','gnss_acc_ned_imuT', '-append');
 else
     save(task4_file, 'gnss_pos_ned', 'acc_biases', 'gyro_biases', 'scale_factors', ...
-        'truth_pos_ecef', 'truth_vel_ecef', 'truth_time');
+        'truth_pos_ecef', 'truth_vel_ecef', 'truth_time', ...
+        't_imu','t_gnss', 'gnss_pos_ned_imuT','gnss_vel_ned_imuT','gnss_acc_ned_imuT');
 end
 fprintf('GNSS NED positions saved to %s\n', task4_file);
 
@@ -508,7 +529,10 @@ fprintf('GNSS NED positions saved to %s\n', task4_file);
 result_struct = struct('gnss_pos_ned', gnss_pos_ned, 'acc_biases', acc_biases, ...
                 'gyro_biases', gyro_biases, 'scale_factors', scale_factors, ...
                 'truth_pos_ecef', truth_pos_ecef, 'truth_vel_ecef', truth_vel_ecef, ...
-                'truth_time', truth_time);
+                'truth_time', truth_time, 't_imu', t_imu, 't_gnss', t_gnss, ...
+                'gnss_pos_ned_imuT', gnss_pos_ned_imuT, ...
+                'gnss_vel_ned_imuT', gnss_vel_ned_imuT, ...
+                'gnss_acc_ned_imuT', gnss_acc_ned_imuT);
 save_task_results(result_struct, imu_name, gnss_name, method_tag, 4);
 % Task 5 loads these positions when initialising the Kalman filter
 
@@ -516,7 +540,10 @@ save_task_results(result_struct, imu_name, gnss_name, method_tag, 4);
 result = struct('gnss_pos_ned', gnss_pos_ned, 'acc_biases', acc_biases, ...
                 'gyro_biases', gyro_biases, 'scale_factors', scale_factors, ...
                 'truth_pos_ecef', truth_pos_ecef, 'truth_vel_ecef', truth_vel_ecef, ...
-                'truth_time', truth_time);
+                'truth_time', truth_time, 't_imu', t_imu, 't_gnss', t_gnss, ...
+                'gnss_pos_ned_imuT', gnss_pos_ned_imuT, ...
+                'gnss_vel_ned_imuT', gnss_vel_ned_imuT, ...
+                'gnss_acc_ned_imuT', gnss_acc_ned_imuT);
 assignin('base', 'task4_results', result);
 
 end % End of main function: run_task4
