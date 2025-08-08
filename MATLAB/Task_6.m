@@ -18,7 +18,9 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 paths = project_paths();
 results_dir = paths.matlab_results;
 addpath(fullfile(paths.root,'MATLAB','lib'));
+addpath(fullfile(paths.root,'src','utils'));
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
+cfg = default_cfg();
 
 if nargin < 4
     error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');
@@ -248,6 +250,16 @@ acc_ned = [zeros(1,3); diff(vel_ned)./diff(t_est)];
 t_imu = zero_base_time(t_est);
 plot_state_grid(t_imu, {pos_truth_ned_i, pos_ned}, {vel_truth_ned_i, vel_ned}, {acc_truth_ned_i, acc_ned}, ...
     'NED', [run_id '_' method '_Task6_TruthOverlay'], out_dir, {'Truth','Fused'});
+
+% 3x3 overlay grid comparing fused vs truth
+fused_struct = struct('t', t_est, 'pos', pos_ned, 'vel', vel_ned, 'acc', acc_ned);
+truth_struct = struct('t', t_est, 'pos', pos_truth_ned_i, ...
+                      'vel', vel_truth_ned_i, 'acc', acc_truth_ned_i);
+plot_state_grid_overlay(t_imu, fused_struct, truth_struct, 'NED', ...
+    'Title', sprintf('%s Task6: Fused vs Truth', run_id), ...
+    'Visible', ternary(cfg.plots.popup_figures,'on','off'));
+saveas(gcf, fullfile(out_dir, sprintf('%s_task6_overlay_grid_NED.png', run_id)));
+saveas(gcf, fullfile(out_dir, sprintf('%s_task6_overlay_grid_NED.pdf', run_id)));
 
 C_N_E = C';
 pos_ecef = (C_N_E*pos_ned_raw')' + ref_r0';

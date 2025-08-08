@@ -5,9 +5,12 @@ cfg.dataset_id = 'X002';
 cfg.method     = 'TRIAD';
 cfg.imu_file   = 'IMU_X002.dat';
 cfg.gnss_file  = 'GNSS_X002.csv';
-cfg.truth_file = '';  % optional; set 'STATE_X001.txt' if you actually have it
+cfg.truth_file = '';
 
-cfg.plots.popup = true;   % show figures
-cfg.plots.save  = true;   % and save to disk
-cfg.strict      = true;   % tasks should error on missing inputs
+cfg.plots = struct();
+cfg.plots.popup_figures = false;     % show figures by default?
+cfg.plots.save_pdf      = true;      % save as PDF
+cfg.plots.save_png      = true;      % save as PNG
+
+cfg.strict = true;   % tasks should error on missing inputs
 end
