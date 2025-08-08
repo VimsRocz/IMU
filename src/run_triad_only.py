@@ -42,6 +42,7 @@ from utils import save_mat
 # Allow importing helper utilities under ``src/utils``.
 sys.path.append(str(Path(__file__).resolve().parent / "utils"))
 from timeline import print_timeline
+from resolve_truth_path import resolve_truth_path
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
 
@@ -176,8 +177,7 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     imu_path, gnss_path = check_files(imu_file, gnss_file)
 
-    truth_file = ROOT / "STATE_X001.txt"
-    truth_path = str(truth_file) if truth_file.exists() else None
+    truth_path = resolve_truth_path()
     run_id = tag
 
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")

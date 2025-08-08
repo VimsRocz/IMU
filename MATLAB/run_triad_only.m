@@ -51,17 +51,17 @@ mustExist(cfg.truth_path,'Truth file');
 
 rid = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
 results_dir = cfg.paths.matlab_results;
-timeline_matlab(rid, cfg.imu_path, cfg.gnss_path, cfg.truth_path);
 fprintf('%s %s\n', char(0x25B6), rid);
+print_timeline_summary_mat(rid, cfg.imu_path, cfg.gnss_path, cfg.truth_path, results_dir);
 fprintf('MATLAB results dir: %s\n', results_dir);
 
 % Expected outputs by task (for assertions)
 t1_mat = fullfile(mat_results, sprintf('Task1_init_%s.mat', rid));
 t2_mat = fullfile(mat_results, sprintf('Task2_body_%s.mat', rid));
 t3_mat = fullfile(mat_results, sprintf('%s_task3_results.mat', rid));
-results_dir = get_results_dir();
+results_dir = cfg.paths.matlab_results;
 t4_mat = fullfile(results_dir, sprintf('%s_task4_results.mat', rid));
-t5_mat = fullfile(mat_results, sprintf('%s_task5_results.mat', rid));
+t5_mat = fullfile(results_dir, sprintf('%s_task5_results.mat', rid));
 
 % --- Run Tasks 1..5 ------------------------------------------------------
 Task_1(cfg.imu_path, cfg.gnss_path, cfg.method);

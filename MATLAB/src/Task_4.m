@@ -526,24 +526,28 @@ plot_frame_comparison(t, data_sets, labels, 'Mixed', prefix, cfg);
 %% ========================================================================
 % Subtask 4.12b: Load truth ECEF trajectory if available
 % =========================================================================
-state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
 truth_pos_ecef = [];
 truth_vel_ecef = [];
 truth_time = [];
-if isfile(state_file)
+
+truth_path = '';
+if exist('cfg','var') && isfield(cfg,'truth_path')
+    truth_path = cfg.truth_path;
+end
+
+if ~isempty(truth_path) && isfile(truth_path)
     try
-        truth_data = read_state_file(state_file);
+        truth_data = read_state_file(truth_path);
         % Preserve time as a column vector for downstream tasks
-        truth_time = truth_data(:,2);
-        truth_time = truth_time(:);
+        truth_time = truth_data(:,2); truth_time = truth_time(:);
         truth_pos_ecef = truth_data(:,3:5);
         truth_vel_ecef = truth_data(:,6:8);
-        fprintf('Loaded truth ECEF trajectory from %s\n', state_file);
+        fprintf('Loaded truth ECEF trajectory from %s\n', truth_path);
     catch ME
         warning('Failed to load truth state file: %s', ME.message);
     end
 else
-    fprintf('Truth state file not found: %s\n', state_file);
+    fprintf('Truth state file not found: %s\n', truth_path);
 end
 
 
