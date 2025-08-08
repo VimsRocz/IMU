@@ -6,9 +6,9 @@ arguments
 end
 
 % --- Paths & deps
-addpath(cfg.paths.src_utils);      % src/utils (shared constants, frames, etc.)
+addpath(fullfile(cfg.paths.root,'src','utils'));      % src/utils (shared constants, frames, etc.)
 addpath(cfg.paths.matlab_utils);   % MATLAB/utils (triad_matrix, etc.)
-ensure_dir(cfg.paths.results);
+ensure_dir(cfg.paths.matlab_results);
 
 % --- Inputs must exist (zero hidden defaults)
 require_files({cfg.imu_path, cfg.gnss_path});
@@ -45,7 +45,7 @@ for k = 1:numel(tasks)
 end
 
 % --- Tasks 6 & 7 only if we have both: Task 5 results + truth
-task5_file = fullfile(cfg.paths.results, sprintf('%s_task5_results.mat', run_id));
+task5_file = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_results.mat', run_id));
 has_truth  = ~isempty(cfg.truth_path) && isfile(cfg.truth_path);
 if isfile(task5_file) && has_truth
     fprintf('--- Running Task 6: Truth Overlay/Validation ---\n');
@@ -58,7 +58,7 @@ if isfile(task5_file) && has_truth
     Task_7();              % uses saved Task 5 artifacts by design
     S.t.Task7 = toc(t0);
 
-    out_dir = fullfile(cfg.paths.results, run_id);
+    out_dir = fullfile(cfg.paths.matlab_results, run_id);
     fprintf('Task 6/7 plots saved under: %s\n', out_dir);
 else
     warning('Task 6/7 skipped: missing Task 5 results or truth file.');
@@ -66,6 +66,6 @@ end
 
 % --- Save a compact run summary
 S.cfg = cfg; %#ok<STRNU>
-save(fullfile(cfg.paths.results, [run_id '_driver_summary.mat']), 'S');
+save(fullfile(cfg.paths.matlab_results, [run_id '_driver_summary.mat']), 'S');
 
 end

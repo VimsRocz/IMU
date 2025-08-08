@@ -669,7 +669,7 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     gnss_col  = [0.8500 0.3250 0.0980];
     fused_col = [0 0.4470 0.7410];
     % ----- NED frame -----
-    base = fullfile(cfg.paths.results, sprintf('%s_task4', run_id));
+    base = fullfile(cfg.paths.matlab_results, sprintf('%s_task4', run_id));
     fig = figure('Visible', ternary(cfg.plots.popup_figures,'on','off'), 'Position',[100 100 1200 900]);
     for i = 1:3
         subplot(3,3,i); hold on;

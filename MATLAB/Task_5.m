@@ -950,7 +950,7 @@ end % End of main function
             hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend;
         end
         sgtitle([method ' - All data in NED frame']);
-        fname = fullfile(cfg.paths.results, sprintf('%s_task5_NED_state', run_id));
+        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_NED_state', run_id));
         if cfg.plots.save_pdf
             print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
         end
@@ -985,7 +985,7 @@ end % End of main function
             hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend;
         end
         sgtitle([method ' - All data in ECEF frame']);
-        fname = fullfile(cfg.paths.results, sprintf('%s_task5_ECEF_state', run_id));
+        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_ECEF_state', run_id));
         if cfg.plots.save_pdf
             print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
         end
@@ -1034,7 +1034,7 @@ end % End of main function
             hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{j}']); legend;
         end
         sgtitle([method ' - All data in body frame']);
-        fname = fullfile(cfg.paths.results, sprintf('%s_task5_BODY_state', run_id));
+        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_BODY_state', run_id));
         if cfg.plots.save_pdf
             print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
         end
@@ -1078,7 +1078,7 @@ end % End of main function
             hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend;
         end
         sgtitle([method ' - ECEF frame with Truth']);
-        fname = fullfile(cfg.paths.results, sprintf('%s_task5_ECEF_truth', run_id));
+        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_ECEF_truth', run_id));
         if cfg.plots.save_pdf
             print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
         end
