@@ -22,9 +22,21 @@ if nargin < 1 || isempty(truth_path) || ~isfile(truth_path)
     return;
 end
 
-st = readmatrix(truth_path, 'FileType', 'text', 'Delimiter', ' ', 'CommentStyle', '#');
-col = st(:,1);
-col = col(isfinite(col));
+try
+    opts = detectImportOptions(truth_path, 'FileType','text');
+    opts = setvaropts(opts, opts.VariableNames, ...
+                      'WhitespaceRule','preserve', 'EmptyFieldRule','auto');
+    opts.CommentStyle = '#';
+    Ttruth = readtable(truth_path, opts);
+    Ttruth = Ttruth(~all(ismissing(Ttruth),2), :);
+    col = Ttruth{:,1};
+    col = col(isfinite(col));
+catch
+    notes{end+1} = 'TRUTH: failed to parse time column.';
+    t = [];
+    return;
+end
+
 if numel(col) < 2
     notes{end+1} = 'TRUTH: failed to parse time column; insufficient numeric rows.';
     t = [];
