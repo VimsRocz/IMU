@@ -15,7 +15,9 @@ Usage
 from __future__ import annotations
 
 import argparse
+import json
 import logging
+import math
 import os
 import pathlib
 import re
@@ -24,6 +26,7 @@ import sys
 import time
 import io
 from contextlib import redirect_stdout
+from pathlib import Path
 from typing import Iterable, List, Dict
 
 import numpy as np
@@ -55,10 +58,68 @@ def check_files(
     return imu_path, gnss_path
 
 
+def _unwrap_clock_1s(t_raw, wrap=1.0, tol=0.25):
+    """Unwrap a clock that resets every ``wrap`` seconds (default 1s)."""
+    import numpy as np
+    t = np.asarray(t_raw, dtype=float).ravel()
+    if t.size == 0:
+        return t, 0
+    out = t.copy()
+    wraps = 0
+    offset = 0.0
+    for i in range(1, t.size):
+        if t[i] + 1e-12 < t[i - 1] - tol:
+            wraps += 1
+            offset += wrap
+        out[i] = t[i] + offset
+    return out, wraps
+
+
+def _make_monotonic_time(t_like, fallback_len=None, dt=None, imu_rate_hint=None):
+    """Build a strictly increasing IMU timebase."""
+    import numpy as np
+    if t_like is None or (hasattr(t_like, "__len__") and len(t_like) == 0):
+        if dt is None:
+            if imu_rate_hint and imu_rate_hint > 0:
+                dt = 1.0 / float(imu_rate_hint)
+            else:
+                raise ValueError("No IMU timestamps and no dt/imu_rate_hint provided.")
+        n = int(fallback_len) if fallback_len is not None else 0
+        t = np.arange(n, dtype=float) * float(dt)
+        return t, {"source": "synth", "wraps": 0, "dt": dt}
+
+    t = np.asarray(t_like, dtype=float).ravel()
+    meta = {"source": "file", "wraps": 0}
+    span = float(t.max() - t.min()) if t.size else 0.0
+    if span < 2.0 and t.size > 2000:
+        t, wraps = _unwrap_clock_1s(t, wrap=1.0, tol=0.25)
+        meta["wraps"] = int(wraps)
+        meta["unwrapped_span"] = float(t[-1] - t[0]) if t.size else 0.0
+        print(
+            f"[Clock] Detected 1s-resetting IMU clock; unwrapped with {wraps} wraps -> {meta['unwrapped_span']:.2f}s total."
+        )
+    d = np.diff(t)
+    if (d <= 0).any():
+        eps = np.finfo(float).eps
+        t = t + np.arange(t.size) * eps
+        meta["jitter_eps_applied"] = True
+    return t, meta
+
+
+def _write_run_meta(outdir, run_id, **kv):
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    meta_path = outdir / f"{run_id}_runmeta.json"
+    with meta_path.open("w", encoding="utf-8") as f:
+        json.dump(kv, f, indent=2, sort_keys=True)
+    print(f"Saved run meta -> {meta_path}")
+
+
 def main(argv: Iterable[str] | None = None) -> None:
     results_dir = pathlib.Path("results")
     results_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Ensured '%s' directory exists.", results_dir)
+    print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
 
     parser = argparse.ArgumentParser(
         description="Run GNSS_IMU_Fusion with the TRIAD method on the X002 dataset",
@@ -75,6 +136,9 @@ def main(argv: Iterable[str] | None = None) -> None:
         help="Run a single helper task and exit",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    parser.add_argument("--imu-rate", type=float, default=None, help="Hint IMU sample rate [Hz]")
+    parser.add_argument("--gnss-rate", type=float, default=None, help="Hint GNSS sample rate [Hz]")
+    parser.add_argument("--truth-rate", type=float, default=None, help="Hint truth sample rate [Hz]")
 
     args = parser.parse_args(argv)
 
@@ -176,18 +240,42 @@ def main(argv: Iterable[str] | None = None) -> None:
     # Convert NPZ output to a MATLAB file with explicit frame variables
     # ------------------------------------------------------------------
     npz_path = results_dir / f"{tag}_kf_output.npz"
+    t_imu = None
+    tmeta: Dict[str, float | int | str] = {}
     if npz_path.exists():
         data = np.load(npz_path, allow_pickle=True)
         logger.debug("Loaded output %s with keys: %s", npz_path, list(data.keys()))
-        time_s = data.get("time_s")
-        if time_s is None:
-            time_s = data.get("time")
+        time_s_raw = data.get("time_s")
+        if time_s_raw is None:
+            time_s_raw = data.get("time")
+
+        dt_hint = None
+        for name in ("imu_dt", "dt_imu", "dt"):
+            if name in data and np.isscalar(data[name]):
+                dt_hint = float(data[name])
+                break
+
+        imu_rate_hint = args.imu_rate
+        if imu_rate_hint is None:
+            for name in ("IMU_RATE_HZ", "imu_rate", "rate_imu_hz", "rate_imu", "imu_rate_hz"):
+                if name in data and np.isscalar(data[name]):
+                    imu_rate_hint = float(data[name])
+                    break
+
+        t_imu, tmeta = _make_monotonic_time(
+            t_like=time_s_raw,
+            fallback_len=len(time_s_raw) if time_s_raw is not None else None,
+            dt=dt_hint,
+            imu_rate_hint=imu_rate_hint,
+        )
+        time_s = t_imu
+
         if time_s is not None and len(time_s) > 1:
-            imu_dt = float(np.mean(np.diff(time_s)))
+            imu_dt = float(np.median(np.diff(time_s)))
             imu_rate_hz = 1.0 / imu_dt
         else:
             imu_dt = None
-            imu_rate_hz = None
+            imu_rate_hz = imu_rate_hint
 
         pos_ned = data.get("pos_ned_m")
         if pos_ned is None:
@@ -313,6 +401,24 @@ def main(argv: Iterable[str] | None = None) -> None:
             vel_ned[0, 2],
             vel_ned[-1, 2],
         )
+        def _infer_rate(t):
+            import numpy as np
+            if t is None or len(t) < 2:
+                return None
+            dt = np.median(np.diff(t))
+            return None if dt <= 0 else 1.0 / float(dt)
+
+        run_id = tag
+        meta = {
+            "imu_file": str(imu_path),
+            "gnss_file": str(gnss_path),
+            "truth_file": str(ROOT / "STATE_X001.txt") if (ROOT / "STATE_X001.txt").exists() else None,
+            "imu_rate_hz": _infer_rate(t_imu) or args.imu_rate,
+            "gnss_rate_hz": args.gnss_rate,
+            "truth_rate_hz": args.truth_rate,
+            "imu_time_meta": tmeta,
+        }
+        _write_run_meta("results", run_id, **meta)
 
     # ----------------------------
     # Task 6: Truth overlay plots
