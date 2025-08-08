@@ -19,7 +19,6 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 paths = project_paths();
 results_dir = paths.matlab_results;
 addpath(fullfile(paths.root,'MATLAB','lib'));
-addpath(fullfile(paths.root,'src','utils'));
 if ~exist(results_dir, 'dir'); mkdir(results_dir); end
 cfg = default_cfg();
 visibleFlag = 'off';

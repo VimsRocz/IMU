@@ -1,47 +1,56 @@
 function run_triad_only(cfg)
-%RUN_TRIAD_ONLY Execute Tasks 1--7 for a dataset using the TRIAD method.
-%   RUN_TRIAD_ONLY(CFG) processes IMU and GNSS inputs, summarises their
-%   timelines and runs Tasks 1 through 7 sequentially.  Results are written
-%   under ``MATLAB/results``.  CFG is an optional struct allowing fields
-%   ``dataset_id``, ``method``, ``imu_file``, ``gnss_file`` and ``truth_file``.
+% RUN_TRIAD_ONLY  Process dataset using TRIAD (Tasks 1..7) — MATLAB-only, no Python deps.
 %
-%   Usage:
-%       run_triad_only();
-%       run_triad_only(struct('imu_file','IMU_X003.dat'));
+% Usage:
+%   run_triad_only();
+%   run_triad_only(struct(''dataset_id'',''X002''));
 
-% --- paths / utils --------------------------------------------------------
-paths = project_paths();  % adds utils, sets root + MATLAB/results
+% ---- paths / utils ----
+paths = project_paths();  % adds utils; returns root/matlab/results
+if nargin==0 || isempty(cfg), cfg = struct(); end
 
-% --- config ---------------------------------------------------------------
-if nargin==0 || isempty(cfg), cfg = default_cfg(); end
+% ---- config (explicit, no hidden defaults) ----
 if ~isfield(cfg,'dataset_id'), cfg.dataset_id = 'X002'; end
 if ~isfield(cfg,'method'),     cfg.method     = 'TRIAD'; end
 if ~isfield(cfg,'imu_file'),   cfg.imu_file   = 'IMU_X002.dat'; end
 if ~isfield(cfg,'gnss_file'),  cfg.gnss_file  = 'GNSS_X002.csv'; end
-if ~isfield(cfg,'truth_file'), cfg.truth_file = 'STATE_IMU_X001.txt'; end  % single truth file policy
+% Single-truth-file policy (always this name)
+if ~isfield(cfg,'truth_file'), cfg.truth_file = 'STATE_IMU_X001.txt'; end
 
 cfg.paths = paths;
 
-% resolve inputs (also copy into root if found elsewhere)
+% ---- resolve inputs (copy to root if found elsewhere) ----
 cfg.imu_path   = ensure_input_file('IMU',   cfg.imu_file,   cfg.paths);
 cfg.gnss_path  = ensure_input_file('GNSS',  cfg.gnss_file,  cfg.paths);
 cfg.truth_path = ensure_input_file('TRUTH', cfg.truth_file, cfg.paths);
 
-% run id + timeline summary (MATLAB-only)
+% ---- run id + timeline (before tasks) ----
 rid = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
 print_timeline_matlab(rid, cfg.imu_path, cfg.gnss_path, cfg.truth_path, cfg.paths.matlab_results);
 
 fprintf('▶ %s\n', rid);
 fprintf('MATLAB results dir: %s\n', cfg.paths.matlab_results);
 
-% --- Tasks 1..7 -----------------------------------------------------------
+% ---- Tasks 1..7 (compulsory) ----
 Task_1(cfg.imu_path, cfg.gnss_path, cfg.method);
 Task_2(cfg.imu_path, cfg.gnss_path, cfg.method);
 Task_3(cfg.imu_path, cfg.gnss_path, cfg.method);
 Task_4(cfg.imu_path, cfg.gnss_path, cfg.method);
 Task_5(cfg.imu_path, cfg.gnss_path, cfg.method);
-Task_6([], cfg.imu_path, cfg.gnss_path, cfg.truth_path); % your Task_6 signature may differ
-Task_7();  % assumes it reads from MATLAB/results
 
+% Task 6 can accept either the Task 5 .mat or (imu,gnss,truth) paths — use the version you have:
+if exist('Task_6.m','file')
+    try
+        Task_6([], cfg.imu_path, cfg.gnss_path, cfg.truth_path);
+    catch
+        % fallback signature
+        Task_6(fullfile(cfg.paths.matlab_results, sprintf('%s_task5_results.mat', rid)), cfg.imu_path, cfg.gnss_path, cfg.truth_path);
+    end
 end
 
+if exist('Task_7.m','file')
+    Task_7();
+end
+
+fprintf('TRIAD processing complete for %s\n', cfg.dataset_id);
+end
