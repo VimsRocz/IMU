@@ -1,17 +1,10 @@
 function dir = get_results_dir()
-%GET_RESULTS_DIR Return path to the MATLAB results directory.
-%   DIR = GET_RESULTS_DIR() returns the path to ``MATLAB/results`` within
-%   the repository. All MATLAB tasks write logs, MAT-files and figures
-%   exclusively to this folder so the pipeline remains independent of the
-%   Python implementation.
+%GET_RESULTS_DIR Legacy wrapper for GET_MATLAB_RESULTS_DIR.
+%   DIR = GET_RESULTS_DIR() forwards to GET_MATLAB_RESULTS_DIR to maintain
+%   compatibility with older scripts. MATLAB results are stored under
+%   <repository>/MATLAB/results.
 %
-%   Example:
-%       out = fullfile(get_results_dir(), 'example.mat');
-%       save(out, 'data');
-%
-%   See also RUN_ALL_DATASETS_MATLAB, RUN_ALL_METHODS.
+%   See also GET_MATLAB_RESULTS_DIR.
 
-    % Determine the repository root (this file resides in <root>/MATLAB).
-    root = fileparts(fileparts(mfilename('fullpath')));
-    dir  = fullfile(root, 'MATLAB', 'results');
+    dir = get_matlab_results_dir();
 end

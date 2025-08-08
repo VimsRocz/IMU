@@ -62,9 +62,7 @@ end
     vel_r           = p.Results.vel_r;
     scale_factor    = p.Results.scale_factor;
 
-    % Store all outputs under the repository results directory
-    results_dir = cfg.paths.results;
-    ensure_dir(results_dir);
+
     if ~isfile(gnss_path)
         error('Task_5:GNSSFileNotFound', ...
               'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...

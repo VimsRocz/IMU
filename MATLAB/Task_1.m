@@ -25,7 +25,7 @@ end
 
 % Remove command-line side effects to behave like a normal function
 
-results_dir = get_results_dir();
+results_dir = get_matlab_results_dir();
 if ~exist(results_dir,'dir')
     mkdir(results_dir);
 end
