@@ -14,8 +14,9 @@ function result = Task_4(imu_path, gnss_path, method)
 % Usage:
 %   Task_4(imu_path, gnss_path, method)
 
-% add utils folder to path
+% add utils folders to path
 addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))),'src','utils'));
+addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
 
 if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');
@@ -72,9 +73,16 @@ if isfile(task2_file)
     else
         error('gyro_bias missing from %s', task2_file);
     end
+    if isfield(data, 'accel_scale')
+        accel_scale = data.accel_scale;
+    else
+        accel_scale = 1.0;
+    end
 else
     error('Task_4:MissingTask2', 'Missing Task 2 output: %s. Run Task_2 first.', task2_file);
 end
+
+fprintf('Task 4: using accel\_scale = %.4f\n', accel_scale);
 
 % Load rotation matrices produced by Task 3
 results_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
@@ -134,7 +142,7 @@ fprintf('\nSubtask 4.4: Extracting relevant columns.\n');
 time_col = 'Posix_Time';
 pos_cols = {'X_ECEF_m', 'Y_ECEF_m', 'Z_ECEF_m'};
 vel_cols = {'VX_ECEF_mps', 'VY_ECEF_mps', 'VZ_ECEF_mps'};
-gnss_time = gnss_data.(time_col);
+gnss_time = zero_base_time(gnss_data.(time_col));
 gnss_pos_ecef = gnss_data{:, pos_cols};
 gnss_vel_ecef = gnss_data{:, vel_cols};
 fprintf('-> GNSS data shape: %d x %d\n', size(gnss_pos_ecef));
@@ -193,7 +201,7 @@ fprintf('\nSubtask 4.9: Loading IMU data and correcting for bias for each method
 imu_raw_data = readmatrix(imu_path);
 dt_imu = mean(diff(imu_raw_data(1:100,2)));
 if dt_imu <= 0 || isnan(dt_imu), dt_imu = 1/400; end
-imu_time = (0:size(imu_raw_data,1)-1)' * dt_imu + gnss_time(1);
+imu_time = (0:size(imu_raw_data,1)-1)' * dt_imu;
 
 acc_body_raw = imu_raw_data(:, 6:8) / dt_imu;
 acc_body_filt = butter_lowpass_filter(acc_body_raw, 5.0, 1/dt_imu);
@@ -269,13 +277,9 @@ for i = 1:length(methods)
     end
     gyro_bias = static_gyro' - omega_ie_body_expected;
 
-    % Scale factor matching the Python implementation
-    % Python computes scale = g / norm(static_acc - acc_bias)
-    scale_factor = constants.GRAVITY / norm(static_acc' - acc_bias);
-    scale = scale_factor;
-
-    % Apply bias and scale corrections
-    acc_body_corrected.(method)  = scale * (acc_body_filt - acc_bias');
+    % Apply bias and scale corrections using accel\_scale from Task 2
+    scale = accel_scale;
+    acc_body_corrected.(method)  = (acc_body_filt - acc_bias') * scale;
     gyro_body_corrected.(method) = gyro_body_filt - gyro_bias';
     acc_biases.(method)  = acc_bias;
     gyro_biases.(method) = gyro_bias;
@@ -348,6 +352,10 @@ for i = 1:length(methods)
     pos_integ.(method) = pos;
     vel_integ.(method) = vel;
     acc_integ.(method) = acc;
+
+    % 3x3 state plot for this method
+    plot_state_grid(imu_time, pos, vel, acc, 'NED', ...
+        sprintf('%s_%s_%s_Task4', imu_name, gnss_name, method), results_dir, {method});
 end
 fprintf('-> IMU-derived position, velocity, and acceleration computed for all methods.\n');
 
