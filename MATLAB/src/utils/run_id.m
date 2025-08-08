@@ -1,15 +1,14 @@
 function rid = run_id(imu_path, gnss_path, method)
-%RUN_ID Make a consistent run id like "IMU_X002_GNSS_X002_TRIAD"
-%   RID = RUN_ID(IMU_PATH, GNSS_PATH, METHOD) returns a run identifier
-%   composed of the IMU base name, GNSS base name, and METHOD in uppercase.
-%   METHOD must be provided.
+%RUN_ID standardized run identifier: IMU_<name>_GNSS_<name>_<METHOD>
 
-    if nargin < 3
-        error('run_id needs imu_path, gnss_path, method');
-    end
-    [~, imu_name, ~]  = fileparts(imu_path);   % e.g., IMU_X002
-    [~, gnss_name, ~] = fileparts(gnss_path);  % e.g., GNSS_X002
+    [~, imu_name, imu_ext]   = fileparts(imu_path);
+    [~, gnss_name, gnss_ext] = fileparts(gnss_path);
+    imu_name  = erase(imu_name,  imu_ext);
+    gnss_name = erase(gnss_name, gnss_ext);
+
+    % normalize prefixes
+    if ~startsWith(lower(imu_name),'imu_');   imu_name  = ['IMU_'  imu_name];  end
+    if ~startsWith(lower(gnss_name),'gnss_'); gnss_name = ['GNSS_' gnss_name]; end
+
     rid = sprintf('%s_%s_%s', imu_name, gnss_name, upper(string(method)));
-    rid = char(rid);
 end
-
