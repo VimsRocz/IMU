@@ -32,31 +32,36 @@ end
 cfg.paths = project_paths();                 % adds utils to path, returns root + matlab_results
 mat_results = cfg.paths.matlab_results;      % <repo>/MATLAB/results
 
-% Resolve absolute input paths
-cfg.imu_path   = fullfile(cfg.paths.root, cfg.imu_file);
-cfg.gnss_path  = fullfile(cfg.paths.root, cfg.gnss_file);
-cfg.truth_path = cfg.truth_file;
-
-% Required inputs must exist (truth optional)
-mustExist(cfg.imu_path,   'IMU file');
-mustExist(cfg.gnss_path,  'GNSS file');
-if ~isfile(cfg.truth_path)
-    warning('Truth file not found: %s', cfg.truth_path);
+cfg.truth_path = resolve_truth_path();
+if isempty(cfg.truth_path)
+    error(['TRUTH is mandatory for Task 6/7 and was not found at either:\n' ...
+           '  /Users/vimalchawda/Desktop/IMU/STATE_IMU_X001.txt\n' ...
+           '  /Users/vimalchawda/Desktop/IMU/STATE_X001.txt\n' ...
+           'Please add one of these files.']);
 end
 
-run_id  = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
+% Resolve absolute input paths
+cfg.imu_path  = fullfile(cfg.paths.root, cfg.imu_file);
+cfg.gnss_path = fullfile(cfg.paths.root, cfg.gnss_file);
+
+% Required inputs must exist
+mustExist(cfg.imu_path,  'IMU file');
+mustExist(cfg.gnss_path, 'GNSS file');
+mustExist(cfg.truth_path,'Truth file');
+
+rid = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
 results_dir = cfg.paths.matlab_results;
-timeline_matlab(run_id, cfg.imu_path, cfg.gnss_path, cfg.truth_path);
-fprintf('> %s\n', run_id);
+timeline_matlab(rid, cfg.imu_path, cfg.gnss_path, cfg.truth_path);
+fprintf('%s %s\n', char(0x25B6), rid);
 fprintf('MATLAB results dir: %s\n', results_dir);
 
 % Expected outputs by task (for assertions)
-t1_mat = fullfile(mat_results, sprintf('Task1_init_%s.mat', run_id));
-t2_mat = fullfile(mat_results, sprintf('Task2_body_%s.mat', run_id));
-t3_mat = fullfile(mat_results, sprintf('%s_task3_results.mat', run_id));
+t1_mat = fullfile(mat_results, sprintf('Task1_init_%s.mat', rid));
+t2_mat = fullfile(mat_results, sprintf('Task2_body_%s.mat', rid));
+t3_mat = fullfile(mat_results, sprintf('%s_task3_results.mat', rid));
 results_dir = get_results_dir();
-t4_mat = fullfile(results_dir, sprintf('%s_task4_results.mat', run_id));
-t5_mat = fullfile(mat_results, sprintf('%s_task5_results.mat', run_id));
+t4_mat = fullfile(results_dir, sprintf('%s_task4_results.mat', rid));
+t5_mat = fullfile(mat_results, sprintf('%s_task5_results.mat', rid));
 
 % --- Run Tasks 1..5 ------------------------------------------------------
 Task_1(cfg.imu_path, cfg.gnss_path, cfg.method);
@@ -75,7 +80,7 @@ Task_5(cfg.imu_path, cfg.gnss_path, cfg.method);
 assertFile(t5_mat, 'Task 5 results');
 
 % --- Tasks 6..7 -----------------------------------------------------------
-task5_file = fullfile(results_dir, sprintf('%s_task5_results.mat', run_id));
+task5_file = fullfile(results_dir, sprintf('%s_task5_results.mat', rid));
 if ~isfile(task5_file)
     error('Task 6/7: Task 5 results not found: %s', task5_file);
 end
