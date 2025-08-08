@@ -192,7 +192,7 @@ function Task_7()
 
     %% Save results
     results_out = fullfile(results_dir, sprintf('%s_task7_results.mat', run_id));
-    save(results_out, 'pos_error', 'vel_error', 'pos_est_i', 'vel_est_i', 't_grid');
+    save_overwrite(results_out, 'pos_error', 'vel_error', 'pos_est_i', 'vel_est_i', 't_grid');
     fprintf('Task 7: Results saved to %s\n', results_out);
     fprintf('[SUMMARY] method=KF rmse_pos=%.2f m final_pos=%.2f m ', ...
             sqrt(mean(sum(pos_error.^2,2))), final_pos);

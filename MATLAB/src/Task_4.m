@@ -55,6 +55,8 @@ if ~isfile(imu_path)
           imu_path);
 end
 
+rid = run_id(imu_path, gnss_path, method);
+run_id = rid;
 [~, imu_base, ~]  = fileparts(imu_path);
 [~, gnss_base, ~] = fileparts(gnss_path);
 imu_id  = erase(imu_base, '.dat');
@@ -69,7 +71,6 @@ else
     tag = [pair_tag '_' method];
     method_tag = method;
 end
-run_id = sprintf('%s_%s_%s', imu_id, gnss_id, method);
 
 % Load accelerometer and gyroscope biases estimated in Task 2
 task2_file = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', ...
@@ -458,15 +459,15 @@ imu_acc_g = interp1(t_i_u, acc_u, t_g_u, 'linear','extrap');
 gnss_acc_u = interp1(t_g, gnss_acc_ned, t_g_u, 'linear','extrap');
 
 % Save aligned data for downstream tasks
-t4_mat = fullfile(results_dir, sprintf('%s_task4_results.mat', run_id));
-save(t4_mat, 't_g_u','gnss_pos_ned','imu_pos_g','imu_vel_g','imu_acc_g','-v7.3');
+t4_mat = fullfile(results_dir, sprintf('%s_task4_results.mat', rid));
+save_overwrite(t4_mat, 't_g_u','gnss_pos_ned','imu_pos_g','imu_vel_g','imu_acc_g','-v7.3');
 
 valid = all(isfinite(gnss_acc_u),2) & all(isfinite(imu_acc_g),2);
 t_v = t_g_u(valid);
 pos_v = imu_pos_g(valid,:); vel_v = imu_vel_g(valid,:); acc_v = imu_acc_g(valid,:);
 
 plot_state_grid(t_v, pos_v, vel_v, acc_v, 'NED', ...
-    'visible',visibleFlag, 'save_dir', results_dir, 'run_id', run_id);
+    'visible',visibleFlag, 'save_dir', results_dir, 'run_id', rid);
 
 % -------------------------------------------------------------------------
 % Generate comparison plots for all methods in NED, ECEF, BODY and Mixed

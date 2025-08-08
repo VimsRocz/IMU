@@ -2,7 +2,7 @@
 
 This module prints and optionally saves concise timing summaries for IMU,
 GNSS and optional truth files. A MATLAB counterpart lives in
-``MATLAB/src/utils/timeline_summary.m``.
+``MATLAB/src/utils/timeline_matlab.m``.
 """
 
 from __future__ import annotations

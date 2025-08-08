@@ -44,6 +44,7 @@ start_time = tic;
 [~, imu_name, ~]  = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 
+
 % paths and results_dir already defined above
 
 
@@ -79,7 +80,8 @@ else
 end
 
 % Build output directory using method and dataset identifiers
-run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
+rid = run_id(imu_path, gnss_path, method);
+run_id = rid;
 out_dir = fullfile(results_dir, run_id);
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
@@ -112,6 +114,13 @@ if nargin < 4 || isempty(truth_file)
     truth_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
 end
 
+% Reference coordinates from estimator or defaults
+if isfield(S,'ref_lat'); ref_lat = S.ref_lat; else; ref_lat = deg2rad(-32.026554); end
+if isfield(S,'ref_lon'); ref_lon = S.ref_lon; else; ref_lon = deg2rad(133.455801); end
+if isfield(S,'ref_r0');  ref_r0 = S.ref_r0; else; ref_r0 = zeros(3,1); end
+C = R_ecef_to_ned(ref_lat, ref_lon);
+C_N_E = C';
+
 if ~isfile(truth_file)
     warning('Truth file %s not found; using GNSS as truth.', truth_file);
     t_truth = S.gnss_time;
@@ -136,17 +145,10 @@ end
 
 % Support text-based STATE_X files in addition to MAT files
 if endsWith(truth_file, '.txt')
-    raw = read_state_file(truth_file);
-    if size(raw,2) >= 2
-        truth_time = raw(:,2);
-    else
-        truth_time = [];
-    end
-    truth_pos_ecef = raw(:,3:5);
-    vx = raw(:,6);
-    vy = raw(:,7);
-    vz = raw(:,8);
-    truth_vel_ecef = [vx vy vz];
+    ts = read_truth_state(truth_file);
+    truth_time = ts.t;
+    truth_pos_ecef = (C_N_E * ts.pos_ned')' + ref_r0';
+    truth_vel_ecef = (C_N_E * ts.vel_ned')';
 else
     S_truth = load(truth_file);
     if isfield(S_truth,'truth_time')
@@ -159,11 +161,6 @@ else
 end
 has_truth_time = ~isempty(truth_time);
 
-% Use reference coordinates from the estimate when available
-if isfield(S,'ref_lat'); ref_lat = S.ref_lat; else; ref_lat = deg2rad(-32.026554); end
-if isfield(S,'ref_lon'); ref_lon = S.ref_lon; else; ref_lon = deg2rad(133.455801); end
-if isfield(S,'ref_r0');  ref_r0 = S.ref_r0;  else;  ref_r0 = truth_pos_ecef(1,:)'; end
-C = R_ecef_to_ned(ref_lat, ref_lon);
 I = C * C';
 assert(max(abs(I(:) - eye(3))) < 1e-9, 'R_ecef_to_ned not orthonormal');
 
@@ -318,7 +315,7 @@ save_overlay_state(t_est, pos_body, vel_body, pos_truth_body, vel_truth_body, ..
 [mBody, ~] = compute_overlay_metrics(t_est, pos_body, vel_body, pos_truth_body,  vel_truth_body);
 metrics = struct('NED', mNED, 'ECEF', mECEF, 'Body', mBody);
 metrics_file = fullfile(out_dir, sprintf('%s_task6_metrics.mat', run_id));
-save(metrics_file, 'metrics');
+save_overwrite(metrics_file, 'metrics');
 rows = {
     'NED',  mNED.rmse_pos,  mNED.final_pos,  mNED.rmse_vel,  mNED.final_vel,  mNED.rmse_acc,  mNED.final_acc;
     'ECEF', mECEF.rmse_pos, mECEF.final_pos, mECEF.rmse_vel, mECEF.final_vel, mECEF.rmse_acc, mECEF.final_acc;
