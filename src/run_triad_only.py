@@ -41,7 +41,7 @@ from utils import save_mat
 
 # Allow importing helper utilities under ``src/utils``.
 sys.path.append(str(Path(__file__).resolve().parent / "utils"))
-from timeline import summarize_files
+from timeline import print_timeline_summary
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
 
@@ -179,16 +179,14 @@ def main(argv: Iterable[str] | None = None) -> None:
     truth_file = ROOT / "STATE_X001.txt"
     truth_path = str(truth_file) if truth_file.exists() else None
     run_id = tag
-    meta, jpath, tpath = summarize_files(
-        str(imu_path),
-        str(gnss_path),
-        truth_path=truth_path,
-        out_dir="results",
-        run_id=run_id,
+
+    print(
+        "Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent)."
     )
-    print(f"[DATA TIMELINE] Saved {tpath} and {jpath}")
-    if not meta["imu"]["monotonic"]:
-        print("[WARN] IMU time not monotonic; unwrapped per-second rollover was applied.")
+    timeline_txt = print_timeline_summary(
+        run_id, str(imu_path), str(gnss_path), truth_path, str(results_dir)
+    )
+    print(f"[DATA TIMELINE] Saved {timeline_txt}")
 
     if logger.isEnabledFor(logging.DEBUG):
         try:
@@ -549,32 +547,6 @@ def main(argv: Iterable[str] | None = None) -> None:
             ],
         )
         df.to_csv(results_dir / "summary.csv", index=False)
-
-    # --- Append timeline & fz summary -----------------------------------------
-    try:
-        from tools.inspect_timing import describe_files, table_for_terminal, write_reports
-        run_id = tag
-        truth_path = str(truth_file) if truth_file.exists() else None
-        rows_t = describe_files(str(imu_path), str(gnss_path), truth_path)
-        print("\n[Timing] File timelines & rates")
-        print(table_for_terminal(rows_t))
-
-        timeline_json = results_dir / f"{run_id}_timeline.json"
-        timeline_md = results_dir / f"{run_id}_timeline.md"
-        write_reports(rows_t, timeline_json, timeline_md)
-        print(f"Saved timeline -> {timeline_md}")
-
-        runmeta_path = results_dir / f"{run_id}_runmeta.json"
-        try:
-            meta = json.load(open(runmeta_path)) if runmeta_path.exists() else {}
-        except Exception:
-            meta = {}
-        meta["timeline"] = [r.__dict__ for r in rows_t]
-        with open(runmeta_path, "w") as f:
-            json.dump(meta, f, indent=2)
-        print(f"Updated run meta -> {runmeta_path}")
-    except Exception as e:
-        print(f"[Timing] Skipped timeline summary: {e}")
 
     print("TRIAD processing complete for X002")
 

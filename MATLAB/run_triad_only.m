@@ -42,11 +42,12 @@ mustExist(cfg.imu_path,   'IMU file');
 mustExist(cfg.gnss_path,  'GNSS file');
 mustExist(cfg.truth_path, 'Truth file (required for Task 6/7)');
 
-run_id = sprintf('%s_%s_%s', erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method);
-fprintf('%s %s_%s_%s\n', char(9654), erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method);
-fprintf('MATLAB results dir: %s\n', mat_results);
-summarize_timeline(cfg.imu_path, cfg.gnss_path, cfg.truth_path, cfg.paths.matlab_results, run_id);
-fprintf('[DATA TIMELINE] Saved %s\n', fullfile(cfg.paths.matlab_results, [run_id '_timeline.txt']));
+imu_id  = erase(cfg.imu_file,  {'.dat','.DAT'});
+gnss_id = erase(cfg.gnss_file, {'.csv','.CSV'});
+run_id  = sprintf('%s_%s_%s', imu_id, gnss_id, cfg.method);
+fprintf('%s %s_%s_%s\n', char(9654), imu_id, gnss_id, cfg.method);
+fprintf('MATLAB results dir: %s\n', cfg.paths.matlab_results);
+timeline_summary(run_id, cfg.imu_path, cfg.gnss_path, cfg.truth_path, cfg.paths.matlab_results);
 
 % Expected outputs by task (for assertions)
 t1_mat = fullfile(mat_results, sprintf('Task1_init_%s_%s_%s.mat', ...
