@@ -1,23 +1,47 @@
-function p = project_paths()
-%PROJECT_PATHS Adds src/utils once; ensures MATLAB/results exists.
-    here = fileparts(mfilename('fullpath'));
-    cands = { fullfile(here,'src','utils'), ...
-              fullfile(fileparts(here),'src','utils'), ...
-              fullfile(here,'utils') };
-    added = false;
-    for k = 1:numel(cands)
-        if exist(cands{k},'dir')
-            if ~contains(path, cands{k})
-                addpath(cands{k});
-            end
-            added = true; break;
-        end
-    end
-    if ~added
-        warning('utils folder not found near %s', here);
-    end
-    p.root = fileparts(here);
-    p.matlab_results = fullfile(p.root,'MATLAB','results');
-    if ~exist(p.matlab_results,'dir'), mkdir(p.matlab_results); end
+function paths = project_paths()
+%PROJECT_PATHS Return key directories for MATLAB pipeline.
+%   PATHS = PROJECT_PATHS() returns paths for root, MATLAB and results.
+%   Robust against being called from any subdirectory.
+%
+% Usage:
+%   p = project_paths();
+%
+% The function also adds known utils directories to the MATLAB path.
+%
+% Returns:
+%   paths.root           - project root (parent of MATLAB/)
+%   paths.matlab         - .../MATLAB
+%   paths.matlab_results - .../MATLAB/results (created if missing)
+%
+% This mirrors the version in MATLAB/utils for stability when only
+% MATLAB/src is on the path.
+
+here = fileparts(mfilename('fullpath'));        % .../MATLAB/src/utils
+paths.matlab = fileparts(fileparts(here));      % .../MATLAB
+paths.root   = fileparts(paths.matlab);         % project root
+
+paths.matlab_results = fullfile(paths.matlab, 'results');
+if ~exist(paths.matlab_results, 'dir')
+    mkdir(paths.matlab_results);
 end
 
+% Candidate utils dirs to add (add only if they exist)
+utils_candidates = {
+    fullfile(paths.matlab, 'utils')
+    fullfile(paths.matlab, 'src', 'utils')
+    fullfile(paths.root, 'MATLAB', 'utils')
+    fullfile(paths.root, 'src', 'utils')
+};
+
+found_any = false;
+for i = 1:numel(utils_candidates)
+    p = utils_candidates{i};
+    if exist(p, 'dir')
+        addpath(p);
+        found_any = true;
+    end
+end
+if ~found_any
+    warning('utils folder not found near %s', fullfile(paths.matlab, 'src', 'utils'));
+end
+end

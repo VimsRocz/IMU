@@ -35,7 +35,11 @@ def run_matlab_pipeline(imu_file: str, gnss_file: str, method: str) -> Path:
     matlab = shutil.which("matlab") or shutil.which("octave")
     if not matlab:
         raise RuntimeError("MATLAB/Octave not found")
+    # Add MATLAB directory to path before invoking main so Octave/MATLAB
+    # can resolve scripts within the project.
+    matlab_dir = Path(__file__).resolve().parents[1] / "MATLAB"
     cmd = (
+        f"addpath('{matlab_dir}'); "
         f"main('{imu_file}', '{gnss_file}', '{method}');"
     )
     if "octave" in Path(matlab).name:
