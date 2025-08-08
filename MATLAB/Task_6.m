@@ -58,16 +58,6 @@ if ~isfield(S, 'x_log')
 end
 fprintf('Task 6: Loaded x_log, size: %dx%d\n', size(S.x_log));
 
-% Load GNSS truth data from Task 4
-truth4_file = fullfile(results_dir, 'Task4_results_IMU_X002_GNSS_X002.mat');
-try
-    load(truth4_file, 'gnss_pos_ned');
-    fprintf('Task 6: Loaded GNSS truth positions from %s, size: %dx%d\n', ...
-        truth4_file, size(gnss_pos_ned));
-catch
-    error('Task 6: Failed to load GNSS truth data from %s.', truth4_file);
-end
-
 % Determine method from filename or structure.  The Task 5 results are
 % named either ``<IMU>_<GNSS>_<METHOD>_task5_results.mat`` or
 % ``<tag>_task5_results_<METHOD>.mat``.  Extract the method name without
@@ -118,29 +108,40 @@ end
 % Support text-based STATE_X files in addition to MAT files
 if endsWith(truth_file, '.txt')
     raw = read_state_file(truth_file);
+    if size(raw,2) >= 2
+        truth_time = raw(:,2);
+    else
+        truth_time = [];
+    end
     truth_pos_ecef = raw(:,3:5);
     truth_vel_ecef = raw(:,6:8);
 else
-    S_truth = load(truth_file, 'truth_pos_ecef', 'truth_vel_ecef');
+    S_truth = load(truth_file);
+    if isfield(S_truth,'truth_time')
+        truth_time = S_truth.truth_time;
+    else
+        truth_time = [];
+    end
     truth_pos_ecef = S_truth.truth_pos_ecef;
     truth_vel_ecef = S_truth.truth_vel_ecef;
 end
-truth_time = (0:size(truth_pos_ecef,1)-1)';
-truth = [zeros(size(truth_time)), truth_time, truth_pos_ecef, truth_vel_ecef];
+has_truth_time = ~isempty(truth_time);
 
 % Use reference coordinates from the estimate when available
 if isfield(S,'ref_lat'); ref_lat = S.ref_lat; else; ref_lat = deg2rad(-32.026554); end
 if isfield(S,'ref_lon'); ref_lon = S.ref_lon; else; ref_lon = deg2rad(133.455801); end
-if isfield(S,'ref_r0');  ref_r0 = S.ref_r0;  else;  ref_r0 = truth(1,3:5)'; end
+if isfield(S,'ref_r0');  ref_r0 = S.ref_r0;  else;  ref_r0 = truth_pos_ecef(1,:)'; end
 C = compute_C_ECEF_to_NED(ref_lat, ref_lon);
-fprintf('[DBG-FRAME] NED origin => ECEF = %.6f  %.6f  %.6f (should be ~=0)\n', ...
-        ned2ecef_vector([0 0 0], ref_lat, ref_lon));
 
-% Ground truth in different frames
-t_truth = truth(:,2);
-pos_truth_ecef = truth(:,3:5);
-vel_truth_ecef = truth(:,6:8);
-acc_truth_ecef = [zeros(1,3); diff(vel_truth_ecef)./diff(t_truth)];
+% Ground truth arrays
+t_truth = truth_time;
+pos_truth_ecef = truth_pos_ecef;
+vel_truth_ecef = truth_vel_ecef;
+if has_truth_time
+    acc_truth_ecef = [zeros(1,3); diff(vel_truth_ecef)./diff(t_truth)];
+else
+    acc_truth_ecef = [];
+end
 
 % Time vector from estimator
 if isfield(S,'time_residuals') && ~isempty(S.time_residuals)
@@ -172,11 +173,36 @@ if ~isfield(S,'vel_ned')
     end
 end
 
-% Interpolate truth data to estimator time
-% Then convert ECEF truth to the estimator NED frame for residuals
-pos_truth_ecef_i = interp1(t_truth, pos_truth_ecef, t_est, 'linear', 'extrap');
-vel_truth_ecef_i = interp1(t_truth, vel_truth_ecef, t_est, 'linear', 'extrap');
-acc_truth_ecef_i = interp1(t_truth, acc_truth_ecef, t_est, 'linear', 'extrap');
+dt_est = mean(diff(t_est));
+
+if has_truth_time && numel(t_truth) == size(pos_truth_ecef,1)
+    pos_truth_ecef_i = interp1(t_truth, pos_truth_ecef, t_est, 'linear', 'extrap');
+    vel_truth_ecef_i = interp1(t_truth, vel_truth_ecef, t_est, 'linear', 'extrap');
+    acc_truth_ecef_i = interp1(t_truth, acc_truth_ecef, t_est, 'linear', 'extrap');
+else
+    C_N_E = C';
+    est_pos_ecef = (C_N_E*S.pos_ned')' + ref_r0';
+    [lag, t_shift] = compute_time_shift(est_pos_ecef(:,1), truth_pos_ecef(:,1), dt_est);
+    fprintf('Task 6: aligned truth by %d samples (%.3f s) using xcorr\n', lag, t_shift);
+    if lag >= 0
+        est_idx = 1:(size(est_pos_ecef,1)-lag);
+        truth_idx = (1+lag):size(truth_pos_ecef,1);
+    else
+        lag = abs(lag);
+        est_idx = (1+lag):size(est_pos_ecef,1);
+        truth_idx = 1:(size(truth_pos_ecef,1)-lag);
+    end
+    n = min(numel(est_idx), numel(truth_idx));
+    est_idx = est_idx(1:n);
+    truth_idx = truth_idx(1:n);
+    t_est = t_est(est_idx);
+    S.pos_ned = S.pos_ned(est_idx,:);
+    S.vel_ned = S.vel_ned(est_idx,:);
+    pos_truth_ecef_i = truth_pos_ecef(truth_idx,:);
+    vel_truth_ecef_i = truth_vel_ecef(truth_idx,:);
+    acc_truth_ecef_i = [zeros(1,3); diff(vel_truth_ecef_i)./dt_est];
+end
+
 pos_truth_ned_i_raw  = (C * (pos_truth_ecef_i' - ref_r0)).';
 vel_truth_ned_i_raw  = (C*vel_truth_ecef_i.').';
 acc_truth_ned_i_raw  = (C*acc_truth_ecef_i.').';
@@ -184,18 +210,6 @@ acc_truth_ned_i_raw  = (C*acc_truth_ecef_i.').';
 pos_truth_ned_i = centre(pos_truth_ned_i_raw .* sign_ned);
 vel_truth_ned_i = vel_truth_ned_i_raw .* sign_ned;
 acc_truth_ned_i = acc_truth_ned_i_raw .* sign_ned;
-
-pos_gnss_ned_i_raw  = interp1(S.gnss_time, S.gnss_pos_ned,  t_est, 'linear', 'extrap');
-vel_gnss_ned_i_raw  = interp1(S.gnss_time, S.gnss_vel_ned,  t_est, 'linear', 'extrap');
-acc_gnss_ned_i_raw  = interp1(S.gnss_time, S.gnss_accel_ned, t_est, 'linear', 'extrap');
-
-pos_gnss_ned_i = centre(pos_gnss_ned_i_raw .* sign_ned);
-vel_gnss_ned_i = vel_gnss_ned_i_raw .* sign_ned;
-acc_gnss_ned_i = acc_gnss_ned_i_raw .* sign_ned;
-
-pos_gnss_ecef_i = interp1(S.gnss_time, S.gnss_pos_ecef,  t_est, 'linear', 'extrap');
-vel_gnss_ecef_i = interp1(S.gnss_time, S.gnss_vel_ecef,  t_est, 'linear', 'extrap');
-acc_gnss_ecef_i = interp1(S.gnss_time, S.gnss_accel_ecef, t_est, 'linear', 'extrap');
 
 % Fused IMU results and derived acceleration
 pos_ned_raw = S.pos_ned;
@@ -205,35 +219,6 @@ acc_ned_raw = [zeros(1,3); diff(vel_ned_raw)./diff(t_est)];
 pos_ned = centre(pos_ned_raw .* sign_ned);
 vel_ned = vel_ned_raw .* sign_ned;
 acc_ned = [zeros(1,3); diff(vel_ned)./diff(t_est)];
-
-% Downsample fused estimates to GNSS sample count
-num_samples = size(S.x_log, 2);
-n_gnss = size(gnss_pos_ned, 1);
-downsample_factor = floor(num_samples / n_gnss);
-time_idx = 1:downsample_factor:num_samples;
-t_ds = t_est(time_idx);
-pos_est_ds = S.x_log(1:3, time_idx);
-vel_est_ds = S.x_log(4:6, time_idx);
-pos_truth_ds = gnss_pos_ned';
-vel_truth_ds = vel_truth_ned_i(time_idx, :)';
-fprintf('Task 6: Downsampled estimates to %d samples (factor: %d)\n', numel(time_idx), downsample_factor);
-if size(pos_truth_ds,2) ~= numel(time_idx)
-    error('Task 6: Data length mismatch. Truth: %d, Estimated: %d. Adjust downsampling.', size(pos_truth_ds,2), numel(time_idx));
-end
-fprintf('Task 6: Validated data lengths: %d samples\n', numel(time_idx));
-
-fprintf('Subtask 6.8.2: Plotted %s position North: First = %.4f, Last = %.4f\n', ...
-    method, pos_est_ds(1,1), pos_est_ds(1,end));
-fprintf('Subtask 6.8.2: Plotted %s position East: First = %.4f, Last = %.4f\n', ...
-    method, pos_est_ds(2,1), pos_est_ds(2,end));
-fprintf('Subtask 6.8.2: Plotted %s position Down: First = %.4f, Last = %.4f\n', ...
-    method, pos_est_ds(3,1), pos_est_ds(3,end));
-fprintf('Subtask 6.8.2: Plotted %s velocity North: First = %.4f, Last = %.4f\n', ...
-    method, vel_est_ds(1,1), vel_est_ds(1,end));
-fprintf('Subtask 6.8.2: Plotted %s velocity East: First = %.4f, Last = %.4f\n', ...
-    method, vel_est_ds(2,1), vel_est_ds(2,end));
-fprintf('Subtask 6.8.2: Plotted %s velocity Down: First = %.4f, Last = %.4f\n', ...
-    method, vel_est_ds(3,1), vel_est_ds(3,end));
 
 C_N_E = C';
 pos_ecef = (C_N_E*pos_ned_raw')' + ref_r0';
@@ -246,95 +231,23 @@ if ~exist('g_NED','var')
 end
 N = length(t_est);
 pos_body = zeros(N,3); vel_body = zeros(N,3); acc_body = zeros(N,3);
-pos_gnss_body = zeros(N,3); vel_gnss_body = zeros(N,3); acc_gnss_body = zeros(N,3);
 pos_truth_body = zeros(N,3); vel_truth_body = zeros(N,3); acc_truth_body = zeros(N,3);
 for k = 1:N
     C_B_N = euler_to_rot(S.euler_log(:,k));
     pos_body(k,:) = (C_B_N'*pos_ned_raw(k,:)')';
     vel_body(k,:) = (C_B_N'*vel_ned_raw(k,:)')';
     acc_body(k,:) = (C_B_N'*(acc_ned_raw(k,:)' - g_NED))';
-    pos_gnss_body(k,:) = (C_B_N'*pos_gnss_ned_i_raw(k,:)')';
-    vel_gnss_body(k,:) = (C_B_N'*vel_gnss_ned_i_raw(k,:)')';
-    acc_gnss_body(k,:) = (C_B_N'*(acc_gnss_ned_i_raw(k,:)' - g_NED))';
     pos_truth_body(k,:) = (C_B_N'*pos_truth_ned_i_raw(k,:)')';
     vel_truth_body(k,:) = (C_B_N'*vel_truth_ned_i_raw(k,:)')';
     acc_truth_body(k,:) = (C_B_N'*(acc_truth_ned_i_raw(k,:)' - g_NED))';
 end
 
-plot_overlay('NED', run_id, t_est, pos_ned, vel_ned, acc_ned, ...
-    t_est, pos_gnss_ned_i, vel_gnss_ned_i, acc_gnss_ned_i, ...
-    t_est, pos_ned, vel_ned, acc_ned, out_dir, ...
-    't_truth', t_est, 'pos_truth', pos_truth_ned_i, ...
-    'vel_truth', vel_truth_ned_i, 'acc_truth', acc_truth_ned_i, ...
-    'filename', sprintf('%s_task6_overlay_state_NED', run_id));
-
-% Display downsampled NED overlay
-fprintf('Task 6: Generating and displaying NED overlay plot...\n');
-fig = figure('Name', 'Task 6 - NED State Overlay', 'Visible', 'on');
-labels = {'North','East','Down'};
-for idx = 1:3
-    subplot(2,3,idx);
-    plot(t_ds, pos_est_ds(idx,:), 'b', 'DisplayName', ['Est ' labels{idx}]);
-    hold on;
-    plot(t_ds, pos_truth_ds(idx,:), 'r--', 'DisplayName', ['Truth ' labels{idx}]);
-    title(['Position ' labels{idx}]);
-    if idx == 1
-        ylabel('Position (m)');
-    end
-    grid on; legend('Location','best'); hold off;
-
-    subplot(2,3,idx+3);
-    plot(t_ds, vel_est_ds(idx,:), 'b', 'DisplayName', ['Est ' labels{idx}]);
-    hold on;
-    plot(t_ds, vel_truth_ds(idx,:), 'r--', 'DisplayName', ['Truth ' labels{idx}]);
-    title(['Velocity ' labels{idx}]);
-    xlabel('Time Step');
-    if idx == 1
-        ylabel('Velocity (m/s)');
-    end
-    grid on; legend('Location','best'); hold off;
-end
-
-output_file = fullfile(out_dir, sprintf('%s_task6_overlay_state_NED.pdf', run_id));
-saveas(fig, output_file);
-fprintf('Task 6: Saved overlay figure: %s\n', output_file);
-
-plot_overlay('ECEF', run_id, t_est, pos_ecef, vel_ecef, acc_ecef, ...
-    t_est, pos_gnss_ecef_i, vel_gnss_ecef_i, acc_gnss_ecef_i, ...
-    t_est, pos_ecef, vel_ecef, acc_ecef, out_dir, ...
-    't_truth', t_est, 'pos_truth', pos_truth_ecef_i, ...
-    'vel_truth', vel_truth_ecef_i, 'acc_truth', acc_truth_ecef_i, ...
-    'filename', sprintf('%s_task6_overlay_state_ECEF', run_id));
-
-plot_overlay('Body', run_id, t_est, pos_body, vel_body, acc_body, ...
-    t_est, pos_gnss_body, vel_gnss_body, acc_gnss_body, ...
-    t_est, pos_body, vel_body, acc_body, out_dir, ...
-    't_truth', t_est, 'pos_truth', pos_truth_body, ...
-    'vel_truth', vel_truth_body, 'acc_truth', acc_truth_body, ...
-    'filename', sprintf('%s_task6_overlay_state_Body', run_id));
-
-% ------------------------------------------------------------------
-% Comparison plots using helper for NED, ECEF, Body and mixed frames
-% ------------------------------------------------------------------
-data_sets = {pos_ned', pos_truth_ned_i'};
-labels = {'Estimate','Truth'};
-prefix = fullfile(out_dir, [run_id '_task6']);
-plot_frame_comparison(t_est, data_sets, labels, 'NED',  prefix);
-
-data_ecef = {pos_ecef', pos_truth_ecef_i'};
-plot_frame_comparison(t_est, data_ecef, labels, 'ECEF', prefix);
-
-data_body = {pos_body', pos_truth_body'};
-plot_frame_comparison(t_est, data_body, labels, 'BODY', prefix);
-
-plot_frame_comparison(t_est, data_sets, labels, 'Mixed', prefix);
-
-files = dir(fullfile(out_dir, sprintf('%s_task6_overlay_state_*.pdf', run_id)));
-fprintf('Task 6 overlay plots saved under: %s\n', out_dir);
-for k = 1:numel(files)
-    fprintf('  - %s\n', files(k).name);
-end
-
+save_overlay_state(t_est, pos_ned, vel_ned, pos_truth_ned_i, vel_truth_ned_i, ...
+    'NED', run_id, method, out_dir);
+save_overlay_state(t_est, pos_ecef, vel_ecef, pos_truth_ecef_i, vel_truth_ecef_i, ...
+    'ECEF', run_id, method, out_dir);
+save_overlay_state(t_est, pos_body, vel_body, pos_truth_body, vel_truth_body, ...
+    'Body', run_id, method, out_dir);
 % ------------------------------------------------------------------
 % Compute overlay metrics for summary tables
 % ------------------------------------------------------------------
@@ -344,8 +257,6 @@ end
 metrics = struct('NED', mNED, 'ECEF', mECEF, 'Body', mBody);
 metrics_file = fullfile(out_dir, sprintf('%s_task6_metrics.mat', run_id));
 save(metrics_file, 'metrics');
-save(fullfile(out_dir, sprintf('%s_task6_results.mat', run_id)), ...
-    'pos_est_ds', 'vel_est_ds', 'pos_truth_ds');
 rows = {
     'NED',  mNED.rmse_pos,  mNED.final_pos,  mNED.rmse_vel,  mNED.final_vel,  mNED.rmse_acc,  mNED.final_acc;
     'ECEF', mECEF.rmse_pos, mECEF.final_pos, mECEF.rmse_vel, mECEF.final_vel, mECEF.rmse_acc, mECEF.final_acc;
