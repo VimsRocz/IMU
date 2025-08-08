@@ -12,6 +12,42 @@ import numpy as np
 import pandas as pd
 
 
+def _read_truth_time(truth_path, notes):
+    """Read STATE_* truth file robustly:
+
+    - Ignore lines starting with '#'
+    - Split on any whitespace
+    - Coerce 1st column to numeric, drop NaN rows
+    - Return time starting at zero
+    """
+    if not truth_path or not Path(truth_path).exists():
+        return None
+
+    st = pd.read_csv(
+        truth_path,
+        sep=r"\s+",
+        engine="python",
+        header=None,
+        comment="#",
+        na_values=["NaN", "nan", "INF", "-INF", "inf", "-inf", ""],
+        keep_default_na=True,
+    )
+
+    # coerce first column to numeric; drop bad rows
+    t = pd.to_numeric(st.iloc[:, 0], errors="coerce").to_numpy(np.float64)
+    mask = np.isfinite(t)
+    t = t[mask]
+    if t.size < 2:
+        notes.append(
+            "TRUTH: failed to parse time column; insufficient numeric rows."
+        )
+        return None
+
+    # normalize to start at zero
+    t = t - t[0]
+    return t
+
+
 def _read_imu_numeric(path: str | Path) -> pd.DataFrame:
     """Read an IMU ``.dat`` file coercing all columns to numeric.
 
@@ -20,10 +56,10 @@ def _read_imu_numeric(path: str | Path) -> pd.DataFrame:
 
     df = pd.read_csv(
         path,
-        delim_whitespace=True,
+        sep=r"\s+",
+        engine="python",
         header=None,
         comment="#",
-        engine="python",
         na_values=["NaN", "nan", "INF", "-INF", "inf", "-inf", ""],
         keep_default_na=True,
     )
@@ -103,6 +139,9 @@ def print_timeline_summary(
     """Print dataset timeline summary and optionally save to ``out_dir``."""
 
     notes: list[str] = []
+    tt: np.ndarray | None = None
+    tdt: np.ndarray | None = None
+    thz: float | None = None
 
     # --- IMU ---
     t_imu = _detect_imu_time(imu_path, 0.0025, notes)
@@ -147,25 +186,26 @@ def print_timeline_summary(
 
     # --- TRUTH (optional) ---
     if truth_path and Path(truth_path).exists():
-        st = pd.read_csv(truth_path, delim_whitespace=True, header=None)
-        tt = st.iloc[:, 0].to_numpy(np.float64)
-        tt = tt - tt[0]
-        tdt = np.diff(tt)
-        thz = 1.0 / np.median(tdt)
-        print(
-            "TRUTH | n={:d}    hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
-            "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}".format(
-                len(tt),
-                thz,
-                np.median(tdt),
-                np.min(tdt),
-                np.max(tdt),
-                tt[-1] - tt[0],
-                tt[0],
-                tt[-1],
-                bool(np.all(tdt > 0)),
+        tt = _read_truth_time(truth_path, notes)
+        if tt is not None:
+            tdt = np.diff(tt)
+            thz = 1.0 / np.median(tdt)
+            print(
+                "TRUTH | n={:d}    hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
+                "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}".format(
+                    len(tt),
+                    thz,
+                    np.median(tdt),
+                    np.min(tdt),
+                    np.max(tdt),
+                    tt[-1] - tt[0],
+                    tt[0],
+                    tt[-1],
+                    bool(np.all(tdt > 0)),
+                )
             )
-        )
+        else:
+            print("TRUTH | present but unreadable (see Notes).")
     else:
         print("TRUTH | (not provided)")
 
@@ -209,7 +249,7 @@ def print_timeline_summary(
                 )
             )
             f.write("\n")
-            if truth_path and Path(truth_path).exists():
+            if tt is not None:
                 f.write(
                     "TRUTH | n={:d}    hz={:.6f}  dt_med={:.6f}  min/max dt=({:.6f},{:.6f})  "
                     "dur={:.3f}s  t0={:.6f}  t1={:.6f}  monotonic={}".format(
@@ -225,6 +265,8 @@ def print_timeline_summary(
                     )
                 )
                 f.write("\n")
+            elif truth_path and Path(truth_path).exists():
+                f.write("TRUTH | present but unreadable (see Notes).\n")
             else:
                 f.write("TRUTH | (not provided)\n")
             if notes:
