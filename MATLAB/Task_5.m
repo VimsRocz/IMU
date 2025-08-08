@@ -28,6 +28,13 @@ try
 catch
     error('cfg not found in caller workspace');
 end
+visibleFlag = 'off';
+try
+    if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
+        visibleFlag = 'on';
+    end
+catch
+end
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
@@ -905,7 +912,7 @@ end % End of main function
             acc_body(:,k) = C_B_N' * (acc_ned(:,k) - g_N);
         end
         fig = figure('Name','Task5 Mixed Frame','Position',[100 100 1200 900], ...
-            'Visible', ternary(cfg.plots.popup_figures,'on','off'));
+            'Visible', visibleFlag);
         dims_e = {'X','Y','Z'}; dims_b = {'X','Y','Z'};
         for i = 1:3
             subplot(3,3,i);   plot(t, pos_ecef(i,:), 'b-'); grid on;
@@ -932,7 +939,7 @@ end % End of main function
         %PLOT_TASK5_NED_FRAME Plot fused vs GNSS data in the NED frame.
         labels = {'North','East','Down'};
         figure('Name','Task5 NED Frame','Position',[100 100 1200 900], ...
-            'Visible', ternary(cfg.plots.popup_figures,'on','off'));
+            'Visible', visibleFlag);
         for k = 1:3
             subplot(3,3,k); hold on;
             plot(t_gnss, pos_gnss(:,k),'k:','DisplayName','GNSS');
@@ -967,7 +974,7 @@ end % End of main function
         vel_fused = C_E_N' * vel_ned;
         acc_fused = C_E_N' * acc_ned;
         figure('Name','Task5 ECEF Frame','Position',[100 100 1200 900], ...
-            'Visible', ternary(cfg.plots.popup_figures,'on','off'));
+            'Visible', visibleFlag);
         for k = 1:3
             subplot(3,3,k); hold on;
             plot(t_gnss, pos_ecef(:,k),'k:','DisplayName','GNSS');
@@ -1016,7 +1023,7 @@ end % End of main function
             acc_gnss_body(:,k) = C_B_N' * (acc_gnss_ned(k,:)' - g_N);
         end
         figure('Name','Task5 Body Frame','Position',[100 100 1200 900], ...
-            'Visible', ternary(cfg.plots.popup_figures,'on','off'));
+            'Visible', visibleFlag);
         for j = 1:3
             subplot(3,3,j); hold on;
             plot(t_gnss, pos_gnss_body(j,:),'k:','DisplayName','GNSS');
@@ -1059,7 +1066,7 @@ end % End of main function
         acc_fused = C_E_N' * acc_ned;
 
         figure('Name','Task5 ECEF with Truth','Position',[100 100 1200 900], ...
-            'Visible', ternary(cfg.plots.popup_figures,'on','off'));
+            'Visible', visibleFlag);
         labels = {'X','Y','Z'};
         for k = 1:3
             subplot(3,3,k); hold on;
