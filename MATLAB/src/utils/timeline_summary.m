@@ -1,168 +1,77 @@
-function timeline_summary(run_id, imu_path, gnss_path, truth_path, results_dir)
-% TIMELINE_SUMMARY Print dataset timing overview and save artifacts.
-%   timeline_summary(run_id, imu_path, gnss_path, truth_path, results_dir)
-%   prints a concise table describing the IMU, GNSS and optional truth
-%   timelines, writes ``*_timeline.txt`` and ``*_timeline.mat`` in
-%   *results_dir*. A Python counterpart is implemented in
-%   ``src/utils/timeline.py``.
+function timeline_summary(run_id, imu_path, gnss_path, truth_path, out_txt)
+%TIMELINE_SUMMARY Print and save dataset timelines (IMU/GNSS/TRUTH).
+%   TIMELINE_SUMMARY(RUN_ID, IMU_PATH, GNSS_PATH, TRUTH_PATH, OUT_TXT)
+%   prints a concise summary of the dataset timebases and writes it to
+%   OUT_TXT. The summary mirrors ``print_timeline`` in ``src/utils/timeline.py``.
+%
+%   Usage:
+%       timeline_summary(run_id, imu_path, gnss_path, truth_path, out_txt)
+%
+%   Inputs:
+%       run_id    - identifier used in header
+%       imu_path  - path to IMU data file
+%       gnss_path - path to GNSS CSV file
+%       truth_path- optional path to truth file
+%       out_txt   - output text file path
 
-if ~exist(results_dir,'dir'), mkdir(results_dir); end
-notes = strings(0,1);
+fprintf('%s\n', ['== Timeline summary: ' run_id ' ==']);
 
-% --- IMU time -------------------------------------------------------------
-try
-    M = readmatrix(imu_path);
-catch ME
-    warning("IMU read failed (%s); fallback to dt=0.0025", ME.message);
-    M = nan(500000,1);
+% --- IMU ---
+imu = readmatrix(imu_path);
+% Heuristic: if 2nd column looks like fractional secs, unwrap it
+t_imu_raw = imu(:,2);
+dt = diff(t_imu_raw);
+looks_wrap = any(dt < -0.5) || any(dt > 0.5);
+if looks_wrap
+    dt_hint = 1/round(1/median(abs(dt(abs(dt)>0 & abs(dt)<0.5)), 'omitnan'));
+    if ~isfinite(dt_hint) || dt_hint<=0, dt_hint = 0.0025; end
+    t_imu = unwrap_seconds(t_imu_raw, dt_hint);
+else
+    t_imu = t_imu_raw - t_imu_raw(1);
 end
-[t_imu, note] = detect_imu_time(M, 0.0025);
-if strlength(note)>0, notes(end+1) = note; end
-if any(diff(t_imu)<0), notes(end+1)="IMU: time not strictly increasing after unwrap"; end
+imu_dt = diff(t_imu);
+imu_hz = 1/median(imu_dt, 'omitnan');
+fprintf('IMU   | n=%d   hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
+    numel(t_imu), imu_hz, median(imu_dt,'omitnan'), min(imu_dt), max(imu_dt), t_imu(end)-t_imu(1), t_imu(1), t_imu(end), string(all(imu_dt>0)));
 
-% --- GNSS time ------------------------------------------------------------
+% --- GNSS ---
 Tg = readtable(gnss_path);
-gnssCols = Tg.Properties.VariableNames;
-t_gnss = [];
-for name = ["Posix_Time","posix_time","time","Time","TIME","gps_time","GPSTime"]
-    if any(strcmp(gnssCols, name))
-        t_gnss = Tg.(name)(:);
-        notes(end+1) = "GNSS: used '"+name+"' column";
-        break
-    end
-end
-if isempty(t_gnss)
-    t_gnss = (0:height(Tg)-1)';  % assume 1 Hz
-    notes(end+1) = "GNSS: no time column; assume 1 Hz";
-end
+t_gnss = Tg.Posix_Time - Tg.Posix_Time(1);
+gnss_dt = diff(t_gnss);
+gnss_hz = 1/median(gnss_dt,'omitnan');
+fprintf('GNSS  | n=%d     hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
+    numel(t_gnss), gnss_hz, median(gnss_dt,'omitnan'), min(gnss_dt), max(gnss_dt), t_gnss(end)-t_gnss(1), t_gnss(1), t_gnss(end), string(all(gnss_dt>0)));
 
-% --- TRUTH time -----------------------------------------------------------
-t_truth = [];
-if nargin>=4 && ~isempty(truth_path) && isfile(truth_path)
-    try
-        Td = readtable(truth_path, "FileType","text");
-    catch
-        Td = readtable(truth_path, "FileType","text", "Delimiter"," ");
-    end
-    cols = Td.Properties.VariableNames;
-    found = false;
-    for name = ["time","Time","t","T","posix","Posix_Time","sec","seconds"]
-        if any(strcmp(cols,name))
-            t_truth = Td.(name)(:);
-            notes(end+1) = "TRUTH: used '"+name+"' column";
-            found = true; break
-        end
-    end
-    if ~found
-        c0 = Td{:,1};
-        if all(isfinite(diff(c0))) && median(abs(diff(c0)))>1e-5
-            t_truth = c0(:);
-            notes(end+1) = "TRUTH: used column 0 as time";
-        else
-            t_truth = (0:height(Td)-1)' * 0.1; % 10 Hz synthetic
-            notes(end+1) = "TRUTH: no time; assume 10 Hz";
-        end
-    end
+% --- TRUTH ---
+notes = {};
+truth_line = 'TRUTH | (not provided)';
+if ~isempty(truth_path) && isfile(truth_path)
+    St = readmatrix(truth_path);
+    t_truth = St(:,1);
+    t_truth = t_truth - t_truth(1);
+    truth_dt = diff(t_truth);
+    truth_hz = 1/median(truth_dt,'omitnan');
+    fprintf('TRUTH | n=%d    hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
+        numel(t_truth), truth_hz, median(truth_dt,'omitnan'), min(truth_dt), max(truth_dt), t_truth(end)-t_truth(1), t_truth(1), t_truth(end), string(all(truth_dt>0)));
 else
-    t_truth = [];
+    fprintf('%s\n', truth_line);
 end
 
-% --- stats & printing -----------------------------------------------------
-sIMU  = stats(t_imu);
-sGNSS = stats(t_gnss);
-sTRU  = stats(t_truth);
-
-header = sprintf("== Timeline summary: %s ==", run_id);
-L = strings(0,1);
-L(end+1) = header;
-L(end+1) = fmtLine("IMU",  sIMU);
-L(end+1) = fmtLine("GNSS", sGNSS);
-L(end+1) = fmtLine("TRUTH",sTRU);
-if isempty(notes)
-    L(end+1) = "Notes: (none)";
-else
-    L(end+1) = "Notes:";
-    for k=1:numel(notes), L(end+1) = "- " + notes(k); end
-end
-
-fprintf("%s\n", join(L,newline));
-
-txt = fullfile(results_dir, run_id+"_timeline.txt");
-fid = fopen(txt,'w'); fprintf(fid, "%s\n", join(L,newline)); fclose(fid);
-save(fullfile(results_dir, run_id+"_timeline.mat"), "t_imu","t_gnss","t_truth","sIMU","sGNSS","sTRU","notes");
-
-end
-
-% -------------------------------------------------------------------------
-function [t, note] = detect_imu_time(M, dt_fallback)
-%DETECT_IMU_TIME Infer IMU time column or synthesize one.
-
-note = "";
-% 1) sub-second column near the end
-for c = size(M,2):-1:max(1,size(M,2)-3)
-    col = M(:,c);
-    if all(isfinite(col)) && min(col)>=0 && max(col)<1
-        t = unwrap_subsec(col);
-        note = "IMU: used sub-second column " + string(c) + " with unwrap()";
-        return
+% Save to file
+if nargin>=5 && ~isempty(out_txt)
+    fid = fopen(out_txt,'w');
+    fprintf(fid,'== Timeline summary: %s ==\n', run_id);
+    fprintf(fid,'IMU   | n=%d   hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
+        numel(t_imu), imu_hz, median(imu_dt,'omitnan'), min(imu_dt), max(imu_dt), t_imu(end)-t_imu(1), t_imu(1), t_imu(end), string(all(imu_dt>0)));
+    fprintf(fid,'GNSS  | n=%d     hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
+        numel(t_gnss), gnss_hz, median(gnss_dt,'omitnan'), min(gnss_dt), max(gnss_dt), t_gnss(end)-t_gnss(1), t_gnss(1), t_gnss(end), string(all(gnss_dt>0)));
+    if exist('t_truth','var')
+        fprintf(fid,'TRUTH | n=%d    hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s\n',...
+            numel(t_truth), truth_hz, median(truth_dt,'omitnan'), min(truth_dt), max(truth_dt), t_truth(end)-t_truth(1), t_truth(1), t_truth(end), string(all(truth_dt>0)));
+    else
+        fprintf(fid,'%s\n', truth_line);
     end
-end
-
-% 2) time-like column near the front
-for c = 1:min(6,size(M,2))
-    col = M(:,c);
-    if all(isfinite(col))
-        d = diff(col);
-        med = median(abs(d));
-        if med>1e-4 && med<1
-            t = col(:);
-            note = "IMU: used time-like column " + string(c) + " (median dt=" + num2str(med,'%.6f') + ")";
-            return
-        end
-    end
-end
-
-% 3) fallback uniform rate
-n = size(M,1);
-t = (0:n-1)' * dt_fallback;
-note = "IMU: no time column; fallback uniform dt=" + num2str(dt_fallback);
-end
-
-function out = unwrap_subsec(v)
-out = zeros(size(v));
-wraps = 0;
-out(1) = v(1);
-for i=2:numel(v)
-    dv = v(i) - v(i-1);
-    if dv < -0.5, wraps = wraps + 1; end
-    out(i) = v(i) + wraps;
+    fclose(fid);
+    fprintf('[DATA TIMELINE] Saved %s\n', out_txt);
 end
 end
-
-function s = stats(t)
-if isempty(t)
-    s = struct('n',0,'hz',NaN,'dt_med',NaN,'dt_min',NaN,'dt_max',NaN,'dur',NaN,'t0',NaN,'t1',NaN,'monotonic',false);
-    return
-end
-t = double(t(:));
-n = numel(t);
-if n<2
-    s = struct('n',n,'hz',NaN,'dt_med',NaN,'dt_min',NaN,'dt_max',NaN,'dur',0,'t0',t(1),'t1',t(end),'monotonic',true);
-    return
-end
-dt = diff(t);
-dt_med = median(dt);
-hz = 1/dt_med;
-s = struct('n',n,'hz',hz,'dt_med',dt_med,'dt_min',min(dt),'dt_max',max(dt), ...
-           'dur',t(end)-t(1),'t0',t(1),'t1',t(end),'monotonic',all(dt>0));
-end
-
-function line = fmtLine(label, s)
-if s.n==0
-    line = sprintf("%-6s| (missing)", label);
-else
-    line = sprintf("%-6s| n=%-7d  hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s", ...
-        label, s.n, s.hz, s.dt_med, s.dt_min, s.dt_max, s.dur, s.t0, s.t1, string(s.monotonic));
-end
-end
-

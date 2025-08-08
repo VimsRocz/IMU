@@ -41,7 +41,7 @@ from utils import save_mat
 
 # Allow importing helper utilities under ``src/utils``.
 sys.path.append(str(Path(__file__).resolve().parent / "utils"))
-from timeline import print_timeline_summary
+from timeline import print_timeline
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
 
@@ -180,13 +180,8 @@ def main(argv: Iterable[str] | None = None) -> None:
     truth_path = str(truth_file) if truth_file.exists() else None
     run_id = tag
 
-    print(
-        "Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent)."
-    )
-    timeline_txt = print_timeline_summary(
-        run_id, str(imu_path), str(gnss_path), truth_path, str(results_dir)
-    )
-    print(f"[DATA TIMELINE] Saved {timeline_txt}")
+    print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
+    print_timeline(run_id, str(imu_path), str(gnss_path), truth_path, out_dir=str(results_dir))
 
     if logger.isEnabledFor(logging.DEBUG):
         try:
