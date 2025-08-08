@@ -19,6 +19,13 @@ addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))),'src','utils'));
 addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
 addpath(fullfile(fileparts(mfilename('fullpath')),'lib'));
 
+% pull configuration from caller
+try
+    cfg = evalin('caller','cfg');
+catch
+    error('cfg not found in caller workspace');
+end
+
 if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');
 end
@@ -39,10 +46,8 @@ if ~isfile(imu_path)
           'Could not find IMU data at:\n  %s\nCheck path or filename.', ...
           imu_path);
 end
-results_dir = get_results_dir();
-if ~exist(results_dir, 'dir')
-    mkdir(results_dir);
-end
+results_dir = cfg.paths.results;
+ensure_dir(results_dir);
 [~, imu_name, ~] = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
 pair_tag = [imu_name '_' gnss_name];
@@ -53,6 +58,7 @@ else
     tag = [pair_tag '_' method];
     method_tag = method;
 end
+run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
 
 % Load accelerometer and gyroscope biases estimated in Task 2
 task2_file = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', ...
@@ -361,7 +367,7 @@ for i = 1:length(methods)
 
     % 3x3 state plot for this method
     plot_state_grid(imu_time, pos, vel, acc, 'NED', ...
-        sprintf('%s_%s_%s_Task4', imu_name, gnss_name, method), results_dir, {method});
+        sprintf('%s_task4', run_id), results_dir, {method}, cfg);
 end
 fprintf('-> IMU-derived position, velocity, and acceleration computed for all methods.\n');
 
@@ -395,10 +401,7 @@ for i = 1:length(methods)
     pos_body.(m) = C_N_B_ref * pos_ned.(m);
 end
 
-run_id = pair_tag;
-out_dir = fullfile(results_dir, run_id);
-if ~exist(out_dir, 'dir'); mkdir(out_dir); end
-prefix = fullfile(out_dir, [run_id '_task4']);
+prefix = fullfile(results_dir, sprintf('%s_task4', run_id));
 
 % Assemble datasets in a fixed method order for plotting
 method_order = {'TRIAD','Davenport','SVD'};
@@ -416,10 +419,10 @@ for i = 1:length(method_order)
     end
 end
 
-plot_frame_comparison(t, data_sets, labels, 'NED',  prefix);
-plot_frame_comparison(t, data_sets_ecef, labels, 'ECEF', prefix);
-plot_frame_comparison(t, data_sets_body, labels, 'BODY', prefix);
-plot_frame_comparison(t, data_sets, labels, 'Mixed', prefix);
+plot_frame_comparison(t, data_sets, labels, 'NED',  prefix, cfg);
+plot_frame_comparison(t, data_sets_ecef, labels, 'ECEF', prefix, cfg);
+plot_frame_comparison(t, data_sets_body, labels, 'BODY', prefix, cfg);
+plot_frame_comparison(t, data_sets, labels, 'Mixed', prefix, cfg);
 
 
 %% ========================================================================
@@ -453,11 +456,10 @@ fprintf('\nSubtask 4.13: Validating and plotting data.\n');
 
 for i = 1:length(methods)
     m = methods{i};
-    base = fullfile(results_dir, sprintf('%s_%s_%s', imu_name, gnss_name, m));
     plot_single_method(m, gnss_time, imu_time, C_B_N_methods.(m), ...
         gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, ...
         pos_integ.(m), vel_integ.(m), acc_integ.(m), ...
-        acc_body_corrected.(m), base, ref_r0, C_ECEF_to_NED);
+        acc_body_corrected.(m), run_id, ref_r0, C_ECEF_to_NED, cfg);
 end
 fprintf('-> All data plots saved for all methods.\n');
 
@@ -656,19 +658,20 @@ function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size,
         start_idx, end_idx, end_idx-start_idx+1, acc_var_sel, gyro_var_sel);
 end
 
-function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned, p_imu, v_imu, a_imu, acc_body_corr, base, r0_ecef, C_e2n)
+function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned, p_imu, v_imu, a_imu, acc_body_corr, run_id, r0_ecef, C_e2n, cfg)
     %PLOT_SINGLE_METHOD Helper to produce per-method comparison figures.
     %   PLOT_SINGLE_METHOD(METHOD, T_GNSS, T_IMU, C_B_N, P_GNSS_NED, V_GNSS_NED,
-    %   A_GNSS_NED, P_IMU, V_IMU, A_IMU, ACC_BODY_CORR, BASE, R0_ECEF, C_E2N)
+    %   A_GNSS_NED, P_IMU, V_IMU, A_IMU, ACC_BODY_CORR, RUN_ID, R0_ECEF, C_E2N, CFG)
     %   generates plots comparing the IMU integration against GNSS in NED,
-    %   ECEF, body and mixed frames.  BASE is used as the filename prefix for
-    %   the saved PDF figures.
+    %   ECEF and body frames. RUN_ID and CFG control output filenames and
+    %   plotting policy.
 
     dims = {'North','East','Down'};
     gnss_col  = [0.8500 0.3250 0.0980];
     fused_col = [0 0.4470 0.7410];
     % ----- NED frame -----
-    fig = figure('Visible','off','Position',[100 100 1200 900]);
+    base = fullfile(cfg.paths.results, sprintf('%s_task4', run_id));
+    fig = figure('Visible', ternary(cfg.plots.popup_figures,'on','off'), 'Position',[100 100 1200 900]);
     for i = 1:3
         subplot(3,3,i); hold on;
         plot(t_gnss, p_gnss_ned(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
@@ -686,17 +689,21 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
         hold off; grid on; legend; title(['Acceleration ' dims{i}]); ylabel('m/s^2'); xlabel('Time (s)');
     end
     sgtitle([method ' Comparison in NED frame']);
-    fname = [base '_Task4_NEDFrame.pdf'];
+    fname = [base '_NED_state'];
     set(fig,'PaperPositionMode','auto');
-    print(fig,fname,'-dpdf','-bestfit');
-    print(fig,strrep(fname,'.pdf','.png'),'-dpng');
+    if cfg.plots.save_pdf
+        print(fig,[fname '.pdf'],'-dpdf','-bestfit');
+    end
+    if cfg.plots.save_png
+        print(fig,[fname '.png'],'-dpng');
+    end
     fprintf('Comparison plot in NED frame saved\n');
     close(fig);
 
     % ----- ECEF frame -----
     fprintf('Plotting all data in ECEF frame.\n');
     C_n2e = C_e2n';
-    fig = figure('Visible','off','Position',[100 100 1200 900]);
+    fig = figure('Visible', ternary(cfg.plots.popup_figures,'on','off'), 'Position',[100 100 1200 900]);
     p_gnss_ecef = (C_n2e*p_gnss_ned' + r0_ecef)';
     v_gnss_ecef = (C_n2e*v_gnss_ned')';
     a_gnss_ecef = (C_n2e*a_gnss_ned')';
@@ -721,16 +728,20 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
         hold off; grid on; legend; title(['Acceleration ' dims_e{i}]); ylabel('m/s^2'); xlabel('Time (s)');
     end
     sgtitle([method ' Comparison in ECEF frame']);
-    fname = [base '_Task4_ECEFFrame.pdf'];
+    fname = [base '_ECEF_state'];
     set(fig,'PaperPositionMode','auto');
-    print(fig,fname,'-dpdf','-bestfit');
-    print(fig,strrep(fname,'.pdf','.png'),'-dpng');
+    if cfg.plots.save_pdf
+        print(fig,[fname '.pdf'],'-dpdf','-bestfit');
+    end
+    if cfg.plots.save_png
+        print(fig,[fname '.png'],'-dpng');
+    end
     fprintf('All data in ECEF frame plot saved\n');
     close(fig);
 
     % ----- Body frame -----
     fprintf('Plotting all data in body frame.\n');
-    fig = figure('Visible','off','Position',[100 100 1200 900]);
+    fig = figure('Visible', ternary(cfg.plots.popup_figures,'on','off'), 'Position',[100 100 1200 900]);
     C_N_B = C_B_N';
     pos_body = (C_N_B*p_gnss_ned')';
     vel_body = (C_N_B*v_gnss_ned')';
@@ -749,10 +760,14 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
         hold off; grid on; legend; title(['Acceleration b' dims_b{i}]); ylabel('m/s^2'); xlabel('Time (s)');
     end
     sgtitle([method ' Data in Body Frame']);
-    fname = [base '_Task4_BodyFrame.pdf'];
+    fname = [base '_BODY_state'];
     set(fig,'PaperPositionMode','auto');
-    print(fig,fname,'-dpdf','-bestfit');
-    print(fig,strrep(fname,'.pdf','.png'),'-dpng');
+    if cfg.plots.save_pdf
+        print(fig,[fname '.pdf'],'-dpdf','-bestfit');
+    end
+    if cfg.plots.save_png
+        print(fig,[fname '.png'],'-dpng');
+    end
     fprintf('All data in body frame plot saved\n');
     close(fig);
 
