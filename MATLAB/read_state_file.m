@@ -16,9 +16,16 @@ if ~isfile(filename)
     error('read_state_file:FileNotFound','File not found: %s', filename);
 end
 
-% Use readmatrix to honour comment lines starting with '#'
+% Robust import that skips comment lines and blanks
 try
-    data = readmatrix(filename, 'CommentStyle', '#');
+    opts = detectImportOptions(filename, 'FileType','text');
+    opts = setvaropts(opts, opts.VariableNames, ...
+                      'WhitespaceRule','preserve', 'EmptyFieldRule','auto');
+    opts.CommentStyle = '#';
+    T = readtable(filename, opts);
+    % Drop rows that are completely empty (all NaN)
+    T = T(~all(ismissing(T),2), :);
+    data = table2array(T);
 catch ME
     error('read_state_file:ReadFailed','Failed to read %s: %s', filename, ME.message);
 end
