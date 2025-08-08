@@ -39,6 +39,10 @@ from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
 from utils import save_mat
 
+# Allow importing helper utilities under ``src/utils``.
+sys.path.append(str(Path(__file__).resolve().parent / "utils"))
+from timeline import summarize_files
+
 sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
 
 logger = logging.getLogger(__name__)
@@ -171,6 +175,20 @@ def main(argv: Iterable[str] | None = None) -> None:
     print(f"\u25b6 {tag}")
 
     imu_path, gnss_path = check_files(imu_file, gnss_file)
+
+    truth_file = ROOT / "STATE_X001.txt"
+    truth_path = str(truth_file) if truth_file.exists() else None
+    run_id = tag
+    meta, jpath, tpath = summarize_files(
+        str(imu_path),
+        str(gnss_path),
+        truth_path=truth_path,
+        out_dir="results",
+        run_id=run_id,
+    )
+    print(f"[DATA TIMELINE] Saved {tpath} and {jpath}")
+    if not meta["imu"]["monotonic"]:
+        print("[WARN] IMU time not monotonic; unwrapped per-second rollover was applied.")
 
     if logger.isEnabledFor(logging.DEBUG):
         try:
