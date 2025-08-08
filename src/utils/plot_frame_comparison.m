@@ -8,13 +8,19 @@ function plot_frame_comparison(t, data_sets, labels, frame_name, out_prefix, cfg
 %   cfg         : struct with plotting policy
 
 if nargin < 6 || isempty(cfg)
-    cfg.plots.popup_figures = true;
-    cfg.plots.save_pdf = true;
-    cfg.plots.save_png = true;
+    cfg = default_cfg();
+end
+
+visibleFlag = 'off';
+try
+    if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
+        visibleFlag = 'on';
+    end
+catch
 end
 
 % Create figure
-figure('Visible', ternary(cfg.plots.popup_figures,'on','off'));
+figure('Visible', visibleFlag);
 if strcmpi(frame_name,'Mixed')
     % single axes
     hold on; grid on;
