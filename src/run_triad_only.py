@@ -182,6 +182,12 @@ def main(argv: Iterable[str] | None = None) -> None:
         time_s = data.get("time_s")
         if time_s is None:
             time_s = data.get("time")
+        if time_s is not None and len(time_s) > 1:
+            imu_dt = float(np.mean(np.diff(time_s)))
+            imu_rate_hz = 1.0 / imu_dt
+        else:
+            imu_dt = None
+            imu_rate_hz = None
 
         pos_ned = data.get("pos_ned_m")
         if pos_ned is None:
@@ -239,6 +245,7 @@ def main(argv: Iterable[str] | None = None) -> None:
 
         mat_out = {
             "time_s": time_s,
+            "t_est": time_s,
             "pos_ned_m": pos_ned,
             "vel_ned_ms": vel_ned,
             "pos_ecef_m": pos_ecef,
@@ -250,6 +257,8 @@ def main(argv: Iterable[str] | None = None) -> None:
             "ref_r0_m": ref_r0,
             "att_quat": quat,
             "method_name": method,
+            "dt": imu_dt,
+            "imu_rate_hz": imu_rate_hz,
             # Consistent fused data for Tasks 5 and 6
             "fused_pos": pos_ned,
             "fused_vel": vel_ned,
@@ -261,8 +270,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         # Export estimator time vector and sampling interval for MATLAB Task 7
         # ------------------------------------------------------------------
         x_log = data.get("x_log")
-        if x_log is not None and time_s is not None:
-            imu_dt = float(np.mean(np.diff(time_s)))
+        if x_log is not None and imu_dt is not None:
             t_est = np.arange(x_log.shape[1]) * imu_dt
             mat_time = {"t_est": t_est, "dt": imu_dt, "x_log": x_log}
             time_path = results_dir / f"{tag}_task5_time.mat"
