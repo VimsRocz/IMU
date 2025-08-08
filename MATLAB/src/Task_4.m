@@ -76,18 +76,17 @@ acc_bias = bd.accel_bias(:).';
 gyro_bias = bd.gyro_bias(:).';
 
 % Load rotation matrices produced by Task 3
-cand1 = fullfile(results_dir, sprintf('Task3_results_IMU_%s_GNSS_%s.mat', imu_id, gnss_id));
-cand2 = fullfile(results_dir, sprintf('IMU_%s_GNSS_%s_%s_task3_results.mat', imu_id, gnss_id, method));
+cand1 = fullfile(results_dir, sprintf('Task3_results_%s_%s.mat', imu_id, gnss_id));
+cand2 = fullfile(results_dir, sprintf('%s_%s_%s_task3_results.mat', imu_id, gnss_id, method));
 if isfile(cand1)
-    task3_file = cand1;
+    S3 = load(cand1);
 elseif isfile(cand2)
-    task3_file = cand2;
+    S3 = load(cand2);
 else
     error('Task 4: Task 3 results missing. Tried:\n  %s\n  %s', cand1, cand2);
 end
-S3 = load(task3_file);
 if ~isfield(S3, 'task3_results')
-    error('Variable ''task3_results'' missing from %s', task3_file);
+    error('Task 4: variable ''task3_results'' missing from Task 3 MAT file.');
 end
 task3_results = S3.task3_results;
 
@@ -156,16 +155,32 @@ fprintf('-> Reference point: lat=%.6f rad, lon=%.6f rad, r0=[%.1f, %.1f, %.1f]''
 
 
 %% ========================================================================
-% Subtask 4.6: Compute Rotation Matrix from ECEF to NED
+% Subtask 4.6: Computing ECEF to NED rotation matrix.
 % =========================================================================
 fprintf('\nSubtask 4.6: Computing ECEF to NED rotation matrix.\n');
-R = R_ecef_to_ned(ref_lat, ref_lon);
-I = R * R';
-assert(max(abs(I(:) - eye(3))) < 1e-9, 'R_ecef_to_ned not orthonormal');
-C_ECEF_to_NED = R;
-C_NED_to_ECEF = R';
-fprintf('-> ECEF to NED rotation matrix computed.\n');
-fprintf('-> NED to ECEF rotation matrix computed.\n');
+lat_rad = ref_lat;
+lon_rad = ref_lon;
+phi = lat_rad;           % latitude  (rad)
+lam = lon_rad;           % longitude (rad)
+
+% ECEF -> NED (NED rows expressed in ECEF basis)
+R_ecef_to_ned = [ -sin(phi)*cos(lam), -sin(phi)*sin(lam),  cos(phi);
+                  -sin(lam),           cos(lam),           0;
+                  -cos(phi)*cos(lam), -cos(phi)*sin(lam), -sin(phi) ];
+R_ned_to_ecef = R_ecef_to_ned.';  % orthonormal => inverse is transpose
+
+% Orthonormality checks (use matrix, not vectorized I(:))
+I1 = R_ecef_to_ned * R_ned_to_ecef;
+I2 = R_ned_to_ecef * R_ecef_to_ned;
+err1 = norm(I1 - eye(3), 'fro');
+err2 = norm(I2 - eye(3), 'fro');
+assert(err1 < 1e-10 && err2 < 1e-10, ...
+    sprintf('R_ecef_to_ned not orthonormal (errs: %.3e, %.3e)', err1, err2));
+
+C_ECEF_to_NED = R_ecef_to_ned;
+C_NED_to_ECEF = R_ned_to_ecef;
+disp('-> ECEF to NED rotation matrix computed.');
+disp('-> NED to ECEF rotation matrix computed.');
 
 
 %% ========================================================================
