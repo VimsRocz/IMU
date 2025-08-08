@@ -409,11 +409,25 @@ fprintf('-> IMU-derived position, velocity, and acceleration computed for all me
 % --- Align rates for validation on the GNSS timeline ---
 method_first = methods{1};
 t_g = t_gnss(:); t_i = t_imu(:);
-imu_pos_g  = interp1(t_i, pos_integ.(method_first), t_g, 'linear','extrap');
-imu_vel_g  = interp1(t_i, vel_integ.(method_first), t_g, 'linear','extrap');
-imu_acc_g  = interp1(t_i, acc_integ.(method_first), t_g, 'linear','extrap');
-valid = all(isfinite(gnss_acc_ned),2) & all(isfinite(imu_acc_g),2);
-t_v = t_g(valid);
+
+% sanitize time vectors to satisfy interp1 requirements
+[t_i_u, pos_u] = ensure_unique_increasing('IMU time', t_i, pos_integ.(method_first));
+[~,       vel_u] = ensure_unique_increasing('IMU time', t_i, vel_integ.(method_first));
+[~,       acc_u] = ensure_unique_increasing('IMU time', t_i, acc_integ.(method_first));
+[t_g_u, gnss_pos_u] = ensure_unique_increasing('GNSS time', t_g, gnss_pos_ned);
+[~,      gnss_vel_u] = ensure_unique_increasing('GNSS time', t_g, gnss_vel_ned);
+[~,      gnss_acc_u] = ensure_unique_increasing('GNSS time', t_g, gnss_acc_ned);
+
+fprintf('[Task4] unique t_i: %d -> %d (dups dropped=%d)\n', ...
+    numel(t_i), numel(t_i_u), numel(t_i)-numel(t_i_u));
+fprintf('[Task4] unique t_g: %d -> %d (dups dropped=%d)\n', ...
+    numel(t_g), numel(t_g_u), numel(t_g)-numel(t_g_u));
+
+imu_pos_g  = interp1(t_i_u, pos_u, t_g_u, 'linear','extrap');
+imu_vel_g  = interp1(t_i_u, vel_u, t_g_u, 'linear','extrap');
+imu_acc_g  = interp1(t_i_u, acc_u, t_g_u, 'linear','extrap');
+valid = all(isfinite(gnss_acc_u),2) & all(isfinite(imu_acc_g),2);
+t_v = t_g_u(valid);
 pos_v = imu_pos_g(valid,:); vel_v = imu_vel_g(valid,:); acc_v = imu_acc_g(valid,:);
 
 plot_state_grid(t_v, pos_v, vel_v, acc_v, 'NED', ...
