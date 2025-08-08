@@ -156,18 +156,16 @@ addpath(genpath(fullfile(fileparts(mfilename('fullpath')),'utils')));
     [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt, 80, 0.01, 1e-6);
 
     % Load biases estimated in Task 2
-    task2_file = fullfile(results_dir, ['Task2_body_' tag '.mat']);
+    task2_file = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', ...
+        imu_name, gnss_name, method));
     if isfile(task2_file)
-        t2 = load(task2_file);
-        if isfield(t2, 'accel_bias')
-            accel_bias = t2.accel_bias;
-        else
-            accel_bias = t2.acc_bias; % backward compatibility
-        end
-        gyro_bias = t2.gyro_bias;
-        if isfield(t2, 'g_body');         g_body = t2.g_body;         else; g_body = zeros(3,1); end
-        if isfield(t2, 'omega_ie_body');  omega_ie_body = t2.omega_ie_body; else; omega_ie_body = zeros(3,1); end
-        if isfield(t2, 'accel_scale'); accel_scale = t2.accel_scale; else; accel_scale = 1.0; end
+        S2 = load(task2_file);
+        bd = S2.body_data;
+        accel_bias = bd.accel_bias(:);
+        gyro_bias = bd.gyro_bias(:);
+        if isfield(bd, 'g_body');         g_body = bd.g_body(:);         else; g_body = zeros(3,1); end
+        if isfield(bd, 'omega_ie_body');  omega_ie_body = bd.omega_ie_body(:); else; omega_ie_body = zeros(3,1); end
+        if isfield(bd, 'accel_scale'); accel_scale = bd.accel_scale; else; accel_scale = 1.0; end
     else
         warning('Task 2 results not found, estimating biases from first samples');
         N_static = min(4000, size(acc_body_raw,1));

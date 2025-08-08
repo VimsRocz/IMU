@@ -252,6 +252,13 @@ pos_ecef = (C_N_E*pos_ned_raw')' + ref_r0';
 vel_ecef = (C_N_E*vel_ned_raw')';
 acc_ecef = (C_N_E*acc_ned_raw')';
 
+cn = corrcoef(vel_ned(:,1), vel_truth_ned_i(:,1));  % North
+ce = corrcoef(vel_ned(:,2), vel_truth_ned_i(:,2));  % East
+cx = corrcoef(vel_ecef(:,1), vel_truth_ecef_i(:,1));% X
+cy = corrcoef(vel_ecef(:,2), vel_truth_ecef_i(:,2));% Y
+fprintf('[Sanity] corr(N)=%.3f  corr(E)=%.3f  corr(X)=%.3f  corr(Y)=%.3f\n', ...
+        cn(1,2), ce(1,2), cx(1,2), cy(1,2));
+
 % Body frame conversion
 if ~exist('g_NED','var')
     g_NED = [0;0;constants.GRAVITY];

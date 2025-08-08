@@ -54,35 +54,17 @@ else
 end
 
 % Load accelerometer and gyroscope biases estimated in Task 2
-task2_file = fullfile(results_dir, sprintf('Task2_body_%s.mat', tag));
-if isfile(task2_file)
-    data = load(task2_file);
-    if isfield(data, 'body_data')
-        data = data.body_data;
-    end
-    if isfield(data, 'accel_bias')
-        loaded_accel_bias = data.accel_bias;
-    elseif isfield(data, 'acc_bias')
-        warning('Legacy field acc_bias found. Using as accel_bias.');
-        loaded_accel_bias = data.acc_bias;
-    else
-        error('accel_bias missing from %s', task2_file);
-    end
-    if isfield(data, 'gyro_bias')
-        loaded_gyro_bias  = data.gyro_bias;
-    else
-        error('gyro_bias missing from %s', task2_file);
-    end
-    if isfield(data, 'accel_scale')
-        accel_scale = data.accel_scale;
-    else
-        accel_scale = 1.0;
-    end
+task2_file = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', ...
+    imu_name, gnss_name, method_tag));
+assert(isfile(task2_file), 'Task 4: missing %s', task2_file);
+S2 = load(task2_file);
+if isfield(S2, 'body_data')
+    bd = S2.body_data;
 else
-    error('Task_4:MissingTask2', 'Missing Task 2 output: %s. Run Task_2 first.', task2_file);
+    error('body_data missing from %s', task2_file);
 end
-
-fprintf('Task 4: using accel\_scale = %.4f\n', accel_scale);
+acc_bias = bd.accel_bias(:).';
+gyro_bias = bd.gyro_bias(:).';
 
 % Load rotation matrices produced by Task 3
 results_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
@@ -204,6 +186,46 @@ if dt_imu <= 0 || isnan(dt_imu), dt_imu = 1/400; end
 imu_time = (0:size(imu_raw_data,1)-1)' * dt_imu;
 
 acc_body_raw = imu_raw_data(:, 6:8) / dt_imu;
+
+% === Correct IMU raw acc and transform to NED linear acceleration ===
+imu_acc_corr_body = acc_body_raw - acc_bias;                 % bias removal
+C_bn = C_B_N_methods.TRIAD;                                  % body->NED
+imu_acc_ned = (C_bn * imu_acc_corr_body.').';               % Nx3
+
+gravity_mag = norm(g_NED);
+gNED = [0 0 gravity_mag];
+imu_linacc_ned = imu_acc_ned - gNED;                        % remove gravity
+
+gnss_acc_ned = gnss_accel_ned;                              % from GNSS
+
+% === Estimate accel scale (least-squares, dynamic-only) ===
+valid = all(isfinite(gnss_acc_ned),2) & all(isfinite(imu_linacc_ned),2);
+dyn = vecnorm(gnss_acc_ned,2,2) > 0.05;                      % threshold m/s^2
+mask = valid & dyn;
+
+if ~any(mask)
+    warning('Task 4: no dynamic samples for scale fit; using previous or 1.0');
+    if isfield(bd, 'accel_scale') && ~isempty(bd.accel_scale)
+        accel_scale = bd.accel_scale;
+    else
+        accel_scale = 1.0;
+    end
+else
+    A = imu_linacc_ned(mask,:);
+    B = gnss_acc_ned(mask,:);
+    num = sum(sum(A.*B));
+    den = sum(sum(A.*A));
+    accel_scale = num / max(den, eps);
+    accel_scale = max(0.7, min(1.3, accel_scale));
+end
+fprintf('Task 4: estimated accelerometer scale factor = %.4f\n', accel_scale);
+
+imu_linacc_ned_scaled = accel_scale * imu_linacc_ned;
+
+bd.accel_scale = accel_scale;
+body_data = bd;
+save(task2_file, 'body_data', '-v7.3');
+
 acc_body_filt = butter_lowpass_filter(acc_body_raw, 5.0, 1/dt_imu);
 gyro_body_filt = butter_lowpass_filter(imu_raw_data(:, 3:5) / dt_imu, 5.0, 1/dt_imu);
 acc_rms  = sqrt(mean(acc_body_raw(:).^2));
@@ -261,34 +283,16 @@ scale_factors = struct();
 
 for i = 1:length(methods)
     method = methods{i};
-    C_B_N = C_B_N_methods.(method);
-    C_N_B = C_B_N';
-
-    % Expected gravity and Earth rate in the body frame
-    g_body_expected = C_N_B * g_NED;
-
-    % Compute biases using the static interval as in the Python pipeline
-    % Override with constants for dataset X002 to ensure parity
-    omega_ie_body_expected = C_N_B * omega_ie_NED;
-    if strcmpi(imu_name, 'IMU_X002')
-        acc_bias = [0.57757295; -6.83671274; 0.91029003];
-    else
-        acc_bias = static_acc' + g_body_expected;
-    end
-    gyro_bias = static_gyro' - omega_ie_body_expected;
-
-    % Apply bias and scale corrections using accel\_scale from Task 2
-    scale = accel_scale;
-    acc_body_corrected.(method)  = (acc_body_filt - acc_bias') * scale;
-    gyro_body_corrected.(method) = gyro_body_filt - gyro_bias';
-    acc_biases.(method)  = acc_bias;
-    gyro_biases.(method) = gyro_bias;
-    scale_factors.(method) = scale;
+    acc_body_corrected.(method)  = (acc_body_filt - acc_bias) * accel_scale;
+    gyro_body_corrected.(method) = gyro_body_filt - gyro_bias;
+    acc_biases.(method)  = acc_bias';
+    gyro_biases.(method) = gyro_bias';
+    scale_factors.(method) = accel_scale;
 
     fprintf('Method %s: Accelerometer bias: [%10.8f %10.8f %10.8f] (|b|=%.6f m/s^2)\n', ...
-            method, acc_bias, norm(acc_bias));
-    fprintf('Method %s: Gyroscope bias: [% .8e % .8e % .8e]\n', method, gyro_bias);
-    fprintf('Method %s: Accelerometer scale factor: %.4f\n', method, scale);
+            method, acc_bias', norm(acc_bias));
+    fprintf('Method %s: Gyroscope bias: [% .8e % .8e % .8e]\n', method, gyro_bias');
+    fprintf('Method %s: Accelerometer scale factor: %.4f\n', method, accel_scale);
 end
 fprintf('-> IMU data corrected for bias and scale for each method.\n');
 for i = 1:length(methods)
