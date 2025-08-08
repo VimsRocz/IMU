@@ -1,5 +1,6 @@
 # ignore all generated results
 /results/
+MATLAB/results/
 
 # ignore any DS_Store files
 .DS_Store
@@ -14,6 +15,10 @@ src/gnss_imu_fusion/__pycache__/
 *.pyc
 *.pyo
 
+# Virtual environments
+.venv/
+venv/
+
 # Log and throwaway files
 testing.py
 triad_init_log.txt
@@ -24,3 +29,5 @@ src/logs/
 src/results/
 src/task5_results_all_methods.png
 task5_results_all_methods.png
+run_output.txt
+run_all_output.txt

@@ -77,4 +77,10 @@ out_method  = fullfile(results_dir, sprintf('%s_%s_%s_task3_results.mat', imu_id
 save(out_generic, 'task3_results', '-v7');
 save(out_method,  'task3_results', '-v7');
 fprintf('Task 3: saved task3_results to:\n  %s\n  %s\n', out_generic, out_method);
+
+% Also expose in base workspace for downstream tasks
+try
+    assignin('base','task3_results', task3_results);
+catch
+end
 end

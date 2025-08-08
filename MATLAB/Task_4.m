@@ -54,10 +54,10 @@ if ~isfile(imu_path)
           imu_path);
 end
 
-% Robust run id without external dependency
-if exist('run_id','file')
+% Robust run id without hard dependency on helper function
+try
     rid = run_id(imu_path, gnss_path, method);
-else
+catch
     [~, iname, iext] = fileparts(imu_path);
     [~, gname, gext] = fileparts(gnss_path);
     rid = sprintf('%s_%s_%s', erase(iname,iext), erase(gname,gext), upper(string(method)));
@@ -92,19 +92,24 @@ acc_bias = bd.accel_bias(:).';
 gyro_bias = bd.gyro_bias(:).';
 
 % Load rotation matrices produced by Task 3
-cand1 = fullfile(results_dir, sprintf('Task3_results_%s_%s.mat', imu_id, gnss_id));
-cand2 = fullfile(results_dir, sprintf('%s_%s_%s_task3_results.mat', imu_id, gnss_id, method));
-if isfile(cand1)
-    S3 = load(cand1);
-elseif isfile(cand2)
-    S3 = load(cand2);
+% Prefer Task 3 results from workspace; fall back to MAT files
+if evalin('base','exist(''task3_results'',''var'')')
+    task3_results = evalin('base','task3_results');
 else
-    error('Task 4: Task 3 results missing. Tried:\n  %s\n  %s', cand1, cand2);
+    cand1 = fullfile(results_dir, sprintf('Task3_results_%s_%s.mat', imu_id, gnss_id));
+    cand2 = fullfile(results_dir, sprintf('%s_%s_%s_task3_results.mat', imu_id, gnss_id, method));
+    if isfile(cand1)
+        S3 = load(cand1);
+    elseif isfile(cand2)
+        S3 = load(cand2);
+    else
+        error('Task 4: Task 3 results missing. Tried:\n  %s\n  %s', cand1, cand2);
+    end
+    if ~isfield(S3, 'task3_results')
+        error('Task 4: variable ''task3_results'' missing from Task 3 MAT file.');
+    end
+    task3_results = S3.task3_results;
 end
-if ~isfield(S3, 'task3_results')
-    error('Task 4: variable ''task3_results'' missing from Task 3 MAT file.');
-end
-task3_results = S3.task3_results;
 
 if isempty(method)
     log_tag = '';
@@ -262,6 +267,8 @@ else
 end
 dt_imu = dt;
 imu_time = t_i;
+% Maintain legacy variable name used throughout plotting/interp code
+t_imu = imu_time;
 
 acc_body_raw = imu_accel_raw / dt_imu;
 
@@ -799,6 +806,14 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     %   plotting policy.
 
     dims = {'North','East','Down'};
+    % Determine figure visibility from cfg
+    visibleFlag = 'off';
+    try
+        if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
+            visibleFlag = 'on';
+        end
+    catch
+    end
     gnss_col  = [0.8500 0.3250 0.0980];
     fused_col = [0 0.4470 0.7410];
     % ----- NED frame -----

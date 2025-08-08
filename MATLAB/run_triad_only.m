@@ -6,6 +6,20 @@ function run_triad_only(cfg)
 %   run_triad_only(struct(''dataset_id'',''X002''));
 
 % ---- paths / utils ----
+% Ensure utils are on the path before calling project_paths
+here = fileparts(mfilename('fullpath'));  % .../MATLAB
+utils_candidates = {
+    fullfile(here,'utils'),
+    fullfile(here,'src','utils'),
+    fullfile(here,'src','utils','attitude'),
+    fullfile(here,'src','utils','frames')
+};
+for i = 1:numel(utils_candidates)
+    p = utils_candidates{i};
+    if exist(p,'dir') && ~contains(path, [p pathsep])
+        addpath(p);
+    end
+end
 paths = project_paths();  % adds utils; returns root/matlab/results
 if nargin==0 || isempty(cfg), cfg = struct(); end
 
@@ -16,6 +30,14 @@ if ~isfield(cfg,'imu_file'),   cfg.imu_file   = 'IMU_X002.dat'; end
 if ~isfield(cfg,'gnss_file'),  cfg.gnss_file  = 'GNSS_X002.csv'; end
 % Single-truth-file policy (always this name)
 if ~isfield(cfg,'truth_file'), cfg.truth_file = 'STATE_IMU_X001.txt'; end
+
+% Plot options defaults to avoid missing-field errors in Task 4/5
+if ~isfield(cfg,'plots') || ~isstruct(cfg.plots)
+    cfg.plots = struct();
+end
+if ~isfield(cfg.plots,'popup_figures'), cfg.plots.popup_figures = false; end
+if ~isfield(cfg.plots,'save_pdf'),      cfg.plots.save_pdf      = true;  end
+if ~isfield(cfg.plots,'save_png'),      cfg.plots.save_png      = true;  end
 
 cfg.paths = paths;
 

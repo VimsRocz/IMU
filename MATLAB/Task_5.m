@@ -82,6 +82,8 @@ end
     end
     [~, imu_name, ~] = fileparts(imu_path);
     [~, gnss_name, ~] = fileparts(gnss_path);
+    % Consistent IDs: pair_tag without method; run_id with method
+    pair_tag = sprintf('%s_%s', imu_name, gnss_name);
     run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
 
     if isempty(method)
@@ -100,10 +102,14 @@ end
         data = load(results_file);
         task3_results = data.task3_results;
     end
-    if ~isfield(task3_results, method)
-        error('Method %s not found in task3_results', method);
+    % Support both Task_3 schema variants
+    if isfield(task3_results, 'Rbn') && isfield(task3_results.Rbn, method)
+        C_B_N = task3_results.Rbn.(method);
+    elseif isfield(task3_results, method) && isfield(task3_results.(method), 'R')
+        C_B_N = task3_results.(method).R;
+    else
+        error('Method %s not found in task3_results (checked Rbn and legacy fields).', method);
     end
-    C_B_N = task3_results.(method).R;
     if strcmpi(method,'TRIAD')
         assignin('base','C_B_N_ref', C_B_N);
     end
@@ -123,7 +129,8 @@ end
     [lat_deg, lon_deg, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
     C_ECEF_to_NED = R_ecef_to_ned(deg2rad(lat_deg), deg2rad(lon_deg));
     I = C_ECEF_to_NED * C_ECEF_to_NED';
-    assert(max(abs(I(:) - eye(3))) < 1e-9, 'R_ecef_to_ned not orthonormal');
+    err = norm(I - eye(3), 'fro');
+    assert(err < 1e-9, 'R_ecef_to_ned not orthonormal (||I-eye||=%.3e)', err);
     omega_E = constants.EARTH_RATE;
     omega_ie_NED = omega_E * [cosd(lat_deg); 0; -sind(lat_deg)];
     % Make reference parameters available for later plotting scripts
