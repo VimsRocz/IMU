@@ -198,11 +198,12 @@ def plot_overlay(
     labels = ["X", "Y", "Z"] if frame == "ECEF" else ["N", "E", "D"]
     colors = ["#377eb8", "#e41a1c", "#4daf4a"]  # colorblind friendly
 
-    fig, axes = plt.subplots(2, 3, figsize=(12, 6), sharex=True)
+    fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
 
     datasets = [
         (pos_est, pos_truth, "Position [m]"),
         (vel_est, vel_truth, "Velocity [m/s]"),
+        (acc_est, acc_truth, "Acceleration [m/s²]"),
     ]
 
     for row, (est, truth, ylab) in enumerate(datasets):

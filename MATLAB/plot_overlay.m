@@ -43,48 +43,39 @@ if isempty(suffix) && isempty(custom_name)
 end
 
 h = figure('Visible', visible_flag);
+tiledlayout(3,3,'Padding','compact','TileSpacing','compact');
 
-subplot(4,1,1); hold on;
-plot(t_gnss, vecnorm(pos_gnss,2,2), 'k-', 'DisplayName', 'Measured GNSS');
-plot(t_imu, vecnorm(pos_imu,2,2), 'c--', 'DisplayName', 'Derived IMU');
-if ~isempty(Ttruth) && ~isempty(ptruth)
-    plot(Ttruth, vecnorm(ptruth,2,2), 'm-', 'DisplayName', 'Truth');
+labels = {frame+' X', frame+' Y', frame+' Z'};
+ylabels = {'Position [m]', 'Velocity [m/s]', 'Acceleration [m/s^2]'};
+data_gnss = {pos_gnss, vel_gnss, acc_gnss};
+data_imu  = {pos_imu,  vel_imu,  acc_imu};
+data_fused = {pos_fused, vel_fused, acc_fused};
+data_truth = {ptruth, vtruth, atruth};
+
+for r = 1:3
+    for c = 1:3
+        nexttile; hold on;
+        plot(t_gnss, data_gnss{r}(:,c), 'k-', 'DisplayName', 'Measured GNSS');
+        plot(t_imu, data_imu{r}(:,c), 'c--', 'DisplayName', 'Derived IMU');
+        if ~isempty(data_truth{r})
+            plot(Ttruth, data_truth{r}(:,c), 'm-', 'DisplayName', 'Truth');
+        end
+        plot(t_fused, data_fused{r}(:,c), 'g:', 'DisplayName', ['Fused ' method]);
+        grid on;
+        if r==1
+            title(labels{c});
+        end
+        if c==1
+            ylabel(ylabels{r});
+        end
+        xlabel('Time [s]');
+        if r==1 && c==1
+            legend('show');
+        end
+    end
 end
-plot(t_fused, vecnorm(pos_fused,2,2), 'g:', 'DisplayName', ['Fused ' method]);
-ylabel('Position [m]');
-legend('show');
 
-subplot(4,1,2); hold on;
-plot(t_gnss, vecnorm(vel_gnss,2,2), 'k-', 'DisplayName', 'Measured GNSS');
-plot(t_imu, vecnorm(vel_imu,2,2), 'c--', 'DisplayName', 'Derived IMU');
-if ~isempty(Ttruth) && ~isempty(vtruth)
-    plot(Ttruth, vecnorm(vtruth,2,2), 'm-', 'DisplayName', 'Truth');
-end
-plot(t_fused, vecnorm(vel_fused,2,2), 'g:', 'DisplayName', ['Fused ' method]);
-ylabel('Velocity [m/s]');
-
-subplot(4,1,3); hold on;
-plot(t_gnss, vecnorm(acc_gnss,2,2), 'k-', 'DisplayName', 'Measured GNSS');
-plot(t_imu, vecnorm(acc_imu,2,2), 'c--', 'DisplayName', 'Derived IMU');
-if ~isempty(Ttruth) && ~isempty(atruth)
-    plot(Ttruth, vecnorm(atruth,2,2), 'm-', 'DisplayName', 'Truth');
-end
-plot(t_fused, vecnorm(acc_fused,2,2), 'g:', 'DisplayName', ['Fused ' method]);
-ylabel('Acceleration [m/s^2]');
-
-subplot(4,1,4); hold on;
-plot(pos_gnss(:,1), pos_gnss(:,2), 'k-', 'DisplayName', 'Measured GNSS');
-plot(pos_imu(:,1), pos_imu(:,2), 'c--', 'DisplayName', 'Derived IMU');
-if ~isempty(ptruth)
-    plot(ptruth(:,1), ptruth(:,2), 'm-', 'DisplayName', 'Truth');
-end
-plot(pos_fused(:,1), pos_fused(:,2), 'g:', 'DisplayName', ['Fused ' method]);
-xlabel([frame ' X']);
-ylabel([frame ' Y']);
-title('Trajectory');
-axis equal;
-
-sgtitle([method ' - ' frame ' frame comparison']);
+sgtitle([method ' - ' frame ' Frame (Fused vs. Truth)']);
 set(h,'PaperPositionMode','auto');
 if ~isempty(custom_name)
     [~,~,ext] = fileparts(custom_name);

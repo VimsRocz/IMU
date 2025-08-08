@@ -45,7 +45,7 @@ acc_truth_i = interp1(t_truth, acc_truth, t_est, 'linear', 'extrap');
     ensure_equal_length(t_est, pos_est, vel_est, acc_est, pos_truth_i, vel_truth_i, acc_truth_i);
 
 pdf_path = plot_overlay(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
-    vel_truth_i, acc_truth_i, frame, method, dataset, output_dir);
+    vel_truth_i, acc_truth_i, frame, method, dataset, output_dir, 'visible', 'on');
 
 plot_rmse(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
     vel_truth_i, acc_truth_i, frame, method, dataset, output_dir);

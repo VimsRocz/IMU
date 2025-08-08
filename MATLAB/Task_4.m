@@ -16,6 +16,7 @@ function result = Task_4(imu_path, gnss_path, method)
 
 % add utils folder to path
 addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))),'src','utils'));
+addpath(fullfile(fileparts(mfilename('fullpath')), 'lib'));
 
 if nargin < 1 || isempty(imu_path)
     error('IMU file not specified');
@@ -157,7 +158,9 @@ fprintf('-> Reference point: lat=%.6f rad, lon=%.6f rad, r0=[%.1f, %.1f, %.1f]''
 % Subtask 4.6: Compute Rotation Matrix from ECEF to NED
 % =========================================================================
 fprintf('\nSubtask 4.6: Computing ECEF to NED rotation matrix.\n');
-C_ECEF_to_NED = compute_C_ECEF_to_NED(ref_lat, ref_lon);
+C_ECEF_to_NED = R_ecef_to_ned(ref_lat, ref_lon);
+I = C_ECEF_to_NED * C_ECEF_to_NED';
+assert(max(abs(I(:) - eye(3))) < 1e-9, 'R_ecef_to_ned not orthonormal');
 C_NED_to_ECEF = C_ECEF_to_NED';
 fprintf('-> ECEF to NED rotation matrix computed.\n');
 fprintf('-> NED to ECEF rotation matrix computed.\n');

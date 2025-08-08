@@ -19,6 +19,9 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %       'vel_q_scale'      - scale for Q(4:6,4:6) velocity process noise [-]      (10.0)
 %       'vel_r'            - R(4:6,4:6) velocity measurement variance   [m^2/s^2] (0.25)
 %       'scale_factor'     - accelerometer scale factor                 [-]      (1.0)
+
+addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))),'src','utils'));
+addpath(fullfile(fileparts(mfilename('fullpath')), 'lib'));
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
@@ -110,7 +113,9 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
     first_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
     ref_r0 = gnss_pos_ecef(first_idx, :)';
     [lat_deg, lon_deg, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
-    C_ECEF_to_NED = compute_C_ECEF_to_NED(deg2rad(lat_deg), deg2rad(lon_deg));
+    C_ECEF_to_NED = R_ecef_to_ned(deg2rad(lat_deg), deg2rad(lon_deg));
+    I = C_ECEF_to_NED * C_ECEF_to_NED';
+    assert(max(abs(I(:) - eye(3))) < 1e-9, 'R_ecef_to_ned not orthonormal');
     omega_E = constants.EARTH_RATE;
     omega_ie_NED = omega_E * [cosd(lat_deg); 0; -sind(lat_deg)];
     % Make reference parameters available for later plotting scripts

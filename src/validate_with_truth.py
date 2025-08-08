@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from tabulate import tabulate
 
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic, zero_base_time
+from frames import R_ecef_to_ned, R_ned_to_ecef, ecef_vec_to_ned, ned_vec_to_ecef
 from plot_overlay import plot_overlay
 import pandas as pd
 import re
@@ -28,14 +29,13 @@ __all__ = [
 
 def _ned_to_ecef(pos_ned, ref_lat, ref_lon, ref_ecef, vel_ned=None, debug=False):
     """Convert NED positions (and optionally velocities) to ECEF."""
-    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
-    C_n2e = C.T
+    R = R_ned_to_ecef(ref_lat, ref_lon)
     if debug:
-        logging.debug("Conversion matrix (ECEF->NED):\n%s", C)
-    pos_ecef = np.asarray(pos_ned) @ C_n2e + ref_ecef
+        logging.debug("Conversion matrix (NED->ECEF):\n%s", R)
+    pos_ecef = ned_vec_to_ecef(pos_ned, ref_lat, ref_lon) + ref_ecef
     vel_ecef = None
     if vel_ned is not None:
-        vel_ecef = np.asarray(vel_ned) @ C_n2e
+        vel_ecef = ned_vec_to_ecef(vel_ned, ref_lat, ref_lon)
     if debug and len(pos_ecef) > 0:
         logging.debug("First converted position: %s", pos_ecef[0])
     return pos_ecef, vel_ecef
@@ -672,10 +672,11 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
         ref_lat = float(np.asarray(ref_lat).squeeze())
         ref_lon = float(np.asarray(ref_lon).squeeze())
         ref_r0 = np.asarray(ref_r0).squeeze()
-    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
-    pos_gnss_ned = np.array([C @ (p - ref_r0) for p in pos_ecef])
-    vel_gnss_ned = np.array([C @ v for v in vel_ecef])
-    acc_gnss_ned = np.array([C @ a for a in acc_ecef])
+    R_e2n = R_ecef_to_ned(ref_lat, ref_lon)
+    assert np.allclose(R_e2n @ R_e2n.T, np.eye(3), atol=1e-9), "R_ecef_to_ned not orthonormal"
+    pos_gnss_ned = ecef_vec_to_ned(pos_ecef - ref_r0, ref_lat, ref_lon)
+    vel_gnss_ned = ecef_vec_to_ned(vel_ecef, ref_lat, ref_lon)
+    acc_gnss_ned = ecef_vec_to_ned(acc_ecef, ref_lat, ref_lon)
 
     t_est = zero_base_time(np.asarray(est["time"]).squeeze())
     fused_pos = np.asarray(est["pos"])
@@ -708,12 +709,12 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
         dt = np.diff(t_est, prepend=t_est[0])
         imu_acc[1:] = np.diff(imu_vel, axis=0) / dt[1:, None]
 
-    C_N2E = C.T
+    C_N2E = R_ned_to_ecef(ref_lat, ref_lon)
 
     def ned_to_ecef(pos, vel, acc):
-        p = (C_N2E @ pos.T).T + ref_r0
-        v = (C_N2E @ vel.T).T
-        a = (C_N2E @ acc.T).T
+        p = ned_vec_to_ecef(pos, ref_lat, ref_lon) + ref_r0
+        v = ned_vec_to_ecef(vel, ref_lat, ref_lon)
+        a = ned_vec_to_ecef(acc, ref_lat, ref_lon)
         return p, v, a
 
     imu_ecef = ned_to_ecef(imu_pos, imu_vel, imu_acc)
@@ -805,9 +806,9 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
         if len(t_truth) > 1:
             dt_t = np.diff(t_truth, prepend=t_truth[0])
             acc_truth_ecef[1:] = np.diff(vel_truth_ecef, axis=0) / dt_t[1:, None]
-        pos_truth_ned = np.array([C @ (p - ref_r0) for p in pos_truth_ecef])
-        vel_truth_ned = np.array([C @ v for v in vel_truth_ecef])
-        acc_truth_ned = np.array([C @ a for a in acc_truth_ecef])
+        pos_truth_ned = ecef_vec_to_ned(pos_truth_ecef - ref_r0, ref_lat, ref_lon)
+        vel_truth_ned = ecef_vec_to_ned(vel_truth_ecef, ref_lat, ref_lon)
+        acc_truth_ned = ecef_vec_to_ned(acc_truth_ecef, ref_lat, ref_lon)
 
         def interp(arr):
             return np.vstack(
@@ -820,6 +821,24 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
         pos_truth_ned_i = interp(pos_truth_ned)
         vel_truth_ned_i = interp(vel_truth_ned)
         acc_truth_ned_i = interp(acc_truth_ned)
+
+        def _corr(a, b):
+            if a.ndim > 1:
+                a = a.ravel()
+            if b.ndim > 1:
+                b = b.ravel()
+            if np.std(a) == 0 or np.std(b) == 0:
+                return 0.0
+            return np.corrcoef(a, b)[0, 1]
+
+        for name, f, t in [
+            ("N vel North", fused_vel[:, 0], vel_truth_ned_i[:, 0]),
+            ("N vel East", fused_vel[:, 1], vel_truth_ned_i[:, 1]),
+            ("ECEF vel X", fused_ecef[1][:, 0], vel_truth_ecef_i[:, 0]),
+            ("ECEF vel Y", fused_ecef[1][:, 1], vel_truth_ecef_i[:, 1]),
+        ]:
+            c = _corr(f, t)
+            logging.info(f"[Sanity] corr({name}) = {c:+.3f}")
     else:
         pos_truth_ned = vel_truth_ned = acc_truth_ned = None
         pos_truth_ecef_i = vel_truth_ecef_i = acc_truth_ecef_i = None

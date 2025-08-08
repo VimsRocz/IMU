@@ -17,6 +17,7 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 
 % add utils folder to path
 addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))),'src','utils'));
+addpath(fullfile(fileparts(mfilename('fullpath')), 'lib'));
 
 if nargin < 4
     error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');
@@ -131,7 +132,9 @@ has_truth_time = ~isempty(truth_time);
 if isfield(S,'ref_lat'); ref_lat = S.ref_lat; else; ref_lat = deg2rad(-32.026554); end
 if isfield(S,'ref_lon'); ref_lon = S.ref_lon; else; ref_lon = deg2rad(133.455801); end
 if isfield(S,'ref_r0');  ref_r0 = S.ref_r0;  else;  ref_r0 = truth_pos_ecef(1,:)'; end
-C = compute_C_ECEF_to_NED(ref_lat, ref_lon);
+C = R_ecef_to_ned(ref_lat, ref_lon);
+I = C * C';
+assert(max(abs(I(:) - eye(3))) < 1e-9, 'R_ecef_to_ned not orthonormal');
 
 % Ground truth arrays
 t_truth = truth_time;
