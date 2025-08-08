@@ -1,20 +1,12 @@
-function paths = project_paths()
-% PROJECT_PATHS: resolve repo root and results folders; add paths
+function P = project_paths()
+%PROJECT_PATHS Resolve repository root and results path; add utils.
 here = fileparts(mfilename('fullpath'));
-% <repo_root>/MATLAB/src/utils  -> go up three levels to <repo_root>
-root = fileparts(fileparts(fileparts(here)));
+root = fileparts(fileparts(fileparts(here)));  % up to repo root
 
-paths = struct();
-paths.root           = root;
-paths.matlab_src     = fullfile(root,'MATLAB','src');
-paths.matlab_utils   = fullfile(root,'MATLAB','src','utils');
-paths.matlab_results = fullfile(root,'MATLAB','results');  % MATLAB-only
-paths.python_results = fullfile(root,'results');           % Python-only
+P = struct();
+P.root = root;
+P.matlab_results = fullfile(root,'MATLAB','results');
 
-% Ensure MATLAB side results dir exists
-if ~exist(paths.matlab_results,'dir'), mkdir(paths.matlab_results); end
-
-% Add MATLAB code to path (idempotent)
-addpath(paths.matlab_src);
-addpath(genpath(paths.matlab_utils));
+addpath(fullfile(root,'MATLAB','src','utils'));
+if ~exist(P.matlab_results,'dir'), mkdir(P.matlab_results); end
 end
