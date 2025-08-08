@@ -4,13 +4,6 @@ function run_triad_only(cfg)
 %   summary is printed first and written to ``MATLAB/results``. Truth data is
 %   resolved automatically from a canonical path.
 
-    % Ensure utils on path
-    here = fileparts(mfilename('fullpath'));
-    project_root = fileparts(here);
-    utils_dir = fullfile(project_root,'src','utils');
-    if exist(utils_dir,'dir'), addpath(utils_dir); end
-
-    % Config
     if nargin==0 || isempty(cfg)
         cfg = default_cfg();
         cfg.dataset_id = 'X002';
@@ -27,19 +20,20 @@ function run_triad_only(cfg)
     cfg.imu_path  = fullfile(cfg.paths.root, cfg.imu_file);
     cfg.gnss_path = fullfile(cfg.paths.root, cfg.gnss_file);
 
-    % TRUTH: canonical preferred path; copy if missing
-    preferred_truth = fullfile(cfg.paths.root, 'STATE_IMU_X001.txt');
-    fallback_truth  = fullfile(cfg.paths.root, 'STATE_X001.txt');
-    if ~isfile(preferred_truth) && isfile(fallback_truth)
-        copyfile(fallback_truth, preferred_truth);
-        fprintf('Truth missing at preferred path; copying %s -> %s\n', fallback_truth, preferred_truth);
+    % Build run id
+    rid = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
+
+    % Prefer a single canonical TRUTH file
+    if ~isfield(cfg,'truth_path') || ~isfile(cfg.truth_path)
+        src = fullfile(cfg.paths.root, 'STATE_X001.txt');
+        dst = fullfile(cfg.paths.root, 'STATE_IMU_X001.txt');
+        if isfile(src), copyfile(src, dst); end
+        cfg.truth_path = dst;
     end
-    cfg.truth_path = preferred_truth;
     fprintf('Using TRUTH: %s\n', cfg.truth_path);
 
-    % Build run_id and print timeline
-    rid = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
-    print_timeline_matlab(rid, cfg.imu_path, cfg.gnss_path, cfg.truth_path, results_dir);
+    % Print timeline (robust implementation)
+    print_timeline_matlab(rid, cfg.imu_path, cfg.gnss_path, cfg.truth_path, cfg.paths.matlab_results);
 
     fprintf('▶ %s\n', rid);
     fprintf('MATLAB results dir: %s\n', results_dir);
@@ -49,10 +43,9 @@ function run_triad_only(cfg)
     Task_2(cfg.imu_path, cfg.gnss_path, cfg.method);
     Task_3(cfg.imu_path, cfg.gnss_path, cfg.method);
     Task_4(cfg.imu_path, cfg.gnss_path, cfg.method);
-    t4_mat = fullfile(cfg.paths.matlab_results, ...
-        sprintf('%s_%s_%s_task4_results.mat', erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
-    if ~isfile(t4_mat)
-        error('Task 4 results was not created: %s', t4_mat);
+    t4_mat_actual = fullfile(cfg.paths.matlab_results, sprintf('%s_task4_results.mat', rid));
+    if ~isfile(t4_mat_actual)
+        error('Task 4 results was not created: %s', t4_mat_actual);
     end
     Task_5(cfg.imu_path, cfg.gnss_path, cfg.method);
 
