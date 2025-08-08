@@ -43,7 +43,7 @@ mustExist(cfg.gnss_path,  'GNSS file');
 mustExist(cfg.truth_path, 'Truth file (required for Task 6/7)');
 
 run_id = sprintf('%s_%s_%s', erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method);
-fprintf('>> %s\n', run_id);
+fprintf('%s %s_%s_%s\n', char(9654), erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method);
 fprintf('>> MATLAB results dir: %s\n', mat_results);
 
 % Expected outputs by task (for assertions)
@@ -51,22 +51,12 @@ t1_mat = fullfile(mat_results, sprintf('Task1_init_%s_%s_%s.mat', ...
     erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
 t2_mat = fullfile(mat_results, sprintf('Task2_body_%s_%s_%s.mat', ...
     erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
-t3_mat = fullfile(mat_results, sprintf('IMU_%s_GNSS_%s_%s_task3_results.mat', ...
+t3_mat = fullfile(mat_results, sprintf('%s_%s_%s_task3_results.mat', ...
     erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
 t4_mat = fullfile(mat_results, sprintf('IMU_%s_GNSS_%s_%s_task4_results.mat', ...
     erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
 t5_mat = fullfile(mat_results, sprintf('%s_%s_%s_task5_results.mat', ...
     erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
-
-% Representative Task 6/7 artifacts to assert (adjust if your Task_6/Task_7 filenames differ)
-t6_overlay_ned_pdf = fullfile(cfg.paths.root, 'results', ...
-    sprintf('IMU_%s_GNSS_%s_%s_task6_overlay_state_NED.pdf', ...
-        erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));   % Task_6 saves under Python-style results/
-% If your MATLAB Task_6 writes under MATLAB/results/<run_id>, add another check there too if needed.
-
-t7_any_pdf = fullfile(cfg.paths.root, 'results', ...
-    sprintf('IMU_%s_GNSS_%s_%s_task7_3_residuals_position_velocity.pdf', ...
-        erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
 
 % --- Run Tasks 1..5 ------------------------------------------------------
 Task_1(cfg.imu_path, cfg.gnss_path, cfg.method);
@@ -84,27 +74,34 @@ assertFile(t4_mat, 'Task 4 results');
 Task_5(cfg.imu_path, cfg.gnss_path, cfg.method);
 assertFile(t5_mat, 'Task 5 results');
 
-% --- Run Tasks 6..7 (MANDATORY; fail if anything missing) ----------------
-fprintf('>> Running Task 6 (truth overlay/validation)...\n');
-Task_6(t5_mat, cfg.imu_path, cfg.gnss_path, cfg.truth_path);
-assertFile(t6_overlay_ned_pdf, 'Task 6 overlay (NED)');
+% --- Tasks 6..7 (mandatory, like Python) ---------------------------------
+p = project_paths();
+results_dir = p.matlab_results;
 
-fprintf('>> Running Task 7 (residuals & summary)...\n');
-Task_7();   % expects to read mats from its standard locations
-assertFile(t7_any_pdf, 'Task 7 residuals plot');
+task5_file = fullfile(results_dir, sprintf('%s_%s_%s_task5_results.mat', ...
+                   erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method));
+if ~isfile(task5_file)
+    error('Task 6/7: Task 5 results not found: %s', task5_file);
+end
 
-% --- Manifest for traceability ------------------------------------------
-manifest = struct();
-manifest.when        = datestr(now, 31);
-manifest.run_id      = run_id;
-manifest.cfg         = cfg;
-manifest.outputs     = struct('task1',t1_mat,'task2',t2_mat,'task3',t3_mat,'task4',t4_mat,'task5',t5_mat, ...
-                              'task6_overlay_ned_pdf', t6_overlay_ned_pdf, ...
-                              'task7_any_pdf', t7_any_pdf);
-save(fullfile(mat_results, sprintf('%s_manifest.mat', run_id)), '-struct','manifest','-v7');
+if isempty(cfg.truth_file)
+    error('Task 6/7: cfg.truth_file not set (truth is mandatory).');
+end
+cfg.truth_path = fullfile(cfg.paths.root, cfg.truth_file);
+if ~isfile(cfg.truth_path)
+    error('Task 6/7: truth file not found: %s', cfg.truth_path);
+end
 
-fprintf('>> Tasks 1..7 complete. MATLAB outputs in: %s\n', mat_results);
-drawnow;
+disp('--- Running Task 6: Truth Overlay/Validation ---');
+Task_6(task5_file, cfg.imu_path, cfg.gnss_path, cfg.truth_path);
+run_id = sprintf('%s_%s_%s', erase(cfg.imu_file,'.dat'), erase(cfg.gnss_file,'.csv'), cfg.method);
+out_dir = fullfile(results_dir, run_id);
+fprintf('Task 6 overlay plots saved under: %s\n', out_dir);
+
+disp('--- Running Task 7: Residuals & Summary ---');
+Task_7();  % reads its inputs from MATLAB/results
+fprintf('Task 7 evaluation plots saved under: %s\n', out_dir);
+disp('Task 6 and Task 7 complete. See MATLAB/results for plots and PDF summaries.');
 
 end % function
 

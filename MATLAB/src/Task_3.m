@@ -63,18 +63,18 @@ end
 % ---- pack canonical struct that Task_4 expects ----
 task3_results = struct();
 task3_results.methods = {'TRIAD','Davenport','SVD'};
-task3_results.Rbn = struct('TRIAD', R_tri, 'Davenport', R_dav, 'SVD', R_svd);
-task3_results.q   = struct('TRIAD', q_tri, 'Davenport', q_dav, 'SVD', q_svd);
-task3_results.meta = struct('imu_id', imu_id, 'gnss_id', gnss_id, 'method', method);
+task3_results.Rbn.TRIAD     = R_tri;
+task3_results.Rbn.Davenport = R_dav;
+task3_results.Rbn.SVD       = R_svd;
+task3_results.q.TRIAD       = q_tri;
+task3_results.q.Davenport   = q_dav;
+task3_results.q.SVD         = q_svd;
+task3_results.meta = struct('imu_id',imu_id,'gnss_id',gnss_id,'method',method);
 
-% ---- save under BOTH filenames (generic + method-specific) ----
-out_generic = fullfile(results_dir, ...
-    sprintf('Task3_results_IMU_%s_GNSS_%s.mat', imu_id, gnss_id));
-out_method  = fullfile(results_dir, ...
-    sprintf('IMU_%s_GNSS_%s_%s_task3_results.mat', imu_id, gnss_id, method));
+out_generic = fullfile(results_dir, sprintf('Task3_results_%s_%s.mat', imu_id, gnss_id));
+out_method  = fullfile(results_dir, sprintf('%s_%s_%s_task3_results.mat', imu_id, gnss_id, method));
 
 save(out_generic, 'task3_results', '-v7');
 save(out_method,  'task3_results', '-v7');
-
 fprintf('Task 3: saved task3_results to:\n  %s\n  %s\n', out_generic, out_method);
 end
