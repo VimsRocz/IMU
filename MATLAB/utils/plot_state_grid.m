@@ -34,8 +34,15 @@ for k = 1:3
     title(sprintf('%s vs time (%s)', names{k}, frame));
     if ~isempty(outdir) && ~isempty(run_id)
         if ~exist(outdir,'dir'), mkdir(outdir); end
-        saveas(h, fullfile(outdir, sprintf('%s_task4_%s_%s.png', run_id, frame, names{k})));
-        saveas(h, fullfile(outdir, sprintf('%s_task4_%s_%s.pdf', run_id, frame, names{k})));
+        set(h, 'PaperPositionMode', 'auto');
+        % PDF best-fit
+        print(h, fullfile(outdir, sprintf('%s_task4_%s_%s.pdf', run_id, frame, names{k})), '-dpdf', '-bestfit');
+        % PNG high-res
+        try
+            exportgraphics(h, fullfile(outdir, sprintf('%s_task4_%s_%s.png', run_id, frame, names{k})), 'Resolution', 300);
+        catch
+            print(h, fullfile(outdir, sprintf('%s_task4_%s_%s.png', run_id, frame, names{k})), '-dpng', '-r300');
+        end
         close(h);
     end
 end

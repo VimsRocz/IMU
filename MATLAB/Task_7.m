@@ -79,19 +79,39 @@ function Task_7()
     else
         error('Task_7: truth positions missing in %s.', mat4);
     end
-    if isfield(S4, 'truth_vel_ecef')
+    if isfield(S4, 'truth_vel_ecef') && ~isempty(S4.truth_vel_ecef)
         vel_truth_ecef = S4.truth_vel_ecef';
     else
-        vel_truth_ecef = [];
+        % Derive velocity from position/time if not provided
+        if exist('t_truth','var') && ~isempty(t_truth)
+            dt_truth = diff(t_truth);
+            vel_truth_ecef = [zeros(3,1), diff(pos_truth_ecef,1,2)./dt_truth'];
+        else
+            error('Task_7: truth velocity missing and time vector unavailable.');
+        end
     end
 
-    if isfield(S4, 't_truth')
+    if isfield(S4, 'truth_time') && ~isempty(S4.truth_time)
+        t_truth = S4.truth_time(:);
+    elseif isfield(S4, 't_truth') && ~isempty(S4.t_truth)
         t_truth = S4.t_truth(:);
     else
         tokens = regexp(run_id, 'GNSS_([^_]+)', 'tokens', 'once');
         csv = fullfile(data_dir, sprintf('GNSS_%s.csv', tokens{1}));
         T = readtable(csv);
         t_truth = zero_base_time(T.Posix_Time);
+    end
+
+    % If time length mismatches truth samples, rebuild a matching vector
+    n_truth = size(pos_truth_ecef, 2);
+    if numel(t_truth) ~= n_truth
+        if numel(t_truth) > 1
+            dt_truth = median(diff(t_truth));
+            t_truth = (t_truth(1):dt_truth:(t_truth(1)+dt_truth*(n_truth-1))).';
+        else
+            dt_est = median(diff(t_est));
+            t_truth = (t_est(1):dt_est:(t_est(1)+dt_est*(n_truth-1))).';
+        end
     end
 
     %% Convert estimates from NED to ECEF
@@ -121,8 +141,8 @@ function Task_7()
     %% Interpolate estimator and truth to common grid
     pos_est_i   = interp1(t_est,   pos_est_ecef',   t_grid, 'linear')';
     vel_est_i   = interp1(t_est,   vel_est_ecef',   t_grid, 'linear')';
-    truth_pos_i = interp1(t_truth, pos_truth_ecef', t_grid, 'linear')';
-    truth_vel_i = interp1(t_truth, vel_truth_ecef', t_grid, 'linear')';
+    truth_pos_i = interp1(t_truth, pos_truth_ecef', t_grid, 'linear', 'extrap')';
+    truth_vel_i = interp1(t_truth, vel_truth_ecef', t_grid, 'linear', 'extrap')';
     fprintf('Task 7: Interpolated estimates and truth onto %d samples\n', numel(t_grid));
 
     %% Compute errors (truth - estimate)

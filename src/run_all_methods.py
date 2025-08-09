@@ -46,6 +46,13 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 
+# Allow importing helper utilities under ``src/utils`` without clashing with
+# the top-level ``utils.py`` module.
+import sys as _sys
+_sys.path.append(str(HERE / "utils"))
+from timeline import print_timeline_summary  # type: ignore
+from resolve_truth_path import resolve_truth_path  # type: ignore
+
 try:
     import yaml
 except ModuleNotFoundError:  # allow running without PyYAML installed
@@ -164,6 +171,17 @@ def main(argv=None):
         print(f"\u25b6 {tag}")
         imu_path = pathlib.Path(imu)
         gnss_path = pathlib.Path(gnss)
+
+        # Print and save a concise timeline summary for the current dataset.
+        try:
+            truth_path = resolve_truth_path()
+        except Exception:
+            truth_path = None
+        try:
+            print_timeline_summary(tag, str(imu_path), str(gnss_path), truth_path, out_dir="results")
+        except Exception:
+            # Timeline is best-effort; continue even if it fails
+            pass
 
         if logger.isEnabledFor(logging.DEBUG):
             try:
