@@ -1,6 +1,7 @@
 # ignore all generated results
 /results/
 MATLAB/results/
+MATLAB/src/MATLAB/results/
 
 # ignore any DS_Store files
 .DS_Store
