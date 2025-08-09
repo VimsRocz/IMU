@@ -146,6 +146,10 @@ catch e
     error('Failed to load GNSS data file: %s', e.message);
 end
 
+% Save raw GNSS timestamps for downstream tasks
+gnss_time = gnss_data.Posix_Time; %#ok<NASGU>
+fprintf('Saved GNSS time with length %d\n', length(gnss_time));
+
 
 %% ========================================================================
 % Subtask 4.4: Extract Relevant Columns
@@ -476,7 +480,7 @@ results_dir = '/Users/vimalchawda/Desktop/IMU/MATLAB/results';
 if ~exist(results_dir,'dir'); mkdir(results_dir); end
 t4_mat = fullfile(results_dir, sprintf('%s_task4_results.mat', rid));
 t_g = t_g_u; %#ok<NASGU>
-save(t4_mat, 'rid','t_g','imu_pos_g','imu_vel_g','imu_acc_g','gnss_pos_ned','gnss_vel_ned','gnss_acc_ned','-v7');
+save(t4_mat, 'rid','t_g','gnss_time','imu_pos_g','imu_vel_g','imu_acc_g','gnss_pos_ned','gnss_vel_ned','gnss_acc_ned','-v7');
 fprintf('Saved task 4 results to %s\n', t4_mat);
 
 legacy_t4 = fullfile(results_dir, sprintf('IMU_%s_GNSS_%s_%s_task4_results.mat', 'X002','X002', upper(string(method))));
