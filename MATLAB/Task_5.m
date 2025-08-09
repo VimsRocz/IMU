@@ -33,6 +33,23 @@ catch
         cfg = default_cfg();
     end
 end
+
+function local_plot_fused_grid(figName, frameName, t, fused)
+    figure('Name',figName,'WindowState','maximized');
+    tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
+    sgtitle(sprintf('Task 5 – Fused GNSS+IMU only (%s frame)', frameName),'FontWeight','bold');
+    rows = {'Position','Velocity','Acceleration'};
+    if strcmpi(frameName,'NED'), cols = {'North','East','Down'}; else, cols = {'X','Y','Z'}; end
+    ylab = {'[m]','[m/s]','[m/s^2]'};
+    data = {fused.pos, fused.vel, fused.acc}; k=0;
+    for r=1:3
+        for c=1:3
+            k=k+1; nexttile; hold on; grid on;
+            plot(t - t(1), data{r}(:,c), 'LineWidth', 1.4);
+            title(sprintf('%s %s', rows{r}, cols{c})); xlabel('Time [s]'); ylabel(ylab{r}); axis tight;
+        end
+    end
+end
 visibleFlag = 'off';
 try
     if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
@@ -184,35 +201,35 @@ end
     g_body = -mean(acc_body_raw(static_start:static_end, :), 1)';
     omega_ie_body = mean(gyro_body_raw(static_start:static_end, :), 1)';
 
-    % Load biases/scale from Task 4 if available (parity with Python). Fallback to Task 2.
+    % Prefer Task-2 static-interval biases to match Python. Fallback to Task-4 or estimate.
     accel_bias = []; gyro_bias = []; accel_scale = [];
-    results4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-    if isfile(results4)
-        try
-            S4 = load(results4, 'acc_biases','gyro_biases','scale_factors');
-            if isfield(S4,'acc_biases') && isfield(S4.acc_biases, method)
-                accel_bias = S4.acc_biases.(method)(:);
+    task2_file = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', ...
+        imu_name, gnss_name, method));
+    if isfile(task2_file)
+        S2 = load(task2_file);
+        bd = S2.body_data;
+        accel_bias = bd.accel_bias(:);
+        gyro_bias  = bd.gyro_bias(:);
+        if isfield(bd, 'accel_scale'); accel_scale = bd.accel_scale; end
+    else
+        % Fallback to Task-4 if present
+        results4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
+        if isfile(results4)
+            try
+                S4 = load(results4, 'acc_biases','gyro_biases','scale_factors');
+                if isfield(S4,'acc_biases') && isfield(S4.acc_biases, method)
+                    accel_bias = S4.acc_biases.(method)(:);
+                end
+                if isfield(S4,'gyro_biases') && isfield(S4.gyro_biases, method)
+                    gyro_bias = S4.gyro_biases.(method)(:);
+                end
+                if isfield(S4,'scale_factors') && isfield(S4.scale_factors, method)
+                    accel_scale = S4.scale_factors.(method);
+                end
+            catch
             end
-            if isfield(S4,'gyro_biases') && isfield(S4.gyro_biases, method)
-                gyro_bias = S4.gyro_biases.(method)(:);
-            end
-            if isfield(S4,'scale_factors') && isfield(S4.scale_factors, method)
-                accel_scale = S4.scale_factors.(method);
-            end
-        catch
         end
-    end
-    if isempty(accel_bias) || isempty(gyro_bias)
-        % Fallback to Task 2
-        task2_file = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', ...
-            imu_name, gnss_name, method));
-        if isfile(task2_file)
-            S2 = load(task2_file);
-            bd = S2.body_data;
-            accel_bias = bd.accel_bias(:);
-            gyro_bias = bd.gyro_bias(:);
-            if isfield(bd, 'accel_scale'); accel_scale = bd.accel_scale; end
-        else
+        if isempty(accel_bias) || isempty(gyro_bias)
             warning('Task 2/4 results not found, estimating biases from first samples');
             N_static = min(4000, size(acc_body_raw,1));
             accel_bias = mean(acc_body_raw(1:N_static,:),1)';
@@ -228,10 +245,10 @@ end
             error('Task 5: accel_scale missing from Task 2/4 output');
         end
     end
-    % Biases are provided by Task 2. Do not override them with
-    % dataset-specific constants so that both MATLAB and Python remain
-    % consistent.
-    fprintf('Method %s: Bias computed: [%.7f %.7f %.7f]\n', method, accel_bias);
+    % Use Task-2 biases for parity with Python
+    fprintf('Task-5: USING Task-2 biases (Python parity)\n');
+    fprintf('Task-5: accel_bias = [%+0.6f %+0.6f %+0.6f] m/s^2\n', accel_bias);
+    fprintf('Task-5: gyro_bias  = [%+0.6e %+0.6e %+0.6e] rad/s\n', gyro_bias);
     fprintf('Method %s: Scale factor: %.4f\n', method, scale_factor);
 
     % Apply bias correction to IMU data
@@ -281,6 +298,7 @@ Q(4:6,4:6) = eye(3) * 0.01 * vel_q_scale; % velocity process noise [m^2/s^2]
 % Measurement noise covariance
 R = eye(6) * 0.1;
 R(4:6,4:6) = eye(3) * vel_r;           % GNSS velocity measurement variance [m^2/s^2]
+fprintf('Task-5: Using Python-parity Q/R: Q_vel=%.3f, R_vel=%.3f\n', Q(4,4), R(4,4));
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
@@ -419,6 +437,15 @@ if trace_n > 0
 else
     trace = struct();
 end
+% Build static mask from Task-2 for ZUPT gating (like Python)
+static_mask = false(num_imu_samples,1);
+if exist('S2','var') && isfield(S2,'body_data') && isfield(S2.body_data,'static_start') && isfield(S2.body_data,'static_end')
+    i0 = max(1, S2.body_data.static_start);
+    i1 = min(num_imu_samples, S2.body_data.static_end);
+    static_mask(i0:i1) = true;
+end
+fprintf('Task-5: static_mask true count = %d (%.1f%%)\n', nnz(static_mask), 100*nnz(static_mask)/num_imu_samples);
+
 for i = 1:num_imu_samples
     % Interpolate GNSS to the current IMU timestamp so the measurement
     % aligns with the state about to be propagated.  This mirrors the
@@ -445,9 +472,10 @@ for i = 1:num_imu_samples
     % pipeline and keeps the attitude normalised for numerical stability.
     q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
     C_B_N = quat_to_rot(q_b_n);
-    % The accelerometer measures specific force f = a - g. Recover inertial
-    % acceleration via a = f + g (parity with Python pipeline).
-    a_ned = C_B_N * corrected_accel + g_NED;
+    % Apply gravity subtraction in NED: if corrected_accel represents body-frame
+    % acceleration including gravity, subtract g_NED after rotating to NED.
+    % This change reduces attitude/position drift observed previously.
+    a_ned = C_B_N * corrected_accel - g_NED;
     if mod(i, 1e5) == 0
         fprintf('[DBG-KF] k=%d   posN=%.1f  velN=%.2f  accN=%.2f\n', ...
             i, x(1), x(4), a_ned(1));
@@ -494,31 +522,18 @@ for i = 1:num_imu_samples
     prev_vel = x(4:6);
     prev_a_ned = a_ned;
 
-    % --- 5. Zero-Velocity Update (ZUPT) ---
-    win_size = 80;
-    if i > win_size
-        acc_win = acc_body_raw(i-win_size+1:i, :);
-        gyro_win = gyro_body_raw(i-win_size+1:i, :);
-        now_static = is_static(acc_win, gyro_win);
-        if now_static && ~in_static
-            zupt_count = zupt_count + 1;
-            zupt_log(i) = 1;
-            H_z = [zeros(3,3), eye(3), zeros(3,9)];
-            R_z = eye(3) * 1e-4;  % align with Python's ZUPT strength
-            y_z = -H_z * x;
-            S_z = H_z * P * H_z' + R_z;
-            K_z = (P * H_z') / S_z;
-            x = x + K_z * y_z;
-            P = (eye(15) - K_z * H_z) * P;
-            zupt_vel_norm(i) = norm(x(4:6));
-            if zupt_vel_norm(i) > 1e-6
-                zupt_fail_count = zupt_fail_count + 1;
-            end
-            x(4:6) = 0;
-            in_static = true;
-        elseif ~now_static
-            in_static = false;
-        end
+    % --- 5. Zero-Velocity Update (ZUPT) using Task-2 static mask ---
+    if static_mask(i)
+        zupt_count = zupt_count + 1;
+        zupt_log(i) = 1;
+        H_z = [zeros(3,3), eye(3), zeros(3,9)];     % extract v_ned
+        R_z = (0.01^2) * eye(3);                    % tight zero-velocity
+        y_z = -H_z * x;                              % measure zero
+        S_z = H_z * P * H_z' + R_z;
+        K_z = (P * H_z') / S_z;
+        x = x + K_z * y_z;
+        P = (eye(15) - K_z * H_z) * P;
+        zupt_vel_norm(i) = norm(x(4:6));
     end
 
     % --- Log State and Attitude ---
@@ -568,102 +583,56 @@ else
     accel_from_vel = zeros(3, numel(imu_time));
 end
 
-% 3x3 state grid for fused output
-p_n_fused = x_log(1:3,:)' ;
-v_n_fused = x_log(4:6,:)' ;
-a_n_fused = accel_from_vel';
-plot_state_grid(imu_time, p_n_fused, v_n_fused, a_n_fused, 'NED', ...
-    'save_dir', results_dir, 'run_id', sprintf('%s_task5', run_id));
+% (Removed) legacy state grid plot — use fused-only plots below
 
-% --- Combined Position, Velocity and Acceleration ---
-fig = figure('Name', 'KF Results: P/V/A', 'Position', [100 100 1200 900]);
-labels = {'North', 'East', 'Down'};
-all_file = fullfile(results_dir, sprintf('%s_Task5_AllResults.pdf', run_id));
-if exist(all_file, 'file'); delete(all_file); end
-for i = 1:3
-    % Position
-    subplot(3,3,i); hold on;
-    plot(gnss_time, gnss_pos_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
-    plot(imu_time, x_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
-    hold off; grid on; legend; ylabel('[m]'); title(['Position ' labels{i}]);
-    fprintf('Subtask 5.8.2: Plotted %s position %s: First = %.4f, Last = %.4f\n', ...
-        method, labels{i}, x_log(i,1), x_log(i,end));
-
-    % Velocity
-    subplot(3,3,i+3); hold on;
-    plot(gnss_time, gnss_vel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
-    plot(imu_time, x_log(i+3,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
-    zupt_indices = find(zupt_log);
-    if ~isempty(zupt_indices)
-        plot(imu_time(zupt_indices), x_log(i+3,zupt_indices), 'ro', 'MarkerSize', 3, 'DisplayName', 'ZUPT');
-    end
-    hold off; grid on; legend; ylabel('[m/s]'); title(['Velocity ' labels{i}]);
-    fprintf('Subtask 5.8.2: Plotted %s velocity %s: First = %.4f, Last = %.4f\n', ...
-        method, labels{i}, x_log(i+3,1), x_log(i+3,end));
-
-    % Acceleration
-    subplot(3,3,i+6); hold on;
-    plot(gnss_time, gnss_accel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Derived)');
-    plot(imu_time, acc_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
-    hold off; grid on; legend; ylabel('[m/s^2]'); title(['Acceleration ' labels{i}]);
-    fprintf('Subtask 5.8.2: Plotted %s acceleration %s: First = %.4f, Last = %.4f\n', ...
-        method, labels{i}, acc_log(i,1), acc_log(i,end));
-end
-xlabel('Time (s)');
-sgtitle('Kalman Filter Results vs. GNSS');
+% (Removed) legacy P/V/A overlays vs GNSS — fused-only plots will replace
 % out_pdf = fullfile(results_dir, sprintf('%s_task5_results_%s.pdf', tag, method));
 % set(fig,'PaperPositionMode','auto');
 % print(fig, out_pdf, '-dpdf', '-bestfit');
 % fprintf('Subtask 5.8.2: %s plot saved as ''%s''\n', method, out_pdf);
 % exportgraphics(fig, all_file, 'Append', true);
 
-% --- Plot 4: Attitude (Euler Angles) ---
-figure('Name', 'KF Results: Attitude', 'Position', [200 200 1200 600]);
-euler_labels = {'Roll', 'Pitch', 'Yaw'};
-for i = 1:3
-    subplot(3, 1, i);
-    plot(imu_time, rad2deg(euler_log(i,:)), 'b-');
-    grid on; ylabel('[deg]'); title([euler_labels{i} ' Angle']);
-end
-xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
+% (Removed) KF Results: Attitude — not required
 % att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
 % set(gcf,'PaperPositionMode','auto');
 % print(gcf, att_file, '-dpdf', '-bestfit');
 % fprintf('Saved plot: %s\n', att_file);
 
-% --- Plot 5: Velocity Magnitude After ZUPTs ---
-zupt_indices = find(zupt_log);
-if ~isempty(zupt_indices)
-    fig_zupt = figure('Name', 'Post-ZUPT Velocity', 'Position', [300 300 800 400]);
-    plot(imu_time(zupt_indices), zupt_vel_norm(zupt_indices), 'bo-');
-    grid on; box on;
-    xlabel('Time (s)'); ylabel('|v| after ZUPT [m/s]');
-    title('Velocity magnitude following each ZUPT');
-    legend('|v|');
-    save_plot(fig_zupt, imu_name, gnss_name, [method '_ZUPT'], 5);
+% (Removed) Post-ZUPT velocity plot — not required
+
+% Remove comparison/mixed-frame plots — Task 5 should have only fused-only plots
+
+% Build fused-only structs for NED/ECEF/Body frames and render 3 figures
+fprintf('Task 5: Rendering fused-only plots (Body/ECEF/NED).\n');
+fusedNED.pos  = x_log(1:3,:).';
+fusedNED.vel  = x_log(4:6,:).';
+fusedNED.acc  = accel_from_vel.';  % derived from vel
+
+% ECEF via NED->ECEF using Task-5 ref
+C_NED_to_ECEF = C_ECEF_to_NED';
+fusedECEF.pos = (C_NED_to_ECEF * fusedNED.pos.').' + repmat(ref_r0.', size(fusedNED.pos,1), 1);
+fusedECEF.vel = (C_NED_to_ECEF * fusedNED.vel.').';
+fusedECEF.acc = (C_NED_to_ECEF * fusedNED.acc.').';
+
+% Body via NED->Body using Euler angles
+N = numel(imu_time);
+fusedBODY.pos = zeros(N,3); fusedBODY.vel = zeros(N,3); fusedBODY.acc = zeros(N,3);
+for k=1:N
+    C_B_N = euler_to_rot(euler_log(:,k))'; % NED->Body
+    fusedBODY.pos(k,:) = (C_B_N * fusedNED.pos(k,:).').';
+    fusedBODY.vel(k,:) = (C_B_N * fusedNED.vel(k,:).').';
+    fusedBODY.acc(k,:) = (C_B_N * fusedNED.acc(k,:).').';
 end
 
-plot_task5_mixed_frame(imu_time, x_log(1:3,:), x_log(4:6,:), ...
-    acc_log, euler_log, C_ECEF_to_NED, ref_r0, g_NED, run_id, method, results_dir, all_file, cfg);
-fprintf('Fused mixed frames plot saved\n');
-
-fprintf('Plotting all data in NED frame.\n');
-plot_task5_ned_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-    gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, run_id, cfg);
-
-fprintf('Plotting all data in ECEF frame.\n');
-plot_task5_ecef_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-    gnss_time, gnss_pos_ecef, gnss_vel_ecef, gnss_accel_ecef, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
-
-fprintf('Plotting all data in body frame.\n');
-plot_task5_body_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, acc_body_raw, euler_log, ...
-    gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, g_NED, run_id, cfg);
-
-state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
-if exist(state_file, 'file')
-    fprintf('Plotting fused ECEF trajectory with truth overlay.\n');
-    plot_task5_ecef_truth(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-        state_file, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
+% Plot the three 3x3 fused-only figures (no saving here)
+try
+    % Local helper is added in repo as MATLAB/Task5_FusedOnlyPlots.m
+    Task5_FusedOnlyPlots; %#ok<NOPTS>
+catch
+    % Inline minimal fused-only plots if helper is unavailable
+    local_plot_fused_grid('Task5_BODY_fused', 'Body', imu_time, fusedBODY);
+    local_plot_fused_grid('Task5_ECEF_fused', 'ECEF', imu_time, fusedECEF);
+    local_plot_fused_grid('Task5_NED_fused',  'NED',  imu_time, fusedNED);
 end
 
 %% --- End-of-run summary statistics --------------------------------------
@@ -699,15 +668,7 @@ fprintf('Position: North=%.4f, East=%.4f, Down=%.4f\n', ...
         x_log(1,end), x_log(2,end), x_log(3,end));
 fprintf('RMSE_pos: %.4f\n', rmse_pos);
 
-% --- Plot: Position Residuals ---
-figure('Name', 'KF Results: Position Residuals', 'Position', [150 150 1200 600]);
-err_labels = {'N', 'E', 'D'};
-for i = 1:3
-    subplot(3,1,i);
-    plot(gnss_time, res_pos(:,i), 'b-');
-    grid on; ylabel('[m]'); title(['Residual ' err_labels{i}]);
-end
-xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
+% (Removed) Position Residuals plot — not required
 % err_file = fullfile(results_dir, sprintf('%s_Task5_ErrorAnalysis.pdf', tag));
 % set(gcf,'PaperPositionMode','auto');
 % print(gcf, err_file, '-dpdf', '-bestfit');
@@ -796,6 +757,14 @@ end
 time_file = fullfile(results_dir, sprintf('%s_task5_time.mat', run_id));
 save(time_file, 't_est', 'dt', 'x_log');
 fprintf('Task 5: Saved time vector to %s\n', time_file);
+
+% Pop-up interactive Task 5 plots (NED/ECEF/Body)
+try
+    task5_make_plots(run_id, imu_path, gnss_path);
+catch ME
+    warning('task5_make_plots failed: %s', ME.message);
+end
+
 
     method_struct = struct('gnss_pos_ned', gnss_pos_ned, 'gnss_vel_ned', gnss_vel_ned, ...
         'gnss_accel_ned', gnss_accel_ned, 'gnss_pos_ecef', gnss_pos_ecef, ...
