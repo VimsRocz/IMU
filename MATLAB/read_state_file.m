@@ -21,6 +21,10 @@ try
     opts = detectImportOptions(filename, 'FileType','text', ...
                                'Delimiter',' ', ...
                                'ConsecutiveDelimitersRule','join');
+    % Preserve original column headers to avoid noisy warnings
+    if isprop(opts, 'VariableNamingRule')
+        opts.VariableNamingRule = 'preserve';
+    end
     opts.CommentStyle = '#';
     % Avoid per-variable varopts to support older MATLAB versions
     T = readtable(filename, opts);

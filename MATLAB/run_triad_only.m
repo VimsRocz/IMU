@@ -35,9 +35,16 @@ if ~isfield(cfg,'truth_file'), cfg.truth_file = 'STATE_IMU_X001.txt'; end
 if ~isfield(cfg,'plots') || ~isstruct(cfg.plots)
     cfg.plots = struct();
 end
-if ~isfield(cfg.plots,'popup_figures'), cfg.plots.popup_figures = false; end
+if ~isfield(cfg.plots,'popup_figures'), cfg.plots.popup_figures = true; end
 if ~isfield(cfg.plots,'save_pdf'),      cfg.plots.save_pdf      = true;  end
 if ~isfield(cfg.plots,'save_png'),      cfg.plots.save_png      = true;  end
+% KF tuning defaults (safe if default_cfg not reloaded)
+if ~isfield(cfg,'vel_q_scale'), cfg.vel_q_scale = 10.0; end
+if ~isfield(cfg,'vel_r'),       cfg.vel_r       = 0.25; end
+% Optional auto-tune flag
+if ~isfield(cfg,'autotune'),    cfg.autotune    = true; end
+% Optional trace capture (first N KF steps)
+if ~isfield(cfg,'trace_first_n'), cfg.trace_first_n = 0; end
 
 cfg.paths = paths;
 
@@ -58,16 +65,26 @@ Task_1(cfg.imu_path, cfg.gnss_path, cfg.method);
 Task_2(cfg.imu_path, cfg.gnss_path, cfg.method);
 Task_3(cfg.imu_path, cfg.gnss_path, cfg.method);
 Task_4(cfg.imu_path, cfg.gnss_path, cfg.method);
-Task_5(cfg.imu_path, cfg.gnss_path, cfg.method);
+% Optionally auto-tune Q/R on a small grid before the final full run
+if cfg.autotune
+    try
+        grid_q = [5, 10, 20, 40];
+        grid_r = [0.25, 0.5, 1.0];
+        [best_q, best_r, report] = task5_autotune(cfg.imu_path, cfg.gnss_path, cfg.method, grid_q, grid_r);
+        fprintf('Auto-tune best: vel_q_scale=%.3f  vel_r=%.3f  (RMSE_pos=%.3f m)\n', report.best_rmse_q, report.best_rmse_r, report.best_rmse);
+        cfg.vel_q_scale = best_q; cfg.vel_r = best_r;
+    catch ME
+        warning('Auto-tune failed: %s. Proceeding with defaults.', ME.message);
+    end
+end
+
+Task_5(cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
+       'vel_q_scale', cfg.vel_q_scale, 'vel_r', cfg.vel_r, 'trace_first_n', cfg.trace_first_n);
 
 % Task 6 can accept either the Task 5 .mat or (imu,gnss,truth) paths — use the version you have:
 if exist('Task_6.m','file')
-    try
-        Task_6([], cfg.imu_path, cfg.gnss_path, cfg.truth_path);
-    catch
-        % fallback signature
-        Task_6(fullfile(cfg.paths.matlab_results, sprintf('%s_task5_results.mat', rid)), cfg.imu_path, cfg.gnss_path, cfg.truth_path);
-    end
+    Task_6(fullfile(cfg.paths.matlab_results, sprintf('%s_task5_results.mat', rid)), ...
+           cfg.imu_path, cfg.gnss_path, cfg.truth_path);
 end
 
 if exist('Task_7.m','file')

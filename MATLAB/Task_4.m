@@ -389,18 +389,26 @@ scale_factors = struct();
 
 for i = 1:length(methods)
     method = methods{i};
-    acc_body_corrected.(method)  = (acc_body_filt - acc_bias) * accel_scale;
-    gyro_body_corrected.(method) = gyro_body_filt - gyro_bias;
-    acc_biases.(method)  = acc_bias';
-    gyro_biases.(method) = gyro_bias';
+    % Recompute biases like Python (static mean vs expected)
+    C_N_B = C_B_N_methods.(method)';
+    g_body_expected = C_N_B * g_NED;                % 3x1
+    omega_ie_body_expected = C_N_B * omega_ie_NED;  % 3x1
+    acc_bias_m  = static_acc' + g_body_expected;    % measured - (-g_exp)
+    gyro_bias_m = static_gyro' - omega_ie_body_expected; % measured - expected
+
+    % Apply bias and scale
+    acc_body_corrected.(method)  = (acc_body_filt - acc_bias_m') * accel_scale;
+    gyro_body_corrected.(method) = gyro_body_filt - gyro_bias_m';
+    acc_biases.(method)  = acc_bias_m;   % column 3x1
+    gyro_biases.(method) = gyro_bias_m;  % column 3x1
     scale_factors.(method) = accel_scale;
 
     fprintf('Method %s: Accelerometer bias: [%10.8f %10.8f %10.8f] (|b|=%.6f m/s^2)\n', ...
-            method, acc_bias', norm(acc_bias));
-    fprintf('Method %s: Gyroscope bias: [% .8e % .8e % .8e]\n', method, gyro_bias');
+            method, acc_bias_m, norm(acc_bias_m));
+    fprintf('Method %s: Gyroscope bias: [% .8e % .8e % .8e]\n', method, gyro_bias_m);
     fprintf('Method %s: Accelerometer scale factor: %.4f\n', method, accel_scale);
 end
-fprintf('-> IMU data corrected for bias and scale for each method.\n');
+fprintf('-> IMU data corrected for bias and scale for each method (Python parity).\n');
 for i = 1:length(methods)
     m = methods{i};
     fprintf('Task 4: applied accelerometer scale factor = %.4f, bias = [% .4f % .4f % .4f]\n', ...
@@ -440,9 +448,9 @@ for i = 1:length(methods)
         q_b_n = propagate_quaternion(q_b_n, w_b, dt_imu);
         C_B_N = quat_to_rot(q_b_n);
 
-        % Rotate measured specific force to NED and subtract gravity
+        % Rotate measured specific force to NED and add gravity (a = f + g)
         f_ned = C_B_N * acc_body_corrected.(method)(k,:)';
-        a_ned = f_ned - g_NED;
+        a_ned = f_ned + g_NED;
         acc(k,:) = a_ned';
         
         % Trapezoidal integration
@@ -590,7 +598,7 @@ for i = 1:length(methods)
     plot_single_method(m, t_imu, t_imu, C_B_N_methods.(m), ...
         gnss_pos_ned_imuT, gnss_vel_ned_imuT, gnss_acc_ned_imuT, ...
         pos_integ.(m), vel_integ.(m), acc_integ.(m), ...
-        acc_body_corrected.(m), run_id, ref_r0, C_ECEF_to_NED, cfg);
+        acc_body_corrected.(m), acc_body_raw, run_id, ref_r0, C_ECEF_to_NED, cfg);
 end
 fprintf('-> All data plots saved for all methods.\n');
 
@@ -797,7 +805,7 @@ function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size,
         start_idx, end_idx, end_idx-start_idx+1, acc_var_sel, gyro_var_sel);
 end
 
-function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned, p_imu, v_imu, a_imu, acc_body_corr, run_id, r0_ecef, C_e2n, cfg)
+function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned, p_imu, v_imu, a_imu, acc_body_corr, acc_body_raw, run_id, r0_ecef, C_e2n, cfg)
     %PLOT_SINGLE_METHOD Helper to produce per-method comparison figures.
     %   PLOT_SINGLE_METHOD(METHOD, T_GNSS, T_IMU, C_B_N, P_GNSS_NED, V_GNSS_NED,
     %   A_GNSS_NED, P_IMU, V_IMU, A_IMU, ACC_BODY_CORR, RUN_ID, R0_ECEF, C_E2N, CFG)
@@ -904,6 +912,7 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
 
         subplot(3,3,i+6); hold on;
         plot(t_imu, acc_body_corr(:,i),'-','Color',fused_col,'DisplayName','Fused');
+        plot(t_imu, acc_body_raw(:,i),'-','Color',[0.8500 0.3250 0.0980],'DisplayName','IMU raw');
         hold off; grid on; legend; title(['Acceleration b' dims_b{i}]); ylabel('m/s^2'); xlabel('Time (s)');
     end
     sgtitle([method ' Data in Body Frame']);
