@@ -13,7 +13,7 @@ def read_truth_state(truth_path: str | Path) -> np.ndarray:
     Parameters
     ----------
     truth_path : str or Path
-        Path to ``STATE_IMU_X001.txt`` or similar.
+        Path to ``STATE_X001.txt``.
 
     Returns
     -------
