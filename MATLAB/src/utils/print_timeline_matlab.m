@@ -24,19 +24,40 @@ function txt = print_timeline_matlab(rid, imu_path, gnss_path, truth_path, resul
                             'dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s'], ...
                             numel(tG), 1/median(dG), median(dG), min(dG), max(dG), tG(end)-tG(1), tG(1), tG(end), logical2str(issorted(tG)));
 
-    % --- TRUTH (optional; handle # comments & headers) ---
-    if exist('read_truth_state','file') && ~isempty(truth_path) && isfile(truth_path)
-        tT = read_truth_state(truth_path);   % returns time vector in seconds
-        dT = diff(tT);
-        hzT = 1/max(eps,median(dT));
-        lines{end+1} = sprintf(['TRUTH | n=%d    hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  ' ...
-                                'dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s'], ...
-                                numel(tT), hzT, median(dT), min(dT), max(dT), tT(end)-tT(1), tT(1), tT(end), logical2str(issorted(tT)));
+    % --- TRUTH (optional) ---
+    if isempty(truth_path) || ~isfile(truth_path)
+        lines{end+1} = 'TRUTH | missing (cfg.truth_path not set or path does not exist).';
     else
-        lines{end+1} = 'TRUTH | present but unreadable (see Notes).';
+        try
+            Truth = TruthLoader(truth_path, struct());
+            if Truth.n > 0
+                dt = diff(Truth.t_posix);
+                hz_est = 1/median(dt);
+                lines{end+1} = sprintf(['TRUTH | n=%d   hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  ' ...
+                                       'dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s'], ...
+                                       Truth.n, hz_est, median(dt), min(dt), max(dt), ...
+                                       Truth.t_posix(end)-Truth.t_posix(1), Truth.t_posix(1), Truth.t_posix(end), logical2str(all(dt>0)));
+            else
+                lines{end+1} = 'TRUTH | found but empty.';
+            end
+        catch ME
+            lines{end+1} = 'TRUTH | present but unreadable.';
+            lines{end+1} = sprintf('[TRUTH diagnostics] %s', ME.message);
+            if isfield(ME,'cause') && ~isempty(ME.cause)
+                for k = 1:numel(ME.cause)
+                    lines{end+1} = sprintf('  cause %d: %s', k, ME.cause{k}.message);
+                end
+            end
+        end
+        if exist('Truth','var') && isfield(Truth,'notes') && ~isempty(Truth.notes)
+            lines{end+1} = 'Notes:';
+            for i = 1:numel(Truth.notes)
+                lines{end+1} = ['  - ' Truth.notes{i}];
+            end
+        end
     end
 
-    % --- Notes (example hook; fill as you like) ---
+    % --- Notes marker ---
     lines{end+1} = '[DATA TIMELINE]';
 
     if ~iscellstr(lines), lines = cellfun(@char, lines, 'UniformOutput', false); end

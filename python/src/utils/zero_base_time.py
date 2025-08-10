@@ -8,18 +8,21 @@ import numpy as np
 def zero_base_time(t: np.ndarray) -> np.ndarray:
     """Return *t* as a float array starting at zero.
 
-    Parameters
-    ----------
-    t : array_like
-        Input time vector in seconds.
-
-    Returns
-    -------
-    np.ndarray
-        Time vector shifted so ``t[0] == 0``. Empty inputs are returned
-        unchanged.
+    Handles :class:`numpy.datetime64` inputs and leading ``NaN`` values.
+    Raises ``ValueError`` if the input is empty or all ``NaN``.
     """
-    t = np.asarray(t, dtype=float).reshape(-1)
-    if t.size == 0:
-        return t
-    return t - t[0]
+    arr = np.asarray(t)
+    if arr.size == 0:
+        raise ValueError("zero_base_time: empty input")
+
+    if np.issubdtype(arr.dtype, np.datetime64):
+        arr = arr.astype("datetime64[s]").astype(float)
+    else:
+        arr = arr.astype(float)
+
+    mask = ~np.isnan(arr)
+    if not np.any(mask):
+        raise ValueError("zero_base_time: all NaN input")
+
+    arr = arr[mask]
+    return arr - arr[0]

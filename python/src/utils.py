@@ -14,9 +14,26 @@ import logging
 
 
 def zero_base_time(t):
-    """Return time vector shifted to start at zero."""
-    t = np.asarray(t, dtype=np.float64)
-    return t - t[0]
+    """Return time vector shifted to start at zero.
+
+    Handles ``datetime64`` inputs and leading ``NaN`` values.
+    Raises ``ValueError`` if the input is empty or all ``NaN``.
+    """
+    arr = np.asarray(t)
+    if arr.size == 0:
+        raise ValueError("zero_base_time: empty input")
+
+    if np.issubdtype(arr.dtype, np.datetime64):
+        arr = arr.astype("datetime64[s]").astype(float)
+    else:
+        arr = arr.astype(float)
+
+    mask = ~np.isnan(arr)
+    if not np.any(mask):
+        raise ValueError("zero_base_time: all NaN input")
+
+    arr = arr[mask]
+    return arr - arr[0]
 
 
 def get_data_file(filename: str) -> pathlib.Path:
