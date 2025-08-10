@@ -35,6 +35,33 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
+import sys as _sys
+_sys.path.append(str(Path(__file__).resolve().parent / "utils"))
+from timeline import print_timeline_summary as _print_timeline  # type: ignore
+
+
+# --- truth path resolver (auto + env override) ---
+def _resolve_truth_path(defaults=None):
+    import os
+    from pathlib import Path
+    env = os.getenv("IMU_TRUTH_PATH")
+    if env and Path(env).exists():
+        return env
+    root = Path(__file__).resolve().parents[2] if len(Path(__file__).resolve().parents) >= 2 else Path.cwd()
+    cands = (defaults or []) + [
+        root / "DATA" / "TRUTH" / "STATE_X001.txt",
+        root / "DATA" / "TRUTH" / "STATE_X001_small.txt",
+    ]
+    for c in cands:
+        c = Path(c)
+        if c.exists():
+            return str(c)
+    base = root / "DATA" / "TRUTH"
+    if base.exists():
+        m = list(base.glob("STATE_*.txt"))
+        if m:
+            return str(m[0])
+    return None
 
 
 def _as_timeseries(C, N):
@@ -216,6 +243,14 @@ def main():
     gnss_stem = Path(gnss_file).stem
     tag = TAG(imu=imu_stem, gnss=gnss_stem, method=method)
     summary_tag = f"{imu_stem}_{gnss_stem}"
+
+    # --- Timeline summary (auto) ---
+    try:
+        _truth = _resolve_truth_path()
+        _run_id = f"{Path(imu_file).stem}_{Path(gnss_file).stem}_{method}"
+        _print_timeline(_run_id, str(Path(imu_file)), str(Path(gnss_file)), _truth, out_dir="results")
+    except Exception as _e:  # pragma: no cover - best effort
+        print(f"[Timeline] skipped: {_e}")
 
     logging.info(f"Running attitude-estimation method: {method}")
 
