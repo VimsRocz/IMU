@@ -266,6 +266,10 @@ catch
     R(4:6,4:6) = eye(3) * 0.25;
     fprintf('Auto-tune failed; using default Q/R\n');
 end
+% Enforce Python parity for velocity blocks
+Q(4:6,4:6) = eye(3) * 0.1;
+R(4:6,4:6) = eye(3) * 0.25;
+fprintf('Task-5: Q_vel=0.100, R_vel=0.250 (Python parity)\n');
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
