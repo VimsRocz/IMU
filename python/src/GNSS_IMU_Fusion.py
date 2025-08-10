@@ -34,7 +34,7 @@ import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
 
-from scripts.plot_utils import save_plot
+from scripts.plot_utils import save_plot, plot_attitude
 from utils import (
     is_static,
     compute_C_ECEF_to_NED,
@@ -223,7 +223,6 @@ def main():
         ecef_origin,
     ) = compute_reference_vectors(gnss_file, args.mag_file)
     lat = np.deg2rad(lat_deg)
-    _lon = np.deg2rad(lon_deg)
     logging.info(
         f"Computed initial latitude: {lat_deg:.6f}°, longitude: {lon_deg:.6f}° from GNSS"
     )
@@ -1338,8 +1337,8 @@ def main():
         kf.Q = np.eye(13) * 0.01  # process noise base [m^2/s^2]
         kf.Q[3:6, 3:6] *= args.vel_q_scale
         kf.R[3:6, 3:6] = np.eye(3) * args.vel_r
-        logging.info(f"Adjusted Q[3:6,3:6]: {kf.Q[3:6,3:6]}")
-        logging.info(f"Adjusted R[3:6,3:6]: {kf.R[3:6,3:6]}")
+        logging.info(f"Adjusted Q[3:6, 3:6]: {kf.Q[3:6, 3:6]}")
+        logging.info(f"Adjusted R[3:6, 3:6]: {kf.R[3:6, 3:6]}")
         fused_pos[m][0] = imu_pos[m][0]
         fused_vel[m][0] = imu_vel[m][0]
         fused_acc[m][0] = imu_acc[m][0]
@@ -1444,7 +1443,7 @@ def main():
                 # during long runs. Use DEBUG level so it only appears when
                 # explicitly requested.
                 logging.debug(
-                    f"ZUPT applied at {imu_time[i]:.2f}s (window {i-win+1}-{i})"
+                    f"ZUPT applied at {imu_time[i]:.2f}s (window {i - win + 1}-{i})"
                 )
 
             fused_pos[m][i] = kf.x[0:3]
@@ -1855,6 +1854,7 @@ def main():
         f"{tag}_task5_all_ned.pdf": "Kalman filter results in NED frame",
         f"{tag}_task5_all_ecef.pdf": "Kalman filter results in ECEF frame",
         f"{tag}_task5_all_body.pdf": "Kalman filter results in body frame",
+        f"{tag}_task6_attitude_angles_NED.pdf": "Attitude angles over time in NED frame",
     }
     summary_path = os.path.join("results", f"{tag}_plot_summary.md")
     with open(summary_path, "w") as f:
@@ -1887,21 +1887,11 @@ def main():
     gyro_bias = gyro_biases.get(method, np.zeros(3))
 
     # --- Attitude angles ----------------------------------------------------
-    euler = R.from_quat(attitude_q_all[method]).as_euler("xyz", degrees=True)
     if not args.no_plots:
-        plt.figure()
-        plt.plot(imu_time, euler[:, 0], label="Roll")
-        plt.plot(imu_time, euler[:, 1], label="Pitch")
-        plt.plot(imu_time, euler[:, 2], label="Yaw")
-        plt.xlabel("Time (s)")
-        plt.ylabel("Angle (deg)")
-        plt.legend(loc="best")
-        plt.title(f"Task 6: {tag} Attitude Angles")
-        png = Path("results") / f"{tag}_task6_attitude_angles.png"
-        pdf = png.with_suffix(".pdf")
-        plt.savefig(png)
-        plt.savefig(pdf)
-        plt.close()
+        base = Path("results") / f"{tag}_task6_attitude_angles_NED"
+        title = f"Task 6: {tag} Attitude Angles (NED)"
+        plot_attitude(imu_time, attitude_q_all[method], base.with_suffix(".png"), title=title)
+        plot_attitude(imu_time, attitude_q_all[method], base.with_suffix(".pdf"), title=title)
 
     C_NED_to_ECEF = C_ECEF_to_NED.T
     pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
@@ -2075,7 +2065,7 @@ def main():
         f"rms_resid_pos={rms_resid_pos:7.2f}m max_resid_pos={max_resid_pos:7.2f}m "
         f"rms_resid_vel={rms_resid_vel:7.2f}m max_resid_vel={max_resid_vel:7.2f}m "
         f"accel_bias={np.linalg.norm(accel_bias):.4f} gyro_bias={np.linalg.norm(gyro_bias):.4f} "
-        f"ZUPT_count={zupt_counts.get(method,0)} "
+        f"ZUPT_count={zupt_counts.get(method, 0)} "
         f"GravErrMean_deg={grav_err_mean:.6f} GravErrMax_deg={grav_err_max:.6f} "
         f"EarthRateErrMean_deg={omega_err_mean:.6f} EarthRateErrMax_deg={omega_err_max:.6f}"
     )
