@@ -1,7 +1,6 @@
-"""Utilities for locating the canonical truth file.
+"""Resolve paths to truth dataset files.
 
-This mirrors ``MATLAB/src/utils/resolve_truth_path.m`` and returns the
-preferred path for the truth file if it exists.
+Searches DATA/TRUTH then repository root for a given file name.
 """
 
 from __future__ import annotations
@@ -9,16 +8,23 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def resolve_truth_path() -> str | None:
-    """Resolve the path to the truth file.
-
-    Returns the canonical truth file path if found, otherwise ``None``.
-    """
-
-    preferred = Path("/Users/vimalchawda/Desktop/IMU/STATE_X001.txt")
-
-    if preferred.is_file():
-        print(f"Using TRUTH: {preferred}")
-        return str(preferred)
-
+def _truth_candidates(name: str) -> Path | None:
+    repo = Path(__file__).resolve().parents[3]
+    for d in [repo / "DATA" / "TRUTH", repo]:
+        p = d / name
+        if p.exists():
+            return p
     return None
+
+
+def resolve_truth_path(truth_path: str) -> Path:
+    """Return absolute path to *truth_path*.
+
+    Parameters
+    ----------
+    truth_path : str
+        Absolute path, relative path, or bare filename for a truth file.
+    """
+    p = Path(truth_path)
+    cand = _truth_candidates(p.name)
+    return cand if cand else p.resolve()
