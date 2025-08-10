@@ -51,8 +51,8 @@ functions (Tasks 1–6) and the proposed MATLAB script follows the same structu
    to Python.  Biases computed in Task 2 are used as initial state estimates.  The Kalman
    filter outputs the fused position/velocity and state history (`x_log`).
 
-6. **Task 6 – Truth overlay and validation**:  
-   Loads the truth trajectory (ECEF position and velocity) from `STATE_IMU_X001.txt` (the only
+6. **Task 6 – Truth overlay and validation**:
+   Loads the truth trajectory (ECEF position and velocity) from `STATE_X001.txt` (the only
    available truth file), converts it to the same frame as the fused data and compares
    position, velocity and acceleration over time.  Computes root mean square errors (RMSEs)
    and final errors, and plots 3 × 3 subplots of the difference between fused data and truth in
@@ -66,7 +66,7 @@ The tasks are executed sequentially in the MATLAB script.  Intermediate results 
 ### 2.1 File Names and Paths
 
 The IMU and GNSS data are stored in plain‑text files `IMU_X002.dat` and `GNSS_X002.csv`.
-The truth file is `STATE_IMU_X001.txt` (for dataset X002 we reuse the truth from X001).  The
+The truth file is `STATE_X001.txt` (for dataset X002 we reuse the truth from X001).  The
 Python code expects the files in the repository root; the MATLAB script uses the same
 convention.  All results are saved in `MATLAB/results/` to keep them separate from Python
 outputs (`results/`).
@@ -84,7 +84,7 @@ outputs (`results/`).
   `X_ECEF_m`, `Y_ECEF_m`, `Z_ECEF_m`, and GNSS velocities.  It also records the `Posix_Time`
   to use as absolute time for GNSS measurements.
 
-- **Truth file (`STATE_IMU_X001.txt`)**:  It is a whitespace‑delimited text file where the first
+- **Truth file (`STATE_X001.txt`)**:  It is a whitespace‑delimited text file where the first
   column is time, and subsequent columns are ECEF position and velocity components.  The
   MATLAB script reads it with `readmatrix`, ignoring lines beginning with `#` (comments).  The
   truth trajectory is used only in Task 6; tasks 1–5 do not require truth data.
@@ -144,7 +144,7 @@ function run_triad_only()
     cfg.dataset_id = 'X002';
     cfg.imu_file   = 'IMU_X002.dat';
     cfg.gnss_file  = 'GNSS_X002.csv';
-    cfg.truth_file = 'STATE_IMU_X001.txt';  % reuse truth from X001
+    cfg.truth_file = 'STATE_X001.txt';  % reuse truth from X001
     cfg.method     = 'TRIAD';
     cfg.dt_imu     = 0.0025;  % 400 Hz
 
