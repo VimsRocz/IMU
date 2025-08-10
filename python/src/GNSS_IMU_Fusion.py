@@ -20,6 +20,8 @@ import logging
 import sys
 import os
 import io
+import shutil
+import tempfile
 from pathlib import Path
 
 if __package__ is None:
@@ -1910,9 +1912,9 @@ def main():
     pos_body = (C_N_B @ fused_pos[method].T).T
     vel_body = (C_N_B @ fused_vel[method].T).T
 
-    np.savez_compressed(
-        f"results/{tag}_kf_output.npz",
-        summary=dict(
+    npz_path = Path("results") / f"{tag}_kf_output.npz"
+    npz_content = {
+        "summary": dict(
             rmse_pos=rmse_pos,
             final_pos=final_pos,
             grav_err_mean=grav_err_mean,
@@ -1921,31 +1923,53 @@ def main():
             earth_rate_err_max=omega_err_max,
             vel_blow_events=vel_blow_count,
         ),
-        time=imu_time,
-        pos_ned=fused_pos[method],
-        vel_ned=fused_vel[method],
-        fused_pos=fused_pos[method],
-        fused_vel=fused_vel[method],
-        pos_ecef=pos_ecef,
-        vel_ecef=vel_ecef,
-        truth_pos_ecef=pos_truth_ecef if pos_truth_ecef is not None else np.array([]),
-        truth_vel_ecef=vel_truth_ecef if vel_truth_ecef is not None else np.array([]),
-        truth_time=t_truth if t_truth is not None else np.array([]),
-        pos_body=pos_body,
-        vel_body=vel_body,
-        innov_pos=innov_pos_all[method],
-        innov_vel=innov_vel_all[method],
-        euler=euler_all[method],
-        residual_pos=res_pos_all[method],
-        residual_vel=res_vel_all[method],
-        time_residuals=time_res_all[method],
-        attitude_q=attitude_q_all[method],
-        P_hist=P_hist_all[method],
-        x_log=x_log_all[method],
-        ref_lat=np.array([ref_lat]),
-        ref_lon=np.array([ref_lon]),
-        ref_r0=ref_r0,
-    )
+        "time": imu_time,
+        "pos_ned": fused_pos[method],
+        "vel_ned": fused_vel[method],
+        "fused_pos": fused_pos[method],
+        "fused_vel": fused_vel[method],
+        "pos_ecef": pos_ecef,
+        "vel_ecef": vel_ecef,
+        "truth_pos_ecef": pos_truth_ecef if pos_truth_ecef is not None else np.array([]),
+        "truth_vel_ecef": vel_truth_ecef if vel_truth_ecef is not None else np.array([]),
+        "truth_time": t_truth if t_truth is not None else np.array([]),
+        "pos_body": pos_body,
+        "vel_body": vel_body,
+        "innov_pos": innov_pos_all[method],
+        "innov_vel": innov_vel_all[method],
+        "euler": euler_all[method],
+        "residual_pos": res_pos_all[method],
+        "residual_vel": res_vel_all[method],
+        "time_residuals": time_res_all[method],
+        "attitude_q": attitude_q_all[method],
+        "P_hist": P_hist_all[method],
+        "x_log": x_log_all[method],
+        "ref_lat": np.array([ref_lat]),
+        "ref_lon": np.array([ref_lon]),
+        "ref_r0": ref_r0,
+    }
+
+    with io.BytesIO() as buf:
+        np.savez_compressed(buf, **npz_content)
+        required_bytes = buf.tell()
+    free_bytes = shutil.disk_usage(npz_path.parent).free
+    if free_bytes < required_bytes:
+        alt_dir = Path(tempfile.gettempdir())
+        logging.warning(
+            "Insufficient disk space in '%s' (required %d bytes, available %d bytes). Saving to '%s' instead.",
+            npz_path.parent,
+            required_bytes,
+            free_bytes,
+            alt_dir,
+        )
+        npz_path = alt_dir / npz_path.name
+    try:
+        np.savez_compressed(npz_path, **npz_content)
+    except OSError as exc:
+        if getattr(exc, "errno", None) == 28:
+            logging.error("Failed to save %s: no space left on device", npz_path)
+        else:
+            raise
 
     # Also export results as MATLAB-compatible .mat for post-processing
     from utils import save_mat
