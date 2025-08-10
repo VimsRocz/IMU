@@ -639,6 +639,8 @@ pos_interp = interp1(imu_time, x_log(1:3,:)', gnss_time, 'linear', 'extrap');
 vel_interp = interp1(imu_time, x_log(4:6,:)', gnss_time, 'linear', 'extrap');
 res_pos = pos_interp - gnss_pos_ned;
 res_vel = vel_interp - gnss_vel_ned;
+acc_interp = interp1(imu_time, accel_from_vel', gnss_time, 'linear', 'extrap');
+res_acc = acc_interp - gnss_accel_ned;
 rmse_pos = sqrt(mean(sum(res_pos.^2,2)));
 rmse_vel = sqrt(mean(sum(res_vel.^2,2)));
 % Both vectors are 3x1 column vectors so avoid an extra transpose which
@@ -662,20 +664,55 @@ fprintf('Position: North=%.4f, East=%.4f, Down=%.4f\n', ...
         x_log(1,end), x_log(2,end), x_log(3,end));
 fprintf('RMSE_pos: %.4f\n', rmse_pos);
 
-% --- Plot: Position Residuals ---
-figure('Name', 'KF Results: Position Residuals', 'Position', [150 150 1200 600]);
-err_labels = {'N', 'E', 'D'};
-for i = 1:3
-    subplot(3,1,i);
-    plot(gnss_time, res_pos(:,i), 'b-');
-    grid on; ylabel('[m]'); title(['Residual ' err_labels{i}]);
+% --- Plot: State Residuals in NED, ECEF and Body frames ---
+C_NED_to_ECEF = C_ECEF_to_NED';
+res_pos_ecef = (C_NED_to_ECEF * res_pos')';
+res_vel_ecef = (C_NED_to_ECEF * res_vel')';
+res_acc_ecef = (C_NED_to_ECEF * res_acc')';
+
+eul_interp = interp1(imu_time, euler_log', gnss_time, 'linear', 'extrap')';
+res_pos_body = zeros(size(res_pos));
+res_vel_body = zeros(size(res_vel));
+res_acc_body = zeros(size(res_acc));
+for k = 1:length(gnss_time)
+    C_B_N = euler_to_rot(eul_interp(:,k));
+    C_N_B = C_B_N';
+    res_pos_body(k,:) = (C_N_B * res_pos(k,:)')';
+    res_vel_body(k,:) = (C_N_B * res_vel(k,:)')';
+    res_acc_body(k,:) = (C_N_B * res_acc(k,:)')';
 end
-xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
-% err_file = fullfile(results_dir, sprintf('%s_Task5_ErrorAnalysis.pdf', tag));
-% set(gcf,'PaperPositionMode','auto');
-% print(gcf, err_file, '-dpdf', '-bestfit');
-% fprintf('Saved plot: %s\n', err_file);
-% exportgraphics(gcf, all_file, 'Append', true);
+
+fig_res = figure('Name', 'KF Results: State Residuals', 'Position', [100 100 1200 900]);
+frames = {'NED', 'ECEF', 'Body'};
+states = {'Position', 'Velocity', 'Acceleration'};
+axis_labels = {'N/E/D', 'X/Y/Z', 'X/Y/Z'};
+res_map = {res_pos, res_vel, res_acc; res_pos_ecef, res_vel_ecef, res_acc_ecef; res_pos_body, res_vel_body, res_acc_body};
+for r = 1:3
+    for c = 1:3
+        subplot(3,3,(r-1)*3+c);
+        res_mat = res_map{c,r};
+        plot(gnss_time, res_mat(:,1), 'r-', gnss_time, res_mat(:,2), 'g-', gnss_time, res_mat(:,3), 'b-');
+        grid on;
+        if r == 1
+            title(frames{c});
+        end
+        if c == 1
+            ylabel(sprintf('%s Residual', states{r}));
+        end
+        if r == 3
+            xlabel('Time (s)');
+        end
+        legend(strsplit(axis_labels{c}, '/'), 'Location', 'best');
+    end
+end
+sgtitle('State Residuals (KF - GNSS)');
+base = sprintf('%s_%s_%s_task5_state_residuals', imu_name, gnss_name, method);
+pdf_path = fullfile(results_dir, [base '.pdf']);
+png_path = fullfile(results_dir, [base '.png']);
+set(fig_res, 'PaperPositionMode', 'auto');
+print(fig_res, pdf_path, '-dpdf', '-bestfit');
+exportgraphics(fig_res, png_path, 'Resolution', 300);
+fprintf('Saved plot to %s and %s\n', pdf_path, png_path);
 summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%8.2fm ' ...
     'final_pos=%8.2fm rms_vel=%8.2fm/s final_vel=%8.2fm/s ' ...
     'rms_resid_pos=%8.2fm max_resid_pos=%8.2fm ' ...

@@ -2058,17 +2058,38 @@ def main():
 
         pos_f = interpolate_series(gnss_time, imu_time, fused_pos[method])
         vel_f = interpolate_series(gnss_time, imu_time, fused_vel[method])
+        acc_f = interpolate_series(gnss_time, imu_time, fused_acc[method])
         save_velocity_profile(gnss_time, vel_f, gnss_vel_ned)
-        save_residual_plots(
-            gnss_time,
-            pos_f,
-            gnss_pos_ned,
-            vel_f,
-            gnss_vel_ned,
-            tag,
-        )
 
-        save_attitude_over_time(imu_time, euler_deg, dataset_id, method)
+        # Residuals in NED frame
+        res_pos_ned = pos_f - gnss_pos_ned
+        res_vel_ned = vel_f - gnss_vel_ned
+        res_acc_ned = acc_f - gnss_acc_ned
+
+        # Transform residuals to ECEF frame
+        C_NED_to_ECEF = C_ECEF_to_NED.T
+        res_pos_ecef = (C_NED_to_ECEF @ res_pos_ned.T).T
+        res_vel_ecef = (C_NED_to_ECEF @ res_vel_ned.T).T
+        res_acc_ecef = (C_NED_to_ECEF @ res_acc_ned.T).T
+
+        # Transform residuals to Body frame using interpolated attitude
+        C_N_B_imu = C_B_N_methods[method].transpose(0, 2, 1)
+        C_N_B_gnss = np.zeros((len(gnss_time), 3, 3))
+        for i in range(3):
+            for j in range(3):
+                C_N_B_gnss[:, i, j] = np.interp(gnss_time, imu_time, C_N_B_imu[:, i, j])
+        res_pos_body = np.einsum("nij,nj->ni", C_N_B_gnss, res_pos_ned)
+        res_vel_body = np.einsum("nij,nj->ni", C_N_B_gnss, res_vel_ned)
+        res_acc_body = np.einsum("nij,nj->ni", C_N_B_gnss, res_acc_ned)
+
+        residuals = {
+            "NED": {"position": res_pos_ned, "velocity": res_vel_ned, "acceleration": res_acc_ned},
+            "ECEF": {"position": res_pos_ecef, "velocity": res_vel_ecef, "acceleration": res_acc_ecef},
+            "Body": {"position": res_pos_body, "velocity": res_vel_body, "acceleration": res_acc_body},
+        }
+        save_residual_plots(gnss_time, residuals, tag)
+
+        save_attitude_over_time(imu_time, {"NED": euler_deg}, dataset_id, method)
 
         plot_all_methods(
             imu_time,
