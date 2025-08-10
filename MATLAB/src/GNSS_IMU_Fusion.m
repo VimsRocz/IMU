@@ -26,6 +26,8 @@ results_dir = get_results_dir();
 if ~exist(results_dir,'dir')
     mkdir(results_dir);
 end
+% TODO: Add disk space availability checks before writing result files to
+% mirror the Python implementation.
 
 Task_1(imu_file, gnss_file, method);
 Task_2(imu_file, gnss_file, method);
