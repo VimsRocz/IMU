@@ -6,9 +6,11 @@ import matplotlib.pyplot as plt
 import os
 import argparse
 from pathlib import Path
+from paths import GNSS, OUT
 
 # --- plotting output configuration ----------------------------------------
-os.makedirs("results", exist_ok=True)
+OUT.mkdir(parents=True, exist_ok=True)
+os.chdir(OUT)
 DATASET_ID = "X001"
 METHOD = "TRIAD"
 TAG = f"{DATASET_ID}_{METHOD}"
@@ -24,23 +26,11 @@ parser.add_argument(
     action="store_true",
     help="Display plots interactively instead of closing them",
 )
-parser.add_argument(
-    "--trace-first-n",
-    type=int,
-    default=0,
-    help="Save first N Kalman filter steps for debugging (stub)",
-)
 args = parser.parse_args()
 INTERACTIVE = args.interactive
-TRACE_FIRST_N = args.trace_first_n
-if TRACE_FIRST_N:
-    logging.info(
-        "Tracing first %d filter steps (Python stub, not yet implemented)",
-        TRACE_FIRST_N,
-    )
 
-from src.constants import EARTH_RATE
-from src.utils import compute_C_ECEF_to_NED, zero_base_time
+from constants import EARTH_RATE
+from utils import compute_C_ECEF_to_NED, zero_base_time
 
 # Setup logging
 logging.basicConfig(
@@ -77,7 +67,7 @@ logging.info("TASK 1: Define reference vectors in NED frame")
 # --------------------------------
 logging.info("Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.")
 try:
-    gnss_data = pd.read_csv("GNSS_X001.csv")
+    gnss_data = pd.read_csv(GNSS / "GNSS_X001.csv")
 except Exception as e:
     logging.error(f"Failed to load GNSS data file: {e}")
     raise
@@ -180,7 +170,7 @@ ax.text(
 
 # Set plot title and save
 plt.title("Initial Location on Earth Map")
-loc_pdf = Path("results") / f"{TAG}_task1_location_map.pdf"
+loc_pdf = OUT / f"{TAG}_task1_location_map.pdf"
 plt.savefig(loc_pdf)
 if INTERACTIVE:
     plt.show()
@@ -619,12 +609,12 @@ axes[1].set_ylabel("Error (degrees)")
 axes[1].legend()
 
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task3_errors_comparison.pdf")
+plt.savefig(f"{TAG}_task3_errors_comparison.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
-    f"Error comparison plot saved as 'results/{TAG}_task3_errors_comparison.pdf'"
+    f"Error comparison plot saved as '{TAG}_task3_errors_comparison.pdf'"
 )
 
 # Collect quaternion data for both cases
@@ -656,12 +646,12 @@ ax.set_title("Quaternion Components for Each Method and Case")
 ax.legend()
 
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task3_quaternions_comparison.pdf")
+plt.savefig(f"{TAG}_task3_quaternions_comparison.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
-    f"Quaternion comparison plot saved as 'results/{TAG}_task3_quaternions_comparison.pdf'"
+    f"Quaternion comparison plot saved as '{TAG}_task3_quaternions_comparison.pdf'"
 )
 
 # --------------------------------
@@ -928,12 +918,12 @@ for j in range(3):
     ax.set_ylabel("Acceleration (m/s²)")
     ax.legend()
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task4_comparison_ned.pdf")
+plt.savefig(f"{TAG}_task4_comparison_ned.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
-    f"Comparison plot in NED frame saved as 'results/{TAG}_task4_comparison_ned.pdf'"
+    f"Comparison plot in NED frame saved as '{TAG}_task4_comparison_ned.pdf'"
 )
 
 # Plot 1: Data in mixed frames (GNSS position/velocity in ECEF, IMU acceleration in body)
@@ -965,11 +955,11 @@ for i in range(3):
         ax.set_ylabel("Value")
         ax.legend()
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task4_mixed_frames.pdf")
+plt.savefig(f"{TAG}_task4_mixed_frames.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
-logging.info(f"Mixed frames plot saved as 'results/{TAG}_task4_mixed_frames.pdf'")
+logging.info(f"Mixed frames plot saved as '{TAG}_task4_mixed_frames.pdf'")
 
 # Plot 2: All data in NED frame
 logging.info("Plotting all data in NED frame.")
@@ -999,11 +989,11 @@ for i in range(3):
         ax.set_ylabel("Value")
         ax.legend()
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task4_all_ned.pdf")
+plt.savefig(f"{TAG}_task4_all_ned.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
-logging.info(f"All data in NED frame plot saved as 'results/{TAG}_task4_all_ned.pdf'")
+logging.info(f"All data in NED frame plot saved as '{TAG}_task4_all_ned.pdf'")
 
 # Plot 3: All data in ECEF frame
 logging.info("Plotting all data in ECEF frame.")
@@ -1034,11 +1024,11 @@ for i in range(3):
         ax.set_ylabel("Value")
         ax.legend()
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task4_all_ecef.pdf")
+plt.savefig(f"{TAG}_task4_all_ecef.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
-logging.info(f"All data in ECEF frame plot saved as 'results/{TAG}_task4_all_ecef.pdf'")
+logging.info(f"All data in ECEF frame plot saved as '{TAG}_task4_all_ecef.pdf'")
 
 # Plot 4: All data in body frame
 logging.info("Plotting all data in body frame.")
@@ -1069,11 +1059,11 @@ for i in range(3):
         ax.set_ylabel("Value")
         ax.legend()
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task4_all_body.pdf")
+plt.savefig(f"{TAG}_task4_all_body.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
-logging.info(f"All data in body frame plot saved as 'results/{TAG}_task4_all_body.pdf'")
+logging.info(f"All data in body frame plot saved as '{TAG}_task4_all_body.pdf'")
 
 
 import numpy as np
@@ -1391,12 +1381,12 @@ for j in range(3):
     )
 
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task5_results_TRIAD.pdf")
+plt.savefig(f"{TAG}_task5_results_TRIAD.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
-    f"Subtask 5.8.1: TRIAD plot saved as 'results/{TAG}_task5_results_TRIAD.pdf'"
+    f"Subtask 5.8.1: TRIAD plot saved as '{TAG}_task5_results_TRIAD.pdf'"
 )
 print("# Subtask 5.8.1: TRIAD plotting completed.")
 
@@ -1441,7 +1431,7 @@ axes[1].set_title("Velocity Residuals vs. Time")
 axes[1].legend(loc="best")
 
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_residuals.pdf")
+plt.savefig(f"{TAG}_residuals.pdf")
 plt.close()
 
 # Compute attitude angles (roll, pitch, yaw) for the selected method
@@ -1458,5 +1448,5 @@ plt.ylabel("Angle (deg)")
 plt.title("Attitude Angles vs. Time")
 plt.legend(loc="best")
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_attitude_angles.pdf")
+plt.savefig(f"{TAG}_attitude_angles.pdf")
 plt.close()

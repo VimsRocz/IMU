@@ -6,8 +6,13 @@ function run_triad_only(cfg)
 %   run_triad_only(struct(''dataset_id'',''X002''));
 
 % ---- paths / utils ----
-% Ensure utils are on the path before calling project_paths
-here = fileparts(mfilename('fullpath'));  % .../MATLAB
+% Determine repository layout and ensure utils are available
+here = fileparts(mfilename('fullpath'));       % .../MATLAB/src
+repo_root  = fileparts(fileparts(here));       % repo root
+data_dir   = fullfile(repo_root, 'DATA');
+matlab_out = fullfile(repo_root, 'MATLAB', 'results');
+if ~exist(matlab_out, 'dir'); mkdir(matlab_out); end
+
 utils_candidates = {
     fullfile(here,'utils'),
     fullfile(here,'src','utils'),
@@ -20,7 +25,7 @@ for i = 1:numel(utils_candidates)
         addpath(p);
     end
 end
-paths = project_paths();  % adds utils; returns root/matlab/results
+paths = struct('root', repo_root, 'matlab_results', matlab_out);
 if nargin==0 || isempty(cfg), cfg = struct(); end
 
 % ---- config (explicit, no hidden defaults) ----
@@ -43,22 +48,20 @@ if ~isfield(cfg,'vel_q_scale'), cfg.vel_q_scale = 10.0; end
 if ~isfield(cfg,'vel_r'),       cfg.vel_r       = 0.25; end
 % Optional auto-tune flag
 if ~isfield(cfg,'autotune'),    cfg.autotune    = true; end
-% Optional trace capture (first N KF steps)
-if ~isfield(cfg,'trace_first_n'), cfg.trace_first_n = 0; end
 
 cfg.paths = paths;
 
-% ---- resolve inputs (copy to root if found elsewhere) ----
-cfg.imu_path   = ensure_input_file('IMU',   cfg.imu_file,   cfg.paths);
-cfg.gnss_path  = ensure_input_file('GNSS',  cfg.gnss_file,  cfg.paths);
-cfg.truth_path = ensure_input_file('TRUTH', cfg.truth_file, cfg.paths);
+% ---- resolve inputs from DATA directory ----
+cfg.imu_path   = fullfile(data_dir, 'IMU',   cfg.imu_file);
+cfg.gnss_path  = fullfile(data_dir, 'GNSS',  cfg.gnss_file);
+cfg.truth_path = fullfile(data_dir, 'TRUTH', cfg.truth_file);
 
 % ---- run id + timeline (before tasks) ----
 rid = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
-print_timeline_matlab(rid, cfg.imu_path, cfg.gnss_path, cfg.truth_path, cfg.paths.matlab_results);
+print_timeline_matlab(rid, cfg.imu_path, cfg.gnss_path, cfg.truth_path, matlab_out);
 
 fprintf('▶ %s\n', rid);
-fprintf('MATLAB results dir: %s\n', cfg.paths.matlab_results);
+fprintf('MATLAB results dir: %s\n', matlab_out);
 
 % ---- Tasks 1..7 (compulsory) ----
 Task_1(cfg.imu_path, cfg.gnss_path, cfg.method);
@@ -79,11 +82,11 @@ if cfg.autotune
 end
 
 Task_5(cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
-       'vel_q_scale', cfg.vel_q_scale, 'vel_r', cfg.vel_r, 'trace_first_n', cfg.trace_first_n);
+       'vel_q_scale', cfg.vel_q_scale, 'vel_r', cfg.vel_r);
 
 % Task 6 can accept either the Task 5 .mat or (imu,gnss,truth) paths — use the version you have:
 if exist('Task_6.m','file')
-    Task_6(fullfile(cfg.paths.matlab_results, sprintf('%s_task5_results.mat', rid)), ...
+    Task_6(fullfile(matlab_out, sprintf('%s_task5_results.mat', rid)), ...
            cfg.imu_path, cfg.gnss_path, cfg.truth_path);
 end
 
