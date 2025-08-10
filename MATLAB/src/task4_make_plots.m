@@ -48,21 +48,21 @@ for i=1:3
     plot(tG, S.gnss_pos_ned(:,i), 'k-', 'LineWidth', lw1); hold on;
     plot(tI, S.imu_pos_g(:,i),    ':', 'LineWidth', lw2, 'Color', colIMU);
     grid on; xlabel('Time [s]'); ylabel('Position [m]'); title(labsP{i});
-    legend('Derived GNSS','Derived IMU (TRIAD)','Location','best'); legend boxoff; axis tight;
+    legend('GNSS (measured)','IMU (derived)','Location','best'); legend boxoff; axis tight;
 end
 for i=1:3
     nexttile;
     plot(tG, S.gnss_vel_ned(:,i), 'k-', 'LineWidth', lw1); hold on;
     plot(tI, S.imu_vel_g(:,i),    ':', 'LineWidth', lw2, 'Color', colIMU);
     grid on; xlabel('Time [s]'); ylabel('Velocity [m/s]'); title(labsV{i});
-    legend('Derived GNSS','Derived IMU (TRIAD)','Location','best'); legend boxoff; axis tight;
+    legend('GNSS (measured)','IMU (derived)','Location','best'); legend boxoff; axis tight;
 end
 for i=1:3
     nexttile;
     plot(tG, S.gnss_acc_ned(:,i), '--', 'Color',[0.4 0.4 0.4], 'LineWidth', lw1); hold on;
     plot(tI, S.imu_acc_g(:,i),     '-',  'LineWidth', lw2, 'Color', colIMU);
     grid on; xlabel('Time [s]'); ylabel('Acceleration [m/s^2]'); title(labsA{i});
-    legend('Derived GNSS','Derived IMU (TRIAD)','Location','best'); legend boxoff; axis tight;
+    legend('GNSS (measured)','IMU (derived)','Location','best'); legend boxoff; axis tight;
 end
 sgtitle('Task 4 – TRIAD – NED Frame (IMU-derived vs. Measured GNSS)');
 linkaxes(findall(gcf,'type','axes'),'x');
@@ -101,21 +101,21 @@ for i=1:3
     plot(tG, p_ecef_gnss(:,i), 'k-', 'LineWidth', lw1); hold on;
     plot(tI, p_ecef_imu(:,i),  ':', 'LineWidth', lw2, 'Color', colIMU);
     grid on; xlabel('Time [s]'); ylabel('Position [m]'); title(labsP{i});
-    legend('Measured GNSS','Derived IMU (TRIAD)','Location','best'); legend boxoff; axis tight;
+    legend('GNSS (measured)','IMU (derived)','Location','best'); legend boxoff; axis tight;
 end
 for i=1:3
     nexttile;
     plot(tG, v_ecef_gnss(:,i), 'k-', 'LineWidth', lw1); hold on;
     plot(tI, v_ecef_imu(:,i),  ':', 'LineWidth', lw2, 'Color', colIMU);
     grid on; xlabel('Time [s]'); ylabel('Velocity [m/s]'); title(labsV{i});
-    legend('Measured GNSS','Derived IMU (TRIAD)','Location','best'); legend boxoff; axis tight;
+    legend('GNSS (measured)','IMU (derived)','Location','best'); legend boxoff; axis tight;
 end
 for i=1:3
     nexttile;
     plot(tG, a_ecef_gnss(:,i), '--', 'Color',[0.4 0.4 0.4], 'LineWidth', lw1); hold on;
     plot(tI, a_ecef_imu(:,i),   '-',  'LineWidth', lw2, 'Color', colIMU);
     grid on; xlabel('Time [s]'); ylabel('Acceleration [m/s^2]'); title(labsA{i});
-    legend('Derived GNSS','Derived IMU (TRIAD)','Location','best'); legend boxoff; axis tight;
+    legend('GNSS (measured)','IMU (derived)','Location','best'); legend boxoff; axis tight;
 end
 sgtitle('Task 4 – TRIAD – ECEF Frame (IMU-derived vs. Measured GNSS)');
 linkaxes(findall(gcf,'type','axes'),'x');
@@ -182,21 +182,21 @@ try
         plot(tG, gnss_pos_body(:,i), 'k-', 'LineWidth', lw1); hold on;
         plot(tG, imu_pos_body(:,i),  ':', 'LineWidth', lw2, 'Color', colIMU);
         grid on; xlabel('Time [s]'); ylabel('m'); title(labsP{i});
-        legend('Derived GNSS','Derived IMU (TRIAD)','Location','best'); legend boxoff; axis tight;
+        legend('GNSS (measured)','IMU (derived)','Location','best'); legend boxoff; axis tight;
     end
     for i=1:3
         nexttile; % Velocity
         plot(tG, gnss_vel_body(:,i), 'k-', 'LineWidth', lw1); hold on;
         plot(tG, imu_vel_body(:,i),  ':', 'LineWidth', lw2, 'Color', colIMU);
         grid on; xlabel('Time [s]'); ylabel('m/s'); title(labsV{i});
-        legend('Derived GNSS','Derived IMU (TRIAD)','Location','best'); legend boxoff; axis tight;
+        legend('GNSS (measured)','IMU (derived)','Location','best'); legend boxoff; axis tight;
     end
     for i=1:3
         nexttile; % Acceleration: Derived GNSS vs Measured IMU
         plot(tG, gnss_acc_body(:,i), '--', 'Color',[0.4 0.4 0.4], 'LineWidth', lw1); hold on;
         plot(tI, acc_body_corr(1:numel(tI),i), '-', 'LineWidth', lw2, 'Color', colIMU);
         grid on; xlabel('Time [s]'); ylabel('m/s^2'); title(labsA{i});
-        legend('Derived GNSS','Measured IMU (Body accel)','Location','best'); legend boxoff; axis tight;
+        legend('GNSS (measured)','IMU (derived)','Location','best'); legend boxoff; axis tight;
     end
     sgtitle('Task 4 – TRIAD – Body Frame (IMU-derived vs. GNSS-derived; IMU accel measured)');
     linkaxes(findall(gcf,'type','axes'),'x');
@@ -212,29 +212,25 @@ catch ME
     warning('Body frame plot skipped: %s', ME.message);
 end
 
-%% Auto-save PDFs/PNGs
+%% Auto-save PNGs
 try
-    base = fullfile(results_dir, rid);
     % Save current open figures in order: NED, ECEF, Body
     figs = findall(0,'Type','figure');
-    % Reverse to save in creation order approximation
+    % Reverse to approximate creation order
     for f = flipud(figs(:)')
         nm = get(f,'Name');
         if contains(nm,'NED')
-            out = sprintf('%s_task4_grid_NED.pdf', rid);
+            out = sprintf('%s_task4_comparison_NED.png', rid);
         elseif contains(nm,'ECEF')
-            out = sprintf('%s_task4_grid_ECEF.pdf', rid);
+            out = sprintf('%s_task4_comparison_ECEF.png', rid);
         elseif contains(nm,'Body')
-            out = sprintf('%s_task4_grid_Body.pdf', rid);
+            out = sprintf('%s_task4_comparison_Body.png', rid);
         else
             continue;
         end
         set(f,'PaperPositionMode','auto');
-        print(f, fullfile(results_dir, out), '-dpdf', '-bestfit');
-        try
-            print(f, fullfile(results_dir, strrep(out,'.pdf','.png')), '-dpng', '-r300');
-        catch
-        end
+        print(f, fullfile(results_dir, out), '-dpng', '-r300');
+        figure(f); drawnow;
     end
 catch ME
     warning('Auto-save of Task 4 plots failed: %s', ME.message);

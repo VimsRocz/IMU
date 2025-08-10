@@ -20,35 +20,24 @@ else
     warning('Task 6 skipped: no truth provided.');
 end
 
-% ---- Optional: Task 7 diff grids (NED/ECEF/Body) if truth provided
-if exist('truth','var') && ~isempty(truth)
-    try
-        save_task7_plots(t_imu, fusedNED, fusedECEF, fusedBODY, truth, truthNED, truthECEF, truthBODY, outdir);
-        drawnow;
-    catch ME
-        warning('Task 7 plotting failed: %s', ME.message);
+    % ---- Optional: Task 7 diff grids (NED/ECEF/Body) if truth provided
+    if exist('truth','var') && ~isempty(truth)
+        try
+            save_task7_plots(t_imu, fusedNED, fusedECEF, fusedBODY, truth, truthNED, truthECEF, truthBODY, outdir);
+            drawnow;
+        catch ME
+            warning('Task 7 plotting failed: %s', ME.message);
+        end
     end
-end
-
-% ---- Optional: Task 4 plots if inputs are available
-if exist('gnssNED','var') && exist('gnssECEF','var') && exist('imuBODY','var')
-    try
-        save_task4_plots(truth.t, gnssNED, gnssECEF, imuBODY, outdir);  % uses truth.t for a timeline
-        drawnow;
-    catch ME
-        warning('Task 4 plotting failed: %s', ME.message);
+    % ---- Optional: Quaternion comparison if quaternions available
+    if exist('quatFused','var') && exist('truthQuat','var')
+        try
+            save_quaternion_comparison(t_imu, quatFused, truth, truthQuat, outdir);
+            drawnow;
+        catch ME
+            warning('Quaternion comparison failed: %s', ME.message);
+        end
     end
-end
-
-% ---- Optional: Quaternion comparison if quaternions available
-if exist('quatFused','var') && exist('truthQuat','var')
-    try
-        save_quaternion_comparison(t_imu, quatFused, truth, truthQuat, outdir);
-        drawnow;
-    catch ME
-        warning('Quaternion comparison failed: %s', ME.message);
-    end
-end
 end
 
 % ========================= Task 5 =========================
@@ -223,56 +212,6 @@ P.pos_fused = F.pos; P.vel_fused = F.vel; P.acc_fused = F.acc;
 P.pos_truth = T.pos; P.vel_truth = T.vel; P.acc_truth = T.acc;
 P.pos_residual = R.pos; P.vel_residual = R.vel; P.acc_residual = R.acc;
 P.rmse = rmse; P.final = final;
-end
-linkaxes(ax,'x'); xlim([t(1) t(end)]);
-end
-
-% ========================= Task 4 (NED/ECEF/Body only) =========================
-function save_task4_plots(t_gnss, gnssNED, gnssECEF, imuBODY, outdir)
-% Expects gnssNED.pos/vel/acc, gnssECEF.pos/vel/acc, imuBODY.acc (Nx3)
-trel = t_gnss(:) - t_gnss(1);
-
-% NED (GNSS measured vs. IMU-derived acceleration rotated to NED if provided)
-plot_task4_grid('Task4_NED', 'NED', trel, gnssNED);
-save_fig(outdir,'IMU_X002_GNSS_X002_TRIAD_task4_all_NED');
-
-% ECEF
-plot_task4_grid('Task4_ECEF', 'ECEF', trel, gnssECEF);
-save_fig(outdir,'IMU_X002_GNSS_X002_TRIAD_task4_all_ECEF');
-
-% Body (acc from IMU body)
-plot_task4_grid('Task4_Body', 'Body', trel, imuBODY);
-save_fig(outdir,'IMU_X002_GNSS_X002_TRIAD_task4_all_Body');
-end
-
-function plot_task4_grid(figName, frameName, t, S)
-figure('Name',figName,'WindowState','maximized');
-tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
-sgtitle(sprintf('Task 4 – TRIAD – %s Frame (IMU-derived vs. Measured GNSS)', frameName),'FontWeight','bold');
-
-rows = {'Position','Velocity','Acceleration'};
-if strcmpi(frameName,'NED'), cols = {'North','East','Down'}; else, cols = {'X','Y','Z'}; end
-ylab = {'[m]','[m/s]','[m/s^2]'};
-
-dataP = S.pos; dataV = S.vel; dataA = S.acc;
-ax = gobjects(9,1); k = 0;
-for r = 1:3
-    for c = 1:3
-        k=k+1; ax(k)=nexttile; hold on; grid on;
-        if r==1
-            plot(t, dataP(:,c), 'k-', 'LineWidth', 1.1, 'DisplayName','Measured GNSS');
-        elseif r==2
-            plot(t, dataV(:,c), 'k-', 'LineWidth', 1.1, 'DisplayName','Measured GNSS');
-        else
-            plot(t, dataA(:,c), 'k-', 'LineWidth', 1.1, 'DisplayName','Measured GNSS');
-        end
-        title(sprintf('%s %s', rows{r}, cols{c}));
-        xlabel('Time [s]'); ylabel(ylab{r});
-        axis tight;
-        if r==1 && c==1
-            legend('Location','best');
-        end
-    end
 end
 linkaxes(ax,'x'); xlim([t(1) t(end)]);
 end
