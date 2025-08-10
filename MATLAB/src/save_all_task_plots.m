@@ -282,11 +282,9 @@ end
 % ========================= Save helper =========================
 function save_fig(outdir, base)
 f = gcf;
-pdf = fullfile(outdir, strcat(base,'.pdf'));
 png = fullfile(outdir, strcat(base,'.png'));
 fig = fullfile(outdir, strcat(base,'.fig'));
-exportgraphics(f, pdf, 'ContentType','vector');   % crisp vectors
-exportgraphics(f, png, 'Resolution', 200);        % quick bitmap too
+exportgraphics(f, png, 'Resolution', 200);        % quick bitmap
 savefig(f, fig);                                  % interactive MATLAB figure
-fprintf('Saved: %s\nSaved: %s\nSaved: %s\n', pdf, png, fig);
+fprintf('Saved: %s\nSaved: %s\n', png, fig);
 end
