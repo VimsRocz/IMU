@@ -5,7 +5,8 @@ function truth_path = resolve_truth_path()
 %       if it does not exist. Checks the IMU_TRUTH_PATH environment variable
 %       before searching default locations.
 
-    root = fileparts(fileparts(mfilename('fullpath')));
+    % Climb from utils/ -> src -> MATLAB -> repo root
+    root = fileparts(fileparts(fileparts(fileparts(mfilename('fullpath')))));
     env = getenv('IMU_TRUTH_PATH');
     if ~isempty(env) && isfile(env)
         truth_path = env;
