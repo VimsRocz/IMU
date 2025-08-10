@@ -266,6 +266,9 @@ catch
     R(4:6,4:6) = eye(3) * 0.25;
     fprintf('Auto-tune failed; using default Q/R\n');
 end
+Q(4:6,4:6) = eye(3) * 0.1;
+R(4:6,4:6) = eye(3) * 0.25;
+fprintf('Task-5: Q_vel=0.100, R_vel=0.250 (Python parity)\n');
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
@@ -747,10 +750,12 @@ fprintf('Task 5: Saved time vector to %s\n', time_file);
     method_struct = struct('gnss_pos_ned', gnss_pos_ned, 'gnss_vel_ned', gnss_vel_ned, ...
         'gnss_accel_ned', gnss_accel_ned, 'gnss_pos_ecef', gnss_pos_ecef, ...
         'gnss_vel_ecef', gnss_vel_ecef, 'gnss_accel_ecef', gnss_accel_ecef, ...
-    'x_log', x_log, 'vel_log', vel_log, 'accel_from_vel', accel_from_vel, ...
-    'euler_log', euler_log, 'zupt_log', zupt_log, 'zupt_vel_norm', zupt_vel_norm, 'time', time, ...
+        'x_log', x_log, 'vel_log', vel_log, 'accel_from_vel', accel_from_vel, ...
+        'euler_log', euler_log, 'zupt_log', zupt_log, 'zupt_vel_norm', zupt_vel_norm, 'time', time, ...
         'gnss_time', gnss_time, 'pos_ned', pos_ned, 'vel_ned', vel_ned, ...
-        'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0);
+        'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0, ...
+        'Q_vel', 0.1, 'R_vel', 0.25, 'zupt_count', zupt_count, 'vel_blow_count', vel_blow_count, ...
+        'accel_bias', accel_bias, 'gyro_bias', gyro_bias);
     % ``method`` already stores the algorithm name (e.g. 'TRIAD'). Use it
     % directly when saving so filenames match the Python pipeline.
     save_task_results(method_struct, imu_name, gnss_name, method, 5);
@@ -941,76 +946,75 @@ end % End of main function
         close(fig);
     end
 
-    function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_gnss, vel_gnss, acc_gnss, method, run_id, cfg)
-        %PLOT_TASK5_NED_FRAME Plot fused vs GNSS data in the NED frame.
-        labels = {'North','East','Down'};
-        figure('Name','Task5 NED Frame','Position',[100 100 1200 900], ...
-            'Visible', visibleFlag);
-        for k = 1:3
-            subplot(3,3,k); hold on;
-            plot(t_gnss, pos_gnss(:,k),'k:','DisplayName','GNSS');
-            plot(t, pos_ned(k,:), 'b-','DisplayName','Fused');
-            hold off; grid on; ylabel('[m]'); title(['Position ' labels{k}]); legend;
-
-            subplot(3,3,3+k); hold on;
-            plot(t_gnss, vel_gnss(:,k),'k:','DisplayName','GNSS');
-            plot(t, vel_ned(k,:), 'b-','DisplayName','Fused');
-            hold off; grid on; ylabel('[m/s]'); title(['Velocity ' labels{k}]); legend;
-
-            subplot(3,3,6+k); hold on;
-            plot(t_gnss, acc_gnss(:,k),'k:','DisplayName','GNSS');
-            plot(t, acc_ned(k,:), 'b-','DisplayName','Fused');
-            hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend;
+    function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, ~, ~, ~, ~, method, run_id, cfg)
+        %PLOT_TASK5_NED_FRAME Plot fused state in the NED frame only.
+        axes_labels = {'N','E','D'};
+        fused_color = [0.4660 0.6740 0.1880];
+        figure('Name','Task5 NED Frame','Position',[100 100 1200 900],'Visible','on');
+        tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
+        for r = 1:3
+            for c = 1:3
+                nexttile;
+                switch c
+                    case 1, y = pos_ned(r,:); ylab = sprintf('Pos %s [m]', axes_labels{r});
+                    case 2, y = vel_ned(r,:); ylab = sprintf('Vel %s [m/s]', axes_labels{r});
+                    case 3, y = acc_ned(r,:); ylab = sprintf('Acc %s [m/s^2]', axes_labels{r});
+                end
+                plot(t, y, '--','Color',fused_color,'LineWidth',1.8);
+                grid on; axis tight; ylabel(ylab);
+                if r==1 && c==1
+                    legend({'Fused (IMU+GNSS)'},'Location','best');
+                    title('Task 5 — Fused (NED)');
+                end
+            end
         end
-        sgtitle([method ' - All data in NED frame']);
-        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_NED_state', run_id));
-        if cfg.plots.save_pdf
-            print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
-        end
-        if cfg.plots.save_png
-            print(gcf, [fname '.png'], '-dpng');
-        end
+        xlabel('Time [s]');
+        drawnow;
+        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_ned', run_id));
+        if cfg.plots.save_pdf, print(gcf, [fname '.pdf'], '-dpdf', '-bestfit'); end
+        if cfg.plots.save_png, print(gcf, [fname '.png'], '-dpng'); end
+        savefig(gcf, [fname '.fig']);
         close(gcf);
     end
 
-    function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_ecef, vel_ecef, acc_ecef, C_E_N, r0, method, run_id, cfg)
-        %PLOT_TASK5_ECEF_FRAME Plot fused vs GNSS data in the ECEF frame.
-        labels = {'X','Y','Z'};
+    function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, ~, ~, ~, ~, C_E_N, r0, method, run_id, cfg)
+        %PLOT_TASK5_ECEF_FRAME Plot fused state in the ECEF frame only.
+        axes_labels = {'X','Y','Z'};
+        fused_color = [0.4660 0.6740 0.1880];
         pos_fused = (C_E_N' * pos_ned) + r0;
         vel_fused = C_E_N' * vel_ned;
         acc_fused = C_E_N' * acc_ned;
-        figure('Name','Task5 ECEF Frame','Position',[100 100 1200 900], ...
-            'Visible', visibleFlag);
-        for k = 1:3
-            subplot(3,3,k); hold on;
-            plot(t_gnss, pos_ecef(:,k),'k:','DisplayName','GNSS');
-            plot(t, pos_fused(k,:),'b-','DisplayName','Fused');
-            hold off; grid on; ylabel('[m]'); title(['Position ' labels{k}]); legend;
-
-            subplot(3,3,3+k); hold on;
-            plot(t_gnss, vel_ecef(:,k),'k:','DisplayName','GNSS');
-            plot(t, vel_fused(k,:),'b-','DisplayName','Fused');
-            hold off; grid on; ylabel('[m/s]'); title(['Velocity ' labels{k}]); legend;
-
-            subplot(3,3,6+k); hold on;
-            plot(t_gnss, acc_ecef(:,k),'k:','DisplayName','GNSS');
-            plot(t, acc_fused(k,:),'b-','DisplayName','Fused');
-            hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend;
+        figure('Name','Task5 ECEF Frame','Position',[100 100 1200 900],'Visible','on');
+        tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
+        for r = 1:3
+            for c = 1:3
+                nexttile;
+                switch c
+                    case 1, y = pos_fused(r,:); ylab = sprintf('Pos %s [m]', axes_labels{r});
+                    case 2, y = vel_fused(r,:); ylab = sprintf('Vel %s [m/s]', axes_labels{r});
+                    case 3, y = acc_fused(r,:); ylab = sprintf('Acc %s [m/s^2]', axes_labels{r});
+                end
+                plot(t, y, '--','Color',fused_color,'LineWidth',1.8);
+                grid on; axis tight; ylabel(ylab);
+                if r==1 && c==1
+                    legend({'Fused (IMU+GNSS)'},'Location','best');
+                    title('Task 5 — Fused (ECEF)');
+                end
+            end
         end
-        sgtitle([method ' - All data in ECEF frame']);
-        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_ECEF_state', run_id));
-        if cfg.plots.save_pdf
-            print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
-        end
-        if cfg.plots.save_png
-            print(gcf, [fname '.png'], '-dpng');
-        end
+        xlabel('Time [s]');
+        drawnow;
+        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_ecef', run_id));
+        if cfg.plots.save_pdf, print(gcf, [fname '.pdf'], '-dpdf', '-bestfit'); end
+        if cfg.plots.save_png, print(gcf, [fname '.png'], '-dpng'); end
+        savefig(gcf, [fname '.fig']);
         close(gcf);
     end
 
-    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, eul_log, t_gnss, pos_gnss_ned, vel_gnss_ned, acc_gnss_ned, method, g_N, run_id, cfg)
+    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, eul_log, ~, ~, ~, ~, method, g_N, run_id, cfg)
         %PLOT_TASK5_BODY_FRAME Plot fused results in body frame coordinates.
-        labels = {'X','Y','Z'};
+        axes_labels = {'X','Y','Z'};
+        fused_color = [0.4660 0.6740 0.1880];
         N = size(pos_ned,2);
         pos_body = zeros(3,N); vel_body = zeros(3,N); acc_body = zeros(3,N);
         for k = 1:N
@@ -1019,41 +1023,30 @@ end % End of main function
             vel_body(:,k) = C_B_N' * vel_ned(:,k);
             acc_body(:,k) = C_B_N' * (acc_ned(:,k) - g_N);
         end
-        eul_gnss = interp1(t, eul_log', t_gnss, 'linear', 'extrap')';
-        pos_gnss_body = zeros(size(pos_gnss_ned')); vel_gnss_body = zeros(size(vel_gnss_ned'));
-        acc_gnss_body = zeros(size(acc_gnss_ned'));
-        for k = 1:length(t_gnss)
-            C_B_N = euler_to_rot(eul_gnss(:,k));
-            pos_gnss_body(:,k) = C_B_N' * pos_gnss_ned(k,:)';
-            vel_gnss_body(:,k) = C_B_N' * vel_gnss_ned(k,:)';
-            acc_gnss_body(:,k) = C_B_N' * (acc_gnss_ned(k,:)' - g_N);
+        figure('Name','Task5 Body Frame','Position',[100 100 1200 900],'Visible','on');
+        tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
+        for r = 1:3
+            for c = 1:3
+                nexttile;
+                switch c
+                    case 1, y = pos_body(r,:); ylab = sprintf('Pos %s [m]', axes_labels{r});
+                    case 2, y = vel_body(r,:); ylab = sprintf('Vel %s [m/s]', axes_labels{r});
+                    case 3, y = acc_body(r,:); ylab = sprintf('Acc %s [m/s^2]', axes_labels{r});
+                end
+                plot(t, y, '--','Color',fused_color,'LineWidth',1.8);
+                grid on; axis tight; ylabel(ylab);
+                if r==1 && c==1
+                    legend({'Fused (IMU+GNSS)'},'Location','best');
+                    title('Task 5 — Fused (Body)');
+                end
+            end
         end
-        figure('Name','Task5 Body Frame','Position',[100 100 1200 900], ...
-            'Visible', visibleFlag);
-        for j = 1:3
-            subplot(3,3,j); hold on;
-            plot(t_gnss, pos_gnss_body(j,:),'k:','DisplayName','GNSS');
-            plot(t, pos_body(j,:),'b-','DisplayName','Fused');
-            hold off; grid on; ylabel('[m]'); title(['Position ' labels{j}]); legend;
-
-            subplot(3,3,3+j); hold on;
-            plot(t_gnss, vel_gnss_body(j,:),'k:','DisplayName','GNSS');
-            plot(t, vel_body(j,:),'b-','DisplayName','Fused');
-            hold off; grid on; ylabel('[m/s]'); title(['Velocity ' labels{j}]); legend;
-
-            subplot(3,3,6+j); hold on;
-            plot(t_gnss, acc_gnss_body(j,:),'k:','DisplayName','GNSS');
-            plot(t, acc_body(j,:),'b-','DisplayName','Fused');
-            hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{j}']); legend;
-        end
-        sgtitle([method ' - All data in body frame']);
-        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_BODY_state', run_id));
-        if cfg.plots.save_pdf
-            print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
-        end
-        if cfg.plots.save_png
-            print(gcf, [fname '.png'], '-dpng');
-        end
+        xlabel('Time [s]');
+        drawnow;
+        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_body', run_id));
+        if cfg.plots.save_pdf, print(gcf, [fname '.pdf'], '-dpdf', '-bestfit'); end
+        if cfg.plots.save_png, print(gcf, [fname '.png'], '-dpng'); end
+        savefig(gcf, [fname '.fig']);
         close(gcf);
     end
 

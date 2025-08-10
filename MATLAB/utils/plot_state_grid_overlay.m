@@ -1,4 +1,4 @@
-function plot_state_grid_overlay(t_ref, fused, truth, frame_label, varargin)
+function fig = plot_state_grid_overlay(t_ref, fused, truth, frame_label, varargin)
 %PLOT_STATE_GRID_OVERLAY  3x3 grid comparing fused and truth states.
 %   PLOT_STATE_GRID_OVERLAY(T_REF, FUSED, TRUTH, FRAME_LABEL) plots a
 %   3-by-3 grid where rows correspond to position, velocity and
@@ -36,7 +36,7 @@ f_pos = interp1(f_t, f_pos, t_ref, 'linear', 'extrap');
 f_vel = interp1(f_t, f_vel, t_ref, 'linear', 'extrap');
 f_acc = interp1(f_t, f_acc, t_ref, 'linear', 'extrap');
 
-T = figure('Name',[opt.Title,' ',frame_label],'Visible',opt.Visible);
+fig = figure('Name',[opt.Title,' ',frame_label],'Visible',opt.Visible);
 tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
 
 for r = 1:3
@@ -53,9 +53,9 @@ for r = 1:3
                 y_f = f_acc(:,c); y_t = truth.acc(:,c);
                 ylab = sprintf('%s %s [m/s^2]', rows{r}, axes_labels{c});
         end
-        plot(t_ref, y_t, 'LineWidth',1.0); hold on;
-        plot(t_ref, y_f, 'LineWidth',1.0);
-        grid on; xlabel('Time [s]'); ylabel(ylab);
+        plot(t_ref, y_t, 'Color',[0 0 0],'LineWidth',1.5,'LineStyle','-'); hold on;
+        plot(t_ref, y_f, 'Color',[0.4660 0.6740 0.1880],'LineWidth',1.5,'LineStyle','--');
+        grid on; axis tight; xlabel('Time [s]'); ylabel(ylab);
         if r==1 && c==1
             legend({'Truth','Fused'},'Location','best');
             title(sprintf('%s frame', frame_label));

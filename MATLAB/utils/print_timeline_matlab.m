@@ -12,6 +12,7 @@ function print_timeline_matlab(rid, imu_path, gnss_path, truth_path, out_dir)
 
 lines = strings(0,1);
 notes = strings(0,1);
+stats = struct('who',{},'n',{},'hz',{},'dt_med',{},'duration',{},'t0',{},'t1',{});
 
 % ---------- IMU ----------
 imu = readmatrix(imu_path,'FileType','text');
@@ -29,6 +30,7 @@ else
     tI = imu(:,col);     notes = [notes; sprintf("IMU: used time-like column %d (dt_med=%.6f)", col, median(diff(tI)))];
 end
 lines = [lines; format_line('IMU', tI, nI)];
+stats(end+1) = compute_stats('IMU', tI, nI);
 
 % ---------- GNSS ----------
 opts = detectImportOptions(gnss_path,'Delimiter',',');
@@ -46,6 +48,7 @@ else
     end
 end
 lines = [lines; format_line('GNSS', tg, nG)];
+stats(end+1) = compute_stats('GNSS', tg, nG);
 
 % ---------- TRUTH ----------
 if ~isempty(truth_path) && isfile(truth_path)
@@ -53,7 +56,11 @@ if ~isempty(truth_path) && isfile(truth_path)
     Ts = readtable(truth_path, to);
     ts = ensure_time_vec(Ts{:,1});
     nS = numel(ts);
+    stats(end+1) = compute_stats('TRUTH', ts, nS);
     lines = [lines; format_line('TRUTH', ts, nS)];
+    if abs(stats(end).dt_med - 0.1) > 0.01
+        warning('Truth dt_med %.3f s is not ~0.100 s (~10 Hz)', stats(end).dt_med);
+    end
 else
     lines = [lines; "TRUTH | present but unreadable (see Notes)."];
 end
@@ -67,6 +74,12 @@ if ~exist(out_dir,'dir'), mkdir(out_dir); end
 out_path = fullfile(out_dir, sprintf('%s_timeline.txt', rid));
 fid = fopen(out_path,'w'); fprintf(fid,'%s\n',txt); fclose(fid);
 fprintf('[DATA TIMELINE] Saved %s\n', out_path);
+csv_path = fullfile(out_dir, sprintf('%s_timeline.csv', rid));
+if ~isempty(stats)
+    T = struct2table(stats);
+    writetable(T, csv_path);
+    fprintf('[DATA TIMELINE] Saved %s\n', csv_path);
+end
 end
 
 function s = format_line(tag, t, n)
@@ -82,6 +95,12 @@ end
 dur = t(end) - t(1);
 s = sprintf('%-5s | n=%-7d hz=%0.6f  dt_med=%0.6f  min/max dt=(%0.6f,%0.6f)  dur=%0.3fs  t0=%0.6f  t1=%0.6f  monotonic=%s',...
     tag, n, hz, med, mn, mx, dur, t(1), t(end), lower(string(mono)));
+end
+
+function s = compute_stats(tag, t, n)
+t = t(:); dt = diff(t);
+med = median(dt); hz = 1/med; dur = t(end) - t(1);
+s = struct('who',string(tag),'n',n,'hz',hz,'dt_med',med,'duration',dur,'t0',t(1),'t1',t(end));
 end
 
 function t = ensure_time_vec(x)

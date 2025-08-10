@@ -205,33 +205,52 @@ if ~isfield(S,'vel_ned')
 end
 
 dt_est = mean(diff(t_est));
+pos_ecef = (C_N_E*S.pos_ned')' + ref_r0';
+vel_ecef = (C_N_E*S.vel_ned')';
 
-if has_truth_time && numel(t_truth) == size(pos_truth_ecef,1)
+if has_truth_time
+    dt_truth = median(diff(t_truth));
+    step = min(dt_truth, 0.1);
+    lags = -30:step:30;
+    best_score = -Inf; dt_used = 0; best_vx = NaN; best_vy = NaN;
+    for lag = lags
+        t_shifted = t_truth + lag;
+        vx_i = interp1(t_shifted, vel_truth_ecef(:,1), t_est, 'linear', NaN);
+        vy_i = interp1(t_shifted, vel_truth_ecef(:,2), t_est, 'linear', NaN);
+        valid = ~isnan(vx_i) & ~isnan(vy_i);
+        if nnz(valid) < 2, continue; end
+        cx = corrcoef(vel_ecef(valid,1), vx_i(valid));
+        cy = corrcoef(vel_ecef(valid,2), vy_i(valid));
+        score = mean([cx(1,2), cy(1,2)]);
+        if score > best_score
+            best_score = score; dt_used = lag;
+            best_vx = cx(1,2); best_vy = cy(1,2);
+        end
+    end
+    t_shifted = t_truth + dt_used;
+    pos_truth_ecef_i = interp1(t_shifted, pos_truth_ecef, t_est, 'linear', 'extrap');
+    vel_truth_ecef_i = interp1(t_shifted, vel_truth_ecef, t_est, 'linear', 'extrap');
+else
+    dt_used = 0; best_vx = NaN; best_vy = NaN; t_shifted = t_truth;
     pos_truth_ecef_i = interp1(t_truth, pos_truth_ecef, t_est, 'linear', 'extrap');
     vel_truth_ecef_i = interp1(t_truth, vel_truth_ecef, t_est, 'linear', 'extrap');
-    acc_truth_ecef_i = interp1(t_truth, acc_truth_ecef, t_est, 'linear', 'extrap');
-else
-    C_N_E = C';
-    est_pos_ecef = (C_N_E*S.pos_ned')' + ref_r0';
-    [lag, t_shift] = compute_time_shift(est_pos_ecef(:,1), truth_pos_ecef(:,1), dt_est);
-    fprintf('Task 6: aligned truth by %d samples (%.3f s) using xcorr\n', lag, t_shift);
-    if lag >= 0
-        est_idx = 1:(size(est_pos_ecef,1)-lag);
-        truth_idx = (1+lag):size(truth_pos_ecef,1);
-    else
-        lag = abs(lag);
-        est_idx = (1+lag):size(est_pos_ecef,1);
-        truth_idx = 1:(size(truth_pos_ecef,1)-lag);
-    end
-    n = min(numel(est_idx), numel(truth_idx));
-    est_idx = est_idx(1:n);
-    truth_idx = truth_idx(1:n);
-    t_est = t_est(est_idx);
-    S.pos_ned = S.pos_ned(est_idx,:);
-    S.vel_ned = S.vel_ned(est_idx,:);
-    pos_truth_ecef_i = truth_pos_ecef(truth_idx,:);
-    vel_truth_ecef_i = truth_vel_ecef(truth_idx,:);
-    acc_truth_ecef_i = [zeros(1,3); diff(vel_truth_ecef_i)./dt_est];
+end
+acc_truth_ecef_i = [zeros(1,3); diff(vel_truth_ecef_i)./diff(t_est)];
+
+start_t = max(t_est(1), min(t_shifted));
+end_t   = min(t_est(end), max(t_shifted));
+mask = t_est >= start_t & t_est <= end_t;
+t_common = t_est(mask);
+pos_ecef = pos_ecef(mask,:);
+vel_ecef = vel_ecef(mask,:);
+pos_truth_ecef_i = interp1(t_shifted, pos_truth_ecef, t_common, 'linear');
+vel_truth_ecef_i = interp1(t_shifted, vel_truth_ecef, t_common, 'linear');
+acc_truth_ecef_i = [zeros(1,3); diff(vel_truth_ecef_i)./diff(t_common)];
+
+fprintf('Task 6: \u0394t_used = %+0.3f s | corrVx=%0.3f corrVy=%0.3f | fused_n=%d truth_n=%d common_n=%d\n', ...
+    dt_used, best_vx, best_vy, numel(t_est), numel(t_truth), numel(t_common));
+if best_vx < 0.80 || best_vy < 0.80
+    warning('Low corr after alignment — check truth_path or \u0394t search.');
 end
 
 pos_truth_ned_i_raw  = (C * (pos_truth_ecef_i' - ref_r0)).';
