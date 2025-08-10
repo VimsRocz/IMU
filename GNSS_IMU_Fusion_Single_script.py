@@ -24,8 +24,20 @@ parser.add_argument(
     action="store_true",
     help="Display plots interactively instead of closing them",
 )
+parser.add_argument(
+    "--trace-first-n",
+    type=int,
+    default=0,
+    help="Save first N Kalman filter steps for debugging (stub)",
+)
 args = parser.parse_args()
 INTERACTIVE = args.interactive
+TRACE_FIRST_N = args.trace_first_n
+if TRACE_FIRST_N:
+    logging.info(
+        "Tracing first %d filter steps (Python stub, not yet implemented)",
+        TRACE_FIRST_N,
+    )
 
 from src.constants import EARTH_RATE
 from src.utils import compute_C_ECEF_to_NED, zero_base_time
