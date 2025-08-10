@@ -17,6 +17,7 @@ import numpy as np
 import yaml
 import os
 import logging
+import zipfile
 from utils import save_mat
 
 from utils import ensure_dependencies, ecef_to_geodetic
@@ -206,7 +207,14 @@ def main():
         # --- Save standard MATLAB output ---------------------------------
         npz_path = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.npz"
         if npz_path.exists():
-            data = np.load(npz_path, allow_pickle=True)
+            try:
+                data = np.load(npz_path, allow_pickle=True)
+            except zipfile.BadZipFile:
+                logging.warning(
+                    "Failed to load %s; deleting corrupt file and skipping", npz_path
+                )
+                npz_path.unlink()
+                continue  # skip MATLAB export for this dataset
             mat_out = {
                 "t": data.get("time_residuals"),
                 "pos": data.get("fused_pos"),
