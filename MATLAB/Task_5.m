@@ -19,6 +19,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %       'vel_q_scale'      - scale for Q(4:6,4:6) velocity process noise [-]      (10.0)
 %       'vel_r'            - R(4:6,4:6) velocity measurement variance   [m^2/s^2] (0.25)
 %       'scale_factor'     - accelerometer scale factor                 [-]      (required)
+%       'trace_first_n'    - save state/covariance for first N steps    [samples] (0)
 
 paths = project_paths();
 results_dir = paths.matlab_results;
@@ -57,6 +58,7 @@ end
     addParameter(p, 'vel_q_scale', 10.0);      % [-]
     addParameter(p, 'vel_r', 0.25);            % [m^2/s^2]
     addParameter(p, 'scale_factor', []);       % [-]
+    addParameter(p, 'trace_first_n', 0);       % [samples]
     parse(p, varargin{:});
     accel_noise     = p.Results.accel_noise;
     vel_proc_noise  = p.Results.vel_proc_noise;
@@ -68,6 +70,7 @@ end
     vel_q_scale     = p.Results.vel_q_scale;
     vel_r           = p.Results.vel_r;
     scale_factor    = p.Results.scale_factor;
+    trace_first_n   = p.Results.trace_first_n;
 
 
     if ~isfile(gnss_path)
@@ -350,6 +353,13 @@ vel_blow_count = 0;             % track number of velocity blow-ups
 accel_std_thresh = 0.05;        % [m/s^2]
 gyro_std_thresh  = 0.005;       % [rad/s]
 vel_thresh       = 0.1;         % [m/s]
+
+trace_first_n = min(trace_first_n, num_steps);
+if trace_first_n > 0
+    fprintf('Tracing first %d KF steps.\n', trace_first_n);
+    trace_data.x = zeros(15, trace_first_n);
+    trace_data.P = zeros(15,15, trace_first_n);
+end
 fprintf('-> 15-State filter initialized.\n');
 fprintf('Subtask 5.4: Integrating IMU data for each method.\n');
 
@@ -473,6 +483,10 @@ for i = 1:num_imu_samples
     % --- Log State and Attitude ---
     x_log(:, i) = x;
     euler_log(:, i) = quat_to_euler(q_b_n);
+    if trace_first_n > 0 && i <= trace_first_n
+        trace_data.x(:,i) = x;
+        trace_data.P(:,:,i) = P;
+    end
     if mod(i, 100000) == 0
         fprintf('Task 5: Stored state at sample %d/%d\n', i, num_imu_samples);
     end
@@ -686,6 +700,9 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
     'grav_err_mean', grav_err_mean, 'grav_err_max', grav_err_max, ...
     'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max, ...
     'vel_blow_events', vel_blow_count);
+if trace_first_n > 0
+    results.trace_first_n = trace_first_n;
+end
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
 % Result Logging -- store the metrics struct under the variable name
 % ``results`` to stay in sync with the Python pipeline.
@@ -730,6 +747,9 @@ save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
 pos = pos_ned; %#ok<NASGU>
 save(results_file, 'x_log', 'pos', '-append');
 fprintf('State history (x_log) saved to %s\n', results_file);
+if trace_first_n > 0
+    save(results_file, 'trace_data', '-append');
+end
 if isfile(results_file)
     fprintf('Results saved to %s\n', results_file);
 else
@@ -766,6 +786,9 @@ fprintf('Task 5: Saved time vector to %s\n', time_file);
 
 % Return results structure and store in base workspace
 result = results;
+if trace_first_n > 0
+    result.trace = trace_data;
+end
 assignin('base', 'task5_results', result);
 
 end % End of main function
