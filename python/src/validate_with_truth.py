@@ -1173,38 +1173,45 @@ def main():
         imu_file = dataset_dir / f"{m.group(1)}.dat"
         gnss_file = dataset_dir / f"{m.group(2)}.csv"
         method = m.group(3)
-        try:
-            frames = assemble_frames(
-                est, imu_file, gnss_file, truth_file=args.truth_file
+        missing = [str(p) for p in (imu_file, gnss_file) if not p.exists()]
+        if missing:
+            print(
+                "Warning: overlay skipped. Expected file(s) not found: "
+                + ", ".join(missing)
             )
-            tag = f"{m.group(1)}_{m.group(2)}_{method}"
-            for frame_name, data in frames.items():
-                t_i, p_i, v_i, a_i = data["imu"]
-                t_g, p_g, v_g, a_g = data["gnss"]
-                t_f, p_f, v_f, a_f = data["fused"]
-                truth = data.get("truth")
-                filename = f"{tag}_task6_overlay_state_{frame_name}.pdf"
-                plot_overlay(
-                    frame_name,
-                    method,
-                    t_i,
-                    p_i,
-                    v_i,
-                    a_i,
-                    t_g,
-                    p_g,
-                    v_g,
-                    a_g,
-                    t_f,
-                    p_f,
-                    v_f,
-                    a_f,
-                    args.output,
-                    truth,
-                    filename=filename,
+        else:
+            try:
+                frames = assemble_frames(
+                    est, imu_file, gnss_file, truth_file=args.truth_file
                 )
-        except Exception as e:
-            print(f"Overlay plot failed: {e}")
+                tag = f"{m.group(1)}_{m.group(2)}_{method}"
+                for frame_name, data in frames.items():
+                    t_i, p_i, v_i, a_i = data["imu"]
+                    t_g, p_g, v_g, a_g = data["gnss"]
+                    t_f, p_f, v_f, a_f = data["fused"]
+                    truth = data.get("truth")
+                    filename = f"{tag}_task6_overlay_state_{frame_name}.pdf"
+                    plot_overlay(
+                        frame_name,
+                        method,
+                        t_i,
+                        p_i,
+                        v_i,
+                        a_i,
+                        t_g,
+                        p_g,
+                        v_g,
+                        a_g,
+                        t_f,
+                        p_f,
+                        v_f,
+                        a_f,
+                        args.output,
+                        truth,
+                        filename=filename,
+                    )
+            except Exception as e:
+                print(f"Overlay plot failed: {e}")
 
     for line in summary_lines:
         print(line)
