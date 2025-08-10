@@ -174,7 +174,7 @@ if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
     % Set plot title
     title('Initial Location on Earth Map');
 
-    % Save the plot as both PDF and PNG using a reasonable page size
+    % Save the plot as PNG using a reasonable page size
     set(gcf, 'PaperPositionMode', 'auto');
     base_fig = figure(gcf);
     save_plot(base_fig, imu_name, gnss_name, method, 1);
