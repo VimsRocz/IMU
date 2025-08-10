@@ -39,7 +39,12 @@ for i = 1:numel(imu_files)
             warning('Missing expected output %s', result_file);
             continue;
         end
-        result = load(result_file);
+        try
+            result = load(result_file);
+        catch ME
+            warning('Failed to load %s: %s', result_file, ME.message);
+            continue; % skip MATLAB export if result file is bad
+        end
         var_name = sprintf('result_%s_%s_%s', imuName, gnssName, method);
         assignin('base', var_name, result);
         save(fullfile(results_dir,[var_name '.mat']), '-struct', 'result');
