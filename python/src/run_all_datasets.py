@@ -26,6 +26,32 @@ from tqdm import tqdm
 from validate_with_truth import load_estimate, assemble_frames
 from plot_overlay import plot_overlay
 
+# --- truth path resolver (auto + env override) ---
+def _resolve_truth_path(defaults=None):
+    import os as _os
+    from pathlib import Path
+    # 1) explicit env var wins
+    env = _os.getenv("IMU_TRUTH_PATH")
+    if env and Path(env).exists():
+        return env
+    # 2) known candidates relative to repo root (python/src/ -> repo = parents[2])
+    root = Path(__file__).resolve().parents[2] if len(Path(__file__).resolve().parents) >= 2 else Path.cwd()
+    cands = (defaults or []) + [
+        root / "DATA" / "TRUTH" / "STATE_X001.txt",
+        root / "DATA" / "TRUTH" / "STATE_X001_small.txt",
+    ]
+    for c in cands:
+        c = Path(c)
+        if c.exists():
+            return str(c)
+    # 3) first STATE_*.txt found
+    for base in [root / "DATA" / "TRUTH"]:
+        if base.exists():
+            m = list(base.glob("STATE_*.txt"))
+            if m:
+                return str(m[0])
+    return None
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 ensure_dependencies()
@@ -195,7 +221,8 @@ def main():
                 mat_out,
             )
 
-        truth_path = ROOT / "STATE_X001.txt"
+        truth_str = _resolve_truth_path()
+        truth_path = pathlib.Path(truth_str) if truth_str else ROOT / "DATA" / "TRUTH" / "STATE_X001.txt"
         est_mat = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat"
         if truth_path.exists():
             first = np.loadtxt(truth_path, comments="#", max_rows=1)

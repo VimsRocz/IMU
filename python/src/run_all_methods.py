@@ -40,6 +40,32 @@ from evaluate_filter_results import run_evaluation_npz
 
 from utils import compute_C_ECEF_to_NED
 
+# --- truth path resolver (auto + env override) ---
+def _resolve_truth_path(defaults=None):
+    import os
+    from pathlib import Path
+    # 1) explicit env var wins
+    env = os.getenv("IMU_TRUTH_PATH")
+    if env and Path(env).exists():
+        return env
+    # 2) known candidates relative to repo root (python/src/ -> repo = parents[2])
+    root = Path(__file__).resolve().parents[2] if len(Path(__file__).resolve().parents) >= 2 else Path.cwd()
+    cands = (defaults or []) + [
+        root / "DATA" / "TRUTH" / "STATE_X001.txt",
+        root / "DATA" / "TRUTH" / "STATE_X001_small.txt",
+    ]
+    for c in cands:
+        c = Path(c)
+        if c.exists():
+            return str(c)
+    # 3) first STATE_*.txt found
+    for base in [root / "DATA" / "TRUTH"]:
+        if base.exists():
+            m = list(base.glob("STATE_*.txt"))
+            if m:
+                return str(m[0])
+    return None
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -51,7 +77,6 @@ ROOT = HERE.parent
 import sys as _sys
 _sys.path.append(str(HERE / "utils"))
 from timeline import print_timeline_summary  # type: ignore
-from resolve_truth_path import resolve_truth_path  # type: ignore
 
 try:
     import yaml
@@ -174,10 +199,11 @@ def main(argv=None):
 
         # Print and save a concise timeline summary for the current dataset.
         try:
-            truth_path = resolve_truth_path()
+            truth_path = _resolve_truth_path()
         except Exception:
             truth_path = None
         try:
+            truth_path = truth_path or _resolve_truth_path()
             print_timeline_summary(tag, str(imu_path), str(gnss_path), truth_path, out_dir="results")
         except Exception:
             # Timeline is best-effort; continue even if it fails
