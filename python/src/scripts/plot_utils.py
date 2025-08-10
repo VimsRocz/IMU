@@ -12,18 +12,35 @@ def save_plot(fig, outpath, title):
     plt.close(fig)
 
 
-def plot_attitude(time, quats, outpath):
+def plot_attitude(time, quats, out_base: str, frame: str = "NED"):
+    """Plot roll, pitch and yaw angles over time.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Time vector corresponding to ``quats``.
+    quats : np.ndarray
+        Quaternion sequence ``(N,4)`` in ``xyzw`` order.
+    out_base : str
+        Output path without file extension.
+    frame : str, optional
+        Reference frame label used in the plot title and file name.
+    """
+
     r = R.from_quat(quats)
-    euler = r.as_euler('xyz', degrees=True)
-    fig, axs = plt.subplots(3, 1, figsize=(6, 8))
-    labels = ['Roll', 'Pitch', 'Yaw']
-    for i in range(3):
-        axs[i].plot(time, euler[:, i])
-        axs[i].set_ylabel(f"{labels[i]} (°)")
-    axs[-1].set_xlabel("Time (s)")
-    fig.suptitle("Task 6: Attitude Angles Over Time")
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
-    fig.savefig(outpath)
+    euler = r.as_euler("xyz", degrees=True)
+    fig, axs = plt.subplots(3, 1, figsize=(6, 8), sharex=True)
+    labels = ["Roll", "Pitch", "Yaw"]
+    for i, lab in enumerate(labels):
+        axs[i].plot(time, euler[:, i], label=lab)
+        axs[i].set_ylabel(f"{lab} [deg]")
+        axs[i].legend(loc="best")
+        axs[i].grid(True)
+    axs[-1].set_xlabel("Time [s]")
+    fig.suptitle(f"Task 6: Attitude Angles ({frame})")
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.savefig(f"{out_base}.pdf")
+    fig.savefig(f"{out_base}.png")
     plt.close(fig)
 
 

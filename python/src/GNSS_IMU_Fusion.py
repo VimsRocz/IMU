@@ -1860,14 +1860,12 @@ def main():
         save_plot(fig_innov, innov_pdf, "Pre-fit Innovations")
 
     # Plot residuals and attitude using helper functions
+    frame = "NED"
     if not args.no_plots:
         res = compute_residuals(gnss_time, gnss_pos_ned, imu_time, fused_pos[method])
         plot_residuals(gnss_time, res, f"results/residuals_{tag}_{method}.pdf")
-        plot_attitude(
-            imu_time,
-            attitude_q_all[method],
-            f"results/attitude_angles_{tag}_{method}.pdf",
-        )
+        out_base = f"results/{tag}_task6_attitude_angles_{frame}"
+        plot_attitude(imu_time, attitude_q_all[method], out_base, frame)
 
     # Create plot summary
     summary = {
@@ -1886,7 +1884,7 @@ def main():
         f"{tag}_task5_all_body.pdf": "Kalman filter results in body frame",
         f"{tag}_{method.lower()}_residuals.pdf": "Position and velocity residuals",
         f"{tag}_{method.lower()}_innovations.pdf": "Pre-fit innovations",
-        f"{tag}_{method.lower()}_attitude_angles.pdf": "Attitude angles over time",
+        f"{tag}_task6_attitude_angles_{frame}.png": "Attitude angles over time (NED frame)",
     }
     summary_path = os.path.join("results", f"{tag}_plot_summary.md")
     with open(summary_path, "w") as f:
@@ -1917,23 +1915,6 @@ def main():
 
     accel_bias = acc_biases.get(method, np.zeros(3))
     gyro_bias = gyro_biases.get(method, np.zeros(3))
-
-    # --- Attitude angles ----------------------------------------------------
-    euler = R.from_quat(attitude_q_all[method]).as_euler("xyz", degrees=True)
-    if not args.no_plots:
-        plt.figure()
-        plt.plot(imu_time, euler[:, 0], label="Roll")
-        plt.plot(imu_time, euler[:, 1], label="Pitch")
-        plt.plot(imu_time, euler[:, 2], label="Yaw")
-        plt.xlabel("Time (s)")
-        plt.ylabel("Angle (deg)")
-        plt.legend(loc="best")
-        plt.title(f"Task 6: {tag} Attitude Angles")
-        png = Path("results") / f"{tag}_task6_attitude_angles.png"
-        pdf = png.with_suffix(".pdf")
-        plt.savefig(png)
-        plt.savefig(pdf)
-        plt.close()
 
     C_NED_to_ECEF = C_ECEF_to_NED.T
     pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])

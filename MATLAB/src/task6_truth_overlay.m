@@ -149,12 +149,18 @@ print(f_body, png_body, '-dpng', '-bestfit');
 close(f_body);
 
 f_att = figure('Visible','off');
-plot(t_imu, eul);
-legend({'Roll','Pitch','Yaw'}); grid on;
-xlabel('Time [s]'); ylabel('Angle [deg]');
+labels = {'Roll','Pitch','Yaw'};
+for i = 1:3
+    subplot(3,1,i); hold on;
+    plot(t_imu, eul(:,i), 'DisplayName', labels{i});
+    ylabel([labels{i} ' [deg]']); grid on;
+    legend('Location','best');
+    if i==1; title('Task 6: Attitude Angles (NED)'); end
+    if i==3; xlabel('Time [s]'); end
+end
 set(f_att,'PaperPositionMode','auto');
 
-pdf_att = fullfile(results_dir, sprintf('%s_task6_attitude_angles.pdf', run_id));
+pdf_att = fullfile(results_dir, sprintf('%s_task6_attitude_angles_NED.pdf', run_id));
 png_att = strrep(pdf_att,'.pdf','.png');
 print(f_att, pdf_att, '-dpdf', '-bestfit');
 print(f_att, png_att, '-dpng', '-bestfit');
