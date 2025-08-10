@@ -17,19 +17,4 @@ All reported results and plots are for the TRIAD initialization method.
 **Filename:** <tag>_task3_quaternions_comparison.pdf
 **Description:** Comparison of `qw`, `qx`, `qy`, `qz` across methods after Task&nbsp;3.
 
-## 5. Attitude Angles (Roll/Pitch/Yaw) vs. Time
-**Filename:** IMU_Xnnn_EulerAngles_time.pdf
-**Description:** Roll, pitch, and yaw estimated from the TRIAD method, visualized for the entire trajectory.
-
-## 6. Position Residuals (Filter - GNSS) vs. Time
-**Filename:** IMU_Xnnn_GNSS_Xnnn_pos_residuals.pdf
-**Description:** Shows how closely the Kalman filter position matches GNSS; helps visualize drift or filter corrections.
-
-## 7. Velocity Residuals (Filter - GNSS) vs. Time
-**Filename:** IMU_Xnnn_GNSS_Xnnn_vel_residuals.pdf
-**Description:** Shows difference in velocity estimates between filter and GNSS, indicating filter tracking accuracy.
-
-## 8. Attitude Angles Over Time
-**Filename:** IMU_Xnnn_GNSS_Xnnn_attitude_time.pdf
-**Description:** Roll, pitch, and yaw estimates over the full dataset, useful for spotting jumps or drift.
 

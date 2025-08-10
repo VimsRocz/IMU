@@ -38,21 +38,16 @@ Use one row per plot. See `plot_summary.md` for an example.
 ## 3. Optional Per-Plot Text Summaries
 Store short summaries for each figure in `results/plot_summary.md` or similar:
 ```
-# Plot: attitude_angles_IMU_X001_GNSS_X001_TRIAD_TRIAD.pdf
+# Plot: task5_results_IMU_X001_GNSS_X001_TRIAD.pdf
 
-**Description:** Roll, pitch, and yaw over time after TRIAD initialization.
+**Description:** Position, velocity, and acceleration after TRIAD initialization.
 
-**Insight:** Attitude is stable; confirms initialization.
+**Insight:** Fused trajectory remains stable.
 
 **Improvement:** Add time markers and clearer labels.
 ```
 
-## 4. Filter Results – Residuals & Innovations
-- Plot position and velocity residuals between the filter prediction and GNSS.
-- Include innovations with ±3σ bounds in subplots.
-- Provide RMSE and extrema either on the plot or in the summary table.
-
-## 5. Documentation & Reproducibility
+## 4. Documentation & Reproducibility
 - Document dataset-specific parameters and any script flags in the README.
 - If `filterpy` fails to install on Ubuntu:
 ```bash

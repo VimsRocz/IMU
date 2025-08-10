@@ -279,8 +279,6 @@ Typical result PDFs:
 - `task5_all_ned.pdf` – Kalman filter results in NED frame
 - `task5_all_ecef.pdf` – Kalman filter results in ECEF frame
 - `task5_all_body.pdf` – Kalman filter results in body frame
-- `<method>_residuals.pdf` – position and velocity residuals
-- `<tag>_task6_attitude_angles.pdf` – attitude angles over time
 - `<tag>_<frame>_overlay_truth.pdf` – fused output vs reference. Here `<tag>` is
   the dataset pair and method concatenated, e.g. `IMU_X002_GNSS_X002_Davenport`.
  - ``results/<tag>_task6_overlay_state_<frame>.pdf`` – Task 6 overlay with GNSS, IMU and raw state (PDF/PNG/``.fig``) plus ``.mat``
