@@ -46,11 +46,18 @@ for i = 1:3
 end
 
 fname = fullfile(results_dir, sprintf('%s_task5_gnss_interp_ned', run_id));
-if cfg.plots.save_png
-    saveas(fig, [fname '.png']);
-end
+% Use best-fit printing to avoid page cut-off warnings
+set(fig, 'PaperPositionMode', 'auto');
 if cfg.plots.save_pdf
-    saveas(fig, [fname '.pdf']);
+    print(fig, [fname '.pdf'], '-dpdf', '-bestfit');
+end
+if cfg.plots.save_png
+    try
+        exportgraphics(fig, [fname '.png'], 'Resolution', 300);
+    catch
+        % Fallback for older MATLAB versions
+        print(fig, [fname '.png'], '-dpng', '-r300');
+    end
 end
 close(fig);
 end
