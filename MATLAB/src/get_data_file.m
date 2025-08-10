@@ -1,32 +1,24 @@
-function path = get_data_file(filename)
-    %GET_DATA_FILE  Return the full path to a data file.
-    %   PATH = GET_DATA_FILE(FILENAME) searches common locations within the
-    %   repository so scripts remain independent of the current working
-    %   directory.  The following folders are checked in order:
-    %
-    %   ``MATLAB/data``
-    %   ``data`` (repository root)
-    %   repository root
-    %   ``tests/data`` (bundled unit-test logs)
-    %
-    %   An error is raised if the file cannot be found.
+function p = get_data_file(name)
+%GET_DATA_FILE Returns absolute path to a dataset by searching standard dirs.
+%   Search order:
+%     DATA/IMU, DATA/GNSS, DATA/TRUTH, then repo root.
+%   Accepts absolute path (returned as-is) or bare filename.
 
-    script_dir = fileparts(mfilename('fullpath'));
-    root_dir   = fileparts(script_dir);
+if isstring(name); name = char(name); end
+if isfile(name) && startsWith(name, filesep)
+    p = name; return;
+end
 
-    candidates = {
-        fullfile(script_dir, 'data', filename), ...
-        fullfile(root_dir, 'data', filename),  ...
-        fullfile(root_dir, filename),          ...
-        fullfile(root_dir, 'tests', 'data', filename)
-    };
+repo = fileparts(mfilename('fullpath'));  % MATLAB/
+repo = fileparts(repo);                   % repo root
 
-    for i = 1:numel(candidates)
-        if exist(candidates{i}, 'file')
-            path = candidates{i};
-            return;
-        end
-    end
+cands = { fullfile(repo,'DATA','IMU',  name), ...
+          fullfile(repo,'DATA','GNSS', name), ...
+          fullfile(repo,'DATA','TRUTH',name), ...
+          fullfile(repo, name) };
 
-    error('Data file not found: %s', filename);
+for i=1:numel(cands)
+    if isfile(cands{i}), p = cands{i}; return; end
+end
+error('get_data_file:FileNotFound','Dataset not found: %s', name);
 end
