@@ -36,3 +36,20 @@ run_all_output.txt
 STATE_IMU_*.txt
 
 STATE_IMU_*.txt
+
+# Results
+MATLAB/results/**
+python/results/**
+
+# System cruft
+.DS_Store
+
+# Never commit fake truth files
+STATE_IMU_*.txt
+
+# Large figures/binaries (keep via artifacts if needed)
+*.pdf
+*.png
+*.fig
+*.npz
+*.mat
