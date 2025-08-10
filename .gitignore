@@ -32,3 +32,5 @@ src/task5_results_all_methods.png
 task5_results_all_methods.png
 run_output.txt
 run_all_output.txt
+
+STATE_IMU_*.txt
