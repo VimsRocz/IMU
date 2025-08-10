@@ -1,0 +1,10 @@
+datasets:
+  - name: X001
+    imu:   DATA/IMU/IMU_X001.dat
+    gnss:  DATA/GNSS/GNSS_X001.csv
+    truth: DATA/TRUTH/STATE_X001.txt
+
+  - name: X002
+    imu:   DATA/IMU/IMU_X002.dat
+    gnss:  DATA/GNSS/GNSS_X002.csv
+    truth: DATA/TRUTH/STATE_X001.txt

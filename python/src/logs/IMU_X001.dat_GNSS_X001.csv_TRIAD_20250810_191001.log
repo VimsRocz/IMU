@@ -1,0 +1,37 @@
+Ensured 'results/' directory exists.
+Running attitude-estimation method: TRIAD
+TASK 1 (TRIAD): Define reference vectors in NED frame
+Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.
+Traceback (most recent call last):
+  File "/Users/vimalchawda/Desktop/IMU/python/src/GNSS_IMU_Fusion.py", line 2085, in <module>
+    main()
+    ~~~~^^
+  File "/Users/vimalchawda/Desktop/IMU/python/src/GNSS_IMU_Fusion.py", line 234, in main
+    ) = compute_reference_vectors(gnss_file, args.mag_file)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/vimalchawda/Desktop/IMU/python/src/gnss_imu_fusion/init.py", line 34, in compute_reference_vectors
+    gnss_data = pd.read_csv(gnss_file)
+  File "/Users/vimalchawda/miniconda3/lib/python3.13/site-packages/pandas/io/parsers/readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+  File "/Users/vimalchawda/miniconda3/lib/python3.13/site-packages/pandas/io/parsers/readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+  File "/Users/vimalchawda/miniconda3/lib/python3.13/site-packages/pandas/io/parsers/readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/Users/vimalchawda/miniconda3/lib/python3.13/site-packages/pandas/io/parsers/readers.py", line 1880, in _make_engine
+    self.handles = get_handle(
+                   ~~~~~~~~~~^
+        f,
+        ^^
+    ...<6 lines>...
+        storage_options=self.options.get("storage_options", None),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/vimalchawda/miniconda3/lib/python3.13/site-packages/pandas/io/common.py", line 873, in get_handle
+    handle = open(
+        handle,
+    ...<3 lines>...
+        newline="",
+    )
+FileNotFoundError: [Errno 2] No such file or directory: 'GNSS_X001.csv'

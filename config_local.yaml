@@ -1,0 +1,9 @@
+datasets:
+  X001:
+    imu_path:   DATA/IMU/IMU_X001.dat
+    gnss_path:  DATA/GNSS/GNSS_X001.csv
+    truth_path: DATA/TRUTH/STATE_X001.txt
+  X002:
+    imu_path:   DATA/IMU/IMU_X002.dat
+    gnss_path:  DATA/GNSS/GNSS_X002.csv
+    truth_path: DATA/TRUTH/STATE_X001.txt
