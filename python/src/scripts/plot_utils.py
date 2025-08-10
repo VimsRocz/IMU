@@ -12,20 +12,21 @@ def save_plot(fig, outpath, title):
     plt.close(fig)
 
 
-def plot_attitude(time, quats, outpath):
+def plot_attitude(time, quats, outpath, title="Task 6: Attitude Angles Over Time"):
     r = R.from_quat(quats)
     euler = r.as_euler('xyz', degrees=True)
-    fig, axs = plt.subplots(3, 1, figsize=(6, 8))
+    fig, axs = plt.subplots(3, 1, figsize=(6, 8), sharex=True)
     labels = ['Roll', 'Pitch', 'Yaw']
     for i in range(3):
         axs[i].plot(time, euler[:, i])
         axs[i].set_ylabel(f"{labels[i]} (°)")
+        axs[i].grid(True)
+        axs[i].legend([labels[i]], loc="best", frameon=True)
     axs[-1].set_xlabel("Time (s)")
-    fig.suptitle("Task 6: Attitude Angles Over Time")
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.suptitle(title)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
     fig.savefig(outpath)
     plt.close(fig)
-
 
 
 def plot_zupt_detection(accel_data: np.ndarray, gyro_data: np.ndarray,
