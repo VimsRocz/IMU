@@ -34,7 +34,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 SCRIPT = HERE / "GNSS_IMU_Fusion.py"
 LOG_DIR = HERE / "logs"
-LOG_DIR.mkdir(exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_DATASETS = [
     ("IMU_X001.dat", "GNSS_X001.csv"),
@@ -52,7 +52,7 @@ SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
 def run_one(imu, gnss, method, verbose=False):
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
+    log = LOG_DIR / f"{pathlib.Path(imu).name}_{pathlib.Path(gnss).name}_{method}_{ts}.log"
     imu_path = pathlib.Path(imu)
     gnss_path = pathlib.Path(gnss)
 

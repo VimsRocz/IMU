@@ -14,11 +14,17 @@ def resolve_truth_path() -> str | None:
 
     Returns the canonical truth file path if found, otherwise ``None``.
     """
-
-    preferred = Path("/Users/vimalchawda/Desktop/IMU/STATE_X001.txt")
-
-    if preferred.is_file():
-        print(f"Using TRUTH: {preferred}")
-        return str(preferred)
-
+    root = Path(__file__).resolve().parents[2]
+    candidates = [
+        root / "DATA" / "TRUTH" / "STATE_X001.txt",
+        root / "DATA" / "TRUTH" / "STATE_X001_small.txt",
+    ]
+    for c in candidates:
+        if c.is_file():
+            print(f"Using TRUTH: {c}")
+            return str(c)
+    matches = sorted((root / "DATA" / "TRUTH").glob("STATE_*.txt"))
+    if matches:
+        print(f"Using TRUTH: {matches[0]}")
+        return str(matches[0])
     return None

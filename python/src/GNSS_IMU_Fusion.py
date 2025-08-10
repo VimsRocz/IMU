@@ -34,6 +34,16 @@ import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
 
+
+def _as_timeseries(C, N):
+    """Broadcast a single 3x3 attitude to an N×3×3 series."""
+    C = np.asarray(C)
+    if C.ndim == 3:
+        return C
+    if C.ndim == 2 and C.shape == (3, 3):
+        return np.broadcast_to(C, (N, 3, 3))
+    raise ValueError(f"Unexpected attitude shape for timeseries: {getattr(C, 'shape', None)}")
+
 from scripts.plot_utils import save_plot, plot_attitude
 from utils import (
     is_static,
@@ -2031,7 +2041,8 @@ def main():
         res_acc_ecef = (C_NED_to_ECEF @ res_acc_ned.T).T
 
         # Transform residuals to Body frame using interpolated attitude
-        C_N_B_imu = C_B_N_methods[method].transpose(0, 2, 1)
+        C_B_N = _as_timeseries(C_B_N_methods[method], len(imu_time))
+        C_N_B_imu = C_B_N.transpose(0, 2, 1)
         C_N_B_gnss = np.zeros((len(gnss_time), 3, 3))
         for i in range(3):
             for j in range(3):
