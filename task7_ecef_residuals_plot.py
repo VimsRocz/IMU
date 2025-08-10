@@ -57,7 +57,15 @@ def plot_residuals(
     method: str,
     out_dir: Path,
 ) -> None:
-    """Plot residual components and norms."""
+    """Plot residual components and norms.
+
+    Residual components are plotted using the repository-wide legend
+    convention: residuals (fused minus truth) are shown in a red solid
+    line with ``"x"`` markers.  A single legend is added to the first
+    axis and boxed for clarity.  The residual norm plot uses blue, green
+    and red for position, velocity and acceleration magnitudes
+    respectively.
+    """
     labels = ["X", "Y", "Z"]
     fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
 
@@ -70,7 +78,15 @@ def plot_residuals(
     ):
         for j in range(3):
             ax = axes[i, j]
-            ax.plot(t, arr[:, j])
+            label = "Residual" if (i == 0 and j == 0) else "_nolegend_"
+            ax.plot(
+                t,
+                arr[:, j],
+                "r-",
+                marker="x",
+                markersize=3,
+                label=label,
+            )
             if i == 0:
                 ax.set_title(labels[j])
             if j == 0:
@@ -78,6 +94,8 @@ def plot_residuals(
             if i == 2:
                 ax.set_xlabel("Time [s]")
             ax.grid(True)
+
+    axes[0, 0].legend(loc="upper right", fontsize=10, frameon=True)
 
     tag = make_tag(dataset, gnss, method)
     fig.suptitle(f"{tag} Task 7 ECEF Residuals")
@@ -92,13 +110,13 @@ def plot_residuals(
 
     # Norm plot
     fig, ax = plt.subplots()
-    ax.plot(t, np.linalg.norm(res_pos, axis=1), label="|pos|")
-    ax.plot(t, np.linalg.norm(res_vel, axis=1), label="|vel|")
-    ax.plot(t, np.linalg.norm(res_acc, axis=1), label="|acc|")
+    ax.plot(t, np.linalg.norm(res_pos, axis=1), "b-", label="|pos|")
+    ax.plot(t, np.linalg.norm(res_vel, axis=1), "g--", label="|vel|")
+    ax.plot(t, np.linalg.norm(res_acc, axis=1), "r-", label="|acc|")
     ax.set_xlabel("Time [s]")
     ax.set_ylabel("Residual Norm")
-    ax.legend()
-    ax.grid(True)
+    ax.legend(loc="upper right", fontsize=10, frameon=True)
+    ax.grid(True, alpha=0.3)
     fig.suptitle(f"{tag} Task 7 ECEF Residual Norms")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     norm_name = plot_filename(dataset, gnss, method, 7, "3", "ecef_residual_norms")
