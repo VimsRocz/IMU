@@ -37,6 +37,7 @@ from utils import save_mat
 from contextlib import redirect_stdout
 import io
 from evaluate_filter_results import run_evaluation_npz
+import imu_truth_io
 
 from utils import compute_C_ECEF_to_NED
 
@@ -205,6 +206,16 @@ def main(argv=None):
             truth_path = None
         try:
             truth_path = truth_path or _resolve_truth_path()
+            truth_tbl = None
+            truth_diag = None
+            if truth_path and os.path.exists(truth_path):
+                try:
+                    truth_tbl = imu_truth_io.load_truth(truth_path)
+                    print(f'Using TRUTH: {truth_path} (parsed via fallback)')
+                except Exception as e:
+                    truth_diag = str(e)
+            else:
+                truth_diag = f'Truth path missing or not found: {truth_path}'
             print_timeline_summary(tag, str(imu_path), str(gnss_path), truth_path, out_dir="results")
         except Exception:
             # Timeline is best-effort; continue even if it fails

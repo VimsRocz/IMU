@@ -17,6 +17,7 @@ import numpy as np
 import yaml
 import os
 import logging
+import imu_truth_io
 import zipfile
 from utils import save_mat
 
@@ -251,9 +252,16 @@ def main():
         truth_path = pathlib.Path(truth_str) if truth_str else ROOT / "DATA" / "TRUTH" / "STATE_X001.txt"
         est_mat = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat"
         if truth_path.exists():
-            first = np.loadtxt(truth_path, comments="#", max_rows=1)
-            r0 = first[2:5]
-            lat_deg, lon_deg, _ = ecef_to_geodetic(*r0)
+            try:
+                truth_tbl = imu_truth_io.load_truth(truth_path)
+                print(f'Using TRUTH: {truth_path} (parsed via fallback)')
+                r0 = np.array([truth_tbl.x[0], truth_tbl.y[0], truth_tbl.z[0]])
+                lat_deg, lon_deg, _ = ecef_to_geodetic(*r0)
+            except Exception as e:
+                print(f'Truth parse failed: {e}')
+                first = np.loadtxt(truth_path, comments="#", max_rows=1)
+                r0 = first[2:5]
+                lat_deg, lon_deg, _ = ecef_to_geodetic(*r0)
 
             vcmd = [
                 sys.executable,
@@ -275,8 +283,8 @@ def main():
             ]
             subprocess.run(vcmd, check=True)
             try:
-                truth_data = np.loadtxt(truth_path)
-                t_truth = truth_data[:, 1]
+                truth_data = truth_tbl.raw if 'truth_tbl' in locals() and truth_tbl is not None else np.loadtxt(truth_path)
+                t_truth = truth_tbl.t if 'truth_tbl' in locals() and truth_tbl is not None else truth_data[:, 1]
                 est = load_estimate(str(est_mat), times=t_truth)
                 frames = assemble_frames(est, imu_path, gnss_path, truth_path)
                 for frame_name, data in frames.items():

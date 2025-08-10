@@ -32,6 +32,7 @@ from typing import Iterable, List, Dict
 import numpy as np
 import pandas as pd
 from scipy.spatial.transform import Rotation as R
+import imu_truth_io
 import scipy.io as sio
 from tabulate import tabulate
 
@@ -208,6 +209,16 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
     truth_path = truth_path or _resolve_truth_path()
+    truth_tbl = None
+    truth_diag = None
+    if truth_path and os.path.exists(truth_path):
+        try:
+            truth_tbl = imu_truth_io.load_truth(truth_path)
+            print(f'Using TRUTH: {truth_path} (parsed via fallback)')
+        except Exception as e:
+            truth_diag = str(e)
+    else:
+        truth_diag = f'Truth path missing or not found: {truth_path}'
     print_timeline(run_id, str(imu_path), str(gnss_path), truth_path, out_dir=str(results_dir))
 
     if logger.isEnabledFor(logging.DEBUG):
