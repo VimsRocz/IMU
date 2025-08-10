@@ -35,6 +35,32 @@ from scipy.spatial.transform import Rotation as R
 import scipy.io as sio
 from tabulate import tabulate
 
+# --- truth path resolver (auto + env override) ---
+def _resolve_truth_path(defaults=None):
+    import os
+    from pathlib import Path
+    # 1) explicit env var wins
+    env = os.getenv("IMU_TRUTH_PATH")
+    if env and Path(env).exists():
+        return env
+    # 2) known candidates relative to repo root (python/src/ -> repo = parents[2])
+    root = Path(__file__).resolve().parents[2] if len(Path(__file__).resolve().parents) >= 2 else Path.cwd()
+    cands = (defaults or []) + [
+        root / "DATA" / "TRUTH" / "STATE_X001.txt",
+        root / "DATA" / "TRUTH" / "STATE_X001_small.txt",
+    ]
+    for c in cands:
+        c = Path(c)
+        if c.exists():
+            return str(c)
+    # 3) first STATE_*.txt found
+    for base in [root / "DATA" / "TRUTH"]:
+        if base.exists():
+            m = list(base.glob("STATE_*.txt"))
+            if m:
+                return str(m[0])
+    return None
+
 from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
 from utils import save_mat
@@ -42,7 +68,6 @@ from utils import save_mat
 # Allow importing helper utilities under ``src/utils``.
 sys.path.append(str(Path(__file__).resolve().parent / "utils"))
 from timeline import print_timeline
-from resolve_truth_path import resolve_truth_path
 from run_id import run_id as build_run_id
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
@@ -178,9 +203,10 @@ def main(argv: Iterable[str] | None = None) -> None:
     log_path = results_dir / f"{run_id}.log"
     print(f"\u25b6 {run_id}")
 
-    truth_path = resolve_truth_path()
+    truth_path = None
 
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
+    truth_path = truth_path or _resolve_truth_path()
     print_timeline(run_id, str(imu_path), str(gnss_path), truth_path, out_dir=str(results_dir))
 
     if logger.isEnabledFor(logging.DEBUG):

@@ -12,6 +12,10 @@ function run_all_methods()
     method = 'TRIAD';
 
     root_dir  = fileparts(fileparts(mfilename('fullpath')));
+    utils_dir = fullfile(fileparts(mfilename('fullpath')), 'utils');
+    if exist(utils_dir,'dir') && ~contains(path, [utils_dir pathsep])
+        addpath(utils_dir);
+    end
     imu_path  = fullfile(root_dir, dataset.imu);
     gnss_path = fullfile(root_dir, dataset.gnss);
 
@@ -27,7 +31,7 @@ function run_all_methods()
     Task_5(imu_path, gnss_path, method);
 
     res_file = fullfile(get_results_dir(), sprintf('IMU_X002_GNSS_X002_%s_task5_results.mat', method));
-    truth_file = fullfile(root_dir, 'STATE_X001.txt');
+    truth_file = resolve_truth_path();
     if isfile(res_file) && isfile(truth_file)
         [~, imu_name, ~]  = fileparts(dataset.imu);
         [~, gnss_name, ~] = fileparts(dataset.gnss);

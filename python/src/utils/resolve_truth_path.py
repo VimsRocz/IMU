@@ -7,6 +7,7 @@ preferred path for the truth file if it exists.
 from __future__ import annotations
 
 from pathlib import Path
+import os
 
 
 def resolve_truth_path() -> str | None:
@@ -14,6 +15,10 @@ def resolve_truth_path() -> str | None:
 
     Returns the canonical truth file path if found, otherwise ``None``.
     """
+    env = os.getenv("IMU_TRUTH_PATH")
+    if env and Path(env).exists():
+        print(f"Using TRUTH: {env}")
+        return env
     root = Path(__file__).resolve().parents[2]
     candidates = [
         root / "DATA" / "TRUTH" / "STATE_X001.txt",
