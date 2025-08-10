@@ -606,10 +606,6 @@ if ~isempty(zupt_indices)
     save_plot(fig_zupt, imu_name, gnss_name, [method '_ZUPT'], 5);
 end
 
-plot_task5_mixed_frame(imu_time, x_log(1:3,:), x_log(4:6,:), ...
-    acc_log, euler_log, C_ECEF_to_NED, ref_r0, g_NED, run_id, method, results_dir, all_file, cfg);
-fprintf('Fused mixed frames plot saved\n');
-
 fprintf('Plotting all data in NED frame.\n');
 plot_task5_ned_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
     gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, run_id, cfg);
@@ -969,108 +965,230 @@ end % End of main function
         close(fig);
     end
 
-    function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, ~, ~, ~, ~, method, run_id, cfg)
-        %PLOT_TASK5_NED_FRAME Plot fused state in the NED frame only.
+    function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, gnss_t, gnss_pos, gnss_vel, gnss_acc, method, run_id, cfg)
+        %PLOT_TASK5_NED_FRAME Overlay fused, GNSS, and IMU data in NED frame.
+        %   t         - IMU timestamps [s]
+        %   pos_ned   - fused position [3xN] (NED)
+        %   vel_ned   - fused velocity [3xN] (NED)
+        %   acc_ned   - IMU specific force expressed in NED [3xN]
+        %   gnss_*    - GNSS measurements in NED
         axes_labels = {'N','E','D'};
         fused_color = [0.4660 0.6740 0.1880];
+        imu_color   = [0.8500 0.3250 0.0980];
+        gnss_color  = [0 0.4470 0.7410];
+
+        t_row = t(:)';
+        num_samples = numel(t_row);
+        % Interpolate GNSS measurements to IMU time base
+        gnss_pos_i = zeros(3, num_samples);
+        gnss_vel_i = zeros(3, num_samples);
+        gnss_acc_i = zeros(3, num_samples);
+        for k = 1:3
+            gnss_pos_i(k,:) = interp1(gnss_t, gnss_pos(:,k), t_row, 'linear', 'extrap');
+            gnss_vel_i(k,:) = interp1(gnss_t, gnss_vel(:,k), t_row, 'linear', 'extrap');
+            gnss_acc_i(k,:) = interp1(gnss_t, gnss_acc(:,k), t_row, 'linear', 'extrap');
+        end
+
+        % IMU-only dead reckoning
+        vel_imu = cumtrapz(t_row, acc_ned, 2);
+        pos_imu = cumtrapz(t_row, vel_imu, 2);
+
+        % Fused acceleration derived from fused velocity
+        acc_fused = [zeros(3,1), diff(vel_ned,1,2) ./ diff(t_row)];
+
         figure('Name','Task5 NED Frame','Position',[100 100 1200 900],'Visible','on');
         tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
         for r = 1:3
             for c = 1:3
-                nexttile;
+                nexttile; hold on;
                 switch c
-                    case 1, y = pos_ned(r,:); ylab = sprintf('Pos %s [m]', axes_labels{r});
-                    case 2, y = vel_ned(r,:); ylab = sprintf('Vel %s [m/s]', axes_labels{r});
-                    case 3, y = acc_ned(r,:); ylab = sprintf('Acc %s [m/s^2]', axes_labels{r});
+                    case 1
+                        plot(t_row, pos_ned(r,:), 'Color', fused_color, 'LineWidth',1.8,'DisplayName','Fused');
+                        plot(t_row, gnss_pos_i(r,:), ':', 'Color', gnss_color,'DisplayName','GNSS');
+                        plot(t_row, pos_imu(r,:),  '-.', 'Color', imu_color,'DisplayName','IMU');
+                        ylab = sprintf('Pos %s [m]', axes_labels{r});
+                    case 2
+                        plot(t_row, vel_ned(r,:), 'Color', fused_color, 'LineWidth',1.8,'DisplayName','Fused');
+                        plot(t_row, gnss_vel_i(r,:), ':', 'Color', gnss_color,'DisplayName','GNSS');
+                        plot(t_row, vel_imu(r,:),  '-.', 'Color', imu_color,'DisplayName','IMU');
+                        ylab = sprintf('Vel %s [m/s]', axes_labels{r});
+                    case 3
+                        plot(t_row, acc_fused(r,:), 'Color', fused_color, 'LineWidth',1.8,'DisplayName','Fused');
+                        plot(t_row, gnss_acc_i(r,:), ':', 'Color', gnss_color,'DisplayName','GNSS');
+                        plot(t_row, acc_ned(r,:),  '-.', 'Color', imu_color,'DisplayName','IMU');
+                        ylab = sprintf('Acc %s [m/s^2]', axes_labels{r});
                 end
-                plot(t, y, '--','Color',fused_color,'LineWidth',1.8);
                 grid on; axis tight; ylabel(ylab);
                 if r==1 && c==1
-                    legend({'Fused (IMU+GNSS)'},'Location','best');
-                    title('Task 5 — Fused (NED)');
+                    lgd = legend('Location','best'); set(lgd,'Box','on');
                 end
+                hold off;
             end
         end
+        sgtitle('Task 5 — All Data (NED Frame)');
         xlabel('Time [s]');
         drawnow;
-        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_ned', run_id));
+        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_all_ned', run_id));
         if cfg.plots.save_pdf, print(gcf, [fname '.pdf'], '-dpdf', '-bestfit'); end
         if cfg.plots.save_png, print(gcf, [fname '.png'], '-dpng'); end
         savefig(gcf, [fname '.fig']);
-        close(gcf);
     end
 
-    function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, ~, ~, ~, ~, C_E_N, r0, method, run_id, cfg)
-        %PLOT_TASK5_ECEF_FRAME Plot fused state in the ECEF frame only.
+    function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, gnss_t, gnss_pos, gnss_vel, gnss_acc, C_E_N, r0, method, run_id, cfg)
+        %PLOT_TASK5_ECEF_FRAME Overlay fused, GNSS, and IMU data in ECEF frame.
+        %   GNSS inputs are already expressed in ECEF coordinates.
         axes_labels = {'X','Y','Z'};
         fused_color = [0.4660 0.6740 0.1880];
+        imu_color   = [0.8500 0.3250 0.0980];
+        gnss_color  = [0 0.4470 0.7410];
+
+        t_row = t(:)';
+        num_samples = numel(t_row);
+        % Interpolate GNSS data to IMU time
+        gnss_pos_i = zeros(3, num_samples);
+        gnss_vel_i = zeros(3, num_samples);
+        gnss_acc_i = zeros(3, num_samples);
+        for k = 1:3
+            gnss_pos_i(k,:) = interp1(gnss_t, gnss_pos(:,k), t_row, 'linear','extrap');
+            gnss_vel_i(k,:) = interp1(gnss_t, gnss_vel(:,k), t_row, 'linear','extrap');
+            gnss_acc_i(k,:) = interp1(gnss_t, gnss_acc(:,k), t_row, 'linear','extrap');
+        end
+
+        % IMU dead reckoning in NED then convert to ECEF
+        vel_imu_ned = cumtrapz(t_row, acc_ned, 2);
+        pos_imu_ned = cumtrapz(t_row, vel_imu_ned, 2);
+        pos_imu = (C_E_N' * pos_imu_ned) + r0;
+        vel_imu = C_E_N' * vel_imu_ned;
+        acc_imu = C_E_N' * acc_ned;
+
+        % Fused results converted to ECEF
         pos_fused = (C_E_N' * pos_ned) + r0;
         vel_fused = C_E_N' * vel_ned;
-        acc_fused = C_E_N' * acc_ned;
+        acc_fused = [zeros(3,1), diff(vel_fused,1,2) ./ diff(t_row)];
+
         figure('Name','Task5 ECEF Frame','Position',[100 100 1200 900],'Visible','on');
         tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
         for r = 1:3
             for c = 1:3
-                nexttile;
+                nexttile; hold on;
                 switch c
-                    case 1, y = pos_fused(r,:); ylab = sprintf('Pos %s [m]', axes_labels{r});
-                    case 2, y = vel_fused(r,:); ylab = sprintf('Vel %s [m/s]', axes_labels{r});
-                    case 3, y = acc_fused(r,:); ylab = sprintf('Acc %s [m/s^2]', axes_labels{r});
+                    case 1
+                        plot(t_row, pos_fused(r,:), 'Color', fused_color, 'LineWidth',1.8,'DisplayName','Fused');
+                        plot(t_row, gnss_pos_i(r,:), ':', 'Color', gnss_color,'DisplayName','GNSS');
+                        plot(t_row, pos_imu(r,:),  '-.', 'Color', imu_color,'DisplayName','IMU');
+                        ylab = sprintf('Pos %s [m]', axes_labels{r});
+                    case 2
+                        plot(t_row, vel_fused(r,:), 'Color', fused_color, 'LineWidth',1.8,'DisplayName','Fused');
+                        plot(t_row, gnss_vel_i(r,:), ':', 'Color', gnss_color,'DisplayName','GNSS');
+                        plot(t_row, vel_imu(r,:),  '-.', 'Color', imu_color,'DisplayName','IMU');
+                        ylab = sprintf('Vel %s [m/s]', axes_labels{r});
+                    case 3
+                        plot(t_row, acc_fused(r,:), 'Color', fused_color, 'LineWidth',1.8,'DisplayName','Fused');
+                        plot(t_row, gnss_acc_i(r,:), ':', 'Color', gnss_color,'DisplayName','GNSS');
+                        plot(t_row, acc_imu(r,:),  '-.', 'Color', imu_color,'DisplayName','IMU');
+                        ylab = sprintf('Acc %s [m/s^2]', axes_labels{r});
                 end
-                plot(t, y, '--','Color',fused_color,'LineWidth',1.8);
                 grid on; axis tight; ylabel(ylab);
                 if r==1 && c==1
-                    legend({'Fused (IMU+GNSS)'},'Location','best');
-                    title('Task 5 — Fused (ECEF)');
+                    lgd = legend('Location','best'); set(lgd,'Box','on');
                 end
+                hold off;
             end
         end
+        sgtitle('Task 5 — All Data (ECEF Frame)');
         xlabel('Time [s]');
         drawnow;
-        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_ecef', run_id));
+        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_all_ecef', run_id));
         if cfg.plots.save_pdf, print(gcf, [fname '.pdf'], '-dpdf', '-bestfit'); end
         if cfg.plots.save_png, print(gcf, [fname '.png'], '-dpng'); end
         savefig(gcf, [fname '.fig']);
-        close(gcf);
     end
 
-    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, eul_log, ~, ~, ~, ~, method, g_N, run_id, cfg)
-        %PLOT_TASK5_BODY_FRAME Plot fused results in body frame coordinates.
+    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, eul_log, gnss_t, gnss_pos, gnss_vel, gnss_acc, method, g_N, run_id, cfg)
+        %PLOT_TASK5_BODY_FRAME Overlay fused, GNSS, and IMU data in body frame.
         axes_labels = {'X','Y','Z'};
         fused_color = [0.4660 0.6740 0.1880];
-        N = size(pos_ned,2);
-        pos_body = zeros(3,N); vel_body = zeros(3,N); acc_body = zeros(3,N);
-        for k = 1:N
+        imu_color   = [0.8500 0.3250 0.0980];
+        gnss_color  = [0 0.4470 0.7410];
+
+        t_row = t(:)';
+        num_samples = numel(t_row);
+        % Interpolate GNSS NED data to IMU timestamps
+        gnss_pos_i = zeros(3, num_samples);
+        gnss_vel_i = zeros(3, num_samples);
+        gnss_acc_i = zeros(3, num_samples);
+        for k = 1:3
+            gnss_pos_i(k,:) = interp1(gnss_t, gnss_pos(:,k), t_row, 'linear','extrap');
+            gnss_vel_i(k,:) = interp1(gnss_t, gnss_vel(:,k), t_row, 'linear','extrap');
+            gnss_acc_i(k,:) = interp1(gnss_t, gnss_acc(:,k), t_row, 'linear','extrap');
+        end
+
+        % IMU-only dead reckoning (NED)
+        vel_imu_ned = cumtrapz(t_row, acc_ned, 2);
+        pos_imu_ned = cumtrapz(t_row, vel_imu_ned, 2);
+
+        % Preallocate body-frame arrays
+        pos_body = zeros(3,num_samples);
+        vel_body = zeros(3,num_samples);
+        acc_body_fused = zeros(3,num_samples);
+        pos_imu_body = zeros(3,num_samples);
+        vel_imu_body = zeros(3,num_samples);
+        acc_imu_body = zeros(3,num_samples);
+        pos_gnss_body = zeros(3,num_samples);
+        vel_gnss_body = zeros(3,num_samples);
+        acc_gnss_body = zeros(3,num_samples);
+
+        for k = 1:num_samples
             C_B_N = euler_to_rot(eul_log(:,k));
             pos_body(:,k) = C_B_N' * pos_ned(:,k);
             vel_body(:,k) = C_B_N' * vel_ned(:,k);
-            acc_body(:,k) = C_B_N' * (acc_ned(:,k) - g_N);
+            pos_imu_body(:,k) = C_B_N' * pos_imu_ned(:,k);
+            vel_imu_body(:,k) = C_B_N' * vel_imu_ned(:,k);
+            pos_gnss_body(:,k) = C_B_N' * gnss_pos_i(:,k);
+            vel_gnss_body(:,k) = C_B_N' * gnss_vel_i(:,k);
+            acc_imu_body(:,k) = C_B_N' * (acc_ned(:,k) - g_N);
+            acc_gnss_body(:,k) = C_B_N' * gnss_acc_i(:,k);
         end
+
+        % Fused acceleration from body-frame velocity
+        acc_body_fused = [zeros(3,1), diff(vel_body,1,2) ./ diff(t_row)];
+
         figure('Name','Task5 Body Frame','Position',[100 100 1200 900],'Visible','on');
         tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
         for r = 1:3
             for c = 1:3
-                nexttile;
+                nexttile; hold on;
                 switch c
-                    case 1, y = pos_body(r,:); ylab = sprintf('Pos %s [m]', axes_labels{r});
-                    case 2, y = vel_body(r,:); ylab = sprintf('Vel %s [m/s]', axes_labels{r});
-                    case 3, y = acc_body(r,:); ylab = sprintf('Acc %s [m/s^2]', axes_labels{r});
+                    case 1
+                        plot(t_row, pos_body(r,:), 'Color', fused_color,'LineWidth',1.8,'DisplayName','Fused');
+                        plot(t_row, pos_gnss_body(r,:), ':', 'Color', gnss_color,'DisplayName','GNSS');
+                        plot(t_row, pos_imu_body(r,:),  '-.', 'Color', imu_color,'DisplayName','IMU');
+                        ylab = sprintf('Pos %s [m]', axes_labels{r});
+                    case 2
+                        plot(t_row, vel_body(r,:), 'Color', fused_color,'LineWidth',1.8,'DisplayName','Fused');
+                        plot(t_row, vel_gnss_body(r,:), ':', 'Color', gnss_color,'DisplayName','GNSS');
+                        plot(t_row, vel_imu_body(r,:),  '-.', 'Color', imu_color,'DisplayName','IMU');
+                        ylab = sprintf('Vel %s [m/s]', axes_labels{r});
+                    case 3
+                        plot(t_row, acc_body_fused(r,:), 'Color', fused_color,'LineWidth',1.8,'DisplayName','Fused');
+                        plot(t_row, acc_gnss_body(r,:), ':', 'Color', gnss_color,'DisplayName','GNSS');
+                        plot(t_row, acc_imu_body(r,:),  '-.', 'Color', imu_color,'DisplayName','IMU');
+                        ylab = sprintf('Acc %s [m/s^2]', axes_labels{r});
                 end
-                plot(t, y, '--','Color',fused_color,'LineWidth',1.8);
                 grid on; axis tight; ylabel(ylab);
                 if r==1 && c==1
-                    legend({'Fused (IMU+GNSS)'},'Location','best');
-                    title('Task 5 — Fused (Body)');
+                    lgd = legend('Location','best'); set(lgd,'Box','on');
                 end
+                hold off;
             end
         end
+        sgtitle('Task 5 — All Data (Body Frame)');
         xlabel('Time [s]');
         drawnow;
-        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_body', run_id));
+        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_all_body', run_id));
         if cfg.plots.save_pdf, print(gcf, [fname '.pdf'], '-dpdf', '-bestfit'); end
         if cfg.plots.save_png, print(gcf, [fname '.png'], '-dpng'); end
         savefig(gcf, [fname '.fig']);
-        close(gcf);
     end
 
     function plot_task5_ecef_truth(t, pos_ned, vel_ned, acc_ned, state_file, C_E_N, r0, method, run_id, cfg)
