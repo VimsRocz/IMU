@@ -214,9 +214,15 @@ end
 dt_est = mean(diff(t_est));
 
 if has_truth_time && numel(t_truth) == size(pos_truth_ecef,1)
-    pos_truth_ecef_i = interp1(t_truth, pos_truth_ecef, t_est, 'linear', 'extrap');
-    vel_truth_ecef_i = interp1(t_truth, vel_truth_ecef, t_est, 'linear', 'extrap');
-    acc_truth_ecef_i = interp1(t_truth, acc_truth_ecef, t_est, 'linear', 'extrap');
+    % Apply estimated time shift if available to align truth with estimator
+    t_truth_eff = t_truth;
+    if exist('dt_hat','var') && isfinite(dt_hat)
+        t_truth_eff = t_truth + dt_hat;
+        fprintf('Task 6: Applied estimated time shift of %+.3f s to truth before interpolation\n', dt_hat);
+    end
+    pos_truth_ecef_i = interp1(t_truth_eff, pos_truth_ecef, t_est, 'linear', 'extrap');
+    vel_truth_ecef_i = interp1(t_truth_eff, vel_truth_ecef, t_est, 'linear', 'extrap');
+    acc_truth_ecef_i = interp1(t_truth_eff, acc_truth_ecef, t_est, 'linear', 'extrap');
 else
     C_N_E = C';
     est_pos_ecef = (C_N_E*S.pos_ned')' + ref_r0';
@@ -254,6 +260,21 @@ pos_ned_raw = S.pos_ned;
 vel_ned_raw = S.vel_ned;
 acc_ned_raw = [zeros(1,3); diff(vel_ned_raw)./diff(t_est)];
 
+% Estimate and persist a single time shift (reuse in Task-7)
+try
+    dt_est = median(diff(t_est));
+    [dt_hat, corrN, corrE] = estimate_time_shift(vel_truth_ned_i(:,1), vel_ned_raw(:,1), ...
+                                                 vel_truth_ned_i(:,2), vel_ned_raw(:,2), dt_est);
+    fprintf('[Sanity] corr(N)=%.3f  corr(E)=%.3f  (\x0394t=%+.3f s)\n', corrN, corrE, dt_hat);
+    try
+        save(fullfile(results_dir, 'Task6_time_shift.mat'), 'dt_hat', 'corrN', 'corrE');
+    catch ME
+        warning('Task 6: Failed to save time shift: %s', ME.message);
+    end
+catch ME
+    warning('Task 6: time shift estimation failed: %s', ME.message);
+end
+
 pos_ned = centre(pos_ned_raw .* sign_ned);
 vel_ned = vel_ned_raw .* sign_ned;
 acc_ned = [zeros(1,3); diff(vel_ned)./diff(t_est)];
@@ -269,8 +290,8 @@ truth_struct = struct('t', t_est, 'pos', pos_truth_ned_i, ...
 t_ref = t_imu;
 truth_struct.t = t_est;
 plot_state_grid_overlay(t_ref, fused_struct, truth_struct, 'NED', ...
-    'Title', sprintf('%s Task6: Fused vs Truth', run_id), ...
-    'Visible', visibleFlag);
+    'Title', sprintf('Task 6 – %s – NED (Fused vs Truth)', method), ...
+    'Visible', visibleFlag, 'Method', method);
 % Save with best-fit to avoid cut-off
 set(gcf, 'PaperPositionMode', 'auto');
 print(gcf, fullfile(out_dir, sprintf('%s_task6_overlay_grid_NED.pdf', run_id)), '-dpdf', '-bestfit');
@@ -321,8 +342,8 @@ save_overlay_state(t_est, pos_body, vel_body, pos_truth_body, vel_truth_body, ..
 truth_ecef_struct = struct('t', t_est, 'pos', pos_truth_ecef_i, 'vel', vel_truth_ecef_i, 'acc', acc_truth_ecef_i);
 fused_ecef_struct  = struct('t', t_est, 'pos', pos_ecef,          'vel', vel_ecef,          'acc', acc_ecef);
 plot_state_grid_overlay(t_est, fused_ecef_struct, truth_ecef_struct, 'ECEF', ...
-    'Title', sprintf('%s Task6: Fused vs Truth', run_id), ...
-    'Visible', visibleFlag);
+    'Title', sprintf('Task 6 – %s – ECEF (Fused vs Truth)', method), ...
+    'Visible', visibleFlag, 'Method', method);
 set(gcf, 'PaperPositionMode', 'auto');
 print(gcf, fullfile(out_dir, sprintf('%s_task6_overlay_grid_ECEF.pdf', run_id)), '-dpdf', '-bestfit');
 try
@@ -335,8 +356,8 @@ end
 truth_body_struct = struct('t', t_est, 'pos', pos_truth_body, 'vel', vel_truth_body, 'acc', acc_truth_body);
 fused_body_struct  = struct('t', t_est, 'pos', pos_body,       'vel', vel_body,       'acc', acc_body);
 plot_state_grid_overlay(t_est, fused_body_struct, truth_body_struct, 'Body', ...
-    'Title', sprintf('%s Task6: Fused vs Truth', run_id), ...
-    'Visible', visibleFlag);
+    'Title', sprintf('Task 6 – %s – Body (Fused vs Truth)', method), ...
+    'Visible', visibleFlag, 'Method', method);
 set(gcf, 'PaperPositionMode', 'auto');
 print(gcf, fullfile(out_dir, sprintf('%s_task6_overlay_grid_Body.pdf', run_id)), '-dpdf', '-bestfit');
 try
@@ -370,7 +391,14 @@ fprintf('[SUMMARY] method=%s rmse_pos=%.2f m final_pos=%.2f m ', ...
         method, mNED.rmse_pos, mNED.final_pos);
 fprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', ...
         mNED.rmse_vel, mNED.final_vel);
-results = struct('metrics', metrics, 'runtime', runtime);
+% Include time-shift and correlation in results for comparison script
+if exist('dt_hat','var')
+    results = struct('metrics', metrics, 'runtime', runtime, 'dt_hat', dt_hat);
+else
+    results = struct('metrics', metrics, 'runtime', runtime);
+end
+if exist('corrN','var'); results.corrN = corrN; end
+if exist('corrE','var'); results.corrE = corrE; end
 save_task_results(results, imu_name, gnss_name, method, 6);
 
 %% ========================================================================

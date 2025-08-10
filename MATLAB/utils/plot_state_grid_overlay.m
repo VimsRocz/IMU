@@ -14,6 +14,7 @@ function plot_state_grid_overlay(t_ref, fused, truth, frame_label, varargin)
 p = inputParser;
 addParameter(p,'Title','Fused vs Truth');
 addParameter(p,'Visible','off');
+addParameter(p,'Method',''); % e.g., 'TRIAD', used in legend label
 parse(p,varargin{:});
 opt = p.Results;
 
@@ -53,13 +54,16 @@ for r = 1:3
                 y_f = f_acc(:,c); y_t = truth.acc(:,c);
                 ylab = sprintf('%s %s [m/s^2]', rows{r}, axes_labels{c});
         end
-        plot(t_ref, y_t, 'LineWidth',1.0); hold on;
-        plot(t_ref, y_f, 'LineWidth',1.0);
-        grid on; xlabel('Time [s]'); ylabel(ylab);
-        if r==1 && c==1
-            legend({'Truth','Fused'},'Location','best');
-            title(sprintf('%s frame', frame_label));
+        plot(t_ref, y_t, 'm-', 'LineWidth',1.1, 'DisplayName','Truth'); hold on;
+        if isempty(opt.Method)
+            fused_name = 'Fused GNSS+IMU';
+        else
+            fused_name = sprintf('Fused GNSS+IMU (%s)', opt.Method);
         end
+        plot(t_ref, y_f, 'b-', 'LineWidth',1.1, 'DisplayName', fused_name);
+        grid on; axis tight; xlabel('Time [s]'); ylabel(ylab);
+        legend('Location','best');
+        title(sprintf('%s %s (%s)', rows{r}, axes_labels{c}, frame_label));
     end
 end
 end
