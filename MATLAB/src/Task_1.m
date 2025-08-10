@@ -156,28 +156,31 @@ fprintf('\nSubtask 1.5: Plotting location on Earth map.\n');
 
 % Create a geographic plot if Mapping Toolbox is available
 if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
-    figure('Name', 'Initial Location on Earth Map', 'Position', [100, 100, 1000, 500]);
+    figure('Name', 'Initial Location on Earth Map', ...
+           'Position', [100, 100, 1000, 500], 'Visible', 'on');
     geobasemap satellite; % Use satellite imagery as the basemap
 
-    % Set map limits to focus on the location
-    geolimits([lat_deg - 2, lat_deg + 2], [lon_deg - 2, lon_deg + 2]);
+    % Set global map limits
+    geolimits([-90 90], [-180 180]);
 
     % Plot the initial location with a red marker
     hold on;
     geoplot(lat_deg, lon_deg, 'ro', 'MarkerSize', 10, 'MarkerFaceColor', 'r');
 
-    % Add a text label
-    text_str = sprintf('Lat: %.4f°, Lon: %.4f°', lat_deg, lon_deg);
-    text(lon_deg + 0.1, lat_deg, text_str, 'Color', 'white', 'FontSize', 12, 'FontWeight', 'bold');
+    % Add a text label with dataset and coordinates
+    text_str = sprintf('%s\nLat: %.4f°, Lon: %.4f°', tag, lat_deg, lon_deg);
+    text(lon_deg + 0.1, lat_deg, text_str, 'Color', 'white', ...
+         'FontSize', 12, 'FontWeight', 'bold');
     hold off;
 
     % Set plot title
     title('Initial Location on Earth Map');
 
-    % Save the plot as both PDF and PNG using a reasonable page size
+    % Save the plot as PNG using a reasonable page size
     set(gcf, 'PaperPositionMode', 'auto');
     base_fig = figure(gcf);
     save_plot(base_fig, imu_name, gnss_name, method, 1);
+    set(base_fig, 'Visible', 'on');
 else
     warning('Mapping Toolbox not found. Skipping geographic plot.');
 end
