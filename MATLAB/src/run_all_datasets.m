@@ -1,7 +1,8 @@
 %RUN_ALL_DATASETS Batch process all IMU/GNSS pairs with all methods
 %   RUN_ALL_DATASETS() searches for IMU_X*.dat and GNSS_X*.csv files in the
-%   current folder, pairs them by index and executes the full pipeline
-%   (Tasks 1--5) for the methods TRIAD, Davenport and SVD. After each run
+%   current folder, pairs them by dataset ID (e.g., X001) and executes the full
+%   pipeline (Tasks 1--5) for the methods TRIAD, Davenport and SVD. Missing
+%   IMU/GNSS pairs are skipped with a warning. After each run
 %   the Task 5 results structure is loaded into the base workspace under
 %   a variable named result_IMU_Xxxx_GNSS_Xxxx_METHOD and also written to
 
@@ -12,9 +13,22 @@ format long g % mirror Python full-precision printing
 imu_files = dir('IMU_X*.dat');
 gnss_files = dir('GNSS_X*.csv');
 methods = {'TRIAD','Davenport','SVD'};
-
-if numel(imu_files) ~= numel(gnss_files)
-    error('Number of IMU and GNSS files must match.');
+% Build dataset pairs only where both IMU and GNSS files exist
+imu_ids = regexp({imu_files.name}, 'IMU_(X\d+)\.dat', 'tokens');
+imu_ids = cellfun(@(c)c{1}, imu_ids, 'UniformOutput', false);
+gnss_ids = regexp({gnss_files.name}, 'GNSS_(X\d+)\.csv', 'tokens');
+gnss_ids = cellfun(@(c)c{1}, gnss_ids, 'UniformOutput', false);
+all_ids = unique([imu_ids, gnss_ids]);
+pairs = {};
+for k = 1:numel(all_ids)
+    id = all_ids{k};
+    imuFile  = sprintf('IMU_%s.dat', id);
+    gnssFile = sprintf('GNSS_%s.csv', id);
+    if isfile(imuFile) && isfile(gnssFile)
+        pairs(end+1,:) = {imuFile, gnssFile}; %#ok<AGROW>
+    else
+        warning('Skipping dataset %s: missing IMU or GNSS file.', id);
+    end
 end
 
 results_dir = get_results_dir();
@@ -22,9 +36,9 @@ if ~exist(results_dir,'dir')
     mkdir(results_dir);
 end
 
-for i = 1:numel(imu_files)
-    imuFile  = imu_files(i).name;
-    gnssFile = gnss_files(i).name;
+for i = 1:size(pairs,1)
+    imuFile  = pairs{i,1};
+    gnssFile = pairs{i,2};
     [~, imuName, ~]  = fileparts(imuFile);
     [~, gnssName, ~] = fileparts(gnssFile);
 
