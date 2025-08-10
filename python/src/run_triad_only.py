@@ -44,7 +44,8 @@ def _resolve_truth_path(defaults=None):
     if env and Path(env).exists():
         return env
     # 2) known candidates relative to repo root (python/src/ -> repo = parents[2])
-    root = Path(__file__).resolve().parents[2] if len(Path(__file__).resolve().parents) >= 2 else Path.cwd()
+    here = Path(__file__).resolve()
+    root = here.parents[2] if len(here.parents) >= 3 else here.parent
     cands = (defaults or []) + [
         root / "DATA" / "TRUTH" / "STATE_X001.txt",
         root / "DATA" / "TRUTH" / "STATE_X001_small.txt",
