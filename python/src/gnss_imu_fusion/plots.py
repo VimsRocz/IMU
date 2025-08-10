@@ -75,91 +75,93 @@ def save_euler_angles(
     plt.close()
 
 
-def save_residual_plots(
-    t: np.ndarray,
-    pos_filter: np.ndarray,
-    pos_gnss: np.ndarray,
-    vel_filter: np.ndarray,
-    vel_gnss: np.ndarray,
-    tag: str,
-) -> None:
-    """Plot aggregated position and velocity residuals.
+def save_residual_plots(t: np.ndarray, residuals: Dict[str, Dict[str, np.ndarray]], tag: str) -> None:
+    """Plot position, velocity and acceleration residuals in multiple frames.
 
     Parameters
     ----------
     t : np.ndarray
-        Time vector for the GNSS measurements.
-    pos_filter : np.ndarray
-        Filtered position in NED frame.
-    pos_gnss : np.ndarray
-        GNSS derived position in NED frame.
-    vel_filter : np.ndarray
-        Filtered velocity in NED frame.
-    vel_gnss : np.ndarray
-        GNSS derived velocity in NED frame.
+        Time vector for the residuals.
+    residuals : Dict[str, Dict[str, np.ndarray]]
+        Nested dictionary mapping frame name (``"NED"``, ``"ECEF"``, ``"Body"``)
+        to residual matrices for ``"position"``, ``"velocity"`` and
+        ``"acceleration"``.  Each residual matrix must be ``Nx3`` where ``N``
+        matches ``t``.
     tag : str
         Dataset/method tag used as filename prefix.
     """
-    residual_pos = pos_filter - pos_gnss
-    residual_vel = vel_filter - vel_gnss
-    labels = ["North", "East", "Down"]
 
-    plt.figure(figsize=(10, 5))
-    for i, label in enumerate(labels):
-        plt.plot(t, residual_pos[:, i], label=label)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Position Residual [m]")
-    plt.title("Position Residuals vs. Time")
-    plt.legend(loc="best")
-    plt.tight_layout()
-    filename = plot_path("results", tag, 5, "residuals", "position_residuals")
-    plt.savefig(filename)
-    plt.close()
+    frames = ["NED", "ECEF", "Body"]
+    states = ["position", "velocity", "acceleration"]
+    axis_labels = {"NED": ["North", "East", "Down"], "ECEF": ["X", "Y", "Z"], "Body": ["X", "Y", "Z"]}
 
-    plt.figure(figsize=(10, 5))
-    for i, label in enumerate(labels):
-        plt.plot(t, residual_vel[:, i], label=label)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Velocity Residual [m/s]")
-    plt.title("Velocity Residuals vs. Time")
-    plt.legend(loc="best")
-    plt.tight_layout()
-    filename = plot_path("results", tag, 5, "residuals", "velocity_residuals")
-    plt.savefig(filename)
-    plt.close()
+    fig, axes = plt.subplots(3, 3, figsize=(12, 10), sharex=True)
+    for row, state in enumerate(states):
+        for col, frame in enumerate(frames):
+            ax = axes[row, col]
+            res = residuals.get(frame, {}).get(state)
+            if res is None:
+                ax.set_visible(False)
+                continue
+            for idx, label in enumerate(axis_labels[frame]):
+                ax.plot(t, res[:, idx], label=label)
+            ax.grid(True)
+            if row == 0:
+                ax.set_title(f"{frame} Frame")
+            if col == 0:
+                ax.set_ylabel(f"{state.title()} Residual")
+            if row == 2:
+                ax.set_xlabel("Time [s]")
+            ax.legend(loc="best")
+    fig.tight_layout()
+    outfile_pdf = plot_path("results", tag, 5, "residuals", "state_residuals", ext="pdf")
+    fig.savefig(outfile_pdf)
+    outfile_png = plot_path("results", tag, 5, "residuals", "state_residuals", ext="png")
+    fig.savefig(outfile_png)
+    plt.close(fig)
 
 
 def save_attitude_over_time(
     t: np.ndarray,
-    euler_angles: np.ndarray,
+    euler_angles: Dict[str, np.ndarray],
     dataset_id: str,
     method: str,
 ) -> None:
-    """Plot roll, pitch and yaw over the entire dataset.
+    """Plot roll, pitch and yaw for one or more frames.
 
     Parameters
     ----------
     t : np.ndarray
         Time vector corresponding to ``euler_angles``.
-    euler_angles : np.ndarray
-        Array of roll, pitch and yaw angles in degrees.
+    euler_angles : Dict[str, np.ndarray]
+        Dictionary mapping frame name to an ``Nx3`` array of Euler angles in
+        degrees.  Keys typically include ``"NED"`` and optionally ``"ECEF"`` or
+        ``"Body"``.
     dataset_id : str
         Identifier of the processed dataset.
     method : str
         Name of the attitude initialisation method.
     """
-    plt.figure()
-    plt.plot(t, euler_angles[:, 0], label="Roll")
-    plt.plot(t, euler_angles[:, 1], label="Pitch")
-    plt.plot(t, euler_angles[:, 2], label="Yaw")
-    plt.xlabel("Time [s]")
-    plt.ylabel("Angle [deg]")
-    plt.legend(loc="best")
-    plt.tight_layout()
-    plt.title("Attitude Angles (Roll/Pitch/Yaw) Over Time")
-    filename = f"results/{dataset_id}_{method}_attitude_angles_over_time.pdf"
-    plt.savefig(filename)
-    plt.close()
+
+    labels = ["Roll", "Pitch", "Yaw"]
+    frames = list(euler_angles.keys())
+
+    fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+    for i, label in enumerate(labels):
+        ax = axes[i]
+        for frame in frames:
+            ax.plot(t, euler_angles[frame][:, i], label=frame)
+        ax.set_ylabel(f"{label} [deg]")
+        ax.grid(True)
+        ax.legend(loc="best")
+    axes[-1].set_xlabel("Time [s]")
+    fig.suptitle("Attitude Angles Over Time")
+    fig.tight_layout()
+    out_pdf = plot_path("results", f"{dataset_id}_{method}", 5, "attitude", "angles_over_time", ext="pdf")
+    fig.savefig(out_pdf)
+    out_png = plot_path("results", f"{dataset_id}_{method}", 5, "attitude", "angles_over_time", ext="png")
+    fig.savefig(out_png)
+    plt.close(fig)
 
 
 def save_velocity_profile(t: np.ndarray, vel_filter: np.ndarray, vel_gnss: np.ndarray) -> None:
