@@ -6,11 +6,3 @@ The PDFs live in the `results/` folder and follow the naming pattern
 
 ## X001 / Davenport
 
-![](../results/residuals_X001_Davenport.pdf)
-*Figure 1.* **Residuals** – The difference between the fused INS estimate and
-the GNSS updates for the North/East/Down components. These traces verify the
-filter's consistency over time.
-
-![](../results/attitude_angles_X001_Davenport.pdf)
-*Figure 2.* **Attitude angles** – Roll, pitch and yaw derived from the stored
-quaternions. A stable attitude solution is visible after the first few seconds.

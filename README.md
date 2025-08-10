@@ -263,34 +263,31 @@ aborts with an error if they differ.
 
 ### Sample Processing Report
 
-A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PDF figures generated in the `results/run_triad_only/` directory.
+A sample run of `run_triad_only.py` is documented in [Report/](Report/index.md). Each page lists the equations and the PNG figures generated in the `results/run_triad_only/` directory.
 
-Typical result PDFs:
+Typical result figures:
 
-- `<tag>_task1_location_map.pdf` – initial location map
-- `task3_errors_comparison.pdf` – attitude initialisation error comparison
-- `task3_quaternions_comparison.pdf` – quaternion components for initialisation
-- `task4_comparison_ned.pdf` – GNSS vs IMU in NED frame
-- `task4_mixed_frames.pdf` – GNSS/IMU data in mixed frames
-- `task4_all_ned.pdf` – integrated data in NED frame
-- `task4_all_ecef.pdf` – integrated data in ECEF frame
-- `task4_all_body.pdf` – integrated data in body frame
-- `task5_results_<method>.pdf` – Kalman filter results for each method
-- `task5_all_ned.pdf` – Kalman filter results in NED frame
-- `task5_all_ecef.pdf` – Kalman filter results in ECEF frame
-- `task5_all_body.pdf` – Kalman filter results in body frame
-- `<method>_residuals.pdf` – position and velocity residuals
-- `<tag>_task6_attitude_angles.pdf` – attitude angles over time
-- `<tag>_<frame>_overlay_truth.pdf` – fused output vs reference. Here `<tag>` is
+- `<tag>_task1_location_map.png` – initial location map
+- `task3_errors_comparison.png` – attitude initialisation error comparison
+- `task3_quaternions_comparison.png` – quaternion components for initialisation
+- `task4_comparison_ned.png` – GNSS vs IMU in NED frame
+- `task4_mixed_frames.png` – GNSS/IMU data in mixed frames
+- `task4_all_ned.png` – integrated data in NED frame
+- `task4_all_ecef.png` – integrated data in ECEF frame
+- `task4_all_body.png` – integrated data in body frame
+- `task5_results_<method>.png` – Kalman filter results for each method
+- `task5_all_ned.png` – Kalman filter results in NED frame
+- `task5_all_ecef.png` – Kalman filter results in ECEF frame
+- `task5_all_body.png` – Kalman filter results in body frame
+- `<tag>_<frame>_overlay_truth.png` – fused output vs reference. Here `<tag>` is
   the dataset pair and method concatenated, e.g. `IMU_X002_GNSS_X002_Davenport`.
- - ``results/<tag>_task6_overlay_state_<frame>.pdf`` – Task 6 overlay with GNSS, IMU and raw state (PDF/PNG/``.fig``) plus ``.mat``
-  Example: ``IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.pdf``
- - `<tag>_task7_3_residuals_position_velocity.pdf` – Task 7 position/velocity residuals (PDF/PNG/``.mat``/``.fig``)
-  Example: ``IMU_X002_GNSS_X002_Davenport_task7_3_residuals_position_velocity.pdf``
- - `task7_4_attitude_angles_euler.pdf` – Task 7 Euler angle plots
- - `task7_fused_vs_truth_error.pdf` – Task 7 fused minus truth velocity error (PDF/PNG/``.mat``/``.fig``)
- - `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf` – Task 7 truth minus fused difference for NED, ECEF and Body frames (PDF/PNG/``.mat``/``.fig``)
-  plot
+ - ``results/<tag>_task6_overlay_state_<frame>.png`` – Task 6 overlay with GNSS, IMU and raw state (PNG/``.fig``) plus ``.mat``
+  Example: ``IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.png``
+ - `<tag>_task7_3_residuals_position_velocity.png` – Task 7 position/velocity residuals (PNG/``.mat``/``.fig``)
+  Example: ``IMU_X002_GNSS_X002_Davenport_task7_3_residuals_position_velocity.png``
+ - `task7_4_attitude_angles_euler.png` – Task 7 Euler angle plots
+ - `task7_fused_vs_truth_error.png` – Task 7 fused minus truth velocity error (PNG/``.mat``/``.fig``)
+ - `<tag>_task7_5_diff_truth_fused_over_time_<frame>.png` – Task 7 truth minus fused difference for NED, ECEF and Body frames (PNG/``.mat``/``.fig``)
 
 ## Task 6: State Overlay
 
@@ -309,15 +306,15 @@ dataset identifier in `--est-file`. Pass `--truth-file` only when the file lives
 outside the repository root or has a different name.
 
 Passing `--show-measurements` adds the raw IMU and GNSS curves.  The resulting
- figures are written as ``results/<tag>_task6_overlay_state_<frame>.pdf`` and ``.png`` files (both formats are saved).
+ figures are written as ``results/<tag>_task6_overlay_state_<frame>.png`` and ``.fig`` files.
 Here `<tag>` concatenates the IMU dataset, the GNSS dataset and the method,
 for example `IMU_X002_GNSS_X002_Davenport` yielding
-``IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.pdf``.
+``IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.png``.
 
 ### Output
 
-* ``results/<tag>_task6_overlay_state_<frame>.pdf`` – fused output vs raw state file (PDF/PNG/``.fig``/``.mat``)
-  Example: ``IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.pdf``
+* ``results/<tag>_task6_overlay_state_<frame>.png`` – fused output vs raw state file (PNG/``.fig``/``.mat``)
+  Example: ``IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.png``
 
 ## Task 7: Evaluation of Filter Results
 

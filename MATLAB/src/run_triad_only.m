@@ -1,0 +1,96 @@
+function run_triad_only(cfg)
+% RUN_TRIAD_ONLY  Process dataset using TRIAD (Tasks 1..7) — MATLAB-only, no Python deps.
+%
+% Usage:
+%   run_triad_only();
+%   run_triad_only(struct(''dataset_id'',''X002''));
+
+% ---- paths / utils ----
+% Determine repository layout and ensure utils are available
+here = fileparts(mfilename('fullpath'));       % .../MATLAB/src
+repo_root  = fileparts(fileparts(here));       % repo root
+data_dir   = fullfile(repo_root, 'DATA');
+matlab_out = fullfile(repo_root, 'MATLAB', 'results');
+if ~exist(matlab_out, 'dir'); mkdir(matlab_out); end
+
+utils_candidates = {
+    fullfile(here,'utils'),
+    fullfile(here,'src','utils'),
+    fullfile(here,'src','utils','attitude'),
+    fullfile(here,'src','utils','frames')
+};
+for i = 1:numel(utils_candidates)
+    p = utils_candidates{i};
+    if exist(p,'dir') && ~contains(path, [p pathsep])
+        addpath(p);
+    end
+end
+paths = struct('root', repo_root, 'matlab_results', matlab_out);
+if nargin==0 || isempty(cfg), cfg = struct(); end
+
+% ---- config (explicit, no hidden defaults) ----
+if ~isfield(cfg,'dataset_id'), cfg.dataset_id = 'X002'; end
+if ~isfield(cfg,'method'),     cfg.method     = 'TRIAD'; end
+if ~isfield(cfg,'imu_file'),   cfg.imu_file   = 'IMU_X002.dat'; end
+if ~isfield(cfg,'gnss_file'),  cfg.gnss_file  = 'GNSS_X002.csv'; end
+
+% Plot options defaults to avoid missing-field errors in Task 4/5
+if ~isfield(cfg,'plots') || ~isstruct(cfg.plots)
+    cfg.plots = struct();
+end
+if ~isfield(cfg.plots,'popup_figures'), cfg.plots.popup_figures = true; end
+if ~isfield(cfg.plots,'save_pdf'),      cfg.plots.save_pdf      = true;  end
+if ~isfield(cfg.plots,'save_png'),      cfg.plots.save_png      = true;  end
+% KF tuning defaults (safe if default_cfg not reloaded)
+if ~isfield(cfg,'vel_q_scale'), cfg.vel_q_scale = 10.0; end
+if ~isfield(cfg,'vel_r'),       cfg.vel_r       = 0.25; end
+% Optional auto-tune flag
+if ~isfield(cfg,'autotune'),    cfg.autotune    = true; end
+
+cfg.paths = paths;
+
+% ---- resolve inputs from DATA directory ----
+cfg.imu_path   = fullfile(data_dir, 'IMU',   cfg.imu_file);
+cfg.gnss_path  = fullfile(data_dir, 'GNSS',  cfg.gnss_file);
+cfg.truth_path = resolve_truth_path();
+
+% ---- run id + timeline (before tasks) ----
+rid = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
+print_timeline_matlab(rid, cfg.imu_path, cfg.gnss_path, cfg.truth_path, matlab_out);
+
+fprintf('▶ %s\n', rid);
+fprintf('MATLAB results dir: %s\n', matlab_out);
+
+% ---- Tasks 1..7 (compulsory) ----
+Task_1(cfg.imu_path, cfg.gnss_path, cfg.method);
+Task_2(cfg.imu_path, cfg.gnss_path, cfg.method);
+Task_3(cfg.imu_path, cfg.gnss_path, cfg.method);
+Task_4(cfg.imu_path, cfg.gnss_path, cfg.method);
+% Optionally auto-tune Q/R on a small grid before the final full run
+if cfg.autotune
+    try
+        grid_q = [5, 10, 20, 40];
+        grid_r = [0.25, 0.5, 1.0];
+        [best_q, best_r, report] = task5_autotune(cfg.imu_path, cfg.gnss_path, cfg.method, grid_q, grid_r);
+        fprintf('Auto-tune best: vel_q_scale=%.3f  vel_r=%.3f  (RMSE_pos=%.3f m)\n', report.best_rmse_q, report.best_rmse_r, report.best_rmse);
+        cfg.vel_q_scale = best_q; cfg.vel_r = best_r;
+    catch ME
+        warning('Auto-tune failed: %s. Proceeding with defaults.', ME.message);
+    end
+end
+
+Task_5(cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
+       'vel_q_scale', cfg.vel_q_scale, 'vel_r', cfg.vel_r);
+
+% Task 6 can accept either the Task 5 .mat or (imu,gnss,truth) paths — use the version you have:
+if exist('Task_6.m','file')
+    Task_6(fullfile(matlab_out, sprintf('%s_task5_results.mat', rid)), ...
+           cfg.imu_path, cfg.gnss_path, cfg.truth_path);
+end
+
+if exist('Task_7.m','file')
+    Task_7();
+end
+
+fprintf('TRIAD processing complete for %s\n', cfg.dataset_id);
+end
