@@ -281,10 +281,9 @@ end
 
 % ========================= Save helper =========================
 function save_fig(outdir, base)
+%SAVE_FIG Save current figure as a PNG file in OUTDIR.
 f = gcf;
 png = fullfile(outdir, strcat(base,'.png'));
-fig = fullfile(outdir, strcat(base,'.fig'));
-exportgraphics(f, png, 'Resolution', 200);        % quick bitmap
-savefig(f, fig);                                  % interactive MATLAB figure
-fprintf('Saved: %s\nSaved: %s\n', png, fig);
+exportgraphics(f, png, 'Resolution', 200);
+fprintf('Saved: %s\n', png);
 end
