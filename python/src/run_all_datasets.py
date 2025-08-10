@@ -67,12 +67,17 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_DATASETS = [
     ("IMU_X001.dat", "GNSS_X001.csv"),
     ("IMU_X002.dat", "GNSS_X002.csv"),
-    ("IMU_X003.dat", "GNSS_X002.csv"),  # dataset X003 shares GNSS_X002
+    # ("IMU_X003.dat", "GNSS_X002.csv"),  # dataset X003 shares GNSS_X002
 ]
 
 DEFAULT_METHODS = ["TRIAD", "Davenport", "SVD"]
 
-DATASETS = DEFAULT_DATASETS.copy()
+# Only keep dataset pairs where both files exist
+DATASETS = [
+    (imu, gnss)
+    for imu, gnss in DEFAULT_DATASETS
+    if pathlib.Path(imu).exists() and pathlib.Path(gnss).exists()
+]
 METHODS = DEFAULT_METHODS.copy()
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
@@ -139,12 +144,24 @@ def main():
             DATASETS = [(ds['imu'], ds['gnss']) for ds in cfg['datasets']]
         if 'methods' in cfg:
             METHODS = cfg['methods']
+        # Filter out datasets with missing files from config
+        DATASETS = [
+            (imu, gnss)
+            for imu, gnss in DATASETS
+            if pathlib.Path(imu).exists() and pathlib.Path(gnss).exists()
+        ]
 
     if args.datasets.upper() == "ALL":
         datasets = DATASETS
     else:
         ids = {d.strip() for d in args.datasets.split(',')}
         datasets = [p for p in DATASETS if pathlib.Path(p[0]).stem.split('_')[1] in ids]
+    # Ensure only existing file pairs are used
+    datasets = [
+        (imu, gnss)
+        for imu, gnss in datasets
+        if pathlib.Path(imu).exists() and pathlib.Path(gnss).exists()
+    ]
 
     if args.method.upper() == 'ALL':
         method_list = METHODS
