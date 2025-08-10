@@ -53,14 +53,3 @@ STATE_IMU_*.txt
 *.fig
 *.npz
 *.mat
-# outputs & caches
-/**/*.pdf
-/**/*.png
-/**/*.fig
-/**/*.npz
-/**/*.mat
-/.pytest_cache/
-.mypy_cache/
-/**/__pycache__/
-/**/.DS_Store
-# truth safety
