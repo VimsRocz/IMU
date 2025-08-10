@@ -32,7 +32,6 @@ Fused trajectory + innovations
 
 ### 5.8 Plot and Summarise Results
 - Save plots of fused position, velocity and acceleration for each method.
-- Record innovations, residuals and attitude angles in the results folder.
 - Write a small markdown summary listing the generated PDFs.
 - The [standardized legend terms](PlottingChecklist.md#standardized-legend-terms) keep plot labels consistent across tasks.
 

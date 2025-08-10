@@ -11,13 +11,9 @@
 - **X001_TRIAD_task5_all_ecef.pdf**: Kalman filter results in ECEF frame
 - **X001_TRIAD_task5_all_body.pdf**: Kalman filter results in body frame
 - **X001_TRIAD_task5_mixed_frames.pdf**: Kalman filter results in mixed frames
-- **X001_TRIAD_residuals.pdf**: Position and velocity residuals
-- **X001_TRIAD_task6_attitude_angles.pdf**: Attitude angles over time
 - **<method>_<frame>_overlay_truth.pdf**: Fused results versus reference
 - **<method>_<frame>_overlay_state.pdf**: Fused results versus raw state file
 - **<tag>_task6_overlay_state_<frame>.pdf**: Task 6 overlay using raw state data
- - **<tag>_task7_3_residuals_position_velocity.pdf**: Task 7 residuals
- - **<tag>_task7_4_attitude_angles_euler.pdf**: Task 7 attitude angles
 
 ## Subtask 5.8 Comparison Plots
 

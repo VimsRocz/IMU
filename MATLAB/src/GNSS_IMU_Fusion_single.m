@@ -884,14 +884,6 @@ xlabel('Time (s)'); sgtitle('Kalman Filter Results vs. GNSS');
 pvafile = fullfile(results_dir, sprintf('%s_Task5_PVA.pdf', tag));
 set(fig,'PaperPositionMode','auto'); print(fig, pvafile, '-dpdf', '-bestfit');
 
-figure('Name', 'KF Results: Attitude', 'Position', [200 200 1200 600]);
-euler_labels = {'Roll', 'Pitch', 'Yaw'};
-for i = 1:3
-    subplot(3, 1, i); plot(imu_time, rad2deg(euler_log(i,:)), 'b-'); grid on; ylabel('[deg]'); title([euler_labels{i} ' Angle']);
-end
-xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
-att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
-set(gcf,'PaperPositionMode','auto'); print(gcf, att_file, '-dpdf', '-bestfit');
 
 pos_interp = interp1(imu_time, x_log(1:3,:)', gnss_time, 'linear', 'extrap');
 vel_interp = interp1(imu_time, x_log(4:6,:)', gnss_time, 'linear', 'extrap');
@@ -901,15 +893,6 @@ final_pos_err = norm(x_log(1:3,end) - gnss_pos_ned(end,:)');
 final_vel_err = norm(vel_log(:,end) - gnss_vel_ned(end,:)');
 final_acc_err = norm(accel_from_vel(:,end) - gnss_accel_ned(end,:)');
 rms_resid_pos = sqrt(mean(res_pos.^2,'all')); rms_resid_vel = sqrt(mean(res_vel.^2,'all')); max_resid_pos = max(vecnorm(res_pos,2,2)); min_resid_pos = min(vecnorm(res_pos,2,2)); max_resid_vel = max(vecnorm(res_vel,2,2)); min_resid_vel = min(vecnorm(res_vel,2,2));
-
-figure('Name', 'KF Results: Position Residuals', 'Position', [150 150 1200 600]);
-err_labels = {'N', 'E', 'D'};
-for i = 1:3
-    subplot(3,1,i); plot(gnss_time, res_pos(:,i), 'b-'); grid on; ylabel('[m]'); title(['Residual ' err_labels{i}]);
-end
-xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
-err_file = fullfile(results_dir, sprintf('%s_Task5_ErrorAnalysis.pdf', tag));
-set(gcf,'PaperPositionMode','auto'); print(gcf, err_file, '-dpdf', '-bestfit');
 
 summary_line = sprintf(['[SUMMARY] method=%s rmse_pos=%.2fm rmse_vel=%.2fm final_pos=%.2fm final_vel=%.2fm/s final_acc=%.2fm/s^2 ' ...
     'mean_resid_pos=%.2f rms_resid_pos=%.2f max_resid_pos=%.2f min_resid_pos=%.2f ' ...
@@ -984,12 +967,8 @@ rename_plot(sprintf('%s_Task5_PVA.pdf', tag), ...
             sprintf('%s_task5_results_%s.pdf', tag, method));
 rename_plot(sprintf('%s_Task5_Attitude.pdf', tag), ...
             sprintf('%s_task5_all_body.pdf', tag));
-rename_plot(sprintf('%s_Task5_ErrorAnalysis.pdf', tag), ...
-            sprintf('%s_%s_residuals.pdf', tag, lower(method)));
 rename_plot(sprintf('%s_Task5_Attitude.pdf', tag), ...
             sprintf('%s_task5_all_body.pdf', tag));
-rename_plot(sprintf('%s_Task5_ErrorAnalysis.pdf', tag), ...
-            sprintf('%s_%s_residuals.pdf', tag, lower(method)));
 
 % -----------------------------------------------------------------------
 % Subtask 5.9: Validate against truth data if available
