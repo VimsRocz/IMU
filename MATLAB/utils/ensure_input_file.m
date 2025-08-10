@@ -24,6 +24,8 @@ search = {
     fullfile(paths.matlab, fname)
     fullfile(paths.root, 'MATLAB', 'src', fname)
     fullfile(paths.root, 'src', fname)
+    fullfile(paths.root, 'IMU', fname)  % common local data folder
+    fullfile(paths.root, 'Data', fname) % alternative data folder
     fullfile(paths.root, '..', fname)
     fullfile(paths.root, 'MATLAB', fname)
 };
@@ -43,13 +45,6 @@ if ~isempty(src_found)
         abs_path = src_found;
     end
     return;
-end
-
-% LAST RESORT: if user insisted on auto-create, create a small stub only for TRUTH
-if strcmpi(kind,'TRUTH')
-    warning('Truth file missing; creating stub (time only) at %s', target);
-    fid = fopen(target,'w'); fprintf(fid,'# stub truth file (time only)\n0\n'); fclose(fid);
-    abs_path = target; return;
 end
 
 error('%s file not found. Looked for %s and in:\n  - %s', kind, target, strjoin(search, sprintf('\n  - ')));

@@ -401,66 +401,7 @@ if exist('corrN','var'); results.corrN = corrN; end
 if exist('corrE','var'); results.corrE = corrE; end
 save_task_results(results, imu_name, gnss_name, method, 6);
 
-%% ========================================================================
-% Additional comparisons: GNSS vs IMU (raw + integrated) in NED/ECEF/Body
-% =========================================================================
-try
-    % NED comparison
-    t_g = S.gnss_time; 
-    pos_g = S.gnss_pos_ned; vel_g = S.gnss_vel_ned; 
-    acc_g = [zeros(1,3); diff(vel_g)./diff(t_g)];
-    fig = figure('Name','Task6 NED Comparison','Position',[100 100 1200 900], 'Visible', visibleFlag);
-    labels = {'North','East','Down'};
-    for k = 1:3
-        subplot(3,3,k); hold on; plot(t_g, pos_g(:,k),'k:','DisplayName','GNSS'); plot(t_est, pos_ned(:,k),'b-','DisplayName','IMU fused'); grid on; title(['Pos ' labels{k}]); legend;
-        subplot(3,3,3+k); hold on; plot(t_g, vel_g(:,k),'k:'); plot(t_est, vel_ned(:,k),'b-'); grid on; title(['Vel ' labels{k}]);
-        subplot(3,3,6+k); hold on; plot(t_g, acc_g(:,k),'k:'); plot(t_est, acc_ned(:,k),'b-'); grid on; title(['Acc ' labels{k}]);
-    end
-    set(fig,'PaperPositionMode','auto');
-    print(fig, fullfile(out_dir, sprintf('%s_task6_compare_NED.pdf', run_id)), '-dpdf', '-bestfit');
-    print(fig, fullfile(out_dir, sprintf('%s_task6_compare_NED.png', run_id)), '-dpng'); close(fig);
-
-    % ECEF comparison
-    fig = figure('Name','Task6 ECEF Comparison','Position',[100 100 1200 900], 'Visible', visibleFlag);
-    labelsE = {'X','Y','Z'};
-    pos_f = pos_ecef; vel_f = vel_ecef; acc_f = acc_ecef; % from earlier
-    if isfield(S,'gnss_pos_ecef'), pos_ge = S.gnss_pos_ecef; else, pos_ge = (C_N_E*pos_g')'+ref_r0'; end
-    if isfield(S,'gnss_vel_ecef'), vel_ge = S.gnss_vel_ecef; else, vel_ge = (C_N_E*vel_g')'; end
-    if isfield(S,'gnss_accel_ecef'), acc_ge = S.gnss_accel_ecef; else, acc_ge = [zeros(1,3); diff(vel_ge)./diff(t_g)]; end
-    for k = 1:3
-        subplot(3,3,k); hold on; plot(t_g, pos_ge(:,k),'k:','DisplayName','GNSS'); plot(t_est, pos_f(:,k),'b-','DisplayName','IMU fused'); grid on; title(['Pos ' labelsE{k}]); legend;
-        subplot(3,3,3+k); hold on; plot(t_g, vel_ge(:,k),'k:'); plot(t_est, vel_f(:,k),'b-'); grid on; title(['Vel ' labelsE{k}]);
-        subplot(3,3,6+k); hold on; plot(t_g, acc_ge(:,k),'k:'); plot(t_est, acc_f(:,k),'b-'); grid on; title(['Acc ' labelsE{k}]);
-    end
-    set(fig,'PaperPositionMode','auto');
-    print(fig, fullfile(out_dir, sprintf('%s_task6_compare_ECEF.pdf', run_id)), '-dpdf', '-bestfit');
-    print(fig, fullfile(out_dir, sprintf('%s_task6_compare_ECEF.png', run_id)), '-dpng'); close(fig);
-
-    % Body comparison (includes raw IMU acceleration if available)
-    fig = figure('Name','Task6 Body Comparison','Position',[100 100 1200 900], 'Visible', visibleFlag);
-    labelsB = {'X','Y','Z'};
-    % GNSS -> body via euler
-    eul_interp = interp1(t_est, S.euler_log', t_g, 'linear','extrap')';
-    pos_g_body = zeros(size(pos_g')); vel_g_body = zeros(size(vel_g')); acc_g_body = zeros(size(acc_g'));
-    for k = 1:numel(t_g)
-        C_B_Nk = euler_to_rot(eul_interp(:,k));
-        pos_g_body(:,k) = C_B_Nk' * pos_g(k,:)';
-        vel_g_body(:,k) = C_B_Nk' * vel_g(k,:)';
-        acc_g_body(:,k) = C_B_Nk' * (acc_g(k,:)' - g_NED);
-    end
-    for j = 1:3
-        subplot(3,3,j); hold on; plot(t_g, pos_g_body(j,:),'k:','DisplayName','GNSS'); plot(t_est, pos_body(:,j),'b-','DisplayName','IMU fused'); grid on; title(['Pos ' labelsB{j}]); legend;
-        subplot(3,3,3+j); hold on; plot(t_g, vel_g_body(j,:),'k:'); plot(t_est, vel_body(:,j),'b-'); grid on; title(['Vel ' labelsB{j}]);
-        subplot(3,3,6+j); hold on; plot(t_g, acc_g_body(j,:),'k:'); plot(t_est, acc_body(:,j),'b-');
-        if isfield(S,'acc_body_raw'), plot(t_est, S.acc_body_raw(:,j),'r-'); end
-        grid on; title(['Acc ' labelsB{j}]);
-    end
-    set(fig,'PaperPositionMode','auto');
-    print(fig, fullfile(out_dir, sprintf('%s_task6_compare_BODY.pdf', run_id)), '-dpdf', '-bestfit');
-    print(fig, fullfile(out_dir, sprintf('%s_task6_compare_BODY.png', run_id)), '-dpng'); close(fig);
-catch ME
-    warning('Task 6 comparison plots failed: %s', ME.message);
-end
+% (Removed) Additional GNSS vs fused comparisons — only three overlay grids required
 end
 
 function y = centre(x)

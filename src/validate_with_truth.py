@@ -744,6 +744,21 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
         try:
             truth = np.loadtxt(truth_file, comments="#")
             t_truth = zero_base_time(truth[:, 1])
+            # Enforce consistent 10 Hz parsing when time is ambiguous or downsampled
+            if len(t_truth) > 1:
+                dt_med = float(np.median(np.diff(t_truth)))
+                hz = 1.0 / dt_med if dt_med > 0 else float("nan")
+                # If dt looks like 1 s but row count suggests high-rate truth, force 10 Hz grid
+                if (abs(dt_med - 1.0) < 1e-3) and (len(t_truth) >= 20000):
+                    t_truth = np.arange(len(t_truth)) * 0.1
+                    print(
+                        f"assemble_frames: enforcing 10 Hz truth timeline (n={len(t_truth)})"
+                    )
+                else:
+                    # Log detected sampling for transparency
+                    print(
+                        f"assemble_frames: truth timeline dt_med={dt_med:.3f}s (~{hz:.2f} Hz), n={len(t_truth)}"
+                    )
             pos_truth_ecef = truth[:, 2:5]
             vel_truth_ecef = truth[:, 5:8]
         except Exception as e:

@@ -27,7 +27,7 @@ def load_npz(path: Path) -> dict[str, np.ndarray]:
     return {k: data[k] for k in data.files}
 
 
-def plot_error(time: np.ndarray, err: np.ndarray, out_dir: Path) -> None:
+def plot_error(time: np.ndarray, err: np.ndarray, out_dir: Path, *, tag: str | None = None, frame: str = "ECEF") -> None:
     """Plot velocity error components and save the figure."""
     labels = ["X", "Y", "Z"]
     plt.figure(figsize=(8, 4))
@@ -40,13 +40,19 @@ def plot_error(time: np.ndarray, err: np.ndarray, out_dir: Path) -> None:
     plt.grid(True)
     plt.tight_layout()
     out_dir.mkdir(parents=True, exist_ok=True)
-    pdf = out_dir / "task7_fused_vs_truth_error.pdf"
-    png = out_dir / "task7_fused_vs_truth_error.png"
+    # Standard name for MATLAB parity
+    if tag:
+        base = out_dir / f"{tag}_task7_diff_{frame}"
+    else:
+        base = out_dir / "task7_fused_vs_truth_error"
+    pdf = base.with_suffix(".pdf")
+    png = base.with_suffix(".png")
     plt.savefig(pdf)
     plt.savefig(png)
     try:
         from utils import save_plot_mat
-        save_plot_mat(plt.gcf(), str(out_dir / "task7_fused_vs_truth_error.mat"))
+        from pathlib import Path as _P
+        save_plot_mat(plt.gcf(), str(_P(str(base)).with_suffix(".mat")))
     except Exception:
         pass
     plt.close()
@@ -57,6 +63,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--fused", type=Path, required=True, help="fused .npz file")
     parser.add_argument("--truth", type=Path, required=True, help="truth .npz file")
     parser.add_argument("--output-dir", type=Path, default=Path("results"))
+    parser.add_argument("--tag", type=str, help="run_id tag prefix for parity names")
+    parser.add_argument("--frame", type=str, default="ECEF", choices=["ECEF","NED","Body"], help="frame label for parity names")
     args = parser.parse_args(argv)
 
     fused = load_npz(args.fused)
@@ -90,7 +98,7 @@ def main(argv: list[str] | None = None) -> None:
 
     err = np.column_stack((vx - tvx, vy - tvy, vz - tvz))
 
-    plot_error(time_rel, err, args.output_dir)
+    plot_error(time_rel, err, args.output_dir, tag=args.tag, frame=args.frame)
 
 
 if __name__ == "__main__":

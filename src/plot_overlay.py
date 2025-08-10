@@ -35,6 +35,7 @@ def plot_overlay(
     suffix: Optional[str] = None,
     filename: Optional[str] = None,
     include_measurements: bool = True,
+    pdf_only: bool = False,
 ) -> None:
     """Save a 3x3 overlay plot comparing measured IMU, measured GNSS and
     fused GNSS+IMU tracks.
@@ -64,8 +65,9 @@ def plot_overlay(
     if suffix is None:
         suffix = "_overlay_state.pdf" if t_truth is not None else "_overlay.pdf"
 
+    # Column labels by frame
     axis_labels = {
-        "NED": ["\u0394N [m]", "\u0394E [m]", "\u0394D [m]"],
+        "NED": ["North", "East", "Down"],
         "ECEF": ["X", "Y", "Z"],
         "Body": ["X", "Y", "Z"],
     }
@@ -73,10 +75,11 @@ def plot_overlay(
 
     fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
 
+    # Datasets by row: only units in y-labels per spec
     datasets = [
-        (pos_imu, pos_gnss, pos_fused, pos_truth, "Position [m]"),
-        (vel_imu, vel_gnss, vel_fused, vel_truth, "Velocity [m/s]"),
-        (acc_imu, acc_gnss, acc_fused, acc_truth, "Acceleration [m/s$^2$]"),
+        (pos_imu, pos_gnss, pos_fused, pos_truth, "[m]"),
+        (vel_imu, vel_gnss, vel_fused, vel_truth, "[m/s]"),
+        (acc_imu, acc_gnss, acc_fused, acc_truth, "[m/s²]"),
     ]
 
     color_map = {
@@ -88,7 +91,9 @@ def plot_overlay(
 
     has_acc_truth = acc_truth is not None and len(acc_truth) > 0
 
+    row_ylim = []
     for row, (imu, gnss, fused, truth, ylab) in enumerate(datasets):
+        row_vals = []
         for col, axis in enumerate(cols):
             ax = axes[row, col]
             values = [fused[:, col]]
@@ -117,6 +122,7 @@ def plot_overlay(
                     t_truth,
                     truth[:, col],
                     color=color_map["Truth"],
+                    linestyle="-",
                     label="Truth",
                 )
                 values.append(truth[:, col])
@@ -128,22 +134,34 @@ def plot_overlay(
                 label=f"Fused GNSS+IMU ({method})",
             )
             values = np.concatenate(values)
-            lim = np.max(np.abs(values)) * 1.1
-            ax.set_ylim(-lim, lim)
-            handles, labels_ = ax.get_legend_handles_labels()
-            keep = [("Fused" in l) or ("Truth" in l) for l in labels_]
-            ax.legend(
-                [h for h, k in zip(handles, keep) if k],
-                [l for l, k in zip(labels_, keep) if k],
-                loc="upper right",
-                fontsize=8,
-            )
+            row_vals.append(values)
+            ax.grid(True, which="both", alpha=0.3)
+            ax.autoscale(enable=True, tight=True)
             if row == 0:
                 ax.set_title(axis)
             if col == 0:
                 ax.set_ylabel(ylab)
             if row == 2:
                 ax.set_xlabel("Time [s]")
+        # Optional: keep consistent y-limits within a row
+        try:
+            all_vals = np.concatenate(row_vals)
+            lim = float(np.max(np.abs(all_vals))) * 1.1 if all_vals.size else None
+            if lim and np.isfinite(lim) and lim > 0:
+                for col in range(3):
+                    axes[row, col].set_ylim(-lim, lim)
+        except Exception:
+            pass
+
+    # Put legend only in the top-left tile (row 0, col 0) for Fused/Truth
+    h, l = axes[0, 0].get_legend_handles_labels()
+    keep = [("Fused" in s) or ("Truth" in s) for s in l]
+    axes[0, 0].legend(
+        [hh for hh, k in zip(h, keep) if k],
+        [ss for ss, k in zip(l, keep) if k],
+        loc="upper left",
+        fontsize=8,
+    )
 
     if t_truth is not None:
         title = f"Task 6 – {method} – {frame} Frame (Fused vs. Truth)"
@@ -162,6 +180,20 @@ def plot_overlay(
             color="gray",
         )
 
+    # Try to maximize window if a GUI backend is present
+    try:
+        mng = plt.get_current_fig_manager()
+        # Qt backends
+        try:
+            mng.window.showMaximized()  # type: ignore[attr-defined]
+        except Exception:
+            # WXAgg fallback
+            try:
+                mng.frame.Maximize(True)  # type: ignore[attr-defined]
+            except Exception:
+                pass
+    except Exception:
+        pass
     fig.suptitle(title)
     fig.tight_layout(rect=[0, 0, 1, 0.9])
     if filename is not None:
@@ -170,13 +202,14 @@ def plot_overlay(
         out_path = Path(out_dir) / f"{method}_{frame}{suffix}"
 
     fname_pdf = out_path.with_suffix(".pdf")
-    fname_png = out_path.with_suffix(".png")
     fig.savefig(fname_pdf, dpi=300, bbox_inches="tight")
-    fig.savefig(fname_png, dpi=150, bbox_inches="tight")
-    try:
-        from utils import save_plot_mat
-        save_plot_mat(fig, str(out_path.with_suffix(".mat")))
-    except Exception:
-        pass
+    if not pdf_only:
+        fname_png = out_path.with_suffix(".png")
+        fig.savefig(fname_png, dpi=150, bbox_inches="tight")
+        try:
+            from utils import save_plot_mat
+            save_plot_mat(fig, str(out_path.with_suffix(".mat")))
+        except Exception:
+            pass
     print(f"Saved overlay figure {fname_pdf}")
     plt.close(fig)

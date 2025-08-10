@@ -35,25 +35,49 @@ opts = detectImportOptions(gnss_path,'Delimiter',',');
 Tg = readtable(gnss_path, opts);
 nG = height(Tg);
 if any(strcmpi(Tg.Properties.VariableNames,'Posix_Time'))
-    tg = ensure_time_vec(Tg.Posix_Time);  notes = [notes; "GNSS: used Posix_Time"];
+    tg = ensure_time_vec(Tg.Posix_Time);
+    % Normalise numeric POSIX time to start at zero like Python
+    if ~isduration(tg) && ~isdatetime(tg)
+        tg = tg - tg(1);
+    end
+    notes = [notes; "GNSS: used Posix_Time (t0=0)"];
 else
     need = {'UTC_yyyy','UTC_MM','UTC_dd','UTC_HH','UTC_mm','UTC_ss'};
     if all(ismember(need, Tg.Properties.VariableNames))
         utc = datetime(Tg.UTC_yyyy, Tg.UTC_MM, Tg.UTC_dd, Tg.UTC_HH, Tg.UTC_mm, Tg.UTC_ss, 'TimeZone','UTC');
-        t0 = utc(1); tg = seconds(utc - t0); notes = [notes; "GNSS: built from UTC_* columns"];
+        t0 = utc(1); tg = seconds(utc - t0); notes = [notes; "GNSS: built from UTC_* columns (t0=0)"];
     else
-        tg = (0:nG-1)';   notes = [notes; "GNSS: fallback uniform @1Hz"];
+        tg = (0:nG-1)';   notes = [notes; "GNSS: fallback uniform @1Hz (t0=0)"];
     end
 end
 lines = [lines; format_line('GNSS', tg, nG)];
 
 % ---------- TRUTH ----------
 if ~isempty(truth_path) && isfile(truth_path)
-    to = detectImportOptions(truth_path, 'Delimiter',' ', 'CommentStyle','#', 'ConsecutiveDelimitersRule','join');
-    Ts = readtable(truth_path, to);
-    ts = ensure_time_vec(Ts{:,1});
-    nS = numel(ts);
-    lines = [lines; format_line('TRUTH', ts, nS)];
+    % Use robust parser for STATE_*.txt via read_state_file to mirror Python
+    try
+        S = read_state_file(truth_path);
+        % Heuristic: if 2nd column is time (common layout), use it; else fallback to 1st
+        if size(S,2) >= 2 && all(diff(S(:,2)) >= 0)
+            ts = S(:,2);
+        else
+            ts = S(:,1);
+        end
+        ts = ts - ts(1); % normalise to t0=0
+        nS = numel(ts);
+        lines = [lines; format_line('TRUTH', ts, nS)];
+        notes = [notes; "TRUTH: parsed via read_state_file (t0=0)"];
+    catch
+        to = detectImportOptions(truth_path, 'Delimiter',' ', 'CommentStyle','#', 'ConsecutiveDelimitersRule','join');
+        Ts = readtable(truth_path, to);
+        ts = ensure_time_vec(Ts{:,1});
+        if ~isempty(ts)
+            ts = ts - ts(1);
+        end
+        nS = numel(ts);
+        lines = [lines; format_line('TRUTH', ts, nS)];
+        notes = [notes; "TRUTH: fallback table read (t0=0)"];
+    end
 else
     lines = [lines; "TRUTH | present but unreadable (see Notes)."];
 end

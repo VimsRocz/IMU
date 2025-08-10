@@ -132,6 +132,21 @@ def main() -> None:
     # Load raw truth data without interpolation
     truth_raw = np.loadtxt(truth_file, comments="#")
     t_truth = truth_raw[:, 1]
+    # Normalise to start at zero and enforce consistent 10 Hz timeline when needed
+    if len(t_truth) > 0:
+        t_truth = t_truth - t_truth[0]
+    if len(t_truth) > 1:
+        dt_med = float(np.median(np.diff(t_truth)))
+        hz = 1.0 / dt_med if dt_med > 0 else float("nan")
+        if (abs(dt_med - 1.0) < 1e-3) and (len(t_truth) >= 20000):
+            t_truth = np.arange(len(t_truth)) * 0.1
+            print(
+                f"task6_plot_truth: enforcing 10 Hz truth timeline (n={len(t_truth)})"
+            )
+        else:
+            print(
+                f"task6_plot_truth: truth timeline dt_med={dt_med:.3f}s (~{hz:.2f} Hz), n={len(t_truth)}"
+            )
     pos_truth_ecef = truth_raw[:, 2:5]
     vel_truth_ecef = truth_raw[:, 5:8]
     acc_truth_ecef = np.zeros_like(vel_truth_ecef)
@@ -300,6 +315,7 @@ def main() -> None:
             acc_truth=a_t,
             filename=name_state,
             include_measurements=args.show_measurements,
+            pdf_only=False,
         )
 
     if summary_rows:
@@ -318,6 +334,53 @@ def main() -> None:
         print("Files saved in", out_dir)
         for f in saved:
             print(" -", f.name)
+    # ---- Quaternion overlay (Truth vs Fused) ---------------------------------
+    try:
+        truth_quat = truth_raw[:, 8:12]
+        # Estimator quaternion may be under 'quat' in est (w,x,y,z)
+        q_est = est.get("quat")
+        # Pick a reasonable estimator time; use ECEF fused time
+        t_est = frames.get("ECEF", {}).get("fused", (None,))[0]
+        if q_est is not None and t_est is not None:
+            # Normalize times to 0 and build common time vector
+            t_est0 = t_est - t_est[0]
+            t_qtruth0 = t_truth - t_truth[0]
+            tmin = max(t_qtruth0.min(), t_est0.min())
+            tmax = min(t_qtruth0.max(), t_est0.max())
+            if tmax > tmin:
+                t_common = np.linspace(tmin, tmax, num=min(len(t_qtruth0), len(t_est0)))
+                # Linear interp per component (visual overlay only)
+                def lin(x, tfrom, tto):
+                    return np.vstack([
+                        np.interp(tto, tfrom, x[:, i]) for i in range(x.shape[1])
+                    ]).T
+                q_truth_i = lin(truth_quat, t_qtruth0, t_common)
+                q_est_i = lin(np.asarray(q_est), t_est0, t_common)
+                import matplotlib.pyplot as plt
+                fig, axes = plt.subplots(2, 2, figsize=(8, 6), sharex=True)
+                labels = [("q0",0), ("q1",1), ("q2",2), ("q3",3)]
+                for ax, (lab, idx) in zip(axes.flat, labels):
+                    ax.plot(t_common, q_truth_i[:, idx], 'k-', label='Truth')
+                    ax.plot(t_common, q_est_i[:, idx], 'b:', label='Fused GNSS+IMU (TRIAD)')
+                    ax.set_title(lab)
+                    ax.grid(True, alpha=0.3)
+                axes[1,0].set_xlabel("Time [s]")
+                axes[1,1].set_xlabel("Time [s]")
+                axes[0,0].legend(loc='best', fontsize=8)
+                fig.suptitle(f"Task 6 – TRIAD – Quaternion (Truth vs. Fused)")
+                fig.tight_layout(rect=[0,0,1,0.93])
+                base = out_dir / f"{tag}_task6_quaternion_overlay"
+                fig.savefig(base.with_suffix('.pdf'), dpi=300, bbox_inches='tight')
+                fig.savefig(base.with_suffix('.png'), dpi=200, bbox_inches='tight')
+                try:
+                    from utils import save_plot_mat
+                    save_plot_mat(fig, str(base.with_suffix('.mat')))
+                except Exception:
+                    pass
+                plt.close(fig)
+                print(f"Saved quaternion overlay -> {base.with_suffix('.pdf')}")
+    except Exception as e:
+        print(f"Quaternion overlay skipped: {e}")
     runtime = time.time() - start_time
     print(f"Task 6 runtime: {runtime:.2f} s")
 

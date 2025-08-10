@@ -631,7 +631,8 @@ def main():
     plt.tight_layout()
     if not args.no_plots:
         # saving disabled per instructions
-    plt.close()
+        pass
+    plt.close(fig)
     logging.info("Error comparison plot saved")
 
     # Collect quaternion data for both cases
@@ -664,7 +665,8 @@ def main():
     plt.tight_layout()
     if not args.no_plots:
         # saving disabled per instructions
-    plt.close()
+        pass
+    plt.close(fig)
     logging.info("Quaternion comparison plot saved")
 
     # --------------------------------
@@ -1023,8 +1025,16 @@ def main():
         ax.legend(loc="best")
     fig_comp.suptitle(f"Task 4 – {method} – NED Frame (IMU-derived vs. Measured GNSS)")
     fig_comp.tight_layout(rect=[0, 0, 1, 0.95])
-    # saving disabled per instructions
-    plt.close()
+    # Save comparison (optional)
+    try:
+        from utils import save_plot_mat
+        comp_base = Path("results") / f"{tag}_task4_comparison_ned"
+        fig_comp.savefig(comp_base.with_suffix('.pdf'), dpi=300, bbox_inches='tight')
+        fig_comp.savefig(comp_base.with_suffix('.png'), dpi=200, bbox_inches='tight')
+        save_plot_mat(fig_comp, str(comp_base.with_suffix('.mat')))
+    except Exception:
+        pass
+    plt.close(fig_comp)
     logging.info("Comparison plot in NED frame saved")
 
     # Plot 1: Data in mixed frames (GNSS position/velocity in ECEF, IMU acceleration in body)
@@ -1060,8 +1070,15 @@ def main():
         f"Task 4 – {method} – Mixed Frames (IMU-derived vs. Measured GNSS)"
     )
     fig_mixed.tight_layout(rect=[0, 0, 1, 0.95])
-    # saving disabled per instructions
-    plt.close()
+    try:
+        from utils import save_plot_mat
+        mixed_base = Path("results") / f"{tag}_task4_mixed_frames"
+        fig_mixed.savefig(mixed_base.with_suffix('.pdf'), dpi=300, bbox_inches='tight')
+        fig_mixed.savefig(mixed_base.with_suffix('.png'), dpi=200, bbox_inches='tight')
+        save_plot_mat(fig_mixed, str(mixed_base.with_suffix('.mat')))
+    except Exception:
+        pass
+    plt.close(fig_mixed)
     logging.info("Mixed frames plot saved")
 
     # Plot 2: All data in NED frame
@@ -1094,8 +1111,15 @@ def main():
             ax.legend(loc="best")
     fig_ned.suptitle(f"Task 4 – {method} – NED Frame (IMU-derived vs. Measured GNSS)")
     fig_ned.tight_layout(rect=[0, 0, 1, 0.95])
-    # saving disabled per instructions
-    plt.close()
+    try:
+        from utils import save_plot_mat
+        ned_base4 = Path("results") / f"{tag}_task4_all_ned"
+        fig_ned.savefig(ned_base4.with_suffix('.pdf'), dpi=300, bbox_inches='tight')
+        fig_ned.savefig(ned_base4.with_suffix('.png'), dpi=200, bbox_inches='tight')
+        save_plot_mat(fig_ned, str(ned_base4.with_suffix('.mat')))
+    except Exception:
+        pass
+    plt.close(fig_ned)
     logging.info("All data in NED frame plot saved")
 
     # Plot 3: All data in ECEF frame
@@ -1147,8 +1171,15 @@ def main():
             ax.legend(loc="best")
     fig_ecef.suptitle(f"Task 4 – {method} – ECEF Frame (IMU-derived vs. Measured GNSS)")
     fig_ecef.tight_layout(rect=[0, 0, 1, 0.95])
-    # saving disabled per instructions
-    plt.close()
+    try:
+        from utils import save_plot_mat
+        ecef_base4 = Path("results") / f"{tag}_task4_all_ecef"
+        fig_ecef.savefig(ecef_base4.with_suffix('.pdf'), dpi=300, bbox_inches='tight')
+        fig_ecef.savefig(ecef_base4.with_suffix('.png'), dpi=200, bbox_inches='tight')
+        save_plot_mat(fig_ecef, str(ecef_base4.with_suffix('.mat')))
+    except Exception:
+        pass
+    plt.close(fig_ecef)
     logging.info("All data in ECEF frame plot saved")
 
     # Plot 4: All data in body frame
@@ -1182,8 +1213,15 @@ def main():
             ax.legend(loc="best")
     fig_body.suptitle(f"Task 4 – {method} – Body Frame (IMU-derived vs. Measured GNSS)")
     fig_body.tight_layout(rect=[0, 0, 1, 0.95])
-    # saving disabled per instructions
-    plt.close()
+    try:
+        from utils import save_plot_mat
+        body_base4 = Path("results") / f"{tag}_task4_all_body"
+        fig_body.savefig(body_base4.with_suffix('.pdf'), dpi=300, bbox_inches='tight')
+        fig_body.savefig(body_base4.with_suffix('.png'), dpi=200, bbox_inches='tight')
+        save_plot_mat(fig_body, str(body_base4.with_suffix('.mat')))
+    except Exception:
+        pass
+    plt.close(fig_body)
     logging.info("All data in body frame plot saved")
 
     # ================================
@@ -1563,6 +1601,8 @@ def main():
         ax.legend(loc="best")
     fig.suptitle(f"Task 5 – {method} – Fused GNSS+IMU only (NED)")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
+    # Close this debug grid to avoid duplicate Task 5 windows popping up later
+    plt.close(fig)
 
     # Plot fused-only in mixed reference frames (ECEF pos/vel, Body acc)
     logging.info("Plotting fused-only in mixed frames.")
@@ -1618,9 +1658,17 @@ def main():
             ax.legend(loc="best")
     fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused GNSS+IMU only)")
     fig_ned_all.tight_layout(rect=[0, 0, 1, 0.95])
-    # saving disabled per instructions
-    plt.close()
-    logging.info("All data in NED frame plot saved")
+    # Save fused-only NED frame plot (Task 5)
+    ned_base = Path("results") / f"{tag}_task5_ned"
+    fig_ned_all.savefig(ned_base.with_suffix('.pdf'), dpi=300, bbox_inches="tight")
+    fig_ned_all.savefig(ned_base.with_suffix('.png'), dpi=200, bbox_inches="tight")
+    try:
+        from utils import save_plot_mat
+        save_plot_mat(fig_ned_all, str(ned_base.with_suffix('.mat')))
+    except Exception:
+        pass
+    plt.close(fig_ned_all)
+    logging.info("Saved Task 5 fused-only NED plots -> %s(.pdf/.png)", ned_base)
 
     logging.info("Plotting fused-only in ECEF frame.")
     fig_ecef_all, ax_ecef_all = plt.subplots(3, 3, figsize=(15, 10))
@@ -1654,9 +1702,17 @@ def main():
             ax.legend(loc="best")
     fig_ecef_all.suptitle(f"Task 5 – {method} – ECEF Frame (Fused GNSS+IMU only)")
     fig_ecef_all.tight_layout(rect=[0, 0, 1, 0.95])
-    # saving disabled per instructions
-    plt.close()
-    logging.info("All data in ECEF frame plot saved")
+    # Save fused-only ECEF frame plot (Task 5)
+    ecef_base = Path("results") / f"{tag}_task5_ecef"
+    fig_ecef_all.savefig(ecef_base.with_suffix('.pdf'), dpi=300, bbox_inches="tight")
+    fig_ecef_all.savefig(ecef_base.with_suffix('.png'), dpi=200, bbox_inches="tight")
+    try:
+        from utils import save_plot_mat
+        save_plot_mat(fig_ecef_all, str(ecef_base.with_suffix('.mat')))
+    except Exception:
+        pass
+    plt.close(fig_ecef_all)
+    logging.info("Saved Task 5 fused-only ECEF plots -> %s(.pdf/.png)", ecef_base)
 
     logging.info("Plotting fused-only in body frame.")
     fig_body_all, ax_body_all = plt.subplots(3, 3, figsize=(15, 10))
@@ -1690,51 +1746,19 @@ def main():
             ax.legend(loc="best")
     fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused GNSS+IMU only)")
     fig_body_all.tight_layout(rect=[0, 0, 1, 0.95])
-    # saving disabled per instructions
-    plt.close()
-    logging.info("All data in body frame plot saved")
+    # Save fused-only Body frame plot (Task 5)
+    body_base = Path("results") / f"{tag}_task5_body"
+    fig_body_all.savefig(body_base.with_suffix('.pdf'), dpi=300, bbox_inches="tight")
+    fig_body_all.savefig(body_base.with_suffix('.png'), dpi=200, bbox_inches="tight")
+    try:
+        from utils import save_plot_mat
+        save_plot_mat(fig_body_all, str(body_base.with_suffix('.mat')))
+    except Exception:
+        pass
+    plt.close(fig_body_all)
+    logging.info("Saved Task 5 fused-only Body plots -> %s(.pdf/.png)", body_base)
 
-    # Optional: show interactive Task 5 plots
-    if args.interactive:
-        try:
-            show_task5_all_frames(
-                tag=tag,
-                method=method,
-                t_gnss=t_rel_gnss,
-                t_imu=t_rel_ilu,
-                # NED
-                gnss_pos_ned=gnss_pos_ned,
-                gnss_vel_ned=gnss_vel_ned,
-                gnss_acc_ned=gnss_acc_ned,
-                fused_pos_ned=fused_pos[method],
-                fused_vel_ned=fused_vel[method],
-                fused_acc_ned=fused_acc[method],
-                truth_pos_ned=truth_pos_ned_i,
-                truth_vel_ned=truth_vel_ned_i,
-                truth_acc_ned=truth_acc_ned_i,
-                # ECEF
-                gnss_pos_ecef=gnss_pos_ecef,
-                gnss_vel_ecef=gnss_vel_ecef,
-                gnss_acc_ecef=gnss_acc_ecef,
-                fused_pos_ecef=pos_ecef,
-                fused_vel_ecef=vel_ecef,
-                fused_acc_ecef=acc_ecef,
-                truth_pos_ecef=truth_pos_ecef_i,
-                truth_vel_ecef=truth_vel_ecef_i,
-                truth_acc_ecef=truth_acc_ecef_i,
-                # Body
-                gnss_pos_body=gnss_pos_body,
-                gnss_vel_body=gnss_vel_body,
-                gnss_acc_body=gnss_acc_body,
-                fused_pos_body=pos_body,
-                fused_vel_body=vel_body,
-                fused_acc_body=acc_body,
-                truth_pos_body=truth_pos_body if 'truth_pos_body' in locals() else None,
-                truth_vel_body=truth_vel_body if 'truth_vel_body' in locals() else None,
-                truth_acc_body=truth_acc_body if 'truth_acc_body' in locals() else None,
-            )
-        except Exception as e:
-            logging.warning(f"Interactive Task 5 plots failed: {e}")
+    # Do not show interactive Task 5 plots to avoid duplicate pop-ups
 
     # Plot pre-fit innovations
     fig_innov, ax_innov = plt.subplots(3, 1, sharex=True, figsize=(8, 6))
@@ -1788,62 +1812,93 @@ def main():
     # Task 6: Fused+Truth 3×3 plots in NED/ECEF/Body (no saving)
     # NED
     logging.info("Task 6: Plotting fused + truth (if available) in NED frame.")
-    fig6_ned, ax6_ned = plt.subplots(3, 3, figsize=(15, 10))
+    fig6_ned, ax6_ned = plt.subplots(3, 3, figsize=(15, 10), sharex=True)
     dirs_ned = ["N", "E", "D"]
     for i in range(3):
         for j in range(3):
             ax = ax6_ned[i, j]
+            # Truth: black solid
+            if 'truth_pos_ned_i' in locals() and truth_pos_ned_i is not None and i == 0:
+                ax.plot(t_rel_ilu, truth_pos_ned_i[:, j], 'k-', label='Truth')
+            if 'truth_vel_ned_i' in locals() and truth_vel_ned_i is not None and i == 1:
+                ax.plot(t_rel_ilu, truth_vel_ned_i[:, j], 'k-', label='Truth')
+            if 'truth_acc_ned_i' in locals() and truth_acc_ned_i is not None and i == 2:
+                ax.plot(t_rel_ilu, truth_acc_ned_i[:, j], 'k-', label='Truth')
+            # Fused: blue dotted
             if i == 0:
-                ax.plot(t_rel_ilu, fused_pos[method][:, j], "b-", label="Fused")
-                if 'truth_pos_ned_i' in locals() and truth_pos_ned_i is not None:
-                    ax.plot(t_rel_ilu, truth_pos_ned_i[:, j], "m-", label="Truth")
-                ax.set_title(f"Position {dirs_ned[j]}")
+                ax.plot(t_rel_ilu, fused_pos[method][:, j], 'b:', label='Fused GNSS+IMU (TRIAD)')
+                ax.set_title(["North", "East", "Down"][j])
             elif i == 1:
-                ax.plot(t_rel_ilu, fused_vel[method][:, j], "b-", label="Fused")
-                if 'truth_vel_ned_i' in locals() and truth_vel_ned_i is not None:
-                    ax.plot(t_rel_ilu, truth_vel_ned_i[:, j], "m-", label="Truth")
-                ax.set_title(f"Velocity V{dirs_ned[j]}")
+                ax.plot(t_rel_ilu, fused_vel[method][:, j], 'b:', label='Fused GNSS+IMU (TRIAD)')
+                ax.set_title(["North", "East", "Down"][j])
             else:
-                ax.plot(t_rel_ilu, fused_acc[method][:, j], "b-", label="Fused")
-                if 'truth_acc_ned_i' in locals() and truth_acc_ned_i is not None:
-                    ax.plot(t_rel_ilu, truth_acc_ned_i[:, j], "m-", label="Truth")
-                ax.set_title(f"Acceleration {dirs_ned[j]}")
-            ax.set_xlabel("Time (s)")
-            ax.set_ylabel("Value")
-            ax.legend(loc="best")
-    fig6_ned.suptitle(f"Task 6 – {method} – NED (Fused + Truth)")
+                ax.plot(t_rel_ilu, fused_acc[method][:, j], 'b:', label='Fused GNSS+IMU (TRIAD)')
+                ax.set_title(["North", "East", "Down"][j])
+            ax.grid(True, alpha=0.3)
+            ax.autoscale(enable=True, tight=True)
+            if j == 0:
+                ax.set_ylabel(["[m]", "[m/s]", "[m/s²]"][i])
+            if i == 2:
+                ax.set_xlabel("Time [s]")
+    # Legend only in top-left tile
+    h, l = ax6_ned[0, 0].get_legend_handles_labels()
+    keep = [("Fused" in s) or ("Truth" in s) for s in l]
+    ax6_ned[0, 0].legend([hh for hh, k in zip(h, keep) if k], [ss for ss, k in zip(l, keep) if k], loc='upper left', fontsize=8)
+    fig6_ned.suptitle(f"Task 6 – {method} – NED Frame (Fused vs. Truth)")
     fig6_ned.tight_layout(rect=[0, 0, 1, 0.95])
+    try:
+        mng = plt._pylab_helpers.Gcf.get_fig_manager(fig6_ned.number)
+        try:
+            mng.window.showMaximized()  # type: ignore[attr-defined]
+        except Exception:
+            pass
+    except Exception:
+        pass
 
     # ECEF
     logging.info("Task 6: Plotting fused + truth in ECEF frame.")
     pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
     vel_ecef = (C_NED_to_ECEF @ fused_vel[method].T).T
     acc_ecef = (C_NED_to_ECEF @ fused_acc[method].T).T
-    fig6_ecef, ax6_ecef = plt.subplots(3, 3, figsize=(15, 10))
+    fig6_ecef, ax6_ecef = plt.subplots(3, 3, figsize=(15, 10), sharex=True)
     dirs_ecef = ["X", "Y", "Z"]
     for i in range(3):
         for j in range(3):
             ax = ax6_ecef[i, j]
+            if 'truth_pos_ecef_i' in locals() and truth_pos_ecef_i is not None and i == 0:
+                ax.plot(t_rel_ilu, truth_pos_ecef_i[:, j], 'k-', label='Truth')
+            if 'truth_vel_ecef_i' in locals() and truth_vel_ecef_i is not None and i == 1:
+                ax.plot(t_rel_ilu, truth_vel_ecef_i[:, j], 'k-', label='Truth')
+            if 'truth_acc_ecef_i' in locals() and truth_acc_ecef_i is not None and i == 2:
+                ax.plot(t_rel_ilu, truth_acc_ecef_i[:, j], 'k-', label='Truth')
             if i == 0:
-                ax.plot(t_rel_ilu, pos_ecef[:, j], "b-", label="Fused")
-                if 'truth_pos_ecef_i' in locals() and truth_pos_ecef_i is not None:
-                    ax.plot(t_rel_ilu, truth_pos_ecef_i[:, j], "m-", label="Truth")
-                ax.set_title(f"Position {dirs_ecef[j]}_ECEF")
+                ax.plot(t_rel_ilu, pos_ecef[:, j], 'b:', label='Fused GNSS+IMU (TRIAD)')
+                ax.set_title(["X", "Y", "Z"][j])
             elif i == 1:
-                ax.plot(t_rel_ilu, vel_ecef[:, j], "b-", label="Fused")
-                if 'truth_vel_ecef_i' in locals() and truth_vel_ecef_i is not None:
-                    ax.plot(t_rel_ilu, truth_vel_ecef_i[:, j], "m-", label="Truth")
-                ax.set_title(f"Velocity V{dirs_ecef[j]}_ECEF")
+                ax.plot(t_rel_ilu, vel_ecef[:, j], 'b:', label='Fused GNSS+IMU (TRIAD)')
+                ax.set_title(["X", "Y", "Z"][j])
             else:
-                ax.plot(t_rel_ilu, acc_ecef[:, j], "b-", label="Fused")
-                if 'truth_acc_ecef_i' in locals() and truth_acc_ecef_i is not None:
-                    ax.plot(t_rel_ilu, truth_acc_ecef_i[:, j], "m-", label="Truth")
-                ax.set_title(f"Acceleration {dirs_ecef[j]}_ECEF")
-            ax.set_xlabel("Time (s)")
-            ax.set_ylabel("Value")
-            ax.legend(loc="best")
-    fig6_ecef.suptitle(f"Task 6 – {method} – ECEF (Fused + Truth)")
+                ax.plot(t_rel_ilu, acc_ecef[:, j], 'b:', label='Fused GNSS+IMU (TRIAD)')
+                ax.set_title(["X", "Y", "Z"][j])
+            ax.grid(True, alpha=0.3)
+            ax.autoscale(enable=True, tight=True)
+            if j == 0:
+                ax.set_ylabel(["[m]", "[m/s]", "[m/s²]"][i])
+            if i == 2:
+                ax.set_xlabel("Time [s]")
+    h, l = ax6_ecef[0, 0].get_legend_handles_labels()
+    keep = [("Fused" in s) or ("Truth" in s) for s in l]
+    ax6_ecef[0, 0].legend([hh for hh, k in zip(h, keep) if k], [ss for ss, k in zip(l, keep) if k], loc='upper left', fontsize=8)
+    fig6_ecef.suptitle(f"Task 6 – {method} – ECEF Frame (Fused vs. Truth)")
     fig6_ecef.tight_layout(rect=[0, 0, 1, 0.95])
+    try:
+        mng = plt._pylab_helpers.Gcf.get_fig_manager(fig6_ecef.number)
+        try:
+            mng.window.showMaximized()  # type: ignore[attr-defined]
+        except Exception:
+            pass
+    except Exception:
+        pass
 
     # Body
     logging.info("Task 6: Plotting fused + truth in Body frame.")
@@ -1856,49 +1911,51 @@ def main():
         truth_vel_body = (C_N_B @ truth_vel_ned_i.T).T
         if 'truth_acc_ned_i' in locals() and truth_acc_ned_i is not None:
             truth_acc_body = (C_N_B @ truth_acc_ned_i.T).T
-    fig6_body, ax6_body = plt.subplots(3, 3, figsize=(15, 10))
+    fig6_body, ax6_body = plt.subplots(3, 3, figsize=(15, 10), sharex=True)
     dirs_body = ["X", "Y", "Z"]
     for i in range(3):
         for j in range(3):
             ax = ax6_body[i, j]
+            if 'truth_pos_body' in locals() and i == 0:
+                ax.plot(t_rel_ilu, truth_pos_body[:, j], 'k-', label='Truth')
+            if 'truth_vel_body' in locals() and i == 1:
+                ax.plot(t_rel_ilu, truth_vel_body[:, j], 'k-', label='Truth')
+            if 'truth_acc_body' in locals() and i == 2:
+                ax.plot(t_rel_ilu, truth_acc_body[:, j], 'k-', label='Truth')
             if i == 0:
-                ax.plot(t_rel_ilu, pos_body[:, j], "b-", label="Fused")
-                if 'truth_pos_body' in locals():
-                    ax.plot(t_rel_ilu, truth_pos_body[:, j], "m-", label="Truth")
-                ax.set_title(f"Position r{dirs_body[j]}_body")
+                ax.plot(t_rel_ilu, pos_body[:, j], 'b:', label='Fused GNSS+IMU (TRIAD)')
+                ax.set_title(["X", "Y", "Z"][j])
             elif i == 1:
-                ax.plot(t_rel_ilu, vel_body[:, j], "b-", label="Fused")
-                if 'truth_vel_body' in locals():
-                    ax.plot(t_rel_ilu, truth_vel_body[:, j], "m-", label="Truth")
-                ax.set_title(f"Velocity v{dirs_body[j]}_body")
+                ax.plot(t_rel_ilu, vel_body[:, j], 'b:', label='Fused GNSS+IMU (TRIAD)')
+                ax.set_title(["X", "Y", "Z"][j])
             else:
-                ax.plot(t_rel_ilu, acc_body[:, j], "b-", label="Fused")
-                if 'truth_acc_body' in locals():
-                    ax.plot(t_rel_ilu, truth_acc_body[:, j], "m-", label="Truth")
-                ax.set_title(f"Acceleration A{dirs_body[j]}_body")
-            ax.set_xlabel("Time (s)")
-            ax.set_ylabel("Value")
-            ax.legend(loc="best")
-    fig6_body.suptitle(f"Task 6 – {method} – Body (Fused + Truth)")
+                ax.plot(t_rel_ilu, acc_body[:, j], 'b:', label='Fused GNSS+IMU (TRIAD)')
+                ax.set_title(["X", "Y", "Z"][j])
+            ax.grid(True, alpha=0.3)
+            ax.autoscale(enable=True, tight=True)
+            if j == 0:
+                ax.set_ylabel(["[m]", "[m/s]", "[m/s²]"][i])
+            if i == 2:
+                ax.set_xlabel("Time [s]")
+    h, l = ax6_body[0, 0].get_legend_handles_labels()
+    keep = [("Fused" in s) or ("Truth" in s) for s in l]
+    ax6_body[0, 0].legend([hh for hh, k in zip(h, keep) if k], [ss for ss, k in zip(l, keep) if k], loc='upper left', fontsize=8)
+    fig6_body.suptitle(f"Task 6 – {method} – Body Frame (Fused vs. Truth)")
     fig6_body.tight_layout(rect=[0, 0, 1, 0.95])
-
-    # Optional: show interactive Task 6 roll/pitch/yaw and position/velocity views
-    if args.interactive:
+    try:
+        mng = plt._pylab_helpers.Gcf.get_fig_manager(fig6_body.number)
         try:
-            show_task6_interactive(
-                tag=tag,
-                method=method,
-                t=imu_time,
-                pos_ned=fused_pos[method],
-                vel_ned=fused_vel[method],
-                pos_ecef=pos_ecef,
-                vel_ecef=vel_ecef,
-                pos_body=pos_body,
-                vel_body=vel_body,
-                euler_deg=euler,
-            )
-        except Exception as e:
-            logging.warning(f"Interactive Task 6 plots failed: {e}")
+            mng.window.showMaximized()  # type: ignore[attr-defined]
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    # Show Task 6 figures so they pop up (extension of Task 5)
+    try:
+        plt.show(block=False)
+    except Exception:
+        pass
 
     C_NED_to_ECEF = C_ECEF_to_NED.T
     pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
@@ -2024,26 +2081,14 @@ def main():
         pos_f = interpolate_series(gnss_time, imu_time, fused_pos[method])
         vel_f = interpolate_series(gnss_time, imu_time, fused_vel[method])
         save_velocity_profile(gnss_time, vel_f, gnss_vel_ned)
-        save_residual_plots(
-            gnss_time,
-            pos_f,
-            gnss_pos_ned,
-            vel_f,
-            gnss_vel_ned,
-            tag,
-        )
+        # Skip Task 5 residual PDF outputs to keep exactly 3 Task 5 plots
+        # (NED/ECEF/Body fused-only).
+        # save_residual_plots(...)
 
         save_attitude_over_time(imu_time, euler_deg, dataset_id, method)
 
-        plot_all_methods(
-            imu_time,
-            gnss_pos_ned_interp,
-            gnss_vel_ned_interp,
-            gnss_acc_ned_interp,
-            fused_pos,
-            fused_vel,
-            fused_acc,
-        )
+        # Skip the multi-method comparison figure to keep Task 5 outputs minimal.
+        # plot_all_methods(...)
 
     logging.info(
         f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file)} gnss={os.path.basename(gnss_file)} "

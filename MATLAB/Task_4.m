@@ -487,6 +487,13 @@ t_g = t_g_u; %#ok<NASGU>
 save(t4_mat, 'rid','t_g','imu_pos_g','imu_vel_g','imu_acc_g','gnss_pos_ned','gnss_vel_ned','gnss_acc_ned','-v7');
 fprintf('Saved task 4 results to %s\n', t4_mat);
 
+% Generate Python-style Task 4 plots (NED/ECEF/Body) with compact layout
+try
+    task4_make_plots(rid, imu_path, gnss_path);
+catch ME
+    warning('task4_make_plots failed: %s', ME.message);
+end
+
 legacy_t4 = fullfile(results_dir, sprintf('IMU_%s_GNSS_%s_%s_task4_results.mat', 'X002','X002', upper(string(method))));
 if ~isequal(legacy_t4, t4_mat)
     try, save(legacy_t4, 'rid','t_g','imu_pos_g','imu_vel_g','imu_acc_g','-v7'); end %#ok<TRYNC>

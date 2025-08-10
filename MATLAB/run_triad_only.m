@@ -29,7 +29,12 @@ if ~isfield(cfg,'method'),     cfg.method     = 'TRIAD'; end
 if ~isfield(cfg,'imu_file'),   cfg.imu_file   = 'IMU_X002.dat'; end
 if ~isfield(cfg,'gnss_file'),  cfg.gnss_file  = 'GNSS_X002.csv'; end
 % Single-truth-file policy (always this name)
-if ~isfield(cfg,'truth_file'), cfg.truth_file = 'STATE_IMU_X001.txt'; end
+% Prefer dataset-matched truth file (e.g., STATE_X002.txt) instead of legacy
+% STATE_IMU_X001.txt. If missing, Task 6 will fall back gracefully.
+if ~isfield(cfg,'truth_file')
+    % Default to canonical truth filename (user has only this file)
+    cfg.truth_file = 'STATE_X001.txt';
+end
 
 % Plot options defaults to avoid missing-field errors in Task 4/5
 if ~isfield(cfg,'plots') || ~isstruct(cfg.plots)
@@ -51,7 +56,13 @@ cfg.paths = paths;
 % ---- resolve inputs (copy to root if found elsewhere) ----
 cfg.imu_path   = ensure_input_file('IMU',   cfg.imu_file,   cfg.paths);
 cfg.gnss_path  = ensure_input_file('GNSS',  cfg.gnss_file,  cfg.paths);
-cfg.truth_path = ensure_input_file('TRUTH', cfg.truth_file, cfg.paths);
+% Resolve truth file; if not found, skip truth overlay gracefully
+try
+    cfg.truth_path = ensure_input_file('TRUTH', cfg.truth_file, cfg.paths);
+catch ME
+    warning('Truth file not found (%s). Task 6 will use GNSS as truth. (%s)', cfg.truth_file, ME.message);
+    cfg.truth_path = '';
+end
 
 % ---- run id + timeline (before tasks) ----
 rid = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
