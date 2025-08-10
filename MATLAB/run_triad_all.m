@@ -13,7 +13,7 @@ datasets = {
     struct('id','X003','imu','IMU_X003.dat','gnss','GNSS_X002.csv')  % X003 shares GNSS X002
 };
 
-truth_file = 'STATE_IMU_X001.txt';  % common truth overlay
+truth_file = 'STATE_X001.txt';  % common truth overlay
 
 overallStart = tic();
 fprintf('[TRIAD] Starting all-dataset run (X001, X002, X003)\n');

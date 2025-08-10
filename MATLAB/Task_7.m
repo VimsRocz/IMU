@@ -55,6 +55,7 @@ function Task_7()
         end
     end
     t_est = zero_base_time(t_est);
+    t_est_down = t_est(1:400:end);
     ref_lat = S5.ref_lat;
     ref_lon = S5.ref_lon;
     ref_r0  = S5.ref_r0;
@@ -171,6 +172,8 @@ function Task_7()
     pos_residual = pos_est_i - truth_pos_i;
     assert(max(abs(pos_residual(:))) < 100, ...
         'Task-7: Position residual blew up - transform error?');
+    pos_residual_down = interp1(t_grid, pos_residual', t_est_down, 'linear')';
+    vel_residual_down = interp1(t_grid, vel_error', t_est_down, 'linear')';
 
     final_pos = norm(pos_error(:,end));
     final_vel = norm(vel_error(:,end));

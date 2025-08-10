@@ -194,9 +194,13 @@ def plot_overlay(
     dataset: str,
     out_dir: Path,
 ) -> Path:
-    """Create the overlay plot and save it to ``out_dir``."""
+    """Create the overlay plot and save it to ``out_dir``.
+
+    The figure uses a consistent legend scheme: the fused estimate is shown
+    in a red solid line with ``"x"`` markers, and the ground truth is shown
+    in a black dotted line with ``"*"`` markers.
+    """
     labels = ["X", "Y", "Z"] if frame == "ECEF" else ["N", "E", "D"]
-    colors = ["#377eb8", "#e41a1c", "#4daf4a"]  # colorblind friendly
 
     fig, axes = plt.subplots(2, 3, figsize=(12, 6), sharex=True)
 
@@ -208,15 +212,34 @@ def plot_overlay(
     for row, (est, truth, ylab) in enumerate(datasets):
         for col in range(3):
             ax = axes[row, col]
-            ax.plot(t_est, est[:, col], color=colors[col], label=f"Fused {labels[col]}")
-            ax.plot(t_est, truth[:, col], "--", color=colors[col], label=f"Truth {labels[col]}")
+            # plot fused estimate in red with 'x' marker
+            label_fused = "Fused" if (row == 0 and col == 0) else "_nolegend_"
+            ax.plot(
+                t_est,
+                est[:, col],
+                "r-",
+                linewidth=2,
+                marker="x",
+                markersize=3,
+                label=label_fused,
+            )
+            # plot truth in black dotted with '*' marker
+            label_truth = "Truth" if (row == 0 and col == 0) else "_nolegend_"
+            ax.plot(
+                t_est,
+                truth[:, col],
+                "k:",
+                marker="*",
+                markersize=3,
+                label=label_truth,
+            )
             ax.set_ylabel(ylab if col == 0 else "")
             ax.grid(True, alpha=0.3)
             if row == 0:
                 ax.set_title(labels[col])
             ax.set_xlabel("Time [s]")
 
-    axes[0, 0].legend(loc="upper right", ncol=3, fontsize=9, frameon=True)
+    axes[0, 0].legend(loc="upper right", fontsize=9, frameon=True)
 
     fig.suptitle(f"{dataset} Task 6 Overlay — {method} ({frame} frame)")
     fig.tight_layout(rect=[0, 0, 1, 0.95])

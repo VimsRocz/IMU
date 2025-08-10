@@ -29,7 +29,7 @@ if ~isfield(cfg,'method'),     cfg.method     = 'TRIAD'; end
 if ~isfield(cfg,'imu_file'),   cfg.imu_file   = 'IMU_X002.dat'; end
 if ~isfield(cfg,'gnss_file'),  cfg.gnss_file  = 'GNSS_X002.csv'; end
 % Single-truth-file policy (always this name)
-if ~isfield(cfg,'truth_file'), cfg.truth_file = 'STATE_IMU_X001.txt'; end
+if ~isfield(cfg,'truth_file'), cfg.truth_file = 'STATE_X001.txt'; end
 
 % Plot options defaults to avoid missing-field errors in Task 4/5
 if ~isfield(cfg,'plots') || ~isstruct(cfg.plots)

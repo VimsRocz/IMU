@@ -10,7 +10,7 @@ cfg.dataset_id = 'X002';
 cfg.method = 'TRIAD';
 cfg.imu_file = 'IMU_X002.dat';
 cfg.gnss_file = 'GNSS_X002.csv';
-cfg.truth_file = 'STATE_IMU_X001.txt';
+cfg.truth_file = 'STATE_X001.txt';
 cfg.plots = struct('popup_figures', false, 'save_pdf', true, 'save_png', true);
 
 try
