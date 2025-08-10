@@ -143,8 +143,9 @@ python src/validate_with_truth.py --est-file <kf.mat> --truth-file STATE_X001.tx
     --output results --ref-lat <lat> --ref-lon <lon> --ref-r0 <x> <y> <z>
 ```
 
-The comparison figures `<method>_<frame>_overlay_truth.pdf` are stored in the
-`MATLAB/results/` directory next to the Kalman filter output.
+The comparison figures `<method>_<frame>_overlay_truth.png` and corresponding
+`.fig` files are stored in the `MATLAB/results/` directory next to the Kalman
+filter output.
 
 ### Task 6 – Truth Overlay
 
@@ -159,8 +160,8 @@ Task_6(task5,'IMU_X001.dat','GNSS_X001.csv','STATE_X001.txt');
 The function loads `<IMU>_<GNSS>_<METHOD>_kf_output.mat`, reads the matching
 `STATE_*.txt` file and interpolates all series to a common time vector. It
 then calls `plot_overlay` for the NED, ECEF and body frames, saving the
-figures `<METHOD>_NED_overlay_truth.pdf`, `<METHOD>_ECEF_overlay_truth.pdf`
-and `<METHOD>_Body_overlay_truth.pdf` in `MATLAB/results/`.
+figures `<METHOD>_NED_overlay_truth.png`, `<METHOD>_ECEF_overlay_truth.png`
+and `<METHOD>_Body_overlay_truth.png` (plus `.fig`) in `MATLAB/results/`.
 
 ### Compatibility notes
 
