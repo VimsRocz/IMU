@@ -16,7 +16,10 @@ function result = Task_4(imu_path, gnss_path, method)
 paths = project_paths();
 results_dir = paths.matlab_results;
 lib_path = fullfile(paths.root,'MATLAB','lib');
+utils_path = fullfile(paths.matlab,'src','utils');
+% Ensure library and utility helpers (e.g. zero_base_time) are on the path
 if exist(lib_path,'dir'), addpath(lib_path); end
+if exist(utils_path,'dir'), addpath(utils_path); end
 
 % pull configuration from caller
 try
