@@ -60,8 +60,8 @@ end
     addParameter(p, 'vel_meas_noise', 1.0);    % [m/s]
     addParameter(p, 'accel_bias_noise', 1e-5); % [m/s^2]
     addParameter(p, 'gyro_bias_noise', 1e-5);  % [rad/s]
-    addParameter(p, 'vel_q_scale', 1.0);       % [-]
-    addParameter(p, 'vel_r', 0.25);            % [m^2/s^2]
+    addParameter(p, 'vel_q_scale', 1.0, @(x)isnumeric(x)&&isscalar(x)&&x>0); % [-]
+    addParameter(p, 'vel_r', 0.25, @(x)isnumeric(x)&&isscalar(x)&&x>0);      % [m^2/s^2]
     addParameter(p, 'trace_first_n', Inf, @(x)isnumeric(x)&&isscalar(x)&&x>=0);
     addParameter(p, 'plot_formats', {'.pdf','.png','.fig'}, @(c)iscellstr(c)||isstring(c));
     addParameter(p, 'save_dir', '', @(s)ischar(s)||isstring(s));
@@ -256,36 +256,64 @@ fprintf('\nSubtask 5.1-5.5: Configuring and Initializing 15-State Kalman Filter.
 %         gnss_pos_ned = S.gnss_pos_ned;
 %     end
 % end
+% State vector layout: [pos; vel; att; ba; bg]
+layout = struct('pos',3,'vel',3,'att',3,'ba',3,'bg',3);
+idx = state_index_map(layout);
+N = idx.N;
+
 % State vector x: [pos; vel; euler; accel_bias; gyro_bias] (15x1)
 init_eul = quat_to_euler(rot_to_quaternion(C_B_N));
-x = zeros(15, 1);
-x(1:3)  = gnss_pos_ned(1,:)';
-x(4:6)  = gnss_vel_ned(1,:)';
-x(7:9)  = init_eul;
-x(10:12) = accel_bias(:);
-x(13:15) = gyro_bias(:);
+x = zeros(N, 1);
+x(idx.pos) = gnss_pos_ned(1,:)';
+x(idx.vel) = gnss_vel_ned(1,:)';
+x(idx.att) = init_eul;
+x(idx.ba)  = accel_bias(:);
+x(idx.bg)  = gyro_bias(:);
+
 % --- EKF tuning parameters (aligned with Python defaults) ---
-P = eye(15);                         % Larger initial uncertainty
-P(7:9,7:9)   = eye(3) * deg2rad(5)^2; % Attitude uncertainty (5 deg)
-P(10:15,10:15) = eye(6) * 1e-4;      % Bias uncertainty
+P = eye(N);                           % Larger initial uncertainty
+P(idx.att,idx.att) = eye(3) * deg2rad(5)^2; % Attitude uncertainty (5 deg)
+P(idx.ba,idx.ba)   = eye(3) * 1e-4;  % Accelerometer bias uncertainty
+P(idx.bg,idx.bg)   = eye(3) * 1e-4;  % Gyroscope bias uncertainty
 
 % Process/measurement noise with auto-tune fallback to Python defaults
 try
     [Q,R] = task5_autotune(acc_body_raw, gyro_body_raw, dt_imu);
 catch
-    Q = eye(15) * 1e-4;
-    Q(4:6,4:6) = eye(3) * 0.1;
-    Q(10:12,10:12) = eye(3) * accel_bias_noise;
-    Q(13:15,13:15) = eye(3) * gyro_bias_noise;
+    Q = eye(N) * 1e-4;
+    Q(idx.vel,idx.vel) = eye(3) * 0.1;
+    Q(idx.ba,idx.ba)   = eye(3) * accel_bias_noise;
+    Q(idx.bg,idx.bg)   = eye(3) * gyro_bias_noise;
     R = zeros(6);
     R(1:3,1:3) = eye(3) * pos_meas_noise^2;
     R(4:6,4:6) = eye(3);
     fprintf('Auto-tune failed; using default Q/R\n');
 end
-Q(4:6,4:6) = vel_q_scale * Q(4:6,4:6);
-R(4:6,4:6) = vel_r * eye(3);
-fprintf('Adjusted Q[4:6] by %.3f and R[4:6] by %.3f\n', vel_q_scale, vel_r);
-H = [eye(6), zeros(6,9)];
+
+% Measurement blocks: position and velocity
+measBlocks = struct('pos',1:3,'vel',4:6);
+M = measBlocks.vel(end);
+
+% Ensure Q is N x N
+if isscalar(Q), Q = eye(N).*Q; end
+if ~isequal(size(Q),[N N])
+    error('Task_5:QSize','Q must be %dx%d, got %dx%d',N,N,size(Q,1),size(Q,2));
+end
+
+% Ensure R is M x M
+if isscalar(R), R = eye(M).*R; end
+if ~isequal(size(R),[M M])
+    error('Task_5:RSize','R must be %dx%d, got %dx%d',M,M,size(R,1),size(R,2));
+end
+
+% Scale velocity process and measurement noise
+Q(idx.vel, idx.vel) = vel_q_scale * Q(idx.vel, idx.vel);
+R(measBlocks.vel, measBlocks.vel) = vel_r * eye(numel(measBlocks.vel));
+
+fprintf('[KF] N=%d states, size(Q)=%dx%d, size(R)=%dx%d\n', N, size(Q,1), size(Q,2), size(R,1), size(R,2));
+fprintf('Adjusted velocity noise: Q scale %.3f, R variance %.3f\n', vel_q_scale, vel_r);
+
+H = [eye(M), zeros(M,N-M)];
 
 % --- Attitude Initialization ---
 q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
@@ -818,6 +846,21 @@ end % End of main function
 %% ========================================================================
 %  LOCAL HELPER FUNCTIONS
 % =========================================================================
+    function idx = state_index_map(layout)
+        %STATE_INDEX_MAP Create index struct for state vector blocks.
+        %   IDX = STATE_INDEX_MAP(LAYOUT) returns a struct mapping each field
+        %   in LAYOUT to its index range. LAYOUT is an ordered struct of block
+        %   sizes. The returned struct includes the total dimension ``N``.
+        names = fieldnames(layout);
+        s = 1; idx = struct();
+        for k = 1:numel(names)
+            n = layout.(names{k});
+            idx.(names{k}) = s:(s+n-1);
+            s = s + n;
+        end
+        idx.N = s - 1;
+    end
+
     function q_new = propagate_quaternion(q_old, w, dt)
         %PROPAGATE_QUATERNION Propagate quaternion using angular rate.
         %   Q_NEW = PROPAGATE_QUATERNION(Q_OLD, W, DT) integrates the rate
