@@ -154,65 +154,52 @@ fprintf('Longitude (deg):             %.6f\n', lon_deg);
 % ================================
 fprintf('\nSubtask 1.5: Plotting location on Earth map.\n');
 
-% Create a geographic plot if Mapping Toolbox is available
-if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
-    figure('Name', 'Initial Location on Earth Map', 'Position', [100, 100, 1000, 500]);
-    geobasemap satellite; % Use satellite imagery as the basemap
+dataset_name = sprintf('%s_%s', imu_name, gnss_name);
 
-    % Set map limits to focus on the location
-    geolimits([lat_deg - 2, lat_deg + 2], [lon_deg - 2, lon_deg + 2]);
+if exist('geoplot','file') == 2 && license('test','map_toolbox')
+    fig = figure('Name','Task1 Location','Position',[100,100,800,800]);
+    tl = tiledlayout(2,1,'TileSpacing','compact');
 
-    % Plot the initial location with a red marker
-    hold on;
-    geoplot(lat_deg, lon_deg, 'ro', 'MarkerSize', 10, 'MarkerFaceColor', 'r');
+    % World view
+    nexttile; geoplot(lat_deg, lon_deg, 'ro','MarkerSize',8,'MarkerFaceColor','r');
+    hold on; geolimits([-90 90],[-180 180]); geobasemap satellite;
+    title('Initial Location — World');
 
-    % Add a text label
-    text_str = sprintf('Lat: %.4f°, Lon: %.4f°', lat_deg, lon_deg);
-    text(lon_deg + 0.1, lat_deg, text_str, 'Color', 'white', 'FontSize', 12, 'FontWeight', 'bold');
-    hold off;
+    % Local zoom ±1°
+    nexttile; latlim = lat_deg + [-1 1]; lonlim = lon_deg + [-1 1];
+    geoplot(lat_deg, lon_deg, 'ro','MarkerFaceColor','r'); hold on;
+    geolimits(latlim, lonlim); geobasemap satellite;
+    title('Local Area (±1°)');
 
-    % Set plot title
-    title('Initial Location on Earth Map');
+    [cname, cdist_km] = nearest_city(lat_deg, lon_deg);
+    sgtitle(sprintf('%s — %s', dataset_name, method),'FontWeight','bold');
+    subtitle(tl, sprintf('lat=%.6f°, lon=%.6f° | nearest: %s (%.0f km)', ...
+        lat_deg, lon_deg, cname, cdist_km));
 
-    % Save the plot as a MATLAB figure and PNG for reproducibility
-    set(gcf, 'PaperPositionMode', 'auto');
-    base_fig = figure(gcf);
-    base = sprintf('%s_%s_%s_task%d_results', imu_name, gnss_name, method, 1);
-    fig_path = fullfile(results_dir, [base '.fig']);
-    png_path = fullfile(results_dir, [base '.png']);
-    save_plot_fig(base_fig, fig_path);
-    exportgraphics(base_fig, png_path, 'Resolution', 300);
-    fprintf('Saved plot to %s and %s\n', fig_path, png_path);
+    base = fullfile(results_dir, sprintf('%s_%s_task1_results', dataset_name, method));
+    save_plot_all(fig, base, {'.fig','.png','.pdf'});
 else
     warning('Mapping Toolbox not found. Skipping geographic plot.');
+    base = fullfile(results_dir, sprintf('%s_%s_task1_results', dataset_name, method));
 end
-% close(gcf); % Uncomment to close the figure after saving
 
 % Save results for later tasks
+R_ecef2ned = compute_C_ECEF_to_NED(deg2rad(lat_deg), deg2rad(lon_deg));
+Task1 = struct();
+Task1.lat = lat_deg;
+Task1.lon = lon_deg;
+Task1.gravity_ned = g_NED(:)';
+Task1.omega_ie_ned = omega_ie_NED(:)';
+Task1.R_ecef2ned = R_ecef2ned;
+Task1.R_ned2ecef = R_ecef2ned';
+if exist('ref_r0','var'), Task1.r0_ecef = ref_r0(:)'; else, Task1.r0_ecef = []; end
+Task1.plots = struct('map_base', base);
+Task1.meta = struct('dataset', dataset_name, 'method', method);
 
+outpath = [base '.mat'];
+TaskIO.save('Task1', Task1, outpath);
 
-lat = lat_deg; %#ok<NASGU>
-lon = lon_deg; %#ok<NASGU>
-omega_NED = omega_ie_NED; %#ok<NASGU>
-
-results = struct('lat', lat_deg, 'lon', lon_deg, 'g_NED', g_NED, 'omega_NED', omega_ie_NED);
-save_task_results(results, imu_name, gnss_name, method, 1);
-
-% --------------------------------------------------------------------
-% Also save a simple initialization file for downstream tasks
-% --------------------------------------------------------------------
-init_struct = struct('lat', lat_deg, 'lon', lon_deg, ...
-                     'g_NED', g_NED, 'omega_NED', omega_ie_NED);
-if exist('ref_r0', 'var')
-    init_struct.ref_r0 = ref_r0; %#ok<STRNU>
-end
-init_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
-save(init_file, '-struct', 'init_struct');
-fprintf('Initial data saved to %s\n', init_file);
-
-% Return results and store in base workspace for interactive use
-result = struct('lat', lat_deg, 'lon', lon_deg, ...
-                'g_NED', g_NED, 'omega_NED', omega_ie_NED);
-assignin('base', 'task1_results', result);
+% Expose to workspace
+assignin('base','Task1', Task1);
 
 end

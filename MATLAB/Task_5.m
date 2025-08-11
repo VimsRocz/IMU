@@ -118,32 +118,16 @@ end
     fprintf('\nTask 5: Sensor Fusion with Kalman Filter\n');
     fprintf('Subtask 5.1: Configuring logging.\n');
 
-    % Load attitude estimate from Task 3 results
-    results_file = fullfile(results_dir, sprintf('Task3_results_%s.mat', pair_tag));
-    if evalin('base','exist(''task3_results'',''var'')')
-        task3_results = evalin('base','task3_results');
-    else
-        S = load(results_file);
-        if isfield(S,'task3_results')
-            task3_results = S.task3_results;
-        else
-            task3_results = S; % file may have method names as top-level fields
-        end
+    % Load attitude estimate from Task 3 results using TaskIO
+    t3_path = fullfile(results_dir, sprintf('%s_%s_%s_task3_results.mat', imu_name, gnss_name, method));
+    Task3 = TaskIO.load('Task3', t3_path);
+    mi = find(strcmpi(Task3.methods, method), 1);
+    if isempty(mi)
+        error('Task5:NoMethod','Method %s not in Task3.methods', method);
     end
-    % Verify structure and log available fields
-    if isstruct(task3_results)
-        fprintf('Loaded Task 3 results with methods: %s\n', strjoin(fieldnames(task3_results)', ', '));
-    else
-        error('Task3 results not loaded as struct. Got type: %s', class(task3_results));
-    end
-    % Support both Task_3 schema variants
-    if isfield(task3_results, 'Rbn') && isfield(task3_results.Rbn, method)
-        C_B_N = task3_results.Rbn.(method);
-    elseif isfield(task3_results, method) && isfield(task3_results.(method), 'R')
-        C_B_N = task3_results.(method).R;
-    else
-        error('Method %s not found in task3_results (checked Rbn and legacy fields).', method);
-    end
+    R_b2n = Task3.Rbn(:,:,mi);
+    q_b2n = Task3.q(mi,:);
+    C_B_N = R_b2n;
     if strcmpi(method,'TRIAD')
         assignin('base','C_B_N_ref', C_B_N);
     end
@@ -843,7 +827,7 @@ time_file = fullfile(results_dir, sprintf('%s_task5_time.mat', run_id));
 save(time_file, 't_est', 'dt', 'x_log');
 fprintf('Task 5: Saved time vector to %s\n', time_file);
 
-    method_struct = struct('gnss_pos_ned', gnss_pos_ned, 'gnss_vel_ned', gnss_vel_ned, ...
+    Task5 = struct('gnss_pos_ned', gnss_pos_ned, 'gnss_vel_ned', gnss_vel_ned, ...
         'gnss_accel_ned', gnss_accel_ned, 'gnss_pos_ecef', gnss_pos_ecef, ...
         'gnss_vel_ecef', gnss_vel_ecef, 'gnss_accel_ecef', gnss_accel_ecef, ...
         'x_log', x_log, 'vel_log', vel_log, 'accel_from_vel', accel_from_vel, ...
@@ -852,9 +836,8 @@ fprintf('Task 5: Saved time vector to %s\n', time_file);
         'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0, ...
         'Q_vel', 0.1, 'R_vel', 0.25, 'zupt_count', zupt_count, 'vel_blow_count', vel_blow_count, ...
         'accel_bias', accel_bias, 'gyro_bias', gyro_bias);
-    % ``method`` already stores the algorithm name (e.g. 'TRIAD'). Use it
-    % directly when saving so filenames match the Python pipeline.
-    save_task_results(method_struct, imu_name, gnss_name, method, 5);
+    outpath5 = fullfile(results_dir, sprintf('%s_%s_%s_task5_results.mat', imu_name, gnss_name, method));
+    TaskIO.save('Task5', Task5, outpath5);
 
     % Expose fused position for comparison plots across methods
     assignin('base', ['pos_kf_' method], x_log(1:3,:)');

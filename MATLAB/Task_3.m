@@ -60,27 +60,18 @@ catch
     q_svd = q_tri;
 end
 
-% ---- pack canonical struct that Task_4 expects ----
-task3_results = struct();
-task3_results.methods = {'TRIAD','Davenport','SVD'};
-task3_results.Rbn.TRIAD     = R_tri;
-task3_results.Rbn.Davenport = R_dav;
-task3_results.Rbn.SVD       = R_svd;
-task3_results.q.TRIAD       = q_tri;
-task3_results.q.Davenport   = q_dav;
-task3_results.q.SVD         = q_svd;
-task3_results.meta = struct('imu_id',imu_id,'gnss_id',gnss_id,'method',method);
+% ---- pack canonical struct that Task_4/5 expect ----
+methods = {'TRIAD','Davenport','SVD'};
+Rbn = cat(3, R_tri, R_dav, R_svd);
+q = [q_tri; q_dav; q_svd];
+Task3 = struct('methods',{methods}, 'Rbn', Rbn, 'q', q, ...
+               'meta', struct('imu_id',imu_id,'gnss_id',gnss_id,'method',method));
 
-out_generic = fullfile(results_dir, sprintf('Task3_results_%s_%s.mat', imu_id, gnss_id));
-out_method  = fullfile(results_dir, sprintf('%s_%s_%s_task3_results.mat', imu_id, gnss_id, method));
+base = fullfile(results_dir, sprintf('%s_%s_%s_task3_results', imu_id, gnss_id, method));
+TaskIO.save('Task3', Task3, [base '.mat']);
+fprintf('Task 3: saved Task3 struct -> %s.mat\n', base);
 
-save(out_generic, 'task3_results', '-v7');
-save(out_method,  'task3_results', '-v7');
-fprintf('Task 3: saved task3_results to:\n  %s\n  %s\n', out_generic, out_method);
-
-% Also expose in base workspace for downstream tasks
-try
-    assignin('base','task3_results', task3_results);
-catch
+% Expose in base workspace
+assignin('base','Task3', Task3);
 end
-end
+
