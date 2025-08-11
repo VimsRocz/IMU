@@ -35,18 +35,21 @@ from scipy.spatial.transform import Rotation as R
 import scipy.io as sio
 from tabulate import tabulate
 
+# ensure utils import and debug bootstrap
+sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "utils"))
+from utils.trace_utils import trace_task, dump_structure, save_plot_interactive, log  # noqa
+
+log("[BOOT] run_triad_only.py loaded")
+
 from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
 from utils import save_mat
-
-# Allow importing helper utilities under ``src/utils``.
-sys.path.append(str(Path(__file__).resolve().parent / "utils"))
 from timeline import print_timeline
 from resolve_truth_path import resolve_truth_path
 from run_id import run_id as build_run_id
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
-
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -216,7 +219,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         cmd.append("--no-plots")
 
     start_t = time.time()
-    ret, summaries = run_case(cmd, log_path)
+    ret, summaries = trace_task("Pipeline")(run_case)(cmd, log_path)
     runtime = time.time() - start_t
     if ret != 0:
         raise subprocess.CalledProcessError(ret, cmd)
@@ -257,7 +260,28 @@ def main(argv: Iterable[str] | None = None) -> None:
     tmeta: Dict[str, float | int | str] = {}
     if npz_path.exists():
         data = np.load(npz_path, allow_pickle=True)
+        dump_structure("Task5.output", data)
         logger.debug("Loaded output %s with keys: %s", npz_path, list(data.keys()))
+
+        t3_path = results_dir / f"{run_id}_task3_results.mat"
+        if t3_path.exists():
+            t3 = sio.loadmat(str(t3_path), simplify_cells=True)
+            if "R" in t3:
+                R = t3["R"]
+            elif "Rbn" in t3:
+                R = t3["Rbn"]
+            elif "Task3" in t3 and isinstance(t3["Task3"], dict) and "R" in t3["Task3"]:
+                R = t3["Task3"]["R"]
+            else:
+                logger.warning(
+                    "[Task_5] No rotation field found (R/Rbn). Available: %s",
+                    list(t3.keys()),
+                )
+                dump_structure("Task5.Task3_loaded", t3, max_depth=3)
+                R = None
+            if R is not None:
+                t3["R"] = R
+            dump_structure("Task5.Task3_loaded", t3, max_depth=3)
         time_s_raw = data.get("time_s")
         if time_s_raw is None:
             time_s_raw = data.get("time")
@@ -301,6 +325,11 @@ def main(argv: Iterable[str] | None = None) -> None:
             vel_ned = data.get("vel_ned")
         if vel_ned is None:
             vel_ned = data.get("fused_vel")
+
+        if pos_ned is not None:
+            dump_structure("Task5.pos_ned", pos_ned)
+        if vel_ned is not None:
+            dump_structure("Task5.vel_ned", vel_ned)
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(

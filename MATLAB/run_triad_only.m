@@ -1,5 +1,5 @@
 function run_triad_only(cfg)
-% RUN_TRIAD_ONLY  Process dataset using TRIAD (Tasks 1..7) — MATLAB-only, no Python deps.
+% RUN_TRIAD_ONLY  Process dataset using TRIAD (Tasks 1..7).
 %
 % Usage:
 %   run_triad_only();
@@ -20,6 +20,9 @@ for i = 1:numel(utils_candidates)
         addpath(p);
     end
 end
+addpath(genpath(fullfile(pwd,'MATLAB','src')));  % ensure utils path
+set_debug(strcmpi(getenv('DEBUG'),'1') || strcmpi(getenv('DEBUG'),'true'));
+log_msg('[BOOT] run_triad_only.m loaded');
 paths = project_paths();  % adds utils; returns root/matlab/results
 if nargin==0 || isempty(cfg), cfg = struct(); end
 
@@ -61,10 +64,10 @@ fprintf('▶ %s\n', rid);
 fprintf('MATLAB results dir: %s\n', cfg.paths.matlab_results);
 
 % ---- Tasks 1..7 (compulsory) ----
-Task_1(cfg.imu_path, cfg.gnss_path, cfg.method);
-Task_2(cfg.imu_path, cfg.gnss_path, cfg.method);
-Task_3(cfg.imu_path, cfg.gnss_path, cfg.method);
-Task_4(cfg.imu_path, cfg.gnss_path, cfg.method);
+try_task('Task_1', @Task_1, cfg.imu_path, cfg.gnss_path, cfg.method);
+try_task('Task_2', @Task_2, cfg.imu_path, cfg.gnss_path, cfg.method);
+try_task('Task_3', @Task_3, cfg.imu_path, cfg.gnss_path, cfg.method);
+try_task('Task_4', @Task_4, cfg.imu_path, cfg.gnss_path, cfg.method);
 % Optionally auto-tune Q/R on a small grid before the final full run
 if cfg.autotune
     try
@@ -78,17 +81,17 @@ if cfg.autotune
     end
 end
 
-Task_5(cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
+try_task('Task_5', @Task_5, cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
        'vel_q_scale', cfg.vel_q_scale, 'vel_r', cfg.vel_r, 'trace_first_n', cfg.trace_first_n);
 
 % Task 6 can accept either the Task 5 .mat or (imu,gnss,truth) paths — use the version you have:
 if exist('Task_6.m','file')
-    Task_6(fullfile(cfg.paths.matlab_results, sprintf('%s_task5_results.mat', rid)), ...
+    try_task('Task_6', @Task_6, fullfile(cfg.paths.matlab_results, sprintf('%s_task5_results.mat', rid)), ...
            cfg.imu_path, cfg.gnss_path, cfg.truth_path);
 end
 
 if exist('Task_7.m','file')
-    Task_7();
+    try_task('Task_7', @Task_7);
 end
 
 fprintf('TRIAD processing complete for %s\n', cfg.dataset_id);

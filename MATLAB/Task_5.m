@@ -121,18 +121,34 @@ end
     % Load attitude estimate from Task 3 results using TaskIO
     t3_path = fullfile(results_dir, sprintf('%s_%s_%s_task3_results.mat', imu_name, gnss_name, method));
     Task3 = TaskIO.load('Task3', t3_path);
-    % Also load the raw struct to access per-method results later
     S = load(t3_path);
     if isfield(S, 'task3_results')
         task3_results = S.task3_results;
     else
         task3_results = S;
     end
+
+    % Normalize expected rotations to Task3.R (fallbacks)
+    if isfield(Task3,'R')
+        % already normalized
+    elseif isfield(Task3,'Rbn')
+        Task3.R = Task3.Rbn;
+    elseif isfield(Task3,'Task3') && isfield(Task3.Task3,'R')
+        Task3.R = Task3.Task3.R;
+    else
+        warning('[Task_5] No rotation field found (R/Rbn). Available: %s', strjoin(fieldnames(Task3),', '));
+        dump_structure(''Task5.T3_loaded'', Task3, 0, 3);
+        Task3.R = [];
+    end
+    if is_debug()
+        dump_structure(''Task5.Task3_loaded'', Task3, 0, 3);
+    end
+
     mi = find(strcmpi(Task3.methods, method), 1);
     if isempty(mi)
-        error('Task5:NoMethod','Method %s not in Task3.methods', method);
+        error(''Task5:NoMethod'',''Method %s not in Task3.methods'', method);
     end
-    R_b2n = Task3.Rbn(:,:,mi);
+    R_b2n = Task3.R(:,:,mi);
     q_b2n = Task3.q(mi,:);
     C_B_N = R_b2n;
     if strcmpi(method,'TRIAD')
@@ -156,7 +172,7 @@ end
     I = C_ECEF_to_NED * C_ECEF_to_NED';
     err = norm(I - eye(3), 'fro');
     assert(err < 1e-9, 'R_ecef_to_ned not orthonormal (||I-eye||=%.3e)', err);
-    omega_E = constants.EARTH_RATE;
+omega_E = constants.EARTH_RATE;
     omega_ie_NED = omega_E * [cosd(lat_deg); 0; -sind(lat_deg)];
     % Make reference parameters available for later plotting scripts
     assignin('base','ref_lat', deg2rad(lat_deg));
@@ -1178,3 +1194,8 @@ end % End of main function
         save_plot_all(gcf, fname, formats);
         close(gcf);
     end
+
+    if is_debug()
+        dump_caller_locals(sprintf('%s_locals.mat', mfilename));
+    end
+end
