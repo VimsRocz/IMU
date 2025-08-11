@@ -46,6 +46,7 @@ def log_msg(msg: str, *args) -> None:
         text = msg % args if args else msg
         print(f"[DEBUG] {text}")
 
+
 LOG_DIR = os.path.join(os.getcwd(), "results")
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_PATH = os.path.join(LOG_DIR, "debug_log.txt")
@@ -117,9 +118,7 @@ def dump_structure(
                 for k in list(obj.keys())[:20]:
                     dump_structure(f"{name}.{k}", obj[k], depth + 1, max_depth, visited)
         elif hasattr(obj, "__dict__"):
-            log(
-                f"{indent}{name}: {tname} (object) attrs={list(vars(obj).keys())[:10]}"
-            )
+            log(f"{indent}{name}: {tname} (object) attrs={list(vars(obj).keys())[:10]}")
             if depth < max_depth:
                 for k, v in list(vars(obj).items())[:20]:
                     dump_structure(f"{name}.{k}", v, depth + 1, max_depth, visited)
@@ -156,17 +155,32 @@ def dump_locals_npz(task_name: str, local_vars: Dict[str, Any]) -> None:
         log(f"[ERROR] {task_name}: npz dump failed: {e}")
 
 
-def try_task(func, task_name: str, *args, **kwargs) -> None:
-    """Run ``func`` and report errors without stopping execution."""
+def try_task(func_or_name, name_or_func: str, *args, **kwargs) -> None:
+    """Run ``func`` and report errors without stopping execution.
 
-    print(f"\u25B6 Running {task_name}...")
+    Usage
+    -----
+    try_task(func, "Task 1", arg1, ...)
+    or
+    try_task("Task 1", func, arg1, ...)
+    """
+
+    func = func_or_name
+    task_name = name_or_func
+    if isinstance(func_or_name, str) and callable(name_or_func):
+        func, task_name = name_or_func, func_or_name
+
+    print(f"\u25b6 Running {task_name}...")
     try:
         func(*args, **kwargs)
         print(f"\u2713 {task_name} completed successfully.")
     except Exception as e:
-        print(f"\u274C Error in {task_name}: {e}")
+        print(f"\u274c Error in {task_name}: {e}")
         if DEBUG:
             traceback.print_exc(file=sys.stdout)
+            snapshot = {f"arg{i}": a for i, a in enumerate(args)}
+            snapshot.update(kwargs)
+            dump_locals_npz(task_name, snapshot)
 
 
 def trace_task(task_name: str):
@@ -237,4 +251,3 @@ def enable_if_env() -> None:
 
 
 enable_if_env()
-
