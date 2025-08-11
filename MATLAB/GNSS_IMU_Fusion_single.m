@@ -515,17 +515,41 @@ for i = 1:length(methods)
     omega_errors(i) = o_err;
 end
 
-grav_err_mean_deg = mean(grav_errors);
-grav_err_max_deg  = max(grav_errors);
-omega_err_mean_deg = mean(omega_errors);
-omega_err_max_deg  = max(omega_errors);
-
-figure('Name', 'Attitude Initialization Error Comparison', 'Position', [100, 100, 800, 400]);
-subplot(1, 2, 1); bar(grav_errors); set(gca, 'xticklabel', methods); title('Gravity Vector Error'); ylabel('Error (degrees)'); grid on;
-subplot(1, 2, 2); bar(omega_errors); set(gca, 'xticklabel', methods); title('Earth Rate Vector Error'); ylabel('Error (degrees)'); grid on;
-sgtitle('Attitude Initialization Method Errors (Case 1)');
-err_file = fullfile(results_dir, sprintf('%s_%s_%s_Task3_ErrorComparison.pdf', imu_name, gnss_name, method_tag));
-set(gcf, 'PaperPositionMode','auto'); print(gcf, err_file, '-dpdf', '-bestfit');
+ge = struct('TRIAD', grav_errors(1), 'Davenport', grav_errors(2), 'SVD', grav_errors(3));
+ee = struct('TRIAD', omega_errors(1), 'Davenport', omega_errors(2), 'SVD', omega_errors(3));
+meth = {'TRIAD','Davenport','SVD'};
+grav_vals = cellfun(@(m) double(ge.(m)), meth);
+erate_vals = cellfun(@(m) double(ee.(m)), meth);
+if any(~isfinite(grav_vals)), warning('Task3:grav NaN -> 0'); grav_vals(~isfinite(grav_vals)) = 0; end
+if any(~isfinite(erate_vals)), warning('Task3:erate NaN -> 0'); erate_vals(~isfinite(erate_vals)) = 0; end
+grav_err_mean_deg = mean(grav_vals);
+grav_err_max_deg  = max(grav_vals);
+omega_err_mean_deg = mean(erate_vals);
+omega_err_max_deg  = max(erate_vals);
+fprintf('[Task3] Gravity errors (deg): TRIAD=%.6g, Davenport=%.6g, SVD=%.6g\n', grav_vals);
+fprintf('[Task3] Earth-rate errors (deg): TRIAD=%.6g, Davenport=%.6g, SVD=%.6g\n', erate_vals);
+assert(~isempty(grav_vals) && ~isempty(erate_vals), 'Task3:NoData','No error data computed for plotting.');
+f = figure('Name','Attitude Initialization Error Comparison','Color','w');
+tiledlayout(1,2,'TileSpacing','compact');
+nexttile;
+bar(categorical(meth), grav_vals);
+ylabel('Error (degrees)'); title('Gravity Error');
+ymax = max(abs(grav_vals)); if ymax==0, ymax = 0.01; end
+ylim([-1 1]*1.1*ymax); grid on;
+for i_plot = 1:numel(grav_vals)
+    text(i_plot, grav_vals(i_plot), sprintf('%.3g', grav_vals(i_plot)), 'HorizontalAlignment','center', 'VerticalAlignment','bottom');
+end
+nexttile;
+bar(categorical(meth), erate_vals);
+ylabel('Error (degrees)'); title('Earth Rate Error');
+ymax = max(abs(erate_vals)); if ymax==0, ymax = 0.01; end
+ylim([-1 1]*1.1*ymax); grid on;
+for i_plot = 1:numel(erate_vals)
+    text(i_plot, erate_vals(i_plot), sprintf('%.3g', erate_vals(i_plot)), 'HorizontalAlignment','center', 'VerticalAlignment','bottom');
+end
+sgtitle('Task 3: Attitude Error Comparison');
+outbase = fullfile(results_dir, sprintf('%s_task3_errors_comparison', tag));
+save_plot_all(f, outbase, {'.fig','.pdf','.png'});
 
 figure('Name', 'Quaternion Component Comparison', 'Position', [100, 600, 1000, 600]);
 quats_c1 = [q_tri, q_dav, q_svd];
@@ -968,8 +992,6 @@ plot_task5_results_all_methods(imu_time, pos_struct, vel_struct, acc_struct, ...
     gnss_pos_interp, gnss_vel_interp, gnss_acc_interp, tag, results_dir);
 
 % Rename key figures to match the Python naming scheme
-rename_plot(sprintf('%s_Task3_ErrorComparison.pdf', tag), ...
-            sprintf('%s_task3_errors_comparison.pdf', tag));
 rename_plot(sprintf('%s_Task3_QuaternionComparison.pdf', tag), ...
             sprintf('%s_task3_quaternions_comparison.pdf', tag));
 rename_plot(sprintf('%s_Task4_NEDFrame.pdf', tag), ...

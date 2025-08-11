@@ -604,32 +604,59 @@ def main():
 
     logging.info("Subtask 3.7: Plotting validation errors and quaternion components.")
 
-    methods_plot = methods
+    methods_plot = ["TRIAD", "Davenport", "SVD"]
+    grav_vals = np.array([grav_errors[m] for m in methods_plot], dtype=float)
+    erate_vals = np.array([omega_errors[m] for m in methods_plot], dtype=float)
 
-    gravity_errors = [results[m]["gravity_error"] for m in methods_plot]
-    earth_rate_errors = [results[m]["earth_rate_error"] for m in methods_plot]
+    if not np.isfinite(grav_vals).all():
+        logging.warning("Task3:grav NaN -> 0")
+        grav_vals = np.nan_to_num(grav_vals, nan=0.0, posinf=0.0, neginf=0.0)
+    if not np.isfinite(erate_vals).all():
+        logging.warning("Task3:erate NaN -> 0")
+        erate_vals = np.nan_to_num(erate_vals, nan=0.0, posinf=0.0, neginf=0.0)
+
+    logging.info(
+        "[Task3] Gravity errors (deg): TRIAD=%.6g, Davenport=%.6g, SVD=%.6g",
+        *grav_vals
+    )
+    logging.info(
+        "[Task3] Earth-rate errors (deg): TRIAD=%.6g, Davenport=%.6g, SVD=%.6g",
+        *erate_vals
+    )
+
+    assert grav_vals.size and erate_vals.size, "Task3:NoData: No error data computed for plotting."
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    x = np.arange(len(methods_plot))
-    width = 0.35
 
-    axes[0].bar(x, gravity_errors, width)
-    axes[0].set_xticks(x)
-    axes[0].set_xticklabels(methods_plot)
+    axes[0].bar(methods_plot, grav_vals)
     axes[0].set_title("Gravity Error")
     axes[0].set_ylabel("Error (degrees)")
+    ymax = np.max(np.abs(grav_vals))
+    if ymax == 0:
+        ymax = 0.01
+    axes[0].set_ylim(-1.1 * ymax, 1.1 * ymax)
+    axes[0].grid(True)
+    for i, v in enumerate(grav_vals):
+        axes[0].text(i, v, f"{v:.3g}", ha="center", va="bottom")
 
-    axes[1].bar(x, earth_rate_errors, width)
-    axes[1].set_xticks(x)
-    axes[1].set_xticklabels(methods_plot)
+    axes[1].bar(methods_plot, erate_vals)
     axes[1].set_title("Earth Rate Error")
     axes[1].set_ylabel("Error (degrees)")
+    ymax = np.max(np.abs(erate_vals))
+    if ymax == 0:
+        ymax = 0.01
+    axes[1].set_ylim(-1.1 * ymax, 1.1 * ymax)
+    axes[1].grid(True)
+    for i, v in enumerate(erate_vals):
+        axes[1].text(i, v, f"{v:.3g}", ha="center", va="bottom")
 
     fig.suptitle("Task 3: Attitude Error Comparison")
-    plt.tight_layout()
+    fig.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task3_errors_comparison.pdf")
-    plt.close()
+        outbase = f"results/{tag}_task3_errors_comparison"
+        fig.savefig(outbase + ".pdf")
+        fig.savefig(outbase + ".png", dpi=300)
+    plt.close(fig)
     logging.info("Error comparison plot saved")
 
     # Collect quaternion data for both cases
