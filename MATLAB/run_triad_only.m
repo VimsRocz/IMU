@@ -3,24 +3,9 @@ function run_triad_only(cfg)
 %
 % Usage:
 %   run_triad_only();
-%   run_triad_only(struct(''dataset_id'',''X002''));
+%   run_triad_only(struct('dataset_id','X002'));
 
-% ---- paths / utils ----
-% Ensure utils are on the path before calling project_paths
-here = fileparts(mfilename('fullpath'));  % .../MATLAB
-utils_candidates = {
-    fullfile(here,'utils'),
-    fullfile(here,'src','utils'),
-    fullfile(here,'src','utils','attitude'),
-    fullfile(here,'src','utils','frames')
-};
-for i = 1:numel(utils_candidates)
-    p = utils_candidates{i};
-    if exist(p,'dir') && ~contains(path, [p pathsep])
-        addpath(p);
-    end
-end
-addpath(genpath(fullfile(pwd,'MATLAB','src')));  % ensure utils path
+addpath(genpath(fullfile(pwd,'MATLAB','src','utils')));
 set_debug(strcmpi(getenv('DEBUG'),'1') || strcmpi(getenv('DEBUG'),'true'));
 log_msg('[BOOT] run_triad_only.m loaded');
 paths = project_paths();  % adds utils; returns root/matlab/results

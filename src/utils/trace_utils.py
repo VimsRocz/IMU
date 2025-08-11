@@ -29,6 +29,23 @@ import numpy as np
 
 DEBUG = os.environ.get("DEBUG", "0").lower() in ("1", "true", "yes")
 
+
+def set_debug(val: bool) -> None:
+    """Enable or disable debug logging."""
+
+    global DEBUG
+    DEBUG = bool(val)
+    state = "enabled" if DEBUG else "disabled"
+    print(f"[DEBUG] Debug logging {state}")
+
+
+def log_msg(msg: str, *args) -> None:
+    """Log a debug message when ``DEBUG`` is active."""
+
+    if DEBUG:
+        text = msg % args if args else msg
+        print(f"[DEBUG] {text}")
+
 LOG_DIR = os.path.join(os.getcwd(), "results")
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_PATH = os.path.join(LOG_DIR, "debug_log.txt")
@@ -137,6 +154,19 @@ def dump_locals_npz(task_name: str, local_vars: Dict[str, Any]) -> None:
         log(f"[DUMP] {task_name}: saved locals NPZ with {len(safe)} items")
     except Exception as e:  # pragma: no cover - debug helper
         log(f"[ERROR] {task_name}: npz dump failed: {e}")
+
+
+def try_task(func, task_name: str, *args, **kwargs) -> None:
+    """Run ``func`` and report errors without stopping execution."""
+
+    print(f"\u25B6 Running {task_name}...")
+    try:
+        func(*args, **kwargs)
+        print(f"\u2713 {task_name} completed successfully.")
+    except Exception as e:
+        print(f"\u274C Error in {task_name}: {e}")
+        if DEBUG:
+            traceback.print_exc(file=sys.stdout)
 
 
 def trace_task(task_name: str):
