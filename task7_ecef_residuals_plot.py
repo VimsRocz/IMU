@@ -12,9 +12,10 @@ by Task 4, the ``--truth-file`` argument is optional.  Otherwise the
 STATE_X text log must be provided or inferrable from the dataset name.
 The truth trajectory is synchronised to the estimator by cross-correlating
 position and velocity magnitudes before interpolation to the estimator time
-vector.  Position, velocity and acceleration residuals are plotted.  The time axis is
-converted to ``t - t[0]`` so Task 6 and Task 7 share the same reference.
-Figures are saved as PDF and PNG under ``results/<tag>/`` where ``tag``
+vector. Position, velocity and acceleration residuals are plotted. The time
+axis is converted to ``t - t[0]`` so Task 6 and Task 7 share the same
+reference. Figures are saved in interactive Python ``.pickle`` and MATLAB
+``.mat`` (via ``.fig`` export) formats under ``results/<tag>/`` where ``tag``
 combines the dataset, GNSS file and method.
 """
 
@@ -28,6 +29,7 @@ import matplotlib.pyplot as plt
 
 from validate_with_truth import load_estimate, assemble_frames
 from naming import make_tag, plot_filename
+from python.utils.save_plot_all import save_plot_all
 import re
 
 
@@ -83,11 +85,8 @@ def plot_residuals(
     fig.suptitle(f"{tag} Task 7 ECEF Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     out_dir.mkdir(parents=True, exist_ok=True)
-    pdf_name = plot_filename(dataset, gnss, method, 7, "3", "ecef_residuals")
-    pdf = out_dir / pdf_name
-    png = pdf.with_suffix(".png")
-    fig.savefig(pdf)
-    fig.savefig(png)
+    base = out_dir / Path(plot_filename(dataset, gnss, method, 7, "3", "ecef_residuals")).with_suffix("")
+    save_plot_all(fig, str(base), formats=(".pickle", ".fig"))
     plt.close(fig)
 
     # Norm plot
@@ -101,14 +100,11 @@ def plot_residuals(
     ax.grid(True)
     fig.suptitle(f"{tag} Task 7 ECEF Residual Norms")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    norm_name = plot_filename(dataset, gnss, method, 7, "3", "ecef_residual_norms")
-    norm_pdf = out_dir / norm_name
-    norm_png = norm_pdf.with_suffix(".png")
-    fig.savefig(norm_pdf)
-    fig.savefig(norm_png)
+    norm_base = out_dir / Path(plot_filename(dataset, gnss, method, 7, "3", "ecef_residual_norms")).with_suffix("")
+    save_plot_all(fig, str(norm_base), formats=(".pickle", ".fig"))
     plt.close(fig)
 
-    saved = sorted(out_dir.glob(f"{tag}_task7_*ecef_residual*.pdf"))
+    saved = sorted(out_dir.glob(f"{tag}_task7_*ecef_residual*.pickle"))
     if saved:
         print("Files saved in", out_dir)
         for f in saved:

@@ -1,4 +1,5 @@
 import subprocess
+import pickle
 from pathlib import Path
 from typing import Iterable
 
@@ -97,15 +98,22 @@ def save_plot_all(
     formats : Iterable[str], optional
         Iterable of extensions (e.g. ``(".png",)``). ``".fig"``
         triggers MATLAB export using the engine or command line when included.
+        ``".pickle"`` or ``".pkl"`` serialises the figure for interactive
+        reloading in Python.
     """
     _ensure_dir(basepath)
 
-    # raster/vector exports
-    for ext in (e.lower() for e in formats if e.lower() in {".png", ".pdf", ".svg"}):
-        fig.savefig(basepath + ext, dpi=300, bbox_inches="tight")
-        print(f"Saved -> {basepath + ext}")
+    fmt_lower = [e.lower() for e in formats]
+    for ext in fmt_lower:
+        if ext in {".png", ".pdf", ".svg"}:
+            fig.savefig(basepath + ext, dpi=300, bbox_inches="tight")
+            print(f"Saved -> {basepath + ext}")
+        elif ext in {".pickle", ".pkl"}:
+            with open(basepath + ext, "wb") as fh:
+                pickle.dump(fig, fh)
+            print(f"Saved -> {basepath + ext}")
 
-    if ".fig" not in [e.lower() for e in formats]:
+    if ".fig" not in fmt_lower:
         return
 
     schema = _extract_axes_schema(fig)
