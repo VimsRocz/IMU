@@ -20,7 +20,7 @@ import logging
 import numpy as np
 from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
-from python.utils.save_plot_all import save_plot_all
+from utils.save_plot_all import save_plot_all
 
 # Reuse the robust loader from validate_with_truth
 from validate_with_truth import load_estimate

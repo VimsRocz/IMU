@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 
 from validate_with_truth import load_estimate, assemble_frames
 from naming import make_tag, plot_filename
-from python.utils.save_plot_all import save_plot_all
+from src.utils.save_plot_all import save_plot_all
 import re
 
 

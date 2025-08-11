@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from python.utils.save_plot_all import save_plot_all
+from utils.save_plot_all import save_plot_all
 
 
 def compute_residuals(gnss_times, gnss_pos, filt_times, filt_pos):

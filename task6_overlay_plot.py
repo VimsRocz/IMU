@@ -25,7 +25,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 import warnings
-from python.utils.save_plot_all import save_plot_all
+from src.utils.save_plot_all import save_plot_all
 
 
 # ---------------------------------------------------------------------------

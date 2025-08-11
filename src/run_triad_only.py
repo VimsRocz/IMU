@@ -20,10 +20,8 @@ from pathlib import Path
 
 # Ensure repository paths are importable when running as a script
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.append(str(ROOT))
-sys.path.append(str(ROOT / "src" / "utils"))
 
-from trace_utils import (
+from utils.trace_utils import (
     set_debug,
     log_msg,
     trace_task,

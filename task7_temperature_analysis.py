@@ -20,7 +20,7 @@ from statistics import mean, median
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from python.utils.save_plot_all import save_plot_all
+from src.utils.save_plot_all import save_plot_all
 
 
 def task7(csv_file: str = "temperatures.csv", output_dir: Path | str = "results") -> tuple[float | None, float | None]:

@@ -5,7 +5,7 @@ import numpy as np
 from pathlib import Path
 from typing import Optional, List, Dict
 from naming import plot_path
-from python.utils.save_plot_all import save_plot_all
+from utils.save_plot_all import save_plot_all
 
 
 def save_zupt_variance(
