@@ -606,30 +606,53 @@ def main():
 
     methods_plot = methods
 
-    gravity_errors = [results[m]["gravity_error"] for m in methods_plot]
-    earth_rate_errors = [results[m]["earth_rate_error"] for m in methods_plot]
+    gravity_errors = np.array([results[m]["gravity_error"] for m in methods_plot], dtype=float)
+    earth_rate_errors = np.array([results[m]["earth_rate_error"] for m in methods_plot], dtype=float)
+
+    if np.any(~np.isfinite(gravity_errors)):
+        logging.warning("Task3:grav NaN -> 0")
+        gravity_errors[~np.isfinite(gravity_errors)] = 0.0
+    if np.any(~np.isfinite(earth_rate_errors)):
+        logging.warning("Task3:erate NaN -> 0")
+        earth_rate_errors[~np.isfinite(earth_rate_errors)] = 0.0
+
+    logging.info(
+        "[Task3] Gravity errors (deg): TRIAD=%.6g, Davenport=%.6g, SVD=%.6g",
+        *gravity_errors,
+    )
+    logging.info(
+        "[Task3] Earth-rate errors (deg): TRIAD=%.6g, Davenport=%.6g, SVD=%.6g",
+        *earth_rate_errors,
+    )
+
+    assert gravity_errors.size and earth_rate_errors.size, "Task3:NoData"
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    x = np.arange(len(methods_plot))
-    width = 0.35
 
-    axes[0].bar(x, gravity_errors, width)
-    axes[0].set_xticks(x)
-    axes[0].set_xticklabels(methods_plot)
+    axes[0].bar(methods_plot, gravity_errors)
     axes[0].set_title("Gravity Error")
     axes[0].set_ylabel("Error (degrees)")
+    ymax = max(abs(gravity_errors)) or 0.01
+    axes[0].set_ylim([-1.1 * ymax, 1.1 * ymax])
+    axes[0].grid(True)
+    for i, v in enumerate(gravity_errors):
+        axes[0].text(i, v, f"{v:.3g}", ha="center", va="bottom")
 
-    axes[1].bar(x, earth_rate_errors, width)
-    axes[1].set_xticks(x)
-    axes[1].set_xticklabels(methods_plot)
+    axes[1].bar(methods_plot, earth_rate_errors)
     axes[1].set_title("Earth Rate Error")
     axes[1].set_ylabel("Error (degrees)")
+    ymax = max(abs(earth_rate_errors)) or 0.01
+    axes[1].set_ylim([-1.1 * ymax, 1.1 * ymax])
+    axes[1].grid(True)
+    for i, v in enumerate(earth_rate_errors):
+        axes[1].text(i, v, f"{v:.3g}", ha="center", va="bottom")
 
     fig.suptitle("Task 3: Attitude Error Comparison")
-    plt.tight_layout()
+    fig.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task3_errors_comparison.pdf")
-    plt.close()
+        outbase = f"results/{tag}_task3_errors_comparison"
+        save_plot_all(fig, outbase, (".fig", ".pdf", ".png"))
+    plt.close(fig)
     logging.info("Error comparison plot saved")
 
     # Collect quaternion data for both cases
