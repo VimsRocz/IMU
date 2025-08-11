@@ -19,7 +19,7 @@ function result = Task_5(imu_path, gnss_path, method, truth, varargin)
 %       'vel_q_scale'      - scales Q(4:6,4:6) velocity process noise   [-]      (1.0)
 %       'vel_r'            - R(4:6,4:6) velocity measurement variance   [m^2/s^2] (0.25)
 %       'trace_first_n'    - if finite, process only the first N steps  [-]      (Inf)
-%       'plot_formats'     - cell array of extensions for plots         ('.pdf','.png','.fig')
+%       'plot_formats'     - cell array of extensions for plots         ('.png','.fig')
 %       'save_dir'         - directory for outputs (default results path)
 %       'scale_factor'     - accelerometer scale factor                 [-]      (required)
 
@@ -63,7 +63,7 @@ end
     addParameter(p, 'vel_q_scale', 1.0, @(x)isnumeric(x)&&isscalar(x)&&x>0); % [-]
     addParameter(p, 'vel_r', 0.25, @(x)isnumeric(x)&&isscalar(x)&&x>0);      % [m^2/s^2]
     addParameter(p, 'trace_first_n', Inf, @(x)isnumeric(x)&&isscalar(x)&&x>=0);
-    addParameter(p, 'plot_formats', {'.pdf','.png','.fig'}, @(c)iscellstr(c)||isstring(c));
+    addParameter(p, 'plot_formats', {'.png','.fig'}, @(c)iscellstr(c)||isstring(c));
     addParameter(p, 'save_dir', '', @(s)ischar(s)||isstring(s));
     addParameter(p, 'scale_factor', []);       % [-]
     parse(p, varargin{:});
@@ -603,7 +603,7 @@ plot_state_grid(imu_time, p_n_fused, v_n_fused, a_n_fused, 'NED', ...
 % --- Combined Position, Velocity and Acceleration ---
 fig = figure('Name', 'KF Results: P/V/A', 'Position', [100 100 1200 900]);
 labels = {'North', 'East', 'Down'};
-all_file = fullfile(results_dir, sprintf('%s_Task5_AllResults.pdf', run_id));
+all_file = fullfile(results_dir, sprintf('%s_Task5_AllResults.png', run_id));
 if exist(all_file, 'file'); delete(all_file); end
 for i = 1:3
     % Position

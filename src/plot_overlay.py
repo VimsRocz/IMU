@@ -171,6 +171,5 @@ def plot_overlay(
     else:
         out_path = Path(out_dir) / f"{method}_{frame}{suffix}"
 
-    save_plot_all(fig, str(out_path), formats=(".pickle", ".fig"))
+    save_plot_all(fig, str(out_path), show_plot=True)
     print(f"Saved overlay figure {out_path}.pickle")
-    plt.close(fig)

@@ -34,7 +34,7 @@ import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
 
-from scripts.plot_utils import save_plot, plot_attitude
+from scripts.plot_utils import plot_attitude
 from utils import (
     is_static,
     compute_C_ECEF_to_NED,
@@ -264,9 +264,7 @@ def main():
             fig.suptitle("Task 1: Initial Location on Earth")
             fig.tight_layout()
             out = Path("results") / f"{tag}_task1_location_map"
-            save_plot_all(fig, str(out), formats=(".png",))
-            plt.show()
-            plt.close(fig)
+            save_plot_all(fig, str(out), show_plot=True)
             logging.info("Location map saved")
     else:
         logging.info("Skipping plot generation (--no-plots)")
@@ -654,9 +652,7 @@ def main():
     fig.tight_layout()
     if not args.no_plots:
         outbase = f"results/{tag}_task3_errors_comparison"
-        fig.savefig(outbase + ".pdf")
-        fig.savefig(outbase + ".png", dpi=300)
-    plt.close(fig)
+        save_plot_all(fig, outbase, show_plot=True)
     logging.info("Error comparison plot saved")
 
     # Collect quaternion data for both cases
@@ -688,9 +684,8 @@ def main():
 
     plt.tight_layout()
     if not args.no_plots:
-        save_plot_all(fig, f"results/{tag}_task3_quaternions_comparison", formats=(".png",))
-        plt.show()
-    plt.close()
+        save_plot_all(fig, f"results/{tag}_task3_quaternions_comparison", show_plot=True)
+    
     logging.info("Quaternion comparison plot saved")
 
     if truth_quat0 is not None and not args.no_plots:
@@ -707,9 +702,7 @@ def main():
         ax_truth.set_ylabel("Value")
         ax_truth.set_title("Task 3: Quaternion vs. Truth")
         ax_truth.legend(loc="best")
-        save_plot_all(fig_truth, f"results/{tag}_task3_quaternions_truth", formats=(".png",))
-        plt.show()
-        plt.close(fig_truth)
+        save_plot_all(fig_truth, f"results/{tag}_task3_quaternions_truth", show_plot=True)
 
     # --------------------------------
     # Subtask 3.8: Store Rotation Matrices for Later Tasks
@@ -1061,9 +1054,7 @@ def main():
     fig_comp.suptitle(f"Task 4 – {method} – NED Frame (IMU vs. GNSS)")
     fig_comp.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot_all(fig_comp, f"results/{tag}_task4_all_ned", formats=(".png",))
-        plt.show()
-    plt.close(fig_comp)
+        save_plot_all(fig_comp, f"results/{tag}_task4_all_ned", show_plot=True)
     logging.info("NED frame plot saved")
 
     # Plot 1: Data in mixed frames (GNSS position/velocity in ECEF, IMU acceleration in body)
@@ -1120,9 +1111,7 @@ def main():
     fig_ecef.suptitle(f"Task 4 – {method} – ECEF Frame (IMU vs. GNSS)")
     fig_ecef.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot_all(fig_ecef, f"results/{tag}_task4_all_ecef", formats=(".png",))
-        plt.show()
-    plt.close(fig_ecef)
+        save_plot_all(fig_ecef, f"results/{tag}_task4_all_ecef", show_plot=True)
     logging.info("All data in ECEF frame plot saved")
 
     # Plot 4: All data in body frame
@@ -1157,9 +1146,7 @@ def main():
     fig_body.suptitle(f"Task 4 – {method} – Body Frame (IMU vs. GNSS)")
     fig_body.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot_all(fig_body, f"results/{tag}_task4_all_body", formats=(".png",))
-        plt.show()
-    plt.close(fig_body)
+        save_plot_all(fig_body, f"results/{tag}_task4_all_body", show_plot=True)
     logging.info("All data in body frame plot saved")
 
     # ================================
@@ -1586,13 +1573,13 @@ def main():
         )
 
     plt.tight_layout()
-    out_png = f"results/{tag}_task5_results_ned_{method}.png"
+    base = f"results/{tag}_task5_results_ned_{method}"
     if not args.no_plots:
-        save_plot(fig, out_png, f"Task 5 – {method} – NED Frame")
-        plt.show()
-    logging.info(f"Subtask 5.8.2: {method} plot saved as '{out_png}'")
+        fig.suptitle(f"Task 5 – {method} – NED Frame")
+        save_plot_all(fig, base, show_plot=True)
+    logging.info(f"Subtask 5.8.2: {method} plot saved as '{base}.png'")
     logging.debug(
-        f"# Subtask 5.8.2: {method} plotting completed. Saved as '{out_png}'."
+        f"# Subtask 5.8.2: {method} plotting completed. Saved as '{base}.png'"
     )
 
 
@@ -1644,9 +1631,7 @@ def main():
     fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused vs. Measured GNSS)")
     fig_ned_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot_all(fig_ned_all, f"results/{tag}_task5_all_ned", formats=(".png",))
-        plt.show()
-    plt.close(fig_ned_all)
+        save_plot_all(fig_ned_all, f"results/{tag}_task5_all_ned", show_plot=True)
     logging.info("All data in NED frame plot saved")
 
     logging.info("Plotting all data in ECEF frame.")
@@ -1707,9 +1692,7 @@ def main():
     fig_ecef_all.suptitle(f"Task 5 – {method} – ECEF Frame (Fused vs. Measured GNSS)")
     fig_ecef_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot_all(fig_ecef_all, f"results/{tag}_task5_all_ecef", formats=(".png",))
-        plt.show()
-    plt.close(fig_ecef_all)
+        save_plot_all(fig_ecef_all, f"results/{tag}_task5_all_ecef", show_plot=True)
     logging.info("All data in ECEF frame plot saved")
 
     logging.info("Plotting all data in body frame.")
@@ -1768,33 +1751,31 @@ def main():
     fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused vs. Measured GNSS)")
     fig_body_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot_all(fig_body_all, f"results/{tag}_task5_all_body", formats=(".png",))
-        plt.show()
-    plt.close(fig_body_all)
+        save_plot_all(fig_body_all, f"results/{tag}_task5_all_body", show_plot=True)
     logging.info("All data in body frame plot saved")
 
     # Plot pre-fit innovations
     # Plot residuals using helper functions
     if not args.no_plots:
         res = compute_residuals(gnss_time, gnss_pos_ned, imu_time, fused_pos[method])
-        plot_residuals(gnss_time, res, f"results/residuals_{tag}_{method}.pdf")
+        plot_residuals(gnss_time, res, f"results/residuals_{tag}_{method}")
 
     # Create plot summary
     summary = {
-        f"{tag}_location_map.pdf": "Initial location on Earth map",
-        f"{tag}_task3_errors_comparison.pdf": "Attitude initialization error comparison",
-        f"{tag}_task3_quaternions_comparison.pdf": "Quaternion components for initialization",
-        f"{tag}_task4_comparison_ned.pdf": "GNSS vs IMU data in NED frame",
-        f"{tag}_task4_mixed_frames.pdf": "GNSS/IMU data in mixed frames",
+        f"{tag}_location_map.png": "Initial location on Earth map",
+        f"{tag}_task3_errors_comparison.png": "Attitude initialization error comparison",
+        f"{tag}_task3_quaternions_comparison.png": "Quaternion components for initialization",
+        f"{tag}_task4_comparison_ned.png": "GNSS vs IMU data in NED frame",
+        f"{tag}_task4_mixed_frames.png": "GNSS/IMU data in mixed frames",
         f"{tag}_task4_all_ned.png": "Integrated data in NED frame",
         f"{tag}_task4_all_ecef.png": "Integrated data in ECEF frame",
         f"{tag}_task4_all_body.png": "Integrated data in body frame",
-        f"{tag}_task5_results_{method}.pdf": f"Kalman filter results using {method}",
-        f"{tag}_task5_mixed_frames.pdf": "Kalman filter results in mixed frames",
+        f"{tag}_task5_results_{method}.png": f"Kalman filter results using {method}",
+        f"{tag}_task5_mixed_frames.png": "Kalman filter results in mixed frames",
         f"{tag}_task5_all_ned.png": "Kalman filter results in NED frame",
         f"{tag}_task5_all_ecef.png": "Kalman filter results in ECEF frame",
         f"{tag}_task5_all_body.png": "Kalman filter results in body frame",
-        f"{tag}_{method.lower()}_residuals.pdf": "Position and velocity residuals",
+        f"{tag}_{method.lower()}_residuals.png": "Position and velocity residuals",
     }
     summary_path = os.path.join("results", f"{tag}_plot_summary.md")
     with open(summary_path, "w") as f:

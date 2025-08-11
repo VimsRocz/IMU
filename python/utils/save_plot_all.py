@@ -9,8 +9,10 @@ from scipy.io import savemat
 
 try:  # Optional import; matplotlib might not be installed for tests
     import matplotlib.figure
+    import matplotlib.pyplot as plt
 except Exception:  # pragma: no cover - handled at runtime
     matplotlib = None  # type: ignore
+    plt = None  # type: ignore
 
 
 def _extract_axes_schema(fig: "matplotlib.figure.Figure") -> dict:
@@ -85,9 +87,10 @@ def _try_matlab_cli(mat_path: str, fig_out: str) -> bool:
 def save_plot_all(
     fig: "matplotlib.figure.Figure",
     basepath: str,
-    formats: Iterable[str] = (".png",),
+    formats: Iterable[str] | None = None,
+    show_plot: bool = True,
 ) -> None:
-    """Save a matplotlib ``fig`` to multiple ``formats``.
+    """Save a matplotlib ``fig`` to multiple ``formats`` and optionally display it.
 
     Parameters
     ----------
@@ -96,14 +99,19 @@ def save_plot_all(
     basepath : str
         Path without extension where files will be written.
     formats : Iterable[str], optional
-        Iterable of extensions (e.g. ``(".png",)``). ``".fig"``
-        triggers MATLAB export using the engine or command line when included.
-        ``".pickle"`` or ``".pkl"`` serialises the figure for interactive
-        reloading in Python.
+        Iterable of extensions. ``".fig"`` triggers MATLAB export using the
+        engine or command line when included. ``".pickle"`` or ``".pkl"``
+        serialises the figure for interactive reloading in Python. If ``None``
+        (default) the figure is saved as ``.png`` and ``.pickle``.
+    show_plot : bool, optional
+        Whether to display the figure interactively using :func:`plt.show`.
     """
     _ensure_dir(basepath)
 
-    fmt_lower = [e.lower() for e in formats]
+    if formats is None:
+        fmt_lower = [".png", ".pickle"]
+    else:
+        fmt_lower = [e.lower() for e in formats]
     for ext in fmt_lower:
         if ext in {".png", ".pdf", ".svg"}:
             fig.savefig(basepath + ext, dpi=300, bbox_inches="tight")
@@ -114,6 +122,8 @@ def save_plot_all(
             print(f"Saved -> {basepath + ext}")
 
     if ".fig" not in fmt_lower:
+        if show_plot and plt is not None:
+            plt.show()
         return
 
     schema = _extract_axes_schema(fig)
@@ -147,6 +157,9 @@ def save_plot_all(
             "WARNING: MATLAB not available; skipped .fig export. Kept .mat for later conversion:",
             mat_path,
         )
+
+    if show_plot and plt is not None:
+        plt.show()
 
 
 if __name__ == "__main__":

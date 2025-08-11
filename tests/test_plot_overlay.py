@@ -84,7 +84,7 @@ def test_plot_overlay_custom_filename(tmp_path):
         vel,
         acc,
         tmp_path,
-        filename="custom.pdf",
+        filename="custom.png",
         t_truth=t,
         pos_truth=pos,
         vel_truth=vel,

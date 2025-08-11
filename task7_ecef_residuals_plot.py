@@ -6,17 +6,16 @@ Usage:
         --output-dir results
 
 This script loads a fused estimator output file and the corresponding
-ground truth trajectory.  If the estimator output already contains the
+ground truth trajectory. If the estimator output already contains the
 ``truth_pos_ecef``, ``truth_vel_ecef`` and ``truth_time`` fields produced
-by Task 4, the ``--truth-file`` argument is optional.  Otherwise the
+by Task 4, the ``--truth-file`` argument is optional. Otherwise the
 STATE_X text log must be provided or inferrable from the dataset name.
 The truth trajectory is synchronised to the estimator by cross-correlating
 position and velocity magnitudes before interpolation to the estimator time
 vector. Position, velocity and acceleration residuals are plotted. The time
 axis is converted to ``t - t[0]`` so Task 6 and Task 7 share the same
-reference. Figures are saved in interactive Python ``.pickle`` and MATLAB
-``.mat`` (via ``.fig`` export) formats under ``results/<tag>/`` where ``tag``
-combines the dataset, GNSS file and method.
+reference. Figures are saved under ``results/<tag>/`` as ``.png`` and
+``.pickle`` where ``tag`` combines the dataset, GNSS file and method.
 """
 
 from __future__ import annotations
@@ -86,8 +85,7 @@ def plot_residuals(
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     out_dir.mkdir(parents=True, exist_ok=True)
     base = out_dir / Path(plot_filename(dataset, gnss, method, 7, "3", "ecef_residuals")).with_suffix("")
-    save_plot_all(fig, str(base), formats=(".pickle", ".fig"))
-    plt.close(fig)
+    save_plot_all(fig, str(base), show_plot=True)
 
     # Norm plot
     fig, ax = plt.subplots()
@@ -101,8 +99,7 @@ def plot_residuals(
     fig.suptitle(f"{tag} Task 7 ECEF Residual Norms")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     norm_base = out_dir / Path(plot_filename(dataset, gnss, method, 7, "3", "ecef_residual_norms")).with_suffix("")
-    save_plot_all(fig, str(norm_base), formats=(".pickle", ".fig"))
-    plt.close(fig)
+    save_plot_all(fig, str(norm_base), show_plot=True)
 
     saved = sorted(out_dir.glob(f"{tag}_task7_*ecef_residual*.pickle"))
     if saved:

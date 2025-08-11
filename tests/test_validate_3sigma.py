@@ -65,7 +65,7 @@ def test_time_shift_allows_overlap(tmp_path, monkeypatch):
     )
 
     main()
-    assert (tmp_path / "pos_err_X.pdf").exists()
+    assert (tmp_path / "pos_err_X.png").exists()
 
 
 def test_auto_time_shift(tmp_path, monkeypatch):
@@ -95,4 +95,4 @@ def test_auto_time_shift(tmp_path, monkeypatch):
     )
 
     main()
-    assert (tmp_path / "vel_err_Vx.pdf").exists()
+    assert (tmp_path / "vel_err_Vx.png").exists()

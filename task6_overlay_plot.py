@@ -10,8 +10,8 @@ This script synchronizes the time bases of the estimator output and ground
 truth, then generates a single figure with position, velocity and acceleration
 components overlaid. Only the fused estimate and truth are shown. Figures are
 written under ``results/<run_id>/`` using the base filename
-``<run_id>_task6_overlay_state_<frame>`` with Python ``.pickle`` and MATLAB
-``.mat`` companions where ``run_id`` combines the dataset and method, e.g.
+``<run_id>_task6_overlay_state_<frame>`` and saved as ``.png`` and ``.pickle``
+where ``run_id`` combines the dataset and method, e.g.
 ``IMU_X003_GNSS_X002_TRIAD``. With ``--debug`` the script prints diagnostic
 information about the input datasets before plotting.
 """
@@ -247,8 +247,7 @@ def plot_overlay(
     run_id = f"{dataset}_{method}"
     out_dir.mkdir(parents=True, exist_ok=True)
     base = out_dir / f"{run_id}_task6_overlay_state_{frame}"
-    save_plot_all(fig, str(base), formats=(".pickle", ".fig"))
-    plt.close(fig)
+    save_plot_all(fig, str(base), show_plot=True)
     print(f"Saved overlay figure to {base}.pickle")
     return base.with_suffix(".pickle")
 
@@ -288,8 +287,7 @@ def plot_rmse(
 
     out_dir.mkdir(parents=True, exist_ok=True)
     base = out_dir / f"{dataset}_{method}_Task6_{frame}_RMSE"
-    save_plot_all(fig, str(base), formats=(".pickle", ".fig"))
-    plt.close(fig)
+    save_plot_all(fig, str(base), show_plot=True)
     print(f"Saved RMSE figure to {base}.pickle")
     return base.with_suffix(".pickle")
 
@@ -380,7 +378,7 @@ def main() -> None:
     )
 
     run_id = f"{args.dataset}_{args.method}"
-    saved = sorted(out_dir.glob(f"{run_id}_task6_*.pdf"))
+    saved = sorted(out_dir.glob(f"{run_id}_task6_*.pickle"))
     if saved:
         print("Saved files under", out_dir)
         for f in saved:

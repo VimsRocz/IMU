@@ -8,7 +8,8 @@ This script loads truth data in the ECEF frame, converts it to NED and Body
 frames, generates an approximate fused trajectory in NED, converts it to ECEF
 and Body frames, and compares the results. Differences are summarised and
 plotted for each frame/component. Plots are written under ``results/`` using the
-filename pattern ``analysis_diff_<frame>_<component>.png`` (and ``.pdf``).
+filename pattern ``analysis_diff_<frame>_<component>`` with ``.png`` and
+``.pickle`` outputs.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
+from python.utils.save_plot_all import save_plot_all
 
 # ---------------------------------------------------------------------------
 # constants
@@ -157,10 +159,8 @@ def analyze_component(time: np.ndarray, diff: np.ndarray, frame: str, comp: str)
     plt.title(f"Difference {frame} {comp}")
     plt.grid(True)
     plt.tight_layout()
-    fname = RESULTS_DIR / f"analysis_diff_{frame}_{comp}.png"
-    plt.savefig(fname)
-    plt.savefig(fname.with_suffix(".pdf"))
-    plt.close()
+    fname = RESULTS_DIR / f"analysis_diff_{frame}_{comp}"
+    save_plot_all(plt.gcf(), str(fname), show_plot=True)
 
 
 def analyze_all(time: np.ndarray, truth: dict, fused: dict) -> None:
