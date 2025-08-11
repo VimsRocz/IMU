@@ -84,7 +84,7 @@ def _try_matlab_cli(mat_path: str, fig_out: str) -> bool:
 def save_plot_all(
     fig: "matplotlib.figure.Figure",
     basepath: str,
-    formats: Iterable[str] = (".png", ".pdf", ".svg", ".fig"),
+    formats: Iterable[str] = (".png",),
 ) -> None:
     """Save a matplotlib ``fig`` to multiple ``formats``.
 
@@ -95,8 +95,8 @@ def save_plot_all(
     basepath : str
         Path without extension where files will be written.
     formats : Iterable[str], optional
-        Iterable of extensions (e.g. ``(".png", ".pdf")``). ``".fig"``
-        triggers MATLAB export using the engine or command line.
+        Iterable of extensions (e.g. ``(".png",)``). ``".fig"``
+        triggers MATLAB export using the engine or command line when included.
     """
     _ensure_dir(basepath)
 
