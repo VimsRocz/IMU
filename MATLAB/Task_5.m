@@ -123,8 +123,18 @@ end
     if evalin('base','exist(''task3_results'',''var'')')
         task3_results = evalin('base','task3_results');
     else
-        data = load(results_file);
-        task3_results = data.task3_results;
+        S = load(results_file);
+        if isfield(S,'task3_results')
+            task3_results = S.task3_results;
+        else
+            task3_results = S; % file may have method names as top-level fields
+        end
+    end
+    % Verify structure and log available fields
+    if isstruct(task3_results)
+        fprintf('Loaded Task 3 results with methods: %s\n', strjoin(fieldnames(task3_results)', ', '));
+    else
+        error('Task3 results not loaded as struct. Got type: %s', class(task3_results));
     end
     % Support both Task_3 schema variants
     if isfield(task3_results, 'Rbn') && isfield(task3_results.Rbn, method)
@@ -364,10 +374,23 @@ q_b_n = rot_to_quaternion(C_B_N); % Initial attitude quaternion
 
     % -- Compute Wahba Errors using all Task 3 rotation matrices --
     methods_all = fieldnames(task3_results);
+    fprintf('Computing Wahba errors for methods: %s\n', strjoin(methods_all', ', '));
     grav_errors = zeros(1, numel(methods_all));
     omega_errors = zeros(1, numel(methods_all));
     for mi = 1:numel(methods_all)
-        Rtmp = task3_results.(methods_all{mi}).R;
+        mname = methods_all{mi};
+        % Extract struct for each method; handle cell containers
+        if ~isfield(task3_results, mname)
+            error('Method %s not found in task3_results.', mname);
+        end
+        method_data = task3_results.(mname);
+        if iscell(method_data)
+            method_data = method_data{1};
+        end
+        if ~isstruct(method_data) || ~isfield(method_data,'R')
+            error('No field R found for method %s in task3_results.', mname);
+        end
+        Rtmp = method_data.R;
         [grav_errors(mi), omega_errors(mi)] = compute_wahba_errors(Rtmp, g_body, omega_ie_body, g_NED, omega_ie_NED);
     end
     grav_err_mean  = mean(grav_errors);
