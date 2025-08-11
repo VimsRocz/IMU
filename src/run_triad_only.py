@@ -275,20 +275,20 @@ def main(argv: Iterable[str] | None = None) -> None:
         if t3_path.exists():
             t3 = sio.loadmat(str(t3_path), simplify_cells=True)
             if "R" in t3:
-                R = t3["R"]
+                R_dcm = t3["R"]
             elif "Rbn" in t3:
-                R = t3["Rbn"]
+                R_dcm = t3["Rbn"]
             elif "Task3" in t3 and isinstance(t3["Task3"], dict) and "R" in t3["Task3"]:
-                R = t3["Task3"]["R"]
+                R_dcm = t3["Task3"]["R"]
             else:
                 logger.warning(
                     "[Task_5] No rotation field found (R/Rbn). Available: %s",
                     list(t3.keys()),
                 )
                 dump_structure("Task5.Task3_loaded", t3, max_depth=3)
-                R = None
-            if R is not None:
-                t3["R"] = R
+                R_dcm = None
+            if R_dcm is not None:
+                t3["R"] = R_dcm
             dump_structure("Task5.Task3_loaded", t3, max_depth=3)
         time_s_raw = data.get("time_s")
         if time_s_raw is None:
