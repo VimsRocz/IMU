@@ -13,12 +13,22 @@ import pandas as pd
 
 
 def _read_truth_time(truth_path, notes):
-    """Read STATE_* truth file robustly:
+    """Read STATE_* truth file robustly.
 
-    - Ignore lines starting with '#'
-    - Split on any whitespace
-    - Coerce 1st column to numeric, drop NaN rows
-    - Return time starting at zero
+    Parameters
+    ----------
+    truth_path : str or Path
+        Path to the truth file (whitespace delimited).
+    notes : list[str]
+        Diagnostics are appended here on failure.
+
+    Returns
+    -------
+    np.ndarray | None
+        Time vector starting at zero or ``None`` if parsing fails.
+
+    The parser ignores lines starting with ``#`` and expects column 2 to
+    contain the relative time in seconds.
     """
     if not truth_path or not Path(truth_path).exists():
         return None
@@ -33,8 +43,8 @@ def _read_truth_time(truth_path, notes):
         keep_default_na=True,
     )
 
-    # coerce first column to numeric; drop bad rows
-    t = pd.to_numeric(st.iloc[:, 0], errors="coerce").to_numpy(np.float64)
+    col = 1 if st.shape[1] > 1 else 0
+    t = pd.to_numeric(st.iloc[:, col], errors="coerce").to_numpy(np.float64)
     mask = np.isfinite(t)
     t = t[mask]
     if t.size < 2:
@@ -283,4 +293,3 @@ print_timeline = print_timeline_summary
 
 
 __all__ = ["print_timeline_summary", "print_timeline"]
-
