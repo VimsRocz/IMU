@@ -25,13 +25,30 @@ function txt = print_timeline_matlab(rid, imu_path, gnss_path, truth_path, resul
                             numel(tG), 1/median(dG), median(dG), min(dG), max(dG), tG(end)-tG(1), tG(1), tG(end), logical2str(issorted(tG)));
 
     % --- TRUTH (optional; handle # comments & headers) ---
-    if exist('read_truth_state','file') && ~isempty(truth_path) && isfile(truth_path)
-        tT = read_truth_state(truth_path);   % returns time vector in seconds
-        dT = diff(tT);
-        hzT = 1/max(eps,median(dT));
-        lines{end+1} = sprintf(['TRUTH | n=%d    hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  ' ...
-                                'dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s'], ...
-                                numel(tT), hzT, median(dT), min(dT), max(dT), tT(end)-tT(1), tT(1), tT(end), logical2str(issorted(tT)));
+    if ~isempty(truth_path) && isfile(truth_path)
+        try
+            Truth = TruthLoader(truth_path);
+            tT = Truth.t_posix(:);
+            dT = diff(tT);
+            dT = dT(isfinite(dT) & dT>0);
+            if isempty(dT)
+                lines{end+1} = sprintf(['TRUTH | n=%d   hz=NaN  dt_med=NaN  min/max dt=(NaN,NaN)  ' ...
+                                        'dur=NaN  t0=%.6f  t1=%.6f  monotonic=%s'], ...
+                                        Truth.n, tT(1), tT(end), logical2str(all(diff(tT)>0)));
+                lines{end+1} = '[TRUTH diagnostics] No positive dt values';
+            else
+                dt_med = median(dT); hz = 1/dt_med;
+                lines{end+1} = sprintf(['TRUTH | n=%d   hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  ' ...
+                                        'dur=%.3fs  t0=%.6f  t1=%.6f  monotonic=%s'], ...
+                                        Truth.n, hz, dt_med, min(dT), max(dT), tT(end)-tT(1), tT(1), tT(end), logical2str(all(diff(tT)>0)));
+            end
+            for i = 1:numel(Truth.notes)
+                lines{end+1} = ['[TRUTH notes] ' Truth.notes{i}];
+            end
+        catch ME
+            lines{end+1} = 'TRUTH | present but unreadable.';
+            lines{end+1} = ['[TRUTH diagnostics] ' ME.message];
+        end
     else
         lines{end+1} = 'TRUTH | present but unreadable (see Notes).';
     end
