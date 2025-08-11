@@ -121,6 +121,13 @@ end
     % Load attitude estimate from Task 3 results using TaskIO
     t3_path = fullfile(results_dir, sprintf('%s_%s_%s_task3_results.mat', imu_name, gnss_name, method));
     Task3 = TaskIO.load('Task3', t3_path);
+    % Also load the raw struct to access per-method results later
+    S = load(t3_path);
+    if isfield(S, 'task3_results')
+        task3_results = S.task3_results;
+    else
+        task3_results = S;
+    end
     mi = find(strcmpi(Task3.methods, method), 1);
     if isempty(mi)
         error('Task5:NoMethod','Method %s not in Task3.methods', method);
