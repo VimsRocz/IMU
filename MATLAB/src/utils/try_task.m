@@ -15,12 +15,12 @@ if isa(taskFunc, 'char') && isa(taskName, 'function_handle')
     taskName = tmp;
 end
 
-fprintf('\u25B6 Running %s...\n', taskName);
+print_task_start(taskName);
 try
     feval(taskFunc, varargin{:});
-    fprintf('\u2713 %s completed successfully.\n', taskName);
+    fprintf('%s %s completed successfully.\n', char(0x2713), taskName);
 catch ME
-    fprintf('\u274C Error in %s: %s\n', taskName, ME.message);
+    fprintf('%s Error in %s: %s\n', char(0x274C), taskName, ME.message);
     if evalin('base','exist(''DEBUG_FLAG'',''var'') && DEBUG_FLAG')
         fprintf('Stack trace:\n');
         for s = 1:numel(ME.stack)

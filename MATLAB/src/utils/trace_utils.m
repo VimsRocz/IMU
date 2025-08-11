@@ -52,10 +52,11 @@ function try_task(taskName, fhandle, varargin)
 
     trace_utils_boot();
     log_msg(repmat('=',1,80));
-    log_msg(sprintf('\u25B6 START %s', taskName));
+    print_task_start(taskName);
+    log_msg(sprintf('%s START %s', char(0x25B6), taskName));
     try
         feval(fhandle, varargin{:});
-        log_msg(sprintf('\u2713 DONE %s', taskName));
+        log_msg(sprintf('%s DONE %s', char(0x2713), taskName));
     catch ME
         log_msg(sprintf('[ERROR] %s failed: %s', taskName, ME.message));
         log_msg(getReport(ME, 'extended', 'hyperlinks','off'));

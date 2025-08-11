@@ -54,6 +54,7 @@ from tabulate import tabulate
 from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
 from utils import save_mat
+from utils.print_task_start import print_task_start
 from timeline import print_timeline
 from resolve_truth_path import resolve_truth_path
 from run_id import run_id as build_run_id
@@ -187,7 +188,7 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     run_id = build_run_id(str(imu_path), str(gnss_path), method)
     log_path = results_dir / f"{run_id}.log"
-    print(f"\u25b6 {run_id}")
+    print_task_start(run_id)
 
     truth_path = resolve_truth_path()
 

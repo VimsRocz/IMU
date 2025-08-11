@@ -45,7 +45,7 @@ cfg.truth_path = ensure_input_file('TRUTH', cfg.truth_file, cfg.paths);
 rid = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
 print_timeline_matlab(rid, cfg.imu_path, cfg.gnss_path, cfg.truth_path, cfg.paths.matlab_results);
 
-fprintf('▶ %s\n', rid);
+print_task_start(rid);
 fprintf('MATLAB results dir: %s\n', cfg.paths.matlab_results);
 
 % ---- Tasks 1..7 (compulsory) ----

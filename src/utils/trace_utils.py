@@ -24,6 +24,8 @@ import sys
 import traceback
 from typing import Any, Dict
 
+from .print_task_start import print_task_start
+
 import numpy as np
 
 
@@ -170,7 +172,7 @@ def try_task(func_or_name, name_or_func: str, *args, **kwargs) -> None:
     if isinstance(func_or_name, str) and callable(name_or_func):
         func, task_name = name_or_func, func_or_name
 
-    print(f"\u25b6 Running {task_name}...")
+    print_task_start(task_name)
     try:
         func(*args, **kwargs)
         print(f"\u2713 {task_name} completed successfully.")

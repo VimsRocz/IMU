@@ -39,6 +39,7 @@ import io
 from evaluate_filter_results import run_evaluation_npz
 
 from utils import compute_C_ECEF_to_NED
+from utils.print_task_start import print_task_start
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -166,7 +167,7 @@ def main(argv=None):
     for (imu, gnss), m in itertools.product(cases, methods):
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
         log_path = pathlib.Path("results") / f"{tag}.log"
-        print(f"\u25b6 {tag}")
+        print_task_start(tag)
         imu_path = pathlib.Path(imu)
         gnss_path = pathlib.Path(gnss)
 
