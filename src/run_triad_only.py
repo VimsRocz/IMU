@@ -16,8 +16,13 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
-sys.path.append(os.path.join(os.getcwd(), "src", "utils"))
+# Ensure repository paths are importable when running as a script
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT))
+sys.path.append(str(ROOT / "src" / "utils"))
+
 from trace_utils import (
     set_debug,
     log_msg,
@@ -55,12 +60,11 @@ from timeline import print_timeline
 from resolve_truth_path import resolve_truth_path
 from run_id import run_id as build_run_id
 
-sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
+sys.path.append(str(ROOT / "tools"))
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-HERE = pathlib.Path(__file__).resolve().parent
-ROOT = HERE.parent
+HERE = Path(__file__).resolve().parent
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
