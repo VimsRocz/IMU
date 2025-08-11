@@ -1,14 +1,14 @@
-function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
-%TASK_5  Run 15-state EKF using IMU & GNSS NED positions
+function result = Task_5(imu_path, gnss_path, method, truth, varargin)
+%TASK_5  Run 15-state EKF using IMU & GNSS NED positions.
 %   Expects Task 1 outputs saved in the results directory for gravity
 %   initialization.
 %
 %   The accelerometer scale factor estimated in Task 4 is applied once to
-%   bias-corrected accelerations.  When no scale factor is supplied or
+%   bias-corrected accelerations. When no scale factor is supplied or
 %   available, a neutral factor of 1.0 is used.
 %
-%   result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
-%   Optional name/value arguments mirror the Python Kalman filter defaults:
+%   result = Task_5(imu_path, gnss_path, method, truth)
+%   Name-value options (mirroring the Python implementation):
 %       'accel_noise'      - process noise for acceleration             [m/s^2]  (0.1)
 %       'vel_proc_noise'   - extra velocity process noise               [m/s^2]  (0.0)
 %       'pos_proc_noise'   - position process noise                     [m]      (0.0)
@@ -16,13 +16,17 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %       'vel_meas_noise'   - GNSS velocity measurement noise            [m/s]    (1.0)
 %       'accel_bias_noise' - accelerometer bias random walk             [m/s^2]  (1e-5)
 %       'gyro_bias_noise'  - gyroscope bias random walk                 [rad/s]  (1e-5)
-%       'vel_q_scale'      - scale for Q(4:6,4:6) velocity process noise [-]      (10.0)
+%       'vel_q_scale'      - scales Q(4:6,4:6) velocity process noise   [-]      (1.0)
 %       'vel_r'            - R(4:6,4:6) velocity measurement variance   [m^2/s^2] (0.25)
+%       'trace_first_n'    - if finite, process only the first N steps  [-]      (Inf)
+%       'plot_formats'     - cell array of extensions for plots         ('.pdf','.png','.fig')
+%       'save_dir'         - directory for outputs (default results path)
 %       'scale_factor'     - accelerometer scale factor                 [-]      (required)
 
 paths = project_paths();
 results_dir = paths.matlab_results;
 addpath(fullfile(paths.root,'MATLAB','lib'));
+addpath(fullfile(paths.root,'MATLAB','src','utils'));
 try
     cfg = evalin('caller','cfg');
 catch
@@ -45,8 +49,10 @@ end
         method = 'TRIAD';
     end
 
-    % Optional noise parameters
+    % Optional parameters
     p = inputParser;
+    p.FunctionName = 'Task_5';
+    p.KeepUnmatched = true;
     addParameter(p, 'accel_noise', 0.1);       % [m/s^2]
     addParameter(p, 'vel_proc_noise', 0.0);    % [m/s^2]
     addParameter(p, 'pos_proc_noise', 0.0);    % [m]
@@ -54,20 +60,38 @@ end
     addParameter(p, 'vel_meas_noise', 1.0);    % [m/s]
     addParameter(p, 'accel_bias_noise', 1e-5); % [m/s^2]
     addParameter(p, 'gyro_bias_noise', 1e-5);  % [rad/s]
-    addParameter(p, 'vel_q_scale', 10.0);      % [-]
+    addParameter(p, 'vel_q_scale', 1.0);       % [-]
     addParameter(p, 'vel_r', 0.25);            % [m^2/s^2]
+    addParameter(p, 'trace_first_n', Inf, @(x)isnumeric(x)&&isscalar(x)&&x>=0);
+    addParameter(p, 'plot_formats', {'.pdf','.png','.fig'}, @(c)iscellstr(c)||isstring(c));
+    addParameter(p, 'save_dir', '', @(s)ischar(s)||isstring(s));
     addParameter(p, 'scale_factor', []);       % [-]
     parse(p, varargin{:});
-    accel_noise     = p.Results.accel_noise;
-    vel_proc_noise  = p.Results.vel_proc_noise;
-    pos_proc_noise  = p.Results.pos_proc_noise;
-    pos_meas_noise  = p.Results.pos_meas_noise;
-    vel_meas_noise  = p.Results.vel_meas_noise;
-    accel_bias_noise = p.Results.accel_bias_noise;
-    gyro_bias_noise  = p.Results.gyro_bias_noise;
-    vel_q_scale     = p.Results.vel_q_scale;
-    vel_r           = p.Results.vel_r;
-    scale_factor    = p.Results.scale_factor;
+    opt = p.Results;
+    accel_noise     = opt.accel_noise;
+    vel_proc_noise  = opt.vel_proc_noise;
+    pos_proc_noise  = opt.pos_proc_noise;
+    pos_meas_noise  = opt.pos_meas_noise;
+    vel_meas_noise  = opt.vel_meas_noise;
+    accel_bias_noise = opt.accel_bias_noise;
+    gyro_bias_noise  = opt.gyro_bias_noise;
+    vel_q_scale     = opt.vel_q_scale;
+    vel_r           = opt.vel_r;
+    trace_first_n   = opt.trace_first_n;
+    plot_formats    = opt.plot_formats;
+    save_dir_opt    = opt.save_dir;
+    scale_factor    = opt.scale_factor;
+    results_dir = paths.matlab_results;
+    if ~isempty(save_dir_opt)
+        results_dir = char(save_dir_opt);
+    end
+    cfg.paths.matlab_results = results_dir;
+    formats  = cellstr(string(plot_formats));
+    save_pdf = any(strcmpi('.pdf', formats));
+    save_png = any(strcmpi('.png', formats));
+    save_fig = any(strcmpi('.fig', formats));
+    cfg.plots.save_pdf = save_pdf;
+    cfg.plots.save_png = save_png;
 
 
     if ~isfile(gnss_path)
@@ -140,15 +164,7 @@ end
     % Convert GNSS measurements from ECEF to NED to guarantee a common frame
     gnss_pos_ned_calc = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
     gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
-    if nargin >= 4 && ~isempty(gnss_pos_ned)
-        diff_pos = max(abs(gnss_pos_ned(:) - gnss_pos_ned_calc(:)));
-        if diff_pos > 1e-3
-            warning('Provided gnss\_pos\_ned differs from computed NED positions (max %.3f m); using computed values.', diff_pos);
-            gnss_pos_ned = gnss_pos_ned_calc;
-        end
-    else
-        gnss_pos_ned = gnss_pos_ned_calc;
-    end
+    gnss_pos_ned = gnss_pos_ned_calc;
     dt_gnss = diff(gnss_time);
     gnss_accel_ned  = [zeros(1,3); diff(gnss_vel_ned) ./ dt_gnss];
     gnss_accel_ecef = [zeros(1,3); diff(gnss_vel_ecef) ./ dt_gnss];
@@ -223,23 +239,23 @@ end
 % Subtask 5.1-5.5: Configure and Initialize 15-State Filter
 % =========================================================================
 fprintf('\nSubtask 5.1-5.5: Configuring and Initializing 15-State Kalman Filter.\n');
-results4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-if nargin < 4 || isempty(gnss_pos_ned)
-    if evalin('base','exist(''task4_results'',''var'')')
-        gnss_pos_ned = evalin('base','task4_results.gnss_pos_ned');
-    else
-        if ~isfile(results4)
-            error('Task_5:MissingResults', ...
-                  'Task 4 must run first and save gnss_pos_ned.');
-        end
-        S = load(results4,'gnss_pos_ned');
-        if ~isfield(S,'gnss_pos_ned')
-            error('Task_5:BadMATfile', ...
-                  '''gnss_pos_ned'' not found in %s', results4);
-        end
-        gnss_pos_ned = S.gnss_pos_ned;
-    end
-end
+% results4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
+% if nargin < 4 || isempty(gnss_pos_ned)
+%     if evalin('base','exist(''task4_results'',''var'')')
+%         gnss_pos_ned = evalin('base','task4_results.gnss_pos_ned');
+%     else
+%         if ~isfile(results4)
+%             error('Task_5:MissingResults', ...
+%                   'Task 4 must run first and save gnss_pos_ned.');
+%         end
+%         S = load(results4,'gnss_pos_ned');
+%         if ~isfield(S,'gnss_pos_ned')
+%             error('Task_5:BadMATfile', ...
+%                   '''gnss_pos_ned'' not found in %s', results4);
+%         end
+%         gnss_pos_ned = S.gnss_pos_ned;
+%     end
+% end
 % State vector x: [pos; vel; euler; accel_bias; gyro_bias] (15x1)
 init_eul = quat_to_euler(rot_to_quaternion(C_B_N));
 x = zeros(15, 1);
@@ -263,12 +279,12 @@ catch
     Q(13:15,13:15) = eye(3) * gyro_bias_noise;
     R = zeros(6);
     R(1:3,1:3) = eye(3) * pos_meas_noise^2;
-    R(4:6,4:6) = eye(3) * 0.25;
+    R(4:6,4:6) = eye(3);
     fprintf('Auto-tune failed; using default Q/R\n');
 end
-Q(4:6,4:6) = eye(3) * 0.1;
-R(4:6,4:6) = eye(3) * 0.25;
-fprintf('Task-5: Q_vel=0.100, R_vel=0.250 (Python parity)\n');
+Q(4:6,4:6) = vel_q_scale * Q(4:6,4:6);
+R(4:6,4:6) = vel_r * eye(3);
+fprintf('Adjusted Q[4:6] by %.3f and R[4:6] by %.3f\n', vel_q_scale, vel_r);
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
@@ -508,6 +524,31 @@ if numel(gnss_time) ~= size(gnss_pos_ned,1)
     gnss_accel_ned = gnss_accel_ned(1:N,:);
 end
 
+if isfinite(trace_first_n) && trace_first_n > 0
+    N = min([trace_first_n, numel(imu_time), numel(gnss_time), size(x_log,2)]);
+    imu_time = imu_time(1:N);
+    x_log = x_log(:,1:N);
+    euler_log = euler_log(:,1:N);
+    zupt_log = zupt_log(1:N);
+    acc_log = acc_log(:,1:N);
+    gnss_time = gnss_time(1:N);
+    gnss_pos_ned = gnss_pos_ned(1:N,:);
+    gnss_vel_ned = gnss_vel_ned(1:N,:);
+    gnss_accel_ned = gnss_accel_ned(1:N,:);
+    gnss_pos_ecef = gnss_pos_ecef(1:N,:);
+    gnss_vel_ecef = gnss_vel_ecef(1:N,:);
+    gnss_accel_ecef = gnss_accel_ecef(1:N,:);
+    if exist('truth','var') && isstruct(truth)
+        fields = {'t','pos_ned','vel_ned','acc_ned'};
+        for f = 1:numel(fields)
+            if isfield(truth,fields{f})
+                truth.(fields{f}) = truth.(fields{f})(1:min(end,N),:);
+            end
+        end
+    end
+    fprintf('TRACE: limited processing to first %d samples.\n', N);
+end
+
 % Extract velocity states and derive acceleration from them
 vel_log = x_log(4:6, :);
 if numel(imu_time) > 1
@@ -625,8 +666,12 @@ pos_interp = interp1(imu_time, x_log(1:3,:)', gnss_time, 'linear', 'extrap');
 vel_interp = interp1(imu_time, x_log(4:6,:)', gnss_time, 'linear', 'extrap');
 res_pos = pos_interp - gnss_pos_ned;
 res_vel = vel_interp - gnss_vel_ned;
-rmse_pos = sqrt(mean(sum(res_pos.^2,2)));
-rmse_vel = sqrt(mean(sum(res_vel.^2,2)));
+mask = all(isfinite(pos_interp),2) & all(isfinite(gnss_pos_ned),2);
+d = pos_interp(mask,:) - gnss_pos_ned(mask,:);
+rmse_pos = sqrt(mean(sum(d.^2,2)));
+mask = all(isfinite(vel_interp),2) & all(isfinite(gnss_vel_ned),2);
+d = vel_interp(mask,:) - gnss_vel_ned(mask,:);
+rmse_vel = sqrt(mean(sum(d.^2,2)));
 % Both vectors are 3x1 column vectors so avoid an extra transpose which
 % previously produced a 3x3 matrix due to implicit broadcasting.
 final_pos_err = norm(x_log(1:3,end) - gnss_pos_ned(end,:)');
@@ -937,12 +982,7 @@ end % End of main function
         end
         sgtitle([method ' Mixed Frame Data']);
         fname = fullfile(results_dir, sprintf('%s_task5_Mixed_state', run_id));
-        if cfg.plots.save_pdf
-            print(fig, [fname '.pdf'], '-dpdf', '-bestfit');
-        end
-        if cfg.plots.save_png
-            print(fig, [fname '.png'], '-dpng');
-        end
+        save_plot_all(fig, fname, formats);
         close(fig);
     end
 
@@ -970,10 +1010,8 @@ end % End of main function
         end
         xlabel('Time [s]');
         drawnow;
-        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_ned', run_id));
-        if cfg.plots.save_pdf, print(gcf, [fname '.pdf'], '-dpdf', '-bestfit'); end
-        if cfg.plots.save_png, print(gcf, [fname '.png'], '-dpng'); end
-        savefig(gcf, [fname '.fig']);
+        fname = fullfile(results_dir, sprintf('%s_task5_ned', run_id));
+        save_plot_all(gcf, fname, formats);
         close(gcf);
     end
 
@@ -1004,10 +1042,8 @@ end % End of main function
         end
         xlabel('Time [s]');
         drawnow;
-        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_ecef', run_id));
-        if cfg.plots.save_pdf, print(gcf, [fname '.pdf'], '-dpdf', '-bestfit'); end
-        if cfg.plots.save_png, print(gcf, [fname '.png'], '-dpng'); end
-        savefig(gcf, [fname '.fig']);
+        fname = fullfile(results_dir, sprintf('%s_task5_ecef', run_id));
+        save_plot_all(gcf, fname, formats);
         close(gcf);
     end
 
@@ -1043,10 +1079,8 @@ end % End of main function
         end
         xlabel('Time [s]');
         drawnow;
-        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_body', run_id));
-        if cfg.plots.save_pdf, print(gcf, [fname '.pdf'], '-dpdf', '-bestfit'); end
-        if cfg.plots.save_png, print(gcf, [fname '.png'], '-dpng'); end
-        savefig(gcf, [fname '.fig']);
+        fname = fullfile(results_dir, sprintf('%s_task5_body', run_id));
+        save_plot_all(gcf, fname, formats);
         close(gcf);
     end
 
@@ -1084,12 +1118,7 @@ end % End of main function
             hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend;
         end
         sgtitle([method ' - ECEF frame with Truth']);
-        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_ECEF_truth', run_id));
-        if cfg.plots.save_pdf
-            print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
-        end
-        if cfg.plots.save_png
-            print(gcf, [fname '.png'], '-dpng');
-        end
+        fname = fullfile(results_dir, sprintf('%s_task5_ECEF_truth', run_id));
+        save_plot_all(gcf, fname, formats);
         close(gcf);
     end
