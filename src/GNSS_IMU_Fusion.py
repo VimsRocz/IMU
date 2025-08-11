@@ -1747,32 +1747,10 @@ def main():
     logging.info("All data in body frame plot saved")
 
     # Plot pre-fit innovations
-    fig_innov, ax_innov = plt.subplots(3, 1, sharex=True, figsize=(8, 6))
-    labels = ["North", "East", "Down"]
-    innov_pos = innov_pos_all[method]
-    innov_vel = innov_vel_all[method]
-    for i in range(3):
-        ax_innov[i].plot(innov_pos[:, i], label="Position")
-        ax_innov[i].plot(innov_vel[:, i], label="Velocity", linestyle="--")
-        ax_innov[i].set_ylabel(f"{labels[i]} residual")
-        ax_innov[i].grid(True)
-    ax_innov[0].legend(loc="best")
-    ax_innov[-1].set_xlabel("GNSS update index")
-    fig_innov.suptitle("Task 5 – Pre-fit Innovations (Fused vs. Measured GNSS)")
-    fig_innov.tight_layout()
-    innov_pdf = f"results/{tag}_{method.lower()}_innovations.pdf"
-    if not args.no_plots:
-        save_plot(fig_innov, innov_pdf, "Pre-fit Innovations")
-
-    # Plot residuals and attitude using helper functions
+    # Plot residuals using helper functions
     if not args.no_plots:
         res = compute_residuals(gnss_time, gnss_pos_ned, imu_time, fused_pos[method])
         plot_residuals(gnss_time, res, f"results/residuals_{tag}_{method}.pdf")
-        plot_attitude(
-            imu_time,
-            attitude_q_all[method],
-            f"results/attitude_angles_{tag}_{method}.pdf",
-        )
 
     # Create plot summary
     summary = {
@@ -1790,8 +1768,6 @@ def main():
         f"{tag}_task5_all_ecef.png": "Kalman filter results in ECEF frame",
         f"{tag}_task5_all_body.png": "Kalman filter results in body frame",
         f"{tag}_{method.lower()}_residuals.pdf": "Position and velocity residuals",
-        f"{tag}_{method.lower()}_innovations.pdf": "Pre-fit innovations",
-        f"{tag}_{method.lower()}_attitude_angles.pdf": "Attitude angles over time",
     }
     summary_path = os.path.join("results", f"{tag}_plot_summary.md")
     with open(summary_path, "w") as f:
@@ -1825,20 +1801,6 @@ def main():
 
     # --- Attitude angles ----------------------------------------------------
     euler = R.from_quat(attitude_q_all[method]).as_euler("xyz", degrees=True)
-    if not args.no_plots:
-        plt.figure()
-        plt.plot(imu_time, euler[:, 0], label="Roll")
-        plt.plot(imu_time, euler[:, 1], label="Pitch")
-        plt.plot(imu_time, euler[:, 2], label="Yaw")
-        plt.xlabel("Time (s)")
-        plt.ylabel("Angle (deg)")
-        plt.legend(loc="best")
-        plt.title(f"Task 6: {tag} Attitude Angles")
-        png = Path("results") / f"{tag}_task6_attitude_angles.png"
-        pdf = png.with_suffix(".pdf")
-        plt.savefig(png)
-        plt.savefig(pdf)
-        plt.close()
 
     C_NED_to_ECEF = C_ECEF_to_NED.T
     pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
@@ -1972,8 +1934,6 @@ def main():
             gnss_vel_ned,
             tag,
         )
-
-        save_attitude_over_time(imu_time, euler_deg, dataset_id, method)
 
         plot_all_methods(
             imu_time,
