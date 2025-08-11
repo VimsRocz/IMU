@@ -14,15 +14,28 @@ Usage
 
 from __future__ import annotations
 
+import os
+import sys
+
+sys.path.append(os.path.join(os.getcwd(), "src", "utils"))
+from trace_utils import (
+    set_debug,
+    log_msg,
+    trace_task,
+    dump_structure,
+    save_plot_interactive,
+)
+
+set_debug(os.getenv("DEBUG", "").lower() in ("1", "true"))
+log_msg("run_triad_only.py loaded")
+
 import argparse
 import json
 import logging
 import math
-import os
 import pathlib
 import re
 import subprocess
-import sys
 import time
 import io
 from contextlib import redirect_stdout
@@ -34,13 +47,6 @@ import pandas as pd
 from scipy.spatial.transform import Rotation as R
 import scipy.io as sio
 from tabulate import tabulate
-
-# ensure utils import and debug bootstrap
-sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "utils"))
-from utils.trace_utils import trace_task, dump_structure, save_plot_interactive, log  # noqa
-
-log("[BOOT] run_triad_only.py loaded")
 
 from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
