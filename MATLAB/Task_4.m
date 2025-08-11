@@ -503,65 +503,16 @@ if ~isfile(t4_mat)
     save(t4_mat,'rid','imu_pos_g','imu_vel_g','imu_acc_g','t_g','-v7');
 end
 
-valid = all(isfinite(gnss_acc_u),2) & all(isfinite(imu_acc_g),2);
-t_v = t_g_u(valid);
-pos_v = imu_pos_g(valid,:); vel_v = imu_vel_g(valid,:); acc_v = imu_acc_g(valid,:);
-
-plot_state_grid(t_v, pos_v, vel_v, acc_v, 'NED', ...
-    'visible',visibleFlag, 'save_dir', results_dir, 'run_id', rid);
+% Validation of IMU and GNSS acceleration data retained for potential
+% downstream use, but NED position/velocity/acceleration plots have been
+% removed as they were deemed uninformative for Task 4.
 
 % -------------------------------------------------------------------------
-% Generate comparison plots for all methods in NED, ECEF, BODY and Mixed
-% frames using the helper ``plot_frame_comparison``.
+% Comparison plots for NED/ECEF/BODY/Mixed frames removed
+% (previously generated via ``plot_frame_comparison``).
 % -------------------------------------------------------------------------
-t = t_imu; % Common time vector at IMU rate
-pos_ned_GNSS = gnss_pos_ned_imuT';
-pos_ecef_GNSS = C_NED_to_ECEF * pos_ned_GNSS + ref_r0;
-
-% NED/ECEF/BODY positions for each method
-pos_ned = struct();
-pos_ecef = struct();
-pos_body = struct();
-for i = 1:length(methods)
-    m = methods{i};
-    pos_ned.(m)  = pos_integ.(m)';
-    pos_ecef.(m) = C_NED_to_ECEF * pos_ned.(m) + ref_r0;
-end
-
-% Body-frame positions (use TRIAD attitude if available, otherwise first method)
-if isfield(C_B_N_methods, 'TRIAD')
-    C_N_B_ref = C_B_N_methods.TRIAD';
-else
-    C_N_B_ref = C_B_N_methods.(methods{1})';
-end
-pos_body_GNSS = C_N_B_ref * pos_ned_GNSS;
-for i = 1:length(methods)
-    m = methods{i};
-    pos_body.(m) = C_N_B_ref * pos_ned.(m);
-end
-
-prefix = fullfile(results_dir, sprintf('%s_task4', run_id));
-
-% Assemble datasets in a fixed method order for plotting
-method_order = {'TRIAD','Davenport','SVD'};
-data_sets = {pos_ned_GNSS};
-data_sets_ecef = {pos_ecef_GNSS};
-data_sets_body = {pos_body_GNSS};
-labels = {'GNSS'};
-for i = 1:length(method_order)
-    m = method_order{i};
-    if isfield(pos_ned, m)
-        data_sets{end+1} = pos_ned.(m);
-        data_sets_ecef{end+1} = pos_ecef.(m);
-        data_sets_body{end+1} = pos_body.(m);
-        labels{end+1} = ['IMU-' m];
-    end
-end
-
-plot_frame_comparison(t, data_sets, labels, 'NED',  prefix, cfg);
-plot_frame_comparison(t, data_sets_ecef, labels, 'ECEF', prefix, cfg);
-plot_frame_comparison(t, data_sets_body, labels, 'BODY', prefix, cfg);
-plot_frame_comparison(t, data_sets, labels, 'Mixed', prefix, cfg);
+% Former comparison plot generation removed; NED/ECEF/BODY/Mixed
+% overlays are no longer produced for Task 4.
 
 
 %% ========================================================================

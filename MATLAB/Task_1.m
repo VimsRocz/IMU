@@ -174,10 +174,15 @@ if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
     % Set plot title
     title('Initial Location on Earth Map');
 
-    % Save the plot as both PDF and PNG using a reasonable page size
+    % Save the plot as a MATLAB figure and PNG for reproducibility
     set(gcf, 'PaperPositionMode', 'auto');
     base_fig = figure(gcf);
-    save_plot(base_fig, imu_name, gnss_name, method, 1);
+    base = sprintf('%s_%s_%s_task%d_results', imu_name, gnss_name, method, 1);
+    fig_path = fullfile(results_dir, [base '.fig']);
+    png_path = fullfile(results_dir, [base '.png']);
+    save_plot_fig(base_fig, fig_path);
+    exportgraphics(base_fig, png_path, 'Resolution', 300);
+    fprintf('Saved plot to %s and %s\n', fig_path, png_path);
 else
     warning('Mapping Toolbox not found. Skipping geographic plot.');
 end
