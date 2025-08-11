@@ -7,9 +7,9 @@ Usage:
 This script reads a CSV file containing a single column of temperature
 measurements in degrees Celsius, filters the data to the range
 ``0``–``30``\u00b0C and computes basic statistics. A histogram with a
-vertical line at the mean is saved under ``results/``. The function
-contains print statements for debugging and mirrors the MATLAB stub
-``task7_temperature_analysis.m``.
+vertical line at the mean is saved under ``results/`` as ``.png`` and
+``.pickle``. The function contains print statements for debugging and
+mirrors the MATLAB stub ``task7_temperature_analysis.m``.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from statistics import mean, median
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from python.utils.save_plot_all import save_plot_all
 
 
 def task7(csv_file: str = "temperatures.csv", output_dir: Path | str = "results") -> tuple[float | None, float | None]:
@@ -103,10 +104,8 @@ def task7(csv_file: str = "temperatures.csv", output_dir: Path | str = "results"
     plt.legend()
     plt.grid(True, linestyle="--", alpha=0.7)
     base = output_path / "task7_temperature_histogram"
-    plt.savefig(base.with_suffix(".pdf"))
-    plt.savefig(base.with_suffix(".png"))
-    plt.close()
-    print(f"Histogram saved as {base.with_suffix('.pdf')} and .png")
+    save_plot_all(plt.gcf(), str(base), show_plot=True)
+    print(f"Histogram saved as {base.with_suffix('.png')} and .pickle")
 
     print("Returning statistical measures: (mean, median)")
     return data_mean, data_median

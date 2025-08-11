@@ -40,8 +40,7 @@ def save_zupt_variance(
     plt.tight_layout()
     plt.title("ZUPT Detection and Accelerometer Variance")
     base = Path("results") / f"IMU_{dataset_id}_ZUPT_variance"
-    save_plot_all(plt.gcf(), str(base))
-    plt.close()
+    save_plot_all(plt.gcf(), str(base), show_plot=True)
 
 
 def save_euler_angles(
@@ -73,8 +72,7 @@ def save_euler_angles(
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) vs. Time")
     base = Path("results") / f"{dataset_id}_{method}_attitude_angles_over_time"
-    save_plot_all(plt.gcf(), str(base))
-    plt.close()
+    save_plot_all(plt.gcf(), str(base), show_plot=True)
 
 
 def save_residual_plots(
@@ -115,8 +113,7 @@ def save_residual_plots(
     plt.legend(loc="best")
     plt.tight_layout()
     filename = plot_path("results", tag, 5, "residuals", "position_residuals")
-    save_plot_all(plt.gcf(), str(Path(filename).with_suffix("")))
-    plt.close()
+    save_plot_all(plt.gcf(), str(Path(filename).with_suffix("")), show_plot=True)
 
     plt.figure(figsize=(10, 5))
     for i, label in enumerate(labels):
@@ -127,8 +124,7 @@ def save_residual_plots(
     plt.legend(loc="best")
     plt.tight_layout()
     filename = plot_path("results", tag, 5, "residuals", "velocity_residuals")
-    save_plot_all(plt.gcf(), str(Path(filename).with_suffix("")))
-    plt.close()
+    save_plot_all(plt.gcf(), str(Path(filename).with_suffix("")), show_plot=True)
 
 
 def save_attitude_over_time(
@@ -160,8 +156,7 @@ def save_attitude_over_time(
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) Over Time")
     base = Path("results") / f"{dataset_id}_{method}_attitude_angles_over_time"
-    save_plot_all(plt.gcf(), str(base))
-    plt.close()
+    save_plot_all(plt.gcf(), str(base), show_plot=True)
 
 
 def save_velocity_profile(t: np.ndarray, vel_filter: np.ndarray, vel_gnss: np.ndarray) -> None:
@@ -177,8 +172,7 @@ def save_velocity_profile(t: np.ndarray, vel_filter: np.ndarray, vel_gnss: np.nd
     plt.legend(loc="best")
     plt.tight_layout()
     base = Path("results") / "velocity_profile"
-    save_plot_all(plt.gcf(), str(base))
-    plt.close()
+    save_plot_all(plt.gcf(), str(base), show_plot=True)
 
 
 def plot_all_methods(
@@ -227,6 +221,5 @@ def plot_all_methods(
                 ax.legend()
 
     plt.tight_layout()
-    save_plot_all(fig, str(Path(savefile).with_suffix("")))
-    plt.close(fig)
+    save_plot_all(fig, str(Path(savefile).with_suffix("")), show_plot=True)
 

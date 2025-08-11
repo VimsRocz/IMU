@@ -177,7 +177,7 @@ if exist('geoplot','file') == 2 && license('test','map_toolbox')
         lat_deg, lon_deg, cname, cdist_km));
 
     base = fullfile(results_dir, sprintf('%s_%s_task1_results', dataset_name, method));
-    save_plot_all(fig, base, {'.fig','.png','.pdf'});
+    save_plot_all(fig, base, {'.png','.fig'});
 else
     warning('Mapping Toolbox not found. Skipping geographic plot.');
     base = fullfile(results_dir, sprintf('%s_%s_task1_results', dataset_name, method));

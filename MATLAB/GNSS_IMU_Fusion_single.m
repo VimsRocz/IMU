@@ -549,7 +549,7 @@ for i_plot = 1:numel(erate_vals)
 end
 sgtitle('Task 3: Attitude Error Comparison');
 outbase = fullfile(results_dir, sprintf('%s_task3_errors_comparison', tag));
-save_plot_all(f, outbase, {'.fig','.pdf','.png'});
+save_plot_all(f, outbase, {'.png','.fig'});
 
 figure('Name', 'Quaternion Component Comparison', 'Position', [100, 600, 1000, 600]);
 quats_c1 = [q_tri, q_dav, q_svd];

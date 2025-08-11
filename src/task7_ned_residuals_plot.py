@@ -8,8 +8,7 @@ Usage:
 This implements the functionality of ``task7_ned_residuals_plot.m`` from the
 MATLAB code base. The estimator time vector is shifted to start at zero so that
 Task 6 and Task 7 plots share the same x-axis. Figures are written under
-``results/<dataset>/`` in Python ``.pickle`` and MATLAB ``.mat`` (via ``.fig``)
-formats.
+``results/<dataset>/`` and saved as ``.png`` and ``.pickle`` formats.
 """
 
 from __future__ import annotations
@@ -146,8 +145,7 @@ def plot_residuals(
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     out_dir.mkdir(parents=True, exist_ok=True)
     base = out_dir / f"{dataset}_task7_ned_residuals"
-    save_plot_all(fig, str(base), formats=(".pickle", ".fig"))
-    plt.close(fig)
+    save_plot_all(fig, str(base), show_plot=True)
 
     fig, ax = plt.subplots()
     ax.plot(t, np.linalg.norm(res_pos, axis=1), label="|pos|")
@@ -160,8 +158,7 @@ def plot_residuals(
     fig.suptitle(f"{dataset} Task 7 NED Residual Norms")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     norm_base = out_dir / f"{dataset}_task7_ned_residual_norms"
-    save_plot_all(fig, str(norm_base), formats=(".pickle", ".fig"))
-    plt.close(fig)
+    save_plot_all(fig, str(norm_base), show_plot=True)
 
     saved = sorted(out_dir.glob(f"{dataset}_task7_ned_residual*.pickle"))
     if saved:

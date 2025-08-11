@@ -20,6 +20,7 @@ import logging
 import numpy as np
 from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
+from python.utils.save_plot_all import save_plot_all
 
 # Reuse the robust loader from validate_with_truth
 from validate_with_truth import load_estimate
@@ -164,8 +165,7 @@ def main() -> None:
         ax.set_ylabel(f"Position {lab} error [m]")
         ax.legend()
         fig.tight_layout()
-        fig.savefig(out_dir / f"pos_err_{lab}.pdf")
-        plt.close(fig)
+        save_plot_all(fig, str(out_dir / f"pos_err_{lab}"), show_plot=True)
 
     for i, lab in enumerate(labels_vel):
         fig, ax = plt.subplots()
@@ -177,8 +177,7 @@ def main() -> None:
         ax.set_ylabel(f"Velocity {lab} error [m/s]")
         ax.legend()
         fig.tight_layout()
-        fig.savefig(out_dir / f"vel_err_{lab}.pdf")
-        plt.close(fig)
+        save_plot_all(fig, str(out_dir / f"vel_err_{lab}"), show_plot=True)
 
     for i, lab in enumerate(labels_quat):
         fig, ax = plt.subplots()
@@ -190,8 +189,7 @@ def main() -> None:
         ax.set_ylabel(f"Quaternion {lab} error")
         ax.legend()
         fig.tight_layout()
-        fig.savefig(out_dir / f"quat_err_{lab}.pdf")
-        plt.close(fig)
+        save_plot_all(fig, str(out_dir / f"quat_err_{lab}"), show_plot=True)
 
     print(
         f"Final position error: {final_pos:.3f} m, RMSE: {rmse_pos:.3f} m"

@@ -2,10 +2,10 @@ function save_plot_all(h, basepath, formats)
 %SAVE_PLOT_ALL Save MATLAB figure to multiple formats.
 %   save_plot_all(h, basepath, formats) saves figure handle h (or gcf) to
 %   the extensions listed in cell array ``formats``. If ``formats`` is
-%   omitted, only a ``.fig`` is written.
+%   omitted, ``.png`` and ``.fig`` are written.
 %
 %   Usage:
-%       save_plot_all(gcf, 'results/demo', {'.fig','.png','.pdf'})
+%       save_plot_all(gcf, 'results/demo', {'.png','.fig'})
 %
 %   See also: SAVEFIG, EXPORTGRAPHICS
 
@@ -13,7 +13,7 @@ function save_plot_all(h, basepath, formats)
     if nargin < 2 || isempty(basepath)
         error('basepath required');
     end
-    if nargin < 3 || isempty(formats), formats = {'.fig'}; end
+    if nargin < 3 || isempty(formats), formats = {'.png','.fig'}; end
 
     [outdir,~,~] = fileparts(basepath);
     if ~isempty(outdir) && ~exist(outdir,'dir')
@@ -38,4 +38,6 @@ function save_plot_all(h, basepath, formats)
         end
         fprintf('Saved -> %s\n', outfile);
     end
+
+    figure(h);
 end
