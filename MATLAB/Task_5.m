@@ -19,6 +19,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %       'vel_q_scale'      - scale for Q(4:6,4:6) velocity process noise [-]      (10.0)
 %       'vel_r'            - R(4:6,4:6) velocity measurement variance   [m^2/s^2] (0.25)
 %       'scale_factor'     - accelerometer scale factor                 [-]      (required)
+%       'trace_first_n'    - debug: process only first N samples         [-]      (0)
 
 paths = project_paths();
 results_dir = paths.matlab_results;
@@ -57,6 +58,7 @@ end
     addParameter(p, 'vel_q_scale', 10.0);      % [-]
     addParameter(p, 'vel_r', 0.25);            % [m^2/s^2]
     addParameter(p, 'scale_factor', []);       % [-]
+    addParameter(p, 'trace_first_n', 0);       % [-]
     parse(p, varargin{:});
     accel_noise     = p.Results.accel_noise;
     vel_proc_noise  = p.Results.vel_proc_noise;
@@ -68,6 +70,7 @@ end
     vel_q_scale     = p.Results.vel_q_scale;
     vel_r           = p.Results.vel_r;
     scale_factor    = p.Results.scale_factor;
+    trace_first_n   = p.Results.trace_first_n; %#ok<NASGU>
 
 
     if ~isfile(gnss_path)
