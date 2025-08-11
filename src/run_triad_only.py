@@ -28,6 +28,7 @@ from utils.trace_utils import (
     dump_structure,
     save_plot_interactive,
 )
+from utils.print_task_start import print_task_start
 
 set_debug(os.getenv("DEBUG", "").lower() in ("1", "true"))
 log_msg("run_triad_only.py loaded")
@@ -187,7 +188,7 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     run_id = build_run_id(str(imu_path), str(gnss_path), method)
     log_path = results_dir / f"{run_id}.log"
-    print(f"\u25b6 {run_id}")
+    print_task_start(run_id)
 
     truth_path = resolve_truth_path()
 

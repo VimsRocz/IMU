@@ -15,7 +15,7 @@ if isa(taskFunc, 'char') && isa(taskName, 'function_handle')
     taskName = tmp;
 end
 
-fprintf('%s Running %s...\n', char(0x25B6), taskName);
+print_task_start(taskName);
 try
     feval(taskFunc, varargin{:});
     fprintf('%s %s completed successfully.\n', char(0x2713), taskName);

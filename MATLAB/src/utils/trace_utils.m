@@ -52,7 +52,10 @@ function try_task(taskName, fhandle, varargin)
 
     trace_utils_boot();
     log_msg(repmat('=',1,80));
-    log_msg(sprintf('%s START %s', char(0x25B6), taskName));
+    if is_debug()
+        print_task_start(taskName);
+    end
+    log_msg(sprintf('START %s', taskName));
     try
         feval(fhandle, varargin{:});
         log_msg(sprintf('%s DONE %s', char(0x2713), taskName));

@@ -25,6 +25,7 @@ import traceback
 from typing import Any, Dict
 
 import numpy as np
+from utils.print_task_start import print_task_start
 
 
 DEBUG = os.environ.get("DEBUG", "0").lower() in ("1", "true", "yes")
@@ -170,7 +171,7 @@ def try_task(func_or_name, name_or_func: str, *args, **kwargs) -> None:
     if isinstance(func_or_name, str) and callable(name_or_func):
         func, task_name = name_or_func, func_or_name
 
-    print(f"\u25b6 Running {task_name}...")
+    print_task_start(task_name)
     try:
         func(*args, **kwargs)
         print(f"\u2713 {task_name} completed successfully.")
@@ -190,7 +191,9 @@ def trace_task(task_name: str):
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
             log("=" * 80)
-            log(f"▶ START {task_name}")
+            if DEBUG:
+                print_task_start(task_name)
+            log(f"START {task_name}")
             for i, a in enumerate(args):
                 dump_structure(f"{task_name}.arg{i}", a)
             for k, v in kwargs.items():
