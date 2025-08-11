@@ -311,7 +311,7 @@ end
 
 if ~g_loaded
     % Compute normal gravity at current latitude / height (WGS-84)
-    h_m = 0;   % default height if we can\u2019t read it
+    h_m = 0;   % default height if we can't read it
     if exist('GNSS','var') && istable(GNSS) && any(strcmpi(GNSS.Properties.VariableNames,'Height_deg'))
         h_m = GNSS.Height_deg(1);  % file uses "Height_deg" but values are meters
     elseif exist('gnss_data','var') && istable(gnss_data) && any(strcmpi(gnss_data.Properties.VariableNames,'Height_deg'))
