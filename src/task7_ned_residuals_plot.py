@@ -18,9 +18,9 @@ from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt
-from python.utils.save_plot_all import save_plot_all
+from utils.save_plot_all import save_plot_all
 
-from src.utils import compute_C_ECEF_to_NED
+from utils import compute_C_ECEF_to_NED
 
 
 def load_est_ned(

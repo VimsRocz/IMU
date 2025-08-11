@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
-from python.utils.save_plot_all import save_plot_all
+from src.utils.save_plot_all import save_plot_all
 
 # ---------------------------------------------------------------------------
 # constants

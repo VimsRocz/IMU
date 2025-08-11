@@ -48,10 +48,8 @@ ROOT = HERE.parent
 
 # Allow importing helper utilities under ``src/utils`` without clashing with
 # the top-level ``utils.py`` module.
-import sys as _sys
-_sys.path.append(str(HERE / "utils"))
-from timeline import print_timeline_summary  # type: ignore
-from resolve_truth_path import resolve_truth_path  # type: ignore
+from utils.timeline import print_timeline_summary  # type: ignore
+from utils.resolve_truth_path import resolve_truth_path  # type: ignore
 
 try:
     import yaml

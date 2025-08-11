@@ -46,7 +46,7 @@ from constants import GRAVITY, EARTH_RATE
 from .compute_biases import compute_biases
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
-from python.utils.save_plot_all import save_plot_all
+from utils.save_plot_all import save_plot_all
 from .gnss_imu_fusion.init_vectors import (
     average_rotation_matrices,
     svd_alignment,

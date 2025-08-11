@@ -21,13 +21,7 @@ from tabulate import tabulate
 import time
 from velocity_utils import derive_velocity
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
-from project_paths import project_paths
-import sys
-
-# Ensure repository root is on the Python path so that top-level helpers in
-# ``python/`` can be imported when this module is executed as a script.
-sys.path.append(project_paths()["root"])
-from python.utils.save_plot_all import save_plot_all
+from utils.save_plot_all import save_plot_all
 
 
 def _find_cols(df: pd.DataFrame, options: Sequence[Sequence[str]]) -> Sequence[str]:

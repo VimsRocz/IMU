@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
-from python.utils.save_plot_all import save_plot_all
+from utils.save_plot_all import save_plot_all
 
 
 def _norm(v: np.ndarray) -> np.ndarray:
