@@ -403,13 +403,18 @@ if isfinite(max_steps)
 else
     steps = total_samples;
 end
-x_log = zeros(15, steps);
+% Truncate IMU series to the requested number of steps to avoid size mismatches
+imu_time      = imu_time(1:steps);
+gyro_body_raw = gyro_body_raw(1:steps, :);
+acc_body_raw  = acc_body_raw(1:steps, :);
+
+num_imu_samples = length(imu_time);
+x_log = zeros(15, num_imu_samples);
 fprintf('Task 5: x_log initialized with size %dx%d\n', size(x_log));
-euler_log = zeros(3, steps);
-zupt_log = zeros(1, steps);
-zupt_vel_norm = nan(1, steps); % velocity norm after each ZUPT
-acc_log = zeros(3, steps); % Acceleration from propagated IMU data
-num_imu_samples = steps;
+euler_log = zeros(3, num_imu_samples);
+zupt_log = zeros(1, num_imu_samples);
+zupt_vel_norm = nan(1, num_imu_samples); % velocity norm after each ZUPT
+acc_log = zeros(3, num_imu_samples); % Acceleration from propagated IMU data
 zupt_count = 0;
 zupt_fail_count = 0;            % count ZUPT events not clamped to zero
 vel_blow_count = 0;             % track number of velocity blow-ups
