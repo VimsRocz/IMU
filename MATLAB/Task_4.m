@@ -104,7 +104,7 @@ gyro_bias = bd.gyro_bias(:).';
 
 % Load rotation matrices produced by Task 3
 % Prefer Task 3 results from workspace; fall back to MAT files
-if evalin('base','exist(''task3_results'',''var'')')
+if evalin('base','exist(''task3_results'',''var'')'))
     task3_results = evalin('base','task3_results');
 else
     cand1 = fullfile(results_dir, sprintf('Task3_results_%s_%s.mat', imu_id, gnss_id));
@@ -117,7 +117,7 @@ else
         error('Task 4: Task 3 results missing. Tried:\n  %s\n  %s', cand1, cand2);
     end
     if ~isfield(S3, 'task3_results')
-        error('Task 4: variable ''task3_results'' missing from Task 3 MAT file.');
+        error('Task 4: variable "task3_results" missing from Task 3 MAT file.');
     end
     task3_results = S3.task3_results;
 end
@@ -186,7 +186,7 @@ ref_r0 = gnss_pos_ecef(first_valid_idx, :)'; % ECEF position vector as a column
 [lat_deg_ref, lon_deg_ref, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
 ref_lat = deg2rad(lat_deg_ref);
 ref_lon = deg2rad(lon_deg_ref);
-fprintf('-> Reference point: lat=%.6f rad, lon=%.6f rad, r0=[%.1f, %.1f, %.1f]''\n', ref_lat, ref_lon, ref_r0);
+fprintf('-> Reference point: lat=%.6f rad, lon=%.6f rad, r0=[%.1f, %.1f, %.1f]\n', ref_lat, ref_lon, ref_r0);
 
 
 %% ========================================================================
