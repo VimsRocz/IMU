@@ -47,7 +47,9 @@ function [best_q, best_r, report] = task5_autotune(imu_path, gnss_path, method, 
     T = struct2table(results);
     report = struct('table', T, 'best_rmse', best_rmse, ...
         'best_rmse_q', best_q, 'best_rmse_r', best_r);
-    disp(T);
-    fprintf('[Autotune] Best vel_q_scale=%.3f  vel_r=%.3f  RMSE=%.3f\n', ...
-        best_q, best_r, best_rmse);
+    if verbose
+        disp(T);
+        fprintf('[Autotune] Best vel_q_scale=%.3f  vel_r=%.3f  RMSE=%.3f\n', ...
+            best_q, best_r, best_rmse);
+    end
 end
