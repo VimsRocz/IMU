@@ -23,3 +23,10 @@ __pycache__/
 # Misc
 .DS_Store
 triad_init_log.txt
+results/
+PYTHON/results/
+MATLAB/results/
+OUTPUTS/
+logs/
+*.log
+triad_*_log.txt
