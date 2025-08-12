@@ -26,7 +26,7 @@ function [best_q, best_r, report] = task5_autotune(imu_path, gnss_path, method, 
                 fprintf('[Autotune] Trying vel_q_scale=%.3f  vel_r=%.3f ...\n', q, r);
             end
             try
-                res = Task_5(imu_path, gnss_path, method, [], 'vel_q_scale', q, 'vel_r', r, 'trace_first_n', 0, 'max_steps', max_steps);
+                res = Task_5(imu_path, gnss_path, method, [], 'vel_q_scale', q, 'vel_r', r, 'trace_first_n', 0, 'max_steps', max_steps, 'dryrun', true);
                 rmse = res.rmse_pos;
                 results(k).vel_q_scale = q; %#ok<AGROW>
                 results(k).vel_r = r;      %#ok<AGROW>
