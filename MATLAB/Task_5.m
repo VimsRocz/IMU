@@ -438,6 +438,9 @@ if trace_n > 0
 else
     trace = struct();
 end
+% warn only once for singular covariance matrices
+warned_S = false;
+warned_S_z = false;
 for i = 1:num_imu_samples
     % Interpolate GNSS to the current IMU timestamp so the measurement
     % aligns with the state about to be propagated.  This mirrors the
@@ -496,7 +499,15 @@ for i = 1:num_imu_samples
     z = [gnss_pos_i; gnss_vel_i];
     y = z - H * x;
     S = H * P * H' + R;
-    K = (P * H') / S;
+    if rcond(S) <= eps
+        if ~warned_S
+            warning('Measurement covariance S is singular or ill-conditioned; using pinv.');
+            warned_S = true;
+        end
+        K = (P * H') * pinv(S);
+    else
+        K = (P * H') / S;
+    end
     x = x + K * y;
     P = (eye(15) - K * H) * P;
     if i <= trace_n
@@ -531,7 +542,15 @@ for i = 1:num_imu_samples
         R_z = eye(3) * 1e-6;
         y_z = -H_z * x;
         S_z = H_z * P * H_z' + R_z;
-        K_z = (P * H_z') / S_z;
+        if rcond(S_z) <= eps
+            if ~warned_S_z
+                warning('ZUPT covariance S_z is singular or ill-conditioned; using pinv.');
+                warned_S_z = true;
+            end
+            K_z = (P * H_z') * pinv(S_z);
+        else
+            K_z = (P * H_z') / S_z;
+        end
         x = x + K_z * y_z;
         P = (eye(15) - K_z * H_z) * P;
         zupt_vel_norm(i) = norm(x(4:6));
