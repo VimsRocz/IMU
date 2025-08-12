@@ -104,7 +104,7 @@ gyro_bias = bd.gyro_bias(:).';
 
 % Load rotation matrices produced by Task 3
 % Prefer Task 3 results from workspace; fall back to MAT files
-if evalin('base','exist(''task3_results'',''var'')'))
+if evalin('base','exist(''task3_results'',''var'')')
     task3_results = evalin('base','task3_results');
 else
     cand1 = fullfile(results_dir, sprintf('Task3_results_%s_%s.mat', imu_id, gnss_id));

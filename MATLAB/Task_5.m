@@ -190,9 +190,8 @@ end
 if is_debug()
     dump_structure('Task5.Task3_loaded', Task3, 0, 3);
 end
-    end
 
-    mi = find(strcmpi(Task3.methods, method), 1);
+mi = find(strcmpi(Task3.methods, method), 1);
     if isempty(mi)
         error('Task5:NoMethod','Method %s not in Task3.methods', method);
     end
