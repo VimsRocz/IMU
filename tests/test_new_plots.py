@@ -44,6 +44,10 @@ def test_body_frame_plots(tmp_path, monkeypatch):
     for pattern in expected:
         matches = list(res_dir.glob(pattern))
         assert matches, f"Missing plot {pattern}"
+        for f in matches:
+            assert (
+                f.stat().st_size > 0
+            ), f"Empty plot file {f}"
 
     # cleanup
     for f in res_dir.glob("*.pdf"):
