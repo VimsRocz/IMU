@@ -441,8 +441,10 @@ for k = 1:3
     gnss_vel_interp(imu_time > gnss_time(end),k) = gnss_vel_ned(end,k);
 end
 % Compare raw and interpolated GNSS data
-task5_gnss_interp_ned_plot(gnss_time, gnss_pos_ned, gnss_vel_ned, imu_time, ...
-    gnss_pos_interp, gnss_vel_interp, run_id, results_dir, cfg);
+if ~dryrun
+    task5_gnss_interp_ned_plot(gnss_time, gnss_pos_ned, gnss_vel_ned, imu_time, ...
+        gnss_pos_interp, gnss_vel_interp, run_id, results_dir, cfg);
+end
 
 % --- Main Filter Loop ---
 dprintf('-> Starting filter loop over %d IMU samples...\n', num_imu_samples);
@@ -633,45 +635,49 @@ end
 p_n_fused = x_log(1:3,:)' ;
 v_n_fused = x_log(4:6,:)' ;
 a_n_fused = accel_from_vel';
-plot_state_grid(imu_time, p_n_fused, v_n_fused, a_n_fused, 'NED', ...
-    'save_dir', results_dir, 'run_id', sprintf('%s_task5', run_id));
+if ~dryrun
+    plot_state_grid(imu_time, p_n_fused, v_n_fused, a_n_fused, 'NED', ...
+        'save_dir', results_dir, 'run_id', sprintf('%s_task5', run_id));
+end
 
 % --- Combined Position, Velocity and Acceleration ---
-fig = figure('Name', 'KF Results: P/V/A', 'Position', [100 100 1200 900]);
-labels = {'North', 'East', 'Down'};
-all_file = fullfile(results_dir, sprintf('%s_Task5_AllResults.pdf', run_id));
-if exist(all_file, 'file'); delete(all_file); end
-for i = 1:3
-    % Position
-    subplot(3,3,i); hold on;
-    plot(gnss_time, gnss_pos_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
-    plot(imu_time, x_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
-    hold off; grid on; legend; ylabel('[m]'); title(['Position ' labels{i}]);
-    dprintf('Subtask 5.8.2: Plotted %s position %s: First = %.4f, Last = %.4f\n', ...
-        method, labels{i}, x_log(i,1), x_log(i,end));
+if ~dryrun
+    fig = figure('Name', 'KF Results: P/V/A', 'Position', [100 100 1200 900]);
+    labels = {'North', 'East', 'Down'};
+    all_file = fullfile(results_dir, sprintf('%s_Task5_AllResults.pdf', run_id));
+    if exist(all_file, 'file'); delete(all_file); end
+    for i = 1:3
+        % Position
+        subplot(3,3,i); hold on;
+        plot(gnss_time, gnss_pos_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
+        plot(imu_time, x_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
+        hold off; grid on; legend; ylabel('[m]'); title(['Position ' labels{i}]);
+        dprintf('Subtask 5.8.2: Plotted %s position %s: First = %.4f, Last = %.4f\n', ...
+            method, labels{i}, x_log(i,1), x_log(i,end));
 
-    % Velocity
-    subplot(3,3,i+3); hold on;
-    plot(gnss_time, gnss_vel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
-    plot(imu_time, x_log(i+3,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
-    zupt_indices = find(zupt_log);
-    if ~isempty(zupt_indices)
-        plot(imu_time(zupt_indices), x_log(i+3,zupt_indices), 'ro', 'MarkerSize', 3, 'DisplayName', 'ZUPT');
+        % Velocity
+        subplot(3,3,i+3); hold on;
+        plot(gnss_time, gnss_vel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Raw)');
+        plot(imu_time, x_log(i+3,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
+        zupt_indices = find(zupt_log);
+        if ~isempty(zupt_indices)
+            plot(imu_time(zupt_indices), x_log(i+3,zupt_indices), 'ro', 'MarkerSize', 3, 'DisplayName', 'ZUPT');
+        end
+        hold off; grid on; legend; ylabel('[m/s]'); title(['Velocity ' labels{i}]);
+        dprintf('Subtask 5.8.2: Plotted %s velocity %s: First = %.4f, Last = %.4f\n', ...
+            method, labels{i}, x_log(i+3,1), x_log(i+3,end));
+
+        % Acceleration
+        subplot(3,3,i+6); hold on;
+        plot(gnss_time, gnss_accel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Derived)');
+        plot(imu_time, acc_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
+        hold off; grid on; legend; ylabel('[m/s^2]'); title(['Acceleration ' labels{i}]);
+        dprintf('Subtask 5.8.2: Plotted %s acceleration %s: First = %.4f, Last = %.4f\n', ...
+            method, labels{i}, acc_log(i,1), acc_log(i,end));
     end
-    hold off; grid on; legend; ylabel('[m/s]'); title(['Velocity ' labels{i}]);
-    dprintf('Subtask 5.8.2: Plotted %s velocity %s: First = %.4f, Last = %.4f\n', ...
-        method, labels{i}, x_log(i+3,1), x_log(i+3,end));
-
-    % Acceleration
-    subplot(3,3,i+6); hold on;
-    plot(gnss_time, gnss_accel_ned(:,i), 'k:', 'LineWidth', 1, 'DisplayName', 'GNSS (Derived)');
-    plot(imu_time, acc_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (KF)');
-    hold off; grid on; legend; ylabel('[m/s^2]'); title(['Acceleration ' labels{i}]);
-    dprintf('Subtask 5.8.2: Plotted %s acceleration %s: First = %.4f, Last = %.4f\n', ...
-        method, labels{i}, acc_log(i,1), acc_log(i,end));
+    xlabel('Time (s)');
+    sgtitle('Kalman Filter Results vs. GNSS');
 end
-xlabel('Time (s)');
-sgtitle('Kalman Filter Results vs. GNSS');
 % out_pdf = fullfile(results_dir, sprintf('%s_task5_results_%s.pdf', tag, method));
 % set(fig,'PaperPositionMode','auto');
 % print(fig, out_pdf, '-dpdf', '-bestfit');
@@ -679,14 +685,16 @@ sgtitle('Kalman Filter Results vs. GNSS');
 % exportgraphics(fig, all_file, 'Append', true);
 
 % --- Plot 4: Attitude (Euler Angles) ---
-figure('Name', 'KF Results: Attitude', 'Position', [200 200 1200 600]);
-euler_labels = {'Roll', 'Pitch', 'Yaw'};
-for i = 1:3
-    subplot(3, 1, i);
-    plot(imu_time, rad2deg(euler_log(i,:)), 'b-');
-    grid on; ylabel('[deg]'); title([euler_labels{i} ' Angle']);
+if ~dryrun
+    figure('Name', 'KF Results: Attitude', 'Position', [200 200 1200 600]);
+    euler_labels = {'Roll', 'Pitch', 'Yaw'};
+    for i = 1:3
+        subplot(3, 1, i);
+        plot(imu_time, rad2deg(euler_log(i,:)), 'b-');
+        grid on; ylabel('[deg]'); title([euler_labels{i} ' Angle']);
+    end
+    xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
 end
-xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
 % att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
 % set(gcf,'PaperPositionMode','auto');
 % print(gcf, att_file, '-dpdf', '-bestfit');
@@ -694,7 +702,7 @@ xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
 
 % --- Plot 5: Velocity Magnitude After ZUPTs ---
 zupt_indices = find(zupt_log);
-if ~isempty(zupt_indices)
+if ~dryrun && ~isempty(zupt_indices)
     fig_zupt = figure('Name', 'Post-ZUPT Velocity', 'Position', [300 300 800 400]);
     plot(imu_time(zupt_indices), zupt_vel_norm(zupt_indices), 'bo-');
     grid on; box on;
@@ -705,27 +713,29 @@ if ~isempty(zupt_indices)
               cfg.plots.save_pdf, cfg.plots.save_png);
 end
 
-plot_task5_mixed_frame(imu_time, x_log(1:3,:), x_log(4:6,:), ...
-    acc_log, euler_log, C_ECEF_to_NED, ref_r0, g_NED, run_id, method, results_dir, all_file, cfg);
-dprintf('Fused mixed frames plot saved\n');
+if ~dryrun
+    plot_task5_mixed_frame(imu_time, x_log(1:3,:), x_log(4:6,:), ...
+        acc_log, euler_log, C_ECEF_to_NED, ref_r0, g_NED, run_id, method, results_dir, all_file, cfg);
+    dprintf('Fused mixed frames plot saved\n');
 
-dprintf('Plotting all data in NED frame.\n');
-plot_task5_ned_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-    gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, run_id, cfg);
+    dprintf('Plotting all data in NED frame.\n');
+    plot_task5_ned_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
+        gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, run_id, cfg);
 
-dprintf('Plotting all data in ECEF frame.\n');
-plot_task5_ecef_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-    gnss_time, gnss_pos_ecef, gnss_vel_ecef, gnss_accel_ecef, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
+    dprintf('Plotting all data in ECEF frame.\n');
+    plot_task5_ecef_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
+        gnss_time, gnss_pos_ecef, gnss_vel_ecef, gnss_accel_ecef, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
 
-dprintf('Plotting all data in body frame.\n');
-plot_task5_body_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, acc_body_raw, euler_log, ...
-    gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, g_NED, run_id, cfg);
+    dprintf('Plotting all data in body frame.\n');
+    plot_task5_body_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, acc_body_raw, euler_log, ...
+        gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, g_NED, run_id, cfg);
 
-state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
-if exist(state_file, 'file')
-    dprintf('Plotting fused ECEF trajectory with truth overlay.\n');
-    plot_task5_ecef_truth(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-        state_file, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
+    state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
+    if exist(state_file, 'file')
+        dprintf('Plotting fused ECEF trajectory with truth overlay.\n');
+        plot_task5_ecef_truth(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
+            state_file, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
+    end
 end
 
 %% --- End-of-run summary statistics --------------------------------------
@@ -762,14 +772,16 @@ dprintf('Position: North=%.4f, East=%.4f, Down=%.4f\n', ...
 dprintf('RMSE_pos: %.4f\n', rmse_pos);
 
 % --- Plot: Position Residuals ---
-figure('Name', 'KF Results: Position Residuals', 'Position', [150 150 1200 600]);
-err_labels = {'N', 'E', 'D'};
-for i = 1:3
-    subplot(3,1,i);
-    plot(gnss_time, res_pos(:,i), 'b-');
-    grid on; ylabel('[m]'); title(['Residual ' err_labels{i}]);
+if ~dryrun
+    figure('Name', 'KF Results: Position Residuals', 'Position', [150 150 1200 600]);
+    err_labels = {'N', 'E', 'D'};
+    for i = 1:3
+        subplot(3,1,i);
+        plot(gnss_time, res_pos(:,i), 'b-');
+        grid on; ylabel('[m]'); title(['Residual ' err_labels{i}]);
+    end
+    xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
 end
-xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
 % err_file = fullfile(results_dir, sprintf('%s_Task5_ErrorAnalysis.pdf', tag));
 % set(gcf,'PaperPositionMode','auto');
 % print(gcf, err_file, '-dpdf', '-bestfit');
