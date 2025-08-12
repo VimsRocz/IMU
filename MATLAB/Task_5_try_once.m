@@ -8,7 +8,19 @@ function rmse_pos = Task_5_try_once(cfg, vel_q_scale, vel_r)
     % Use at most first 200k IMU steps for speed during tuning
     max_steps = 200000;
     % Determine total IMU samples to avoid requesting more steps than exist
-    total_samples = size(readmatrix(cfg.imu_path), 1);
+    fid = fopen(cfg.imu_path, 'r');
+    if fid == -1
+        error('Task_5_try_once:file', 'Could not open IMU file %s', cfg.imu_path);
+    end
+    total_samples = 0;
+    while ~feof(fid)
+        line = fgetl(fid);
+        if ~ischar(line)
+            break;
+        end
+        total_samples = total_samples + 1;
+    end
+    fclose(fid);
     steps = min(max_steps, total_samples);
     try
         res = Task_5(cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
