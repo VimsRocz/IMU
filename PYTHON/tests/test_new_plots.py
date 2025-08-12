@@ -33,13 +33,13 @@ def test_body_frame_plots(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["GNSS_IMU_Fusion.py"] + args)
     try:
         main()
-    except Exception as exc:  # pragma: no cover - handle PDF backend errors
+    except Exception as exc:  # pragma: no cover - handle plotting backend errors
         pytest.skip(f"plot generation failed: {exc}")
 
     res_dir = Path("results")
     expected = [
-        "*_task4_all_body.pdf",
-        "*_task5_all_body.pdf",
+        "*_task4_all_body.png",
+        "*_task5_all_body.png",
     ]
     for pattern in expected:
         matches = list(res_dir.glob(pattern))
@@ -50,5 +50,5 @@ def test_body_frame_plots(tmp_path, monkeypatch):
             ), f"Empty plot file {f}"
 
     # cleanup
-    for f in res_dir.glob("*.pdf"):
+    for f in res_dir.glob("*.png"):
         f.unlink()

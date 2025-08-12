@@ -103,10 +103,9 @@ def task7(csv_file: str = "temperatures.csv", output_dir: Path | str = "results"
     plt.legend()
     plt.grid(True, linestyle="--", alpha=0.7)
     base = output_path / "task7_temperature_histogram"
-    plt.savefig(base.with_suffix(".pdf"))
     plt.savefig(base.with_suffix(".png"))
     plt.close()
-    print(f"Histogram saved as {base.with_suffix('.pdf')} and .png")
+    print(f"Histogram saved as {base.with_suffix('.png')}")
 
     print("Returning statistical measures: (mean, median)")
     return data_mean, data_median

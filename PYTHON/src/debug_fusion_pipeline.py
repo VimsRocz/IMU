@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> None:
     plt.title("Timestamps: Fused vs Truth")
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(args.output / "debug_timestamps.pdf")
+    plt.savefig(args.output / "debug_timestamps.png")
     plt.close()
 
     interp_truth_pos = np.vstack([
@@ -93,14 +93,14 @@ def main(argv: list[str] | None = None) -> None:
     plt.title("Position Error Over Time")
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(args.output / "debug_error_norm.pdf")
+    plt.savefig(args.output / "debug_error_norm.png")
     plt.close()
 
     plot_fused_vs_truth(
         t_fused,
         interp_truth_pos,
         pos_fused,
-        args.output / "debug_overlay_ecef.pdf",
+        args.output / "debug_overlay_ecef.png",
         frame_label="ECEF",
     )
 

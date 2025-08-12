@@ -5,7 +5,7 @@ Usage:
 
 The script reads ``results/summary.csv`` produced by ``summarise_runs.py`` and
 creates ``results/project_summary.pdf`` with one page per dataset. Each page
-lists the RMSE and final error metrics and embeds the corresponding plot PDF if
+lists the RMSE and final error metrics and embeds the corresponding plot PNG if
 available. This utility mirrors the MATLAB helper ``validate_pipeline_summary.m``
 for cross-language comparison.
 """
@@ -36,7 +36,7 @@ def main():
         pdf.set_font("Arial", size=12)
         pdf.multi_cell(0, 8, f"RMSEpos = {row['rmse_pos']} m, Final Error = {row['final_pos']} m")
         base = os.path.splitext(row['imu'])[0]
-        image = f"results/{base}_{row['method']}_plots.pdf"
+        image = f"results/{base}_{row['method']}_plots.png"
         if os.path.exists(image):
             pdf.image(image, w=180)
 

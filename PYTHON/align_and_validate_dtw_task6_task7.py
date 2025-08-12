@@ -153,7 +153,7 @@ def plot_task6_results(
         plt.xlabel("Time (s)"); plt.ylabel(f"Acceleration {lab} (m/s²)")
         plt.legend(); plt.grid(True)
     plt.tight_layout()
-    out_path = os.path.join(output_dir, f"{method_name}_task6_results_ned.pdf")
+    out_path = os.path.join(output_dir, f"{method_name}_task6_results_ned.png")
     plt.savefig(out_path)
     plt.close()
 
@@ -175,7 +175,7 @@ def plot_task6_results(
         plt.xlabel("Time (s)"); plt.ylabel(f"Velocity {lab} (m/s)")
         plt.legend(); plt.grid(True)
     plt.tight_layout()
-    out_path = os.path.join(output_dir, f"{method_name}_task6_results_mixed.pdf")
+    out_path = os.path.join(output_dir, f"{method_name}_task6_results_mixed.png")
     plt.savefig(out_path)
     plt.close()
 
@@ -188,7 +188,7 @@ def plot_task6_results(
         plt.xlabel("Time (s)"); plt.ylabel(f"Position {lab} (m)")
         plt.legend(); plt.grid(True)
     plt.tight_layout()
-    out_path = os.path.join(output_dir, f"{method_name}_task6_results_all_ned.pdf")
+    out_path = os.path.join(output_dir, f"{method_name}_task6_results_all_ned.png")
     plt.savefig(out_path)
     plt.close()
 
@@ -204,7 +204,7 @@ def plot_task6_results(
         plt.xlabel("Time (s)"); plt.ylabel(f"Position {lab} (m)")
         plt.legend(); plt.grid(True)
     plt.tight_layout()
-    out_path = os.path.join(output_dir, f"{method_name}_task6_results_all_ecef.pdf")
+    out_path = os.path.join(output_dir, f"{method_name}_task6_results_all_ecef.png")
     plt.savefig(out_path)
     plt.close()
 
@@ -219,7 +219,7 @@ def plot_task6_results(
         plt.xlabel("Time (s)"); plt.ylabel(f"Position {lab} (m)")
         plt.legend(); plt.grid(True)
     plt.tight_layout()
-    out_path = os.path.join(output_dir, f"{method_name}_task6_results_all_body.pdf")
+    out_path = os.path.join(output_dir, f"{method_name}_task6_results_all_body.png")
     plt.savefig(out_path)
     plt.close()
 

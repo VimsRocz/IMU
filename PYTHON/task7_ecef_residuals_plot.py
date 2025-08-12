@@ -102,13 +102,11 @@ def plot_residuals(
     fig.suptitle(f"{tag} Task 7 ECEF Residual Norms")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     norm_name = plot_filename(dataset, gnss, method, 7, "3", "ecef_residual_norms")
-    norm_pdf = out_dir / norm_name
-    norm_png = norm_pdf.with_suffix(".png")
-    fig.savefig(norm_pdf)
+    norm_png = out_dir / norm_name
     fig.savefig(norm_png)
     plt.close(fig)
 
-    saved = sorted(out_dir.glob(f"{tag}_task7_*ecef_residual*.pdf"))
+    saved = sorted(out_dir.glob(f"{tag}_task7_*ecef_residual*.png"))
     if saved:
         print("Files saved in", out_dir)
         for f in saved:

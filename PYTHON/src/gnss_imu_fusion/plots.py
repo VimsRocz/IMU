@@ -37,7 +37,7 @@ def save_zupt_variance(
     plt.ylabel("Variance")
     plt.tight_layout()
     plt.title("ZUPT Detection and Accelerometer Variance")
-    filename = f"results/IMU_{dataset_id}_ZUPT_variance.pdf"
+    filename = f"results/IMU_{dataset_id}_ZUPT_variance.png"
     plt.savefig(filename)
     plt.close()
 
@@ -70,7 +70,7 @@ def save_euler_angles(
     plt.legend(loc="best")
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) vs. Time")
-    filename = f"results/{dataset_id}_{method}_attitude_angles_over_time.pdf"
+    filename = f"results/{dataset_id}_{method}_attitude_angles_over_time.png"
     plt.savefig(filename)
     plt.close()
 
@@ -157,7 +157,7 @@ def save_attitude_over_time(
     plt.legend(loc="best")
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) Over Time")
-    filename = f"results/{dataset_id}_{method}_attitude_angles_over_time.pdf"
+    filename = f"results/{dataset_id}_{method}_attitude_angles_over_time.png"
     plt.savefig(filename)
     plt.close()
 
@@ -174,7 +174,7 @@ def save_velocity_profile(t: np.ndarray, vel_filter: np.ndarray, vel_gnss: np.nd
     plt.title("Velocity Profile")
     plt.legend(loc="best")
     plt.tight_layout()
-    plt.savefig("results/velocity_profile.pdf")
+    plt.savefig("results/velocity_profile.png")
     plt.close()
 
 

@@ -164,7 +164,7 @@ def main() -> None:
         ax.set_ylabel(f"Position {lab} error [m]")
         ax.legend()
         fig.tight_layout()
-        fig.savefig(out_dir / f"pos_err_{lab}.pdf")
+        fig.savefig(out_dir / f"pos_err_{lab}.png")
         plt.close(fig)
 
     for i, lab in enumerate(labels_vel):
@@ -177,7 +177,7 @@ def main() -> None:
         ax.set_ylabel(f"Velocity {lab} error [m/s]")
         ax.legend()
         fig.tight_layout()
-        fig.savefig(out_dir / f"vel_err_{lab}.pdf")
+        fig.savefig(out_dir / f"vel_err_{lab}.png")
         plt.close(fig)
 
     for i, lab in enumerate(labels_quat):
@@ -190,7 +190,7 @@ def main() -> None:
         ax.set_ylabel(f"Quaternion {lab} error")
         ax.legend()
         fig.tight_layout()
-        fig.savefig(out_dir / f"quat_err_{lab}.pdf")
+        fig.savefig(out_dir / f"quat_err_{lab}.png")
         plt.close(fig)
 
     print(

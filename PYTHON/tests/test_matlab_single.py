@@ -28,6 +28,6 @@ def test_matlab_single(tmp_path):
     assert np.isfinite(pos).all() and np.isfinite(vel).all()
 
     res_dir = Path('results')
-    for f in res_dir.glob('*.pdf'):
+    for f in res_dir.glob('*.png'):
         f.unlink()
 

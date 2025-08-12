@@ -87,7 +87,7 @@ def plot_one(method, packs):
                      ncol=3, frameon=False)
     fig.suptitle(f"All datasets – Method: {method}", fontsize=16)
     fig.tight_layout()
-    out = RESULTS_DIR / f"all_datasets_{method}_comparison.pdf"
+    out = RESULTS_DIR / f"all_datasets_{method}_comparison.png"
     fig.savefig(out)
     print(f"  ➜ wrote {out}")
 

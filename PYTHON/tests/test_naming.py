@@ -19,4 +19,4 @@ def test_output_dir(tmp_path):
 
 def test_plot_filename():
     name = plot_filename("IMU_X001.dat", "GNSS_X001.csv", "TRIAD", 7, "3", "residuals")
-    assert name == "IMU_X001_GNSS_X001_TRIAD_task7_3_residuals.pdf"
+    assert name == "IMU_X001_GNSS_X001_TRIAD_task7_3_residuals.png"

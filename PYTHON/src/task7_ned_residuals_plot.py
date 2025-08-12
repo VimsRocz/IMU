@@ -143,9 +143,7 @@ def plot_residuals(
     fig.suptitle(f"{dataset} Task 7 NED Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     out_dir.mkdir(parents=True, exist_ok=True)
-    pdf = out_dir / f"{dataset}_task7_ned_residuals.pdf"
     png = out_dir / f"{dataset}_task7_ned_residuals.png"
-    fig.savefig(pdf)
     fig.savefig(png)
     try:
         from utils import save_plot_mat
@@ -164,9 +162,7 @@ def plot_residuals(
     ax.grid(True)
     fig.suptitle(f"{dataset} Task 7 NED Residual Norms")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    norm_pdf = out_dir / f"{dataset}_task7_ned_residual_norms.pdf"
     norm_png = out_dir / f"{dataset}_task7_ned_residual_norms.png"
-    fig.savefig(norm_pdf)
     fig.savefig(norm_png)
     try:
         from utils import save_plot_mat
@@ -175,7 +171,7 @@ def plot_residuals(
         pass
     plt.close(fig)
 
-    saved = sorted(out_dir.glob(f"{dataset}_task7_ned_residual*.pdf"))
+    saved = sorted(out_dir.glob(f"{dataset}_task7_ned_residual*.png"))
     if saved:
         print("Files saved in", out_dir)
         for f in saved:
@@ -211,7 +207,7 @@ def main() -> None:
 
     out_dir = args.output_dir
     plot_residuals(t_rel, res_pos, res_vel, res_acc, args.dataset, out_dir)
-    saved = sorted(out_dir.glob(f"{args.dataset}_task7_ned_residual*.pdf"))
+    saved = sorted(out_dir.glob(f"{args.dataset}_task7_ned_residual*.png"))
     if saved:
         print("Files saved in", out_dir)
         for f in saved:

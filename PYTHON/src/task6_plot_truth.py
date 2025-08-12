@@ -2,9 +2,9 @@
 """Task 6 – Overlay fused results with the raw state trajectory.
 
 This helper script loads the Kalman filter output from Task 5 together with
-the corresponding ground truth file and saves only ``*_overlay_state.pdf``
+the corresponding ground truth file and saves only ``*_overlay_state.png``
 figures showing the fused estimate versus the raw ``STATE_X`` data. Any
-legacy ``*_overlay_truth.pdf`` output is skipped. Plots and logs will be
+legacy ``*_overlay_truth.png`` output is skipped. Plots and logs will be
 saved in ``results/``.
 
 The script normally infers the IMU and GNSS file names from the estimator
@@ -55,7 +55,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         default="results",
-        help="Directory for the generated PDFs",
+        help="Directory for the generated PNGs",
     )
     parser.add_argument(
         "--tag",
@@ -120,7 +120,7 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Remove any old Task 6 truth overlay PDFs in this directory
-    for f in glob.glob(str(out_dir / "*task6_*_truth.pdf")):
+    for f in glob.glob(str(out_dir / "*task6_*_truth.png")):
         try:
             os.remove(f)
         except OSError:
@@ -252,7 +252,7 @@ def main() -> None:
                 v_t = v_t * sign
                 a_t = a_t * sign
                 truth = (t_t, p_t, v_t, a_t)
-        # Skip generation of legacy *overlay_truth.pdf figures
+        # Skip generation of legacy *overlay_truth.png figures
 
         if truth is not None:
             t_t, p_t, v_t, a_t = truth
@@ -277,7 +277,7 @@ def main() -> None:
             if frame_name == "NED":
                 p_t = centre(p_t)
 
-        name_state = f"{tag}_task6_overlay_state_{frame_name}.pdf"
+        name_state = f"{tag}_task6_overlay_state_{frame_name}.png"
         plot_overlay(
             frame_name,
             method,
@@ -313,7 +313,7 @@ def main() -> None:
             "FinalAcc",
         ]
         print(tabulate(summary_rows, headers=headers, floatfmt=".3f"))
-    saved = sorted(out_dir.glob(f"{tag}_task6_*.pdf"))
+    saved = sorted(out_dir.glob(f"{tag}_task6_*.png"))
     if saved:
         print("Files saved in", out_dir)
         for f in saved:

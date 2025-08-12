@@ -48,8 +48,8 @@ def plot_overlay(
         Only "state" is supported.  The "truth" option is obsolete.
     suffix : str or None, optional
         Filename suffix appended to ``"{method}_{frame}"`` when saving the
-        figure. Defaults to ``"_overlay_state.pdf"`` when truth data is
-        supplied and ``"_overlay.pdf"`` otherwise.
+        figure. Defaults to ``"_overlay_state.png"`` when truth data is
+        supplied and ``"_overlay.png"`` otherwise.
     filename : str or None, optional
         Full filename (relative to ``out_dir``) for the saved figure. When
         provided, overrides the ``method``/``frame`` naming scheme and the
@@ -62,7 +62,7 @@ def plot_overlay(
         t_truth, pos_truth, vel_truth, acc_truth = truth
 
     if suffix is None:
-        suffix = "_overlay_state.pdf" if t_truth is not None else "_overlay.pdf"
+        suffix = "_overlay_state.png" if t_truth is not None else "_overlay.png"
 
     axis_labels = {
         "NED": ["\u0394N [m]", "\u0394E [m]", "\u0394D [m]"],
@@ -169,14 +169,12 @@ def plot_overlay(
     else:
         out_path = Path(out_dir) / f"{method}_{frame}{suffix}"
 
-    fname_pdf = out_path.with_suffix(".pdf")
     fname_png = out_path.with_suffix(".png")
-    fig.savefig(fname_pdf, dpi=300, bbox_inches="tight")
-    fig.savefig(fname_png, dpi=150, bbox_inches="tight")
+    fig.savefig(fname_png, dpi=300, bbox_inches="tight")
     try:
         from utils import save_plot_mat
         save_plot_mat(fig, str(out_path.with_suffix(".mat")))
     except Exception:
         pass
-    print(f"Saved overlay figure {fname_pdf}")
+    print(f"Saved overlay figure {fname_png}")
     plt.close(fig)

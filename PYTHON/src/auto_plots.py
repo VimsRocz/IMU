@@ -51,7 +51,7 @@ def save_task3_plots(method_name: str, dataset_name: str, quat_df: pd.DataFrame,
     quat_df.pivot(index="component", columns="case", values="value").plot.bar(ax=ax)
     ax.set_title(f"{method_name} quaternion components ({dataset_name})")
     fig.savefig(
-        f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task3_quat.pdf",
+        f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task3_quat.png",
         dpi=200,
     )
     plt.close(fig)
@@ -61,7 +61,7 @@ def save_task3_plots(method_name: str, dataset_name: str, quat_df: pd.DataFrame,
     ax.set_ylabel("Angle error [deg]")
     ax.set_title(f"{method_name} attitude error ({dataset_name})")
     fig.savefig(
-        f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task3_error.pdf",
+        f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task3_error.png",
         dpi=200,
     )
     plt.close(fig)
@@ -84,7 +84,7 @@ def save_task4_plots(method_name: str, dataset_name: str, gnss_ned: pd.DataFrame
         )
         ax.legend(loc="best")
         fig.savefig(
-            f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task4_{comp}_pos.pdf",
+            f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task4_{comp}_pos.png",
             dpi=200,
         )
         plt.close(fig)
@@ -107,7 +107,7 @@ def save_task5_plots(method_name: str, dataset_name: str, fused: pd.DataFrame,
         )
         ax.legend(loc="best")
         fig.savefig(
-            f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task5_{comp}_pos.pdf",
+            f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task5_{comp}_pos.png",
             dpi=200,
         )
         plt.close(fig)
@@ -125,7 +125,7 @@ def save_validation_plots(method_name: str, dataset_name: str,
         )
         ax.legend(loc="best")
         fig.savefig(
-            f"{OUTPUT_DIR}/{dataset_name}_{method_name}_{name}.pdf",
+            f"{OUTPUT_DIR}/{dataset_name}_{method_name}_{name}.png",
             dpi=200,
         )
         plt.close(fig)

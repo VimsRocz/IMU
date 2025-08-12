@@ -10,9 +10,9 @@ def _rotation_ecef_to_ned(lat_deg: float, lon_deg: float) -> np.ndarray:
     lat = np.radians(lat_deg)
     lon = np.radians(lon_deg)
     return np.array([
-        [-np.sin(lat) * np.cos(lon), -np.sin(lon), -np.cos(lat) * np.cos(lon)],
-        [-np.sin(lat) * np.sin(lon),  np.cos(lon), -np.cos(lat) * np.sin(lon)],
-        [ np.cos(lat),               0.0,         -np.sin(lat)],
+        [-np.sin(lat) * np.cos(lon), -np.sin(lat) * np.sin(lon),  np.cos(lat)],
+        [-np.sin(lon),               np.cos(lon),                0.0],
+        [-np.cos(lat) * np.cos(lon), -np.cos(lat) * np.sin(lon), -np.sin(lat)],
     ])
 
 
@@ -39,3 +39,14 @@ def ned_to_ecef(n: Iterable[float], e: Iterable[float], d: Iterable[float],
     R = _rotation_ecef_to_ned(lat0, lon0)
     ecef = np.linalg.inv(R) @ np.vstack((n, e, d))
     return ecef[0] + x0, ecef[1] + y0, ecef[2] + z0
+
+
+def R_ecef_to_ned(lat_deg: float, lon_deg: float) -> np.ndarray:
+    """Return rotation matrix from ECEF to NED for given latitude/longitude."""
+    return _rotation_ecef_to_ned(lat_deg, lon_deg)
+
+
+def ecef_vec_to_ned(vec: np.ndarray, lat_deg: float, lon_deg: float) -> np.ndarray:
+    """Rotate an ECEF vector into the NED frame."""
+    R = _rotation_ecef_to_ned(lat_deg, lon_deg)
+    return R @ vec

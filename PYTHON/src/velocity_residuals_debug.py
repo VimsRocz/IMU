@@ -107,9 +107,7 @@ def main() -> None:
     plt.legend()
     plt.title("Z Velocity: GNSS vs Fused")
     plt.grid(True)
-    pdf = out_dir / "velocity_z_overlay.pdf"
     png = out_dir / "velocity_z_overlay.png"
-    plt.savefig(pdf)
     plt.savefig(png)
     plt.close()
 

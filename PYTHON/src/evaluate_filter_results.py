@@ -406,16 +406,13 @@ def subtask7_5_diff_plot(
         fig.suptitle(f"Truth - Fused Differences ({frame} Frame)")
         fig.tight_layout(rect=[0, 0, 1, 0.95])
         base = plot_path(out_dir, run_id, 7, "5", "diff_truth_fused_over_time")
-        pdf = base.with_name(base.stem + f"_{frame}.pdf")
-        png = pdf.with_suffix(".png")
-        fig.savefig(pdf)
-        print(f"Saved {pdf}")
+        png = base.with_name(base.stem + f"_{frame}.png")
         fig.savefig(png)
         print(f"Saved {png}")
         try:
             from utils import save_plot_mat, save_plot_fig
-            save_plot_mat(fig, str(pdf.with_suffix(".mat")))
-            save_plot_fig(fig, str(pdf.with_suffix(".fig")))
+            save_plot_mat(fig, str(png.with_suffix(".mat")))
+            save_plot_fig(fig, str(png.with_suffix(".fig")))
         except Exception:
             pass
         plt.close(fig)

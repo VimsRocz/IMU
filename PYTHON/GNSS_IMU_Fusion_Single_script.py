@@ -179,13 +179,13 @@ ax.text(
 
 # Set plot title and save
 plt.title("Initial Location on Earth Map")
-loc_pdf = RES_DIR / f"{TAG}_task1_location_map.pdf"
-plt.savefig(loc_pdf)
+loc_png = RES_DIR / f"{TAG}_task1_location_map.png"
+plt.savefig(loc_png)
 if INTERACTIVE:
     plt.show()
 plt.close()
 
-logging.info(f"Location map saved as '{loc_pdf}'")
+logging.info(f"Location map saved as '{loc_png}'")
 
 
 # ================================
@@ -618,13 +618,13 @@ axes[1].set_ylabel("Error (degrees)")
 axes[1].legend()
 
 plt.tight_layout()
-plt.savefig(RES_DIR / f"{TAG}_task3_errors_comparison.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task3_errors_comparison.png")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
     "Error comparison plot saved as '%s'",
-    RES_DIR / f"{TAG}_task3_errors_comparison.pdf",
+    RES_DIR / f"{TAG}_task3_errors_comparison.png",
 )
 
 # Collect quaternion data for both cases
@@ -656,13 +656,13 @@ ax.set_title("Quaternion Components for Each Method and Case")
 ax.legend()
 
 plt.tight_layout()
-plt.savefig(RES_DIR / f"{TAG}_task3_quaternions_comparison.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task3_quaternions_comparison.png")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
     "Quaternion comparison plot saved as '%s'",
-    RES_DIR / f"{TAG}_task3_quaternions_comparison.pdf",
+    RES_DIR / f"{TAG}_task3_quaternions_comparison.png",
 )
 
 # --------------------------------
@@ -929,13 +929,13 @@ for j in range(3):
     ax.set_ylabel("Acceleration (m/s²)")
     ax.legend()
 plt.tight_layout()
-plt.savefig(RES_DIR / f"{TAG}_task4_comparison_ned.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task4_comparison_ned.png")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
     "Comparison plot in NED frame saved as '%s'",
-    RES_DIR / f"{TAG}_task4_comparison_ned.pdf",
+    RES_DIR / f"{TAG}_task4_comparison_ned.png",
 )
 
 # Plot 1: Data in mixed frames (GNSS position/velocity in ECEF, IMU acceleration in body)
@@ -967,13 +967,13 @@ for i in range(3):
         ax.set_ylabel("Value")
         ax.legend()
 plt.tight_layout()
-plt.savefig(RES_DIR / f"{TAG}_task4_mixed_frames.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task4_mixed_frames.png")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
     "Mixed frames plot saved as '%s'",
-    RES_DIR / f"{TAG}_task4_mixed_frames.pdf",
+    RES_DIR / f"{TAG}_task4_mixed_frames.png",
 )
 
 # Plot 2: All data in NED frame
@@ -1004,13 +1004,13 @@ for i in range(3):
         ax.set_ylabel("Value")
         ax.legend()
 plt.tight_layout()
-plt.savefig(RES_DIR / f"{TAG}_task4_all_ned.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task4_all_ned.png")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
     "All data in NED frame plot saved as '%s'",
-    RES_DIR / f"{TAG}_task4_all_ned.pdf",
+    RES_DIR / f"{TAG}_task4_all_ned.png",
 )
 
 # Plot 3: All data in ECEF frame
@@ -1042,13 +1042,13 @@ for i in range(3):
         ax.set_ylabel("Value")
         ax.legend()
 plt.tight_layout()
-plt.savefig(RES_DIR / f"{TAG}_task4_all_ecef.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task4_all_ecef.png")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
     "All data in ECEF frame plot saved as '%s'",
-    RES_DIR / f"{TAG}_task4_all_ecef.pdf",
+    RES_DIR / f"{TAG}_task4_all_ecef.png",
 )
 
 # Plot 4: All data in body frame
@@ -1080,13 +1080,13 @@ for i in range(3):
         ax.set_ylabel("Value")
         ax.legend()
 plt.tight_layout()
-plt.savefig(RES_DIR / f"{TAG}_task4_all_body.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task4_all_body.png")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
     "All data in body frame plot saved as '%s'",
-    RES_DIR / f"{TAG}_task4_all_body.pdf",
+    RES_DIR / f"{TAG}_task4_all_body.png",
 )
 
 
@@ -1405,13 +1405,13 @@ for j in range(3):
     )
 
 plt.tight_layout()
-plt.savefig(RES_DIR / f"{TAG}_task5_results_TRIAD.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task5_results_TRIAD.png")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
     "Subtask 5.8.1: TRIAD plot saved as '%s'",
-    RES_DIR / f"{TAG}_task5_results_TRIAD.pdf",
+    RES_DIR / f"{TAG}_task5_results_TRIAD.png",
 )
 print("# Subtask 5.8.1: TRIAD plotting completed.")
 
@@ -1456,7 +1456,7 @@ axes[1].set_title("Velocity Residuals vs. Time")
 axes[1].legend(loc="best")
 
 plt.tight_layout()
-plt.savefig(RES_DIR / f"{TAG}_residuals.pdf")
+plt.savefig(RES_DIR / f"{TAG}_residuals.png")
 plt.close()
 
 # Compute attitude angles (roll, pitch, yaw) for the selected method
@@ -1473,5 +1473,5 @@ plt.ylabel("Angle (deg)")
 plt.title("Attitude Angles vs. Time")
 plt.legend(loc="best")
 plt.tight_layout()
-plt.savefig(RES_DIR / f"{TAG}_attitude_angles.pdf")
+plt.savefig(RES_DIR / f"{TAG}_attitude_angles.png")
 plt.close()

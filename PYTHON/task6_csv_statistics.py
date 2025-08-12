@@ -87,10 +87,9 @@ def task6(csv_file: str = "data_task6.csv", output_dir: Path | str = "results") 
     plt.ylabel("Frequency")
     plt.grid(True, linestyle="--", alpha=0.7)
     base = output_path / "task6_histogram"
-    plt.savefig(base.with_suffix(".pdf"))
     plt.savefig(base.with_suffix(".png"))
     plt.close()
-    print(f"Histogram saved as {base.with_suffix('.pdf')} and .png")
+    print(f"Histogram saved as {base.with_suffix('.png')}")
 
     print("Returning statistical measures: (mean, median, mode)")
     return data_mean, data_median, data_mode

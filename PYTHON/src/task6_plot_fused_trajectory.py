@@ -151,8 +151,8 @@ def plot_task6_fused_trajectory(
         out_name = (
             f"{imu_file}_{gnss_file}_{method}_task6_fused_position_{frame_name.lower()}"
         )
-        pdf_path = Path("results") / f"{out_name}.pdf"
-        fig.savefig(pdf_path)
+        png_path = Path("results") / f"{out_name}.png"
+        fig.savefig(png_path)
         try:
             from utils import save_plot_mat
             save_plot_mat(fig, str(Path("results") / f"{out_name}.mat"))
@@ -181,8 +181,8 @@ def plot_task6_fused_trajectory(
         out_name = (
             f"{imu_file}_{gnss_file}_{method}_task6_fused_velocity_{frame_name.lower()}"
         )
-        pdf_path = Path("results") / f"{out_name}.pdf"
-        fig.savefig(pdf_path)
+        png_path = Path("results") / f"{out_name}.png"
+        fig.savefig(png_path)
         try:
             from utils import save_plot_mat
             save_plot_mat(fig, str(Path("results") / f"{out_name}.mat"))
@@ -202,8 +202,8 @@ def plot_task6_fused_trajectory(
     fig.suptitle(f"Task 6: {method} Position Error (NED Frame)")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     out_name = f"{imu_file}_{gnss_file}_{method}_task6_position_error_ned"
-    pdf_path = Path("results") / f"{out_name}.pdf"
-    fig.savefig(pdf_path)
+    png_path = Path("results") / f"{out_name}.png"
+    fig.savefig(png_path)
     try:
         from utils import save_plot_mat
         save_plot_mat(fig, str(Path("results") / f"{out_name}.mat"))
@@ -243,7 +243,7 @@ def plot_quaternion_comparison(
     fig.suptitle("Task 6: Quaternion Components")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     out_path = (
-        Path("results") / f"{imu_file}_{gnss_file}_task6_quaternion_comparison.pdf"
+        Path("results") / f"{imu_file}_{gnss_file}_task6_quaternion_comparison.png"
     )
     fig.savefig(out_path)
     try:

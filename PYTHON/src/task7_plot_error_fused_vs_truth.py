@@ -7,7 +7,7 @@ Usage:
 This script computes the velocity error ``FUSED - Truth`` for each
 component and plots the error over time. The estimator time vector is
 shifted to start at zero so plots align with Task 6. The resulting
-figure is saved as both PDF and PNG under the output directory.
+figure is saved as a PNG under the output directory.
 
 Corresponds to MATLAB/task7_plot_error_fused_vs_truth.m
 """
@@ -40,9 +40,7 @@ def plot_error(time: np.ndarray, err: np.ndarray, out_dir: Path) -> None:
     plt.grid(True)
     plt.tight_layout()
     out_dir.mkdir(parents=True, exist_ok=True)
-    pdf = out_dir / "task7_fused_vs_truth_error.pdf"
     png = out_dir / "task7_fused_vs_truth_error.png"
-    plt.savefig(pdf)
     plt.savefig(png)
     try:
         from utils import save_plot_mat

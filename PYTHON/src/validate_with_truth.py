@@ -11,15 +11,7 @@ import matplotlib.pyplot as plt
 from tabulate import tabulate
 
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic, zero_base_time
-import importlib.util
-from pathlib import Path as _Path
-
-_frames_path = _Path(__file__).resolve().parent / "utils" / "frames.py"
-_spec = importlib.util.spec_from_file_location("_frames", _frames_path)
-_frames = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_frames)
-R_ecef_to_ned = _frames.R_ecef_to_ned
-ecef_vec_to_ned = _frames.ecef_vec_to_ned
+from utils.frames import R_ecef_to_ned, ecef_vec_to_ned
 from plot_overlay import plot_overlay
 import pandas as pd
 import re
@@ -416,7 +408,7 @@ def run_debug_checks(estimate_file, truth_file, dataset):
             plt.ylabel(lbl)
             plt.legend()
             plt.tight_layout()
-            plt.savefig(Path("results") / f"debug_{lbl}.pdf")
+            plt.savefig(Path("results") / f"debug_{lbl}.png")
             plt.close()
     except Exception as e:  # pragma: no cover - plotting helper
         print(f"Plot generation failed: {e}")
@@ -1155,7 +1147,7 @@ def main():
             plt.ylabel(f"{lbl} error")
             plt.legend()
             plt.tight_layout()
-            plt.savefig(os.path.join(args.output, f"{prefix}_{lbl}.pdf"))
+            plt.savefig(os.path.join(args.output, f"{prefix}_{lbl}.png"))
             plt.close()
 
     plot_err(dist_truth, err_pos, sigma_pos, ["X", "Y", "Z"], "pos_err", "Distance [m]")
@@ -1183,7 +1175,7 @@ def main():
                 t_g, p_g, v_g, a_g = data["gnss"]
                 t_f, p_f, v_f, a_f = data["fused"]
                 truth = data.get("truth")
-                filename = f"{tag}_task6_overlay_state_{frame_name}.pdf"
+                filename = f"{tag}_task6_overlay_state_{frame_name}.png"
                 plot_overlay(
                     frame_name,
                     method,

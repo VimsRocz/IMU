@@ -130,7 +130,7 @@ def plot_residuals(res_df: pd.DataFrame, out_dir: str) -> None:
 
     fig.suptitle('Filter Residuals')
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(os.path.join(out_dir, 'residuals.pdf'))
+    fig.savefig(os.path.join(out_dir, 'residuals.png'))
     plt.close(fig)
 
 
@@ -144,7 +144,7 @@ def plot_residuals_new(
     method: str,
     out_dir: str = "results",
 ) -> None:
-    """Plot residuals in a 3×3 grid and save as PDF."""
+    """Plot residuals in a 3×3 grid and save as PNG."""
     res_pos = positions_meas - positions_pred
     res_vel = velocities_meas - velocities_pred
     acc = np.gradient(res_vel, gnss_times, axis=0)
@@ -173,7 +173,7 @@ def plot_residuals_new(
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     os.makedirs(out_dir, exist_ok=True)
     logging.info("Ensured '%s' directory exists.", out_dir)
-    out = os.path.join(out_dir, f"{dataset}_{method}_residuals.pdf")
+    out = os.path.join(out_dir, f"{dataset}_{method}_residuals.png")
     fig.savefig(out)
     plt.close(fig)
 
@@ -197,7 +197,7 @@ def plot_attitude(
     logging.info("Ensured '%s' directory exists.", out_dir)
     fig.suptitle(f'Attitude Angles: {dataset} - {method}')
     fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, f"{dataset}_{method}_attitude.pdf"))
+    fig.savefig(os.path.join(out_dir, f"{dataset}_{method}_attitude.png"))
     plt.close(fig)
 
 

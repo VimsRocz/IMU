@@ -1,13 +1,5 @@
-import importlib.util
-from pathlib import Path
 import numpy as np
-
-spec = importlib.util.spec_from_file_location(
-    "_frames", Path(__file__).resolve().parents[1] / "src" / "utils" / "frames.py"
-)
-frames = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(frames)
-R_ecef_to_ned = frames.R_ecef_to_ned
+from src.utils.frames import R_ecef_to_ned
 
 
 def test_ecef_to_ned_equator_prime_meridian():

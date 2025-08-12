@@ -27,5 +27,5 @@ def test_task6_rmse_plot(tmp_path):
         tmp_path,
     )
 
-    assert (tmp_path / "TESTDATA_TEST_Task6_ECEF_RMSE.pdf").exists()
+    assert (tmp_path / "TESTDATA_TEST_Task6_ECEF_RMSE.png").exists()
 
