@@ -92,12 +92,14 @@ title('Attitude difference vs TRIAD');
 base = sprintf('%s_%s_%s_task3_attitude', imu_id, gnss_id, method);
 fig_path = fullfile(results_dir, [base '.fig']);
 save_plot_fig(fig_cmp, fig_path);
-if isfield(cfg.plots,'save_pdf') && cfg.plots.save_pdf
+save_pdf = isfield(cfg,'plots') && isfield(cfg.plots,'save_pdf') && cfg.plots.save_pdf;
+save_png = isfield(cfg,'plots') && isfield(cfg.plots,'save_png') && cfg.plots.save_png;
+if save_pdf
     pdf_path = fullfile(results_dir, [base '.pdf']);
     set(fig_cmp, 'PaperPosition', [0 0 8 6]);
     print(fig_cmp, pdf_path, '-dpdf', '-bestfit');
 end
-if isfield(cfg.plots,'save_png') && cfg.plots.save_png
+if save_png
     png_path = fullfile(results_dir, [base '.png']);
     exportgraphics(fig_cmp, png_path, 'Resolution', 300);
 end
