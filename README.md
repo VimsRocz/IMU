@@ -507,16 +507,16 @@ See `docs/AdvancedTopics.md` for GitHub Codespaces instructions and MATLAB usage
 
 ### Documentation
 
-- `docs/TRIAD_Task1_Wiki.md` – defining reference vectors
-- `docs/TRIAD_Task2_Wiki.md` – measuring body-frame vectors
-- `docs/TRIAD_Task3_Wiki.md` – initial attitude determination
-- `docs/TRIAD_Task4_Wiki.md` – GNSS/IMU integration
-- `docs/TRIAD_Task5_Wiki.md` – Kalman filter fusion
-- `docs/TRIAD_Task6_Wiki.md` – truth overlay plots
-- `docs/Python/Task7_Python.md` – evaluation pipeline (Python)
-- `docs/MATLAB/Task7_MATLAB.md` – evaluation pipeline (MATLAB)
-- `Report/` – summary of a typical run
-- `docs/CHANGELOG.md` – list of recent features
+- [docs/TRIAD_Task1_Wiki.md](docs/TRIAD_Task1_Wiki.md) – defining reference vectors
+- [docs/TRIAD_Task2_Wiki.md](docs/TRIAD_Task2_Wiki.md) – measuring body-frame vectors
+- [docs/TRIAD_Task3_Wiki.md](docs/TRIAD_Task3_Wiki.md) – initial attitude determination
+- [docs/TRIAD_Task4_Wiki.md](docs/TRIAD_Task4_Wiki.md) – GNSS/IMU integration
+- [docs/TRIAD_Task5_Wiki.md](docs/TRIAD_Task5_Wiki.md) – Kalman filter fusion
+- [docs/TRIAD_Task6_Wiki.md](docs/TRIAD_Task6_Wiki.md) – truth overlay plots
+- [docs/Python/Task7_Python.md](docs/Python/Task7_Python.md) – evaluation pipeline (Python)
+- [docs/MATLAB/Task7_MATLAB.md](docs/MATLAB/Task7_MATLAB.md) – evaluation pipeline (MATLAB)
+- [Report/](Report/) – summary of a typical run
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) – list of recent features
 
 ## Repository Layout
 
