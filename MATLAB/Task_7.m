@@ -107,7 +107,6 @@ function Task_7()
         t_truth = zero_base_time(T.Posix_Time);
     end
 
-<<<<<<< HEAD
     % If time length mismatches truth samples, rebuild a matching vector
     n_truth = size(pos_truth_ecef, 2);
     if numel(t_truth) ~= n_truth
@@ -118,7 +117,8 @@ function Task_7()
             dt_est = median(diff(t_est));
             t_truth = (t_est(1):dt_est:(t_est(1)+dt_est*(n_truth-1))).';
         end
-=======
+    end
+
     % Recover reference origin if missing or clearly invalid
     if isempty(ref_r0) || numel(ref_r0) < 3 || norm(ref_r0) < 1e3
         if exist('pos_truth_ecef','var') && ~isempty(pos_truth_ecef)
@@ -132,7 +132,6 @@ function Task_7()
         end
     else
         ref_r0 = ref_r0(:);
->>>>>>> 40a0da545924b114ae425bd605776ae3cfe35f9e
     end
 
     %% Convert estimates from NED to ECEF
