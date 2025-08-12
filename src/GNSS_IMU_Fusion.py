@@ -20,6 +20,8 @@ import logging
 import sys
 import os
 import io
+import time
+import re
 from pathlib import Path
 
 if __package__ is None:
@@ -35,7 +37,14 @@ import pandas as pd
 from filterpy.kalman import KalmanFilter
 
 from scripts.plot_utils import save_plot, plot_attitude
-from paths import imu_path as _imu_path_helper, gnss_path as _gnss_path_helper, truth_path as _truth_path_helper, ensure_results_dir as _ensure_results, normalize_gnss_headers
+from paths import (
+    imu_path as _imu_path_helper,
+    gnss_path as _gnss_path_helper,
+    truth_path as _truth_path_helper,
+    ensure_results_dir as _ensure_results,
+    normalize_gnss_headers,
+)
+from task1_cache import save_task1_artifacts
 from utils import (
     is_static,
     compute_C_ECEF_to_NED,
@@ -223,6 +232,7 @@ def main():
         mag_NED,
         initial_vel_ned,
         ecef_origin,
+        gnss_columns,
     ) = compute_reference_vectors(gnss_file, args.mag_file)
     lat = np.deg2rad(lat_deg)
     _lon = np.deg2rad(lon_deg)
@@ -235,34 +245,68 @@ def main():
     logging.info(f"Latitude (deg):              {lat_deg:.6f}")
     logging.info(f"Longitude (deg):             {lon_deg:.6f}")
 
+    # --- Save Task 1 artifacts for reuse ---
+    R_ecef_to_ned = compute_C_ECEF_to_NED(lat, _lon)
+    R_ned_to_ecef = R_ecef_to_ned.T
+    arrays = {
+        "lat0_deg": np.array(lat_deg),
+        "lon0_deg": np.array(lon_deg),
+        "h0_m": np.array(alt if alt is not None else 0.0),
+        "g_ned": g_NED,
+        "omega_ie_ned": omega_ie_NED,
+        "R_ecef_to_ned": R_ecef_to_ned,
+        "R_ned_to_ecef": R_ned_to_ecef,
+        "r0_ecef_m": ecef_origin,
+    }
+    dataset_match = re.search(r"X\d+", gnss_stem)
+    dataset_id = dataset_match.group(0) if dataset_match else "unknown"
+    versions = {
+        "numpy": np.__version__,
+        "pandas": pd.__version__,
+    }
+    try:
+        import plotly
+        versions["plotly"] = plotly.__version__
+    except Exception:  # pragma: no cover - best effort
+        pass
+    meta = {
+        "dataset_id": dataset_id,
+        "method": method,
+        "imu_file": imu_file,
+        "gnss_file": gnss_file,
+        "truth_file": truth_file or "",
+        "time_saved": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "versions": versions,
+    }
+    save_task1_artifacts(Path("results"), tag, meta, arrays, gnss_columns)
+
     if not args.no_plots:
         try:
-            import cartopy.crs as ccrs
-        except Exception as e:  # pragma: no cover - optional
-            logging.warning(f"cartopy not available, skipping map generation: {e}")
+            import plotly.graph_objects as go
+        except ModuleNotFoundError:
+            logging.error(
+                "Plotly not installed. Please run `pip install -r requirements.txt` to enable interactive map."
+            )
         else:
-            fig = plt.figure(figsize=(10, 5))
-            ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-            ax.stock_img()
-            ax.set_extent(
-                [lon_deg - 5, lon_deg + 5, lat_deg - 5, lat_deg + 5],
-                crs=ccrs.PlateCarree(),
+            fig = go.Figure(
+                go.Scattergeo(lat=[lat_deg], lon=[lon_deg], mode="markers", marker=dict(size=8, color="red"))
             )
-            ax.plot(lon_deg, lat_deg, "ro", markersize=10, transform=ccrs.PlateCarree())
-            ax.text(
-                lon_deg + 1,
-                lat_deg,
-                f"Lat: {lat_deg:.4f}°, Lon: {lon_deg:.4f}°",
-                transform=ccrs.PlateCarree(),
+            fig.update_layout(
+                title="Task 1 – Initial Location (World View)",
+                geo=dict(
+                    projection=dict(type="equirectangular"),
+                    scope="world",
+                    showland=True,
+                    showcountries=True,
+                    showcoastlines=True,
+                    showlakes=True,
+                    lonaxis=dict(showgrid=True),
+                    lataxis=dict(showgrid=True),
+                ),
             )
-            fig.suptitle("Task 1: Initial Location on Earth Map")
-            fig.tight_layout()
-            pdf = Path("results") / f"{tag}_task1_location_map.pdf"
-            png = pdf.with_suffix(".png")
-            fig.savefig(pdf, bbox_inches="tight")
-            fig.savefig(png, dpi=150, bbox_inches="tight")
-            plt.close(fig)
-            logging.info("Location map saved")
+            html_path = Path("results") / f"{tag}_task1_location_map.html"
+            fig.write_html(str(html_path))
+            logging.info(f"Task 1: saved interactive map -> {html_path}")
     else:
         logging.info("Skipping plot generation (--no-plots)")
 
