@@ -11,6 +11,12 @@ function task3_results = Task_3(imu_path, gnss_path, method)
 %   automatically to keep the pipeline deterministic.
 
 addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
+% pull configuration from caller for downstream tasks
+try
+    cfg = evalin('caller','cfg');
+catch
+    cfg = struct();
+end
 
 % paths
 p = project_paths();                      % has fields: root, matlab_results, etc.

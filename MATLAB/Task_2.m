@@ -34,6 +34,12 @@ function body_data = Task_2(imu_path, gnss_path, method)
         gnss_path = '';
     end
     addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
+    % pull configuration from caller for downstream tasks
+    try
+        cfg = evalin('caller','cfg');
+    catch
+        cfg = struct();
+    end
     if ~isfile(imu_path)
         error('Task_2:IMUFileNotFound', ...
               'Could not find IMU data at:\n  %s', imu_path);
