@@ -181,14 +181,10 @@ end
     fs = 1/dt_imu;
     gyro_filt = low_pass_filter(gyro_body_raw, 10, fs);
     acc_filt  = low_pass_filter(acc_body_raw, 10, fs);
-<<<<<<< HEAD
-    [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt, 80, 0.01, 1e-6);
+    [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt, 80, 0.05, 0.005);
     % Derive representative body-frame gravity and Earth-rate from the static window
     g_body = -mean(acc_body_raw(static_start:static_end, :), 1)';
     omega_ie_body = mean(gyro_body_raw(static_start:static_end, :), 1)';
-=======
-    [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt, 80, 0.05, 0.005);
->>>>>>> origin/main
 
     % Load biases/scale from Task 4 if available (parity with Python). Fallback to Task 2.
     accel_bias = []; gyro_bias = []; accel_scale = [];
@@ -498,60 +494,35 @@ for i = 1:num_imu_samples
     z = [gnss_pos_i; gnss_vel_i];
     y = z - H * x;
     S = H * P * H' + R;
-    K = (P * H') / S;
-    x = x + K * y;
-    P = (eye(15) - K * H) * P;
-<<<<<<< HEAD
-    if i <= trace_n
-        trace.y(:,i) = y;
-        trace.K(:,:,i) = K;
-        trace.i(i) = i;
-    end
-
-    % --- 4. Velocity magnitude check ---
-    if norm(x(4:6)) > 500
-        vel_blow_count = vel_blow_count + 1;
-        if vel_blow_count == 1 || ...
-                (vel_blow_warn_interval > 0 && mod(vel_blow_count, vel_blow_warn_interval) == 0)
-            warning('Velocity blew up (%.1f m/s); zeroing \x0394v and continuing.', ...
-                    norm(x(4:6)));
+    if any(~isfinite(S(:))) || rcond(S) < eps
+        warning('Singular S matrix at k=%d; skipping measurement update.', i);
+    else
+        K = (P * H') / S;
+        x = x + K * y;
+        P = (eye(15) - K * H) * P;
+        if i <= trace_n
+            trace.y(:,i) = y;
+            trace.K(:,:,i) = K;
+            trace.i(i) = i;
         end
-        x(4:6) = 0;
-    end
 
-=======
->>>>>>> origin/main
+        % --- 4. Velocity magnitude check ---
+        if norm(x(4:6)) > 500
+            vel_blow_count = vel_blow_count + 1;
+            if vel_blow_count == 1 || ...
+                    (vel_blow_warn_interval > 0 && mod(vel_blow_count, vel_blow_warn_interval) == 0)
+                warning('Velocity blew up (%.1f m/s); zeroing \x0394v and continuing.', ...
+                        norm(x(4:6)));
+            end
+            x(4:6) = 0;
+        end
+    end
     % update integrator history after correction
     prev_vel = x(4:6);
     prev_a_ned = a_ned;
 
     % --- 5. Zero-Velocity Update (ZUPT) ---
     win_size = 80;
-<<<<<<< HEAD
-    if i > win_size
-        acc_win = acc_body_raw(i-win_size+1:i, :);
-        gyro_win = gyro_body_raw(i-win_size+1:i, :);
-        now_static = is_static(acc_win, gyro_win);
-        if now_static && ~in_static
-            zupt_count = zupt_count + 1;
-            zupt_log(i) = 1;
-            H_z = [zeros(3,3), eye(3), zeros(3,9)];
-            R_z = eye(3) * 1e-4;  % align with Python's ZUPT strength
-            y_z = -H_z * x;
-            S_z = H_z * P * H_z' + R_z;
-            K_z = (P * H_z') / S_z;
-            x = x + K_z * y_z;
-            P = (eye(15) - K_z * H_z) * P;
-            zupt_vel_norm(i) = norm(x(4:6));
-            if zupt_vel_norm(i) > 1e-6
-                zupt_fail_count = zupt_fail_count + 1;
-            end
-            x(4:6) = 0;
-            in_static = true;
-        elseif ~now_static
-            in_static = false;
-        end
-=======
     acc_win = acc_body_raw(max(1,i-win_size+1):i, :);
     gyro_win = gyro_body_raw(max(1,i-win_size+1):i, :);
     acc_std = max(std(acc_win,0,1));
@@ -563,19 +534,22 @@ for i = 1:num_imu_samples
         R_z = eye(3) * 1e-6;
         y_z = -H_z * x;
         S_z = H_z * P * H_z' + R_z;
-        K_z = (P * H_z') / S_z;
-        x = x + K_z * y_z;
-        P = (eye(15) - K_z * H_z) * P;
-        zupt_vel_norm(i) = norm(x(4:6));
-        if zupt_vel_norm(i) > vel_thresh
-            zupt_fail_count = zupt_fail_count + 1;
-            fprintf('ZUPT clamp failure at k=%d (norm=%.3f)\n', i, zupt_vel_norm(i));
+        if any(~isfinite(S_z(:))) || rcond(S_z) < eps
+            warning('Singular ZUPT matrix at k=%d; skipping ZUPT update.', i);
+        else
+            K_z = (P * H_z') / S_z;
+            x = x + K_z * y_z;
+            P = (eye(15) - K_z * H_z) * P;
+            zupt_vel_norm(i) = norm(x(4:6));
+            if zupt_vel_norm(i) > vel_thresh
+                zupt_fail_count = zupt_fail_count + 1;
+                fprintf('ZUPT clamp failure at k=%d (norm=%.3f)\n', i, zupt_vel_norm(i));
+            end
+            x(4:6) = 0;
         end
-        x(4:6) = 0;
     end
     if mod(i,100000) == 0
         fprintf('ZUPT applied %d times so far\n', zupt_count);
->>>>>>> origin/main
     end
 
     % --- Log State and Attitude ---
@@ -976,22 +950,6 @@ end % End of main function
         q = q / norm(q);
     end
 
-<<<<<<< HEAD
-    function is_stat = is_static(acc, gyro)
-        %IS_STATIC True if IMU window variance is below thresholds.
-        %   IS_STATIC = IS_STATIC(ACC, GYRO) returns true when the maximum
-        %   variance of the accelerometer and gyroscope windows are below the
-        %   thresholds. Defaults mirror Python (0.01 and 1e-6) but can be
-        %   overridden via cfg.zupt_acc_var and cfg.zupt_gyro_var.
-        acc_thresh = 0.01; gyro_thresh = 1e-6;
-        try
-            if exist('cfg','var') && isfield(cfg,'zupt_acc_var'),  acc_thresh = cfg.zupt_acc_var; end
-            if exist('cfg','var') && isfield(cfg,'zupt_gyro_var'), gyro_thresh = cfg.zupt_gyro_var; end
-        catch
-        end
-        is_stat = all(var(acc,0,1) < acc_thresh) && ...
-                   all(var(gyro,0,1) < gyro_thresh);
-=======
     function is_stat = is_static(acc, gyro, acc_thresh, gyro_thresh)
         %IS_STATIC True if IMU window std dev is below thresholds.
         %   IS_STATIC = IS_STATIC(ACC, GYRO, ACC_THRESH, GYRO_THRESH) mirrors
@@ -1000,7 +958,6 @@ end % End of main function
         if nargin < 4, gyro_thresh = 0.005; end
         is_stat = all(std(acc,0,1) < acc_thresh) && ...
                    all(std(gyro,0,1) < gyro_thresh);
->>>>>>> origin/main
     end
 
     function deg = angle_between(v1, v2)
