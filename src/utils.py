@@ -14,7 +14,10 @@ import logging
 
 
 def zero_base_time(t):
-    """Return time vector shifted to start at zero."""
+    """Return time vector shifted to start at zero.
+
+    If *t* is empty, an empty ``float64`` array is returned.
+    """
     t = np.asarray(t, dtype=np.float64)
     if t.size == 0:
         return t
