@@ -174,13 +174,15 @@ Python reads inputs from `DATA/IMU`, `DATA/GNSS`, and the truth file from `DATA/
 
 The pipeline tasks correspond to steps in the MATLAB implementation. Each task produces intermediate results that feed into the next one:
 
-- Task 1 – Reference Vectors: defines gravity and Earth-rotation vectors from the first GNSS fix. Details: `docs/TRIAD_Task1_Wiki.md`
-- Task 2 – Body Vectors: measures gravity and Earth-rate in the IMU frame and estimates sensor biases. Details: `docs/TRIAD_Task2_Wiki.md`
-- Task 3 – Initial Attitude: solves Wahba’s problem with the TRIAD algorithm. Details: `docs/TRIAD_Task3_Wiki.md`
-- Task 4 – IMU-Only Integration: integrates the corrected IMU data and compares the result with GNSS. Details: `docs/TRIAD_Task4_Wiki.md`
-- Task 5 – Kalman Fusion: fuses IMU and GNSS with a simple Kalman filter to produce the final trajectory. Details: `docs/TRIAD_Task5_Wiki.md`
-- Task 6 – Truth Overlay: reproduces the Task 5 figures with the recorded reference trajectory added for comparison. Details: `docs/TRIAD_Task6_Wiki.md`
-- Task 7 – Evaluation: analyses filter residuals and attitude stability. Details: `docs/Python/Task7_Python.md` (Python) and `docs/MATLAB/Task7_MATLAB.md` (MATLAB)
+| Task/Subtask | Input | Output | Link |
+|--------------|-------|--------|------|
+| Task 1 – Reference Vectors | First GNSS fix | Gravity and Earth rotation reference vectors | [docs/TRIAD_Task1_Wiki.md](docs/TRIAD_Task1_Wiki.md) |
+| Task 2 – Body Vectors | Raw IMU measurements near initial time | Measured gravity and Earth-rate in the IMU frame plus estimated IMU biases | [docs/TRIAD_Task2_Wiki.md](docs/TRIAD_Task2_Wiki.md) |
+| Task 3 – Initial Attitude | Reference vectors from Task 1 and body vectors from Task 2 | Initial attitude using the TRIAD algorithm | [docs/TRIAD_Task3_Wiki.md](docs/TRIAD_Task3_Wiki.md) |
+| Task 4 – IMU-Only Integration | Corrected IMU data and initial attitude | Integrated trajectory compared with GNSS solution | [docs/TRIAD_Task4_Wiki.md](docs/TRIAD_Task4_Wiki.md) |
+| Task 5 – Kalman Fusion | IMU-only trajectory and GNSS updates | Fused trajectory from a simple Kalman filter | [docs/TRIAD_Task5_Wiki.md](docs/TRIAD_Task5_Wiki.md) |
+| Task 6 – Truth Overlay | Task 5 results and recorded reference trajectory | Figures with truth overlaid on fused trajectory | [docs/TRIAD_Task6_Wiki.md](docs/TRIAD_Task6_Wiki.md) |
+| Task 7 – Evaluation | Data and results from previous tasks | Analysis of filter residuals and attitude stability | [docs/Python/Task7_Python.md](docs/Python/Task7_Python.md), [docs/MATLAB/Task7_MATLAB.md](docs/MATLAB/Task7_MATLAB.md) |
 
 ### Datasets
 
