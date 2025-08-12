@@ -5,7 +5,37 @@ function run_triad_only(cfg)
 %   run_triad_only();
 %   run_triad_only(struct('dataset_id','X002'));
 
-addpath(genpath(fullfile(pwd,'MATLAB','src','utils')));
+% Robust path setup - handle different working directories
+current_dir = pwd;
+[~, folder_name] = fileparts(current_dir);
+
+% Find the project root directory
+if strcmp(folder_name, 'MATLAB')
+    % Running from MATLAB subdirectory
+    project_root = fileparts(current_dir);
+    utils_path = fullfile(current_dir, 'src', 'utils');
+elseif exist(fullfile(current_dir, 'MATLAB'), 'dir')
+    % Running from project root
+    project_root = current_dir;
+    utils_path = fullfile(current_dir, 'MATLAB', 'src', 'utils');
+else
+    % Try to find MATLAB directory in current or parent directories
+    if exist(fullfile(fileparts(current_dir), 'MATLAB'), 'dir')
+        project_root = fileparts(current_dir);
+        utils_path = fullfile(project_root, 'MATLAB', 'src', 'utils');
+    else
+        error('Cannot locate MATLAB directory. Please run from project root or MATLAB subdirectory.');
+    end
+end
+
+% Add utils to path if it exists
+if exist(utils_path, 'dir')
+    addpath(genpath(utils_path));
+else
+    error('Utils directory not found at: %s', utils_path);
+end
+
+% Now we can safely call set_debug
 set_debug(strcmpi(getenv('DEBUG'),'1') || strcmpi(getenv('DEBUG'),'true'));
 log_msg('[BOOT] run_triad_only.m loaded');
 paths = project_paths();  % adds utils; returns root/matlab/results
