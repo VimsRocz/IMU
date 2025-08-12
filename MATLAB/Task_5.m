@@ -677,16 +677,19 @@ if ~dryrun
     end
     xlabel('Time (s)');
     sgtitle('Kalman Filter Results vs. GNSS');
+    fname = fullfile(results_dir, sprintf('%s_task5_PVA', run_id));
+    if cfg.plots.save_pdf
+        print(fig, [fname '.pdf'], '-dpdf', '-bestfit');
+    end
+    if cfg.plots.save_png
+        print(fig, [fname '.png'], '-dpng');
+    end
+    close(fig);
 end
-% out_pdf = fullfile(results_dir, sprintf('%s_task5_results_%s.pdf', tag, method));
-% set(fig,'PaperPositionMode','auto');
-% print(fig, out_pdf, '-dpdf', '-bestfit');
-% fprintf('Subtask 5.8.2: %s plot saved as ''%s''\n', method, out_pdf);
-% exportgraphics(fig, all_file, 'Append', true);
 
 % --- Plot 4: Attitude (Euler Angles) ---
 if ~dryrun
-    figure('Name', 'KF Results: Attitude', 'Position', [200 200 1200 600]);
+    fig_att = figure('Name', 'KF Results: Attitude', 'Position', [200 200 1200 600]);
     euler_labels = {'Roll', 'Pitch', 'Yaw'};
     for i = 1:3
         subplot(3, 1, i);
@@ -694,11 +697,15 @@ if ~dryrun
         grid on; ylabel('[deg]'); title([euler_labels{i} ' Angle']);
     end
     xlabel('Time (s)'); sgtitle('Attitude Estimate Over Time');
+    fname = fullfile(results_dir, sprintf('%s_Task5_Attitude', run_id));
+    if cfg.plots.save_pdf
+        print(fig_att, [fname '.pdf'], '-dpdf', '-bestfit');
+    end
+    if cfg.plots.save_png
+        print(fig_att, [fname '.png'], '-dpng');
+    end
+    close(fig_att);
 end
-% att_file = fullfile(results_dir, sprintf('%s_Task5_Attitude.pdf', tag));
-% set(gcf,'PaperPositionMode','auto');
-% print(gcf, att_file, '-dpdf', '-bestfit');
-% fprintf('Saved plot: %s\n', att_file);
 
 % --- Plot 5: Velocity Magnitude After ZUPTs ---
 zupt_indices = find(zupt_log);
@@ -711,6 +718,7 @@ if ~dryrun && ~isempty(zupt_indices)
     legend('|v|');
     save_plot(fig_zupt, imu_name, gnss_name, [method '_ZUPT'], 5, ...
               cfg.plots.save_pdf, cfg.plots.save_png);
+    close(fig_zupt);
 end
 
 if ~dryrun
@@ -773,7 +781,7 @@ dprintf('RMSE_pos: %.4f\n', rmse_pos);
 
 % --- Plot: Position Residuals ---
 if ~dryrun
-    figure('Name', 'KF Results: Position Residuals', 'Position', [150 150 1200 600]);
+    fig_err = figure('Name', 'KF Results: Position Residuals', 'Position', [150 150 1200 600]);
     err_labels = {'N', 'E', 'D'};
     for i = 1:3
         subplot(3,1,i);
@@ -781,12 +789,15 @@ if ~dryrun
         grid on; ylabel('[m]'); title(['Residual ' err_labels{i}]);
     end
     xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
+    fname = fullfile(results_dir, sprintf('%s_Task5_ErrorAnalysis', run_id));
+    if cfg.plots.save_pdf
+        print(fig_err, [fname '.pdf'], '-dpdf', '-bestfit');
+    end
+    if cfg.plots.save_png
+        print(fig_err, [fname '.png'], '-dpng');
+    end
+    close(fig_err);
 end
-% err_file = fullfile(results_dir, sprintf('%s_Task5_ErrorAnalysis.pdf', tag));
-% set(gcf,'PaperPositionMode','auto');
-% print(gcf, err_file, '-dpdf', '-bestfit');
-% fprintf('Saved plot: %s\n', err_file);
-% exportgraphics(gcf, all_file, 'Append', true);
 summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%8.2fm ' ...
     'final_pos=%8.2fm rms_vel=%8.2fm/s final_vel=%8.2fm/s ' ...
     'rms_resid_pos=%8.2fm max_resid_pos=%8.2fm ' ...
