@@ -55,7 +55,7 @@ from tabulate import tabulate
 from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
 from utils import save_mat
-from timeline import print_timeline
+from utils.timeline import print_timeline
 from resolve_truth_path import resolve_truth_path
 from run_id import run_id as build_run_id
 
