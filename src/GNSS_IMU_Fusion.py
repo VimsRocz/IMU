@@ -35,6 +35,7 @@ import pandas as pd
 from filterpy.kalman import KalmanFilter
 
 from scripts.plot_utils import save_plot, plot_attitude
+from paths import imu_path as _imu_path_helper, gnss_path as _gnss_path_helper, truth_path as _truth_path_helper, ensure_results_dir as _ensure_results, normalize_gnss_headers
 from utils import (
     is_static,
     compute_C_ECEF_to_NED,
@@ -104,14 +105,14 @@ MIN_STATIC_SAMPLES = 500
 
 
 def check_files(imu_file: str, gnss_file: str) -> tuple[str, str]:
-    """Return validated dataset paths."""
-    imu_path = Path(imu_file)
-    gnss_path = Path(gnss_file)
+    """Return validated dataset paths (prefer DATA/*)."""
+    imu_path = _imu_path_helper(imu_file)
+    gnss_path = _gnss_path_helper(gnss_file)
     return str(imu_path), str(gnss_path)
 
 
 def main():
-    os.makedirs("results", exist_ok=True)
+    _ensure_results()
     logging.info("Ensured 'results/' directory exists.")
     # Parse command-line arguments
     parser = argparse.ArgumentParser()
@@ -693,6 +694,7 @@ def main():
     logging.info("Subtask 4.3: Loading GNSS data.")
     try:
         gnss_data = pd.read_csv(gnss_file)
+        gnss_data = normalize_gnss_headers(gnss_data)
     except Exception as e:
         logging.error(f"Failed to load GNSS data file: {e}")
         raise
@@ -1199,6 +1201,7 @@ def main():
     logging.info("Subtask 5.3: Loading GNSS and IMU data.")
     try:
         gnss_data = pd.read_csv(gnss_file)
+        gnss_data = normalize_gnss_headers(gnss_data)
         imu_data = pd.read_csv(imu_file, sep=r"\s+", header=None)
     except FileNotFoundError as e:
         missing = "GNSS" if "csv" in str(e) else "IMU"

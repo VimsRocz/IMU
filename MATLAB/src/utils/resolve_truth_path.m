@@ -4,7 +4,10 @@ function truth_path = resolve_truth_path()
 %       Returns the path string to the truth file if found, or an empty char
 %       if it does not exist.
 
-    preferred = '/Users/vimalchawda/Desktop/IMU/STATE_X001.txt';
+    % Prefer repository DATA/Truth path relative to this file
+    here = fileparts(mfilename('fullpath'));
+    repo = fileparts(fileparts(here)); % .../MATLAB/src/utils -> repo
+    preferred = fullfile(repo,'DATA','Truth','STATE_X001.txt');
 
     if isfile(preferred)
         truth_path = preferred;

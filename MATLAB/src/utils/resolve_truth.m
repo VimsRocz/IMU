@@ -7,7 +7,9 @@ function truth_path = resolve_truth(preferred_path)
 %   found.
 
     if nargin==0 || isempty(preferred_path)
-        preferred_path = '/Users/vimalchawda/Desktop/IMU/STATE_X001.txt';
+        here = fileparts(mfilename('fullpath'));
+        repo = fileparts(fileparts(here)); % .../MATLAB/src/utils -> repo
+        preferred_path = fullfile(repo,'DATA','Truth','STATE_X001.txt');
     end
 
     if isfile(preferred_path)
@@ -19,4 +21,3 @@ function truth_path = resolve_truth(preferred_path)
     warning('Truth file not found at preferred path.');
     truth_path = '';
 end
-

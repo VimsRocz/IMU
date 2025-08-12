@@ -48,14 +48,32 @@ if ~isfield(cfg,'trace_first_n'), cfg.trace_first_n = 0; end
 
 cfg.paths = paths;
 
-% ---- resolve inputs (copy to root if found elsewhere) ----
-cfg.imu_path   = ensure_input_file('IMU',   cfg.imu_file,   cfg.paths);
-cfg.gnss_path  = ensure_input_file('GNSS',  cfg.gnss_file,  cfg.paths);
-cfg.truth_path = ensure_input_file('TRUTH', cfg.truth_file, cfg.paths);
+% ---- resolve inputs using DATA/* structure ----
+repoRoot = paths.root;
+cfg.imu_path   = fullfile(repoRoot,'DATA','IMU',   cfg.imu_file);
+cfg.gnss_path  = fullfile(repoRoot,'DATA','GNSS',  cfg.gnss_file);
+cfg.truth_path = fullfile(repoRoot,'DATA','Truth', cfg.truth_file);
+if ~isfile(cfg.imu_path)
+    error('IMU file not found: %s', cfg.imu_path);
+end
+if ~isfile(cfg.gnss_path)
+    error('GNSS file not found: %s', cfg.gnss_path);
+end
+if ~isfile(cfg.truth_path)
+    warning('Truth file missing at %s', cfg.truth_path);
+end
 
 % ---- run id + timeline (before tasks) ----
 rid = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
 print_timeline_matlab(rid, cfg.imu_path, cfg.gnss_path, cfg.truth_path, cfg.paths.matlab_results);
+% Also load and print TRUTH timeline via robust loader
+try
+    if isfile(cfg.truth_path)
+        load_truth_file(cfg.truth_path); % prints a TRUTH | ... line
+    end
+catch ME
+    warning('Truth load failed: %s', ME.message);
+end
 
 fprintf('▶ %s\n', rid);
 fprintf('MATLAB results dir: %s\n', cfg.paths.matlab_results);
@@ -67,14 +85,32 @@ Task_3(cfg.imu_path, cfg.gnss_path, cfg.method);
 Task_4(cfg.imu_path, cfg.gnss_path, cfg.method);
 % Optionally auto-tune Q/R on a small grid before the final full run
 if cfg.autotune
-    try
-        grid_q = [5, 10, 20, 40];
-        grid_r = [0.25, 0.5, 1.0];
-        [best_q, best_r, report] = task5_autotune(cfg.imu_path, cfg.gnss_path, cfg.method, grid_q, grid_r);
-        fprintf('Auto-tune best: vel_q_scale=%.3f  vel_r=%.3f  (RMSE_pos=%.3f m)\n', report.best_rmse_q, report.best_rmse_r, report.best_rmse);
-        cfg.vel_q_scale = best_q; cfg.vel_r = best_r;
-    catch ME
-        warning('Auto-tune failed: %s. Proceeding with defaults.', ME.message);
+    fprintf('Auto-tune sweep over vel_q_scale and vel_r...\n');
+    grid_q = [5, 10, 20, 40];
+    grid_r = [0.25, 0.5, 1.0];
+    rows = zeros(numel(grid_q)*numel(grid_r), 3);
+    idx = 1;
+    for iq = 1:numel(grid_q)
+        for ir = 1:numel(grid_r)
+            qv = grid_q(iq); rv = grid_r(ir);
+            rmse = Task_5_try_once(cfg, qv, rv);
+            rows(idx,:) = [qv, rv, rmse];
+            idx = idx + 1;
+        end
+    end
+    % Print table
+    fprintf('\n q_scale    vel_r    rmse_pos\n');
+    for i = 1:size(rows,1)
+        fprintf(' %7.3f  %7.3f  %8.3f\n', rows(i,1), rows(i,2), rows(i,3));
+    end
+    % Pick best (min rmse)
+    [~,j] = min(rows(:,3));
+    if isfinite(rows(j,3))
+        cfg.vel_q_scale = rows(j,1);
+        cfg.vel_r       = rows(j,2);
+        fprintf('Auto-tune best: vel_q_scale=%.3f  vel_r=%.3f  (RMSE_pos=%.3f m)\n', rows(j,1), rows(j,2), rows(j,3));
+    else
+        warning('Auto-tune produced no valid result; keeping defaults.');
     end
 end
 

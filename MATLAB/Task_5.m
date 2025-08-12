@@ -64,6 +64,7 @@ end
     addParameter(p, 'trace_first_n', 0);       % [steps] capture first N KF steps
     addParameter(p, 'max_steps', inf);         % [steps] limit processing for tuning
     addParameter(p, 'scale_factor', []);       % [-]
+    addParameter(p, 'dryrun', false);          % [flag] skip plots when tuning
     parse(p, varargin{:});
     accel_noise     = p.Results.accel_noise;
     vel_proc_noise  = p.Results.vel_proc_noise;
@@ -77,6 +78,7 @@ end
     trace_first_n   = p.Results.trace_first_n;
     max_steps       = p.Results.max_steps;
     scale_factor    = p.Results.scale_factor;
+    dryrun          = p.Results.dryrun;
 
 
     if ~isfile(gnss_path)

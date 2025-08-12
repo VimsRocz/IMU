@@ -52,6 +52,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
+from paths import imu_path as _imu_path_helper, gnss_path as _gnss_path_helper, truth_path as _truth_path_helper, ensure_results_dir as _ensure_results
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
@@ -124,8 +125,7 @@ def _write_run_meta(outdir, run_id, **kv):
 
 
 def main(argv: Iterable[str] | None = None) -> None:
-    results_dir = pathlib.Path("results")
-    results_dir.mkdir(parents=True, exist_ok=True)
+    results_dir = _ensure_results()
     logger.info("Ensured '%s' directory exists.", results_dir)
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
 
@@ -172,13 +172,17 @@ def main(argv: Iterable[str] | None = None) -> None:
     imu_file = "IMU_X002.dat"
     gnss_file = "GNSS_X002.csv"
 
-    imu_path, gnss_path = check_files(imu_file, gnss_file)
+    imu_path = _imu_path_helper(imu_file)
+    gnss_path = _gnss_path_helper(gnss_file)
 
     run_id = build_run_id(str(imu_path), str(gnss_path), method)
     log_path = results_dir / f"{run_id}.log"
     print(f"\u25b6 {run_id}")
 
-    truth_path = resolve_truth_path()
+    # Prefer DATA/Truth but fall back to legacy resolution if needed
+    truth_path = str(_truth_path_helper())
+    if not pathlib.Path(truth_path).exists():
+        truth_path = resolve_truth_path()
 
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
     print_timeline(run_id, str(imu_path), str(gnss_path), truth_path, out_dir=str(results_dir))
@@ -424,7 +428,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         meta = {
             "imu_file": str(imu_path),
             "gnss_file": str(gnss_path),
-            "truth_file": str(ROOT / "STATE_X001.txt") if (ROOT / "STATE_X001.txt").exists() else None,
+            "truth_file": str(_truth_path_helper()) if _truth_path_helper().exists() else None,
             "imu_rate_hz": _infer_rate(t_imu) or args.imu_rate,
             "gnss_rate_hz": args.gnss_rate,
             "truth_rate_hz": args.truth_rate,
@@ -435,7 +439,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     # ----------------------------
     # Task 6: Truth overlay plots
     # ----------------------------
-    truth_file = ROOT / "STATE_X001.txt"
+    truth_file = _truth_path_helper()
     if truth_file.exists():
         overlay_cmd = [
             sys.executable,
@@ -547,4 +551,3 @@ def main(argv: Iterable[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
-

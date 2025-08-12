@@ -9,7 +9,7 @@ def resolve_truth(preferred_path: str | None = None) -> str:
     """Return path to canonical truth file."""
 
     if not preferred_path:
-        preferred_path = "/Users/vimalchawda/Desktop/IMU/STATE_X001.txt"
+        preferred_path = str(Path(__file__).resolve().parents[2] / "DATA" / "Truth" / "STATE_X001.txt")
     preferred = Path(preferred_path)
 
     if preferred.is_file():
@@ -21,4 +21,3 @@ def resolve_truth(preferred_path: str | None = None) -> str:
 
 
 __all__ = ["resolve_truth"]
-

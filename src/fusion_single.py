@@ -63,7 +63,7 @@ def quat_to_rot(q):
 
 
 def main():
-    os.makedirs('results', exist_ok=True)
+    _ensure_results()
     logging.info("Ensured 'results/' directory exists.")
     parser = argparse.ArgumentParser()
     parser.add_argument('--imu-file', default='IMU_X001.dat')
@@ -84,8 +84,9 @@ def main():
     parser.add_argument('--smoother', action='store_true')
     args = parser.parse_args()
 
-    gnss = pd.read_csv(args.gnss_file)
-    imu = np.loadtxt(args.imu_file)
+    gnss = pd.read_csv(str(_gnss_path_helper(args.gnss_file)))
+    gnss = normalize_gnss_headers(gnss)
+    imu = np.loadtxt(str(_imu_path_helper(args.imu_file)))
 
     gnss_time = zero_base_time(gnss['Posix_Time'].values)
     pos_ecef = gnss[['X_ECEF_m','Y_ECEF_m','Z_ECEF_m']].values
@@ -269,4 +270,5 @@ def main():
             print(f"{name}: mean={data.mean():.3f}, std={data.std():.3f}")
 
 if __name__=='__main__':
+from paths import imu_path as _imu_path_helper, gnss_path as _gnss_path_helper, ensure_results_dir as _ensure_results, normalize_gnss_headers
     main()

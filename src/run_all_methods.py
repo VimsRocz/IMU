@@ -45,6 +45,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
+from paths import ensure_results_dir as _ensure_results, truth_path as _truth_path_helper
 
 # Allow importing helper utilities under ``src/utils`` without clashing with
 # the top-level ``utils.py`` module.
@@ -108,7 +109,7 @@ def run_case(cmd, log_path):
 
 
 def main(argv=None):
-    os.makedirs("results", exist_ok=True)
+    _ensure_results()
     logger.info("Ensured 'results/' directory exists.")
     parser = argparse.ArgumentParser(
         description="Run GNSS_IMU_Fusion with multiple datasets and methods",
@@ -146,7 +147,7 @@ def main(argv=None):
     if args.task == 7:
         from evaluate_filter_results import run_evaluation
 
-        # Task 7 results must be stored directly in ``results/``
+    # Task 7 results must be stored directly in ``results/``
         # according to the updated project requirements.
         run_evaluation(
             prediction_file="outputs/predicted_states.csv",

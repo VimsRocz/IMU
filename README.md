@@ -7,6 +7,7 @@ IMU data processing and initialization tools (Python)
 - [Installation](#installation)
 - [MATLAB Requirements](#matlab-requirements)
 - [Usage](#usage)
+- [Quick Start](#quick-start)
 - [Running the Pipeline](#running-the-pipeline)
   - [run_all_datasets.py](#run_all_datasetspy)
   - [run_triad_only.py](#run_triad_onlypy)
@@ -122,6 +123,37 @@ ver('signal')
 
 If the command prints an entry for the toolbox, it is available for use.
 
+### Quick Start
+
+Repository Structure (Simple View)
+
+- DATA/IMU: raw IMU logs (IMU_X00*.dat, + _small)
+- DATA/GNSS: raw GNSS logs (GNSS_X00*.csv, + _small)
+- DATA/Truth: reference trajectory (STATE_X001.txt, STATE_X001_small.txt)
+- MATLAB: MATLAB code; outputs in MATLAB/results/
+- src: Python helpers and library code
+- PYTHON: top-level Python runner scripts
+- results: Python outputs
+
+Run — Python (from repo root)
+
+```bash
+python src/run_triad_only.py   # uses DATA/... and writes to results/
+```
+
+Run — MATLAB (from repo root)
+
+```matlab
+addpath('MATLAB');
+run_triad_only(struct('dataset_id','X002','method','TRIAD'));
+% uses DATA/... and writes to MATLAB/results/
+```
+
+Notes
+
+- Python saves to `results/` and MATLAB saves to `MATLAB/results/` on purpose.
+- Older scripts assumed data in the repo root; all data now lives under `DATA/`.
+
 ### Usage
 
 Run the MATLAB batch runner from the repository root so all data paths resolve
@@ -134,11 +166,10 @@ run_all_datasets_matlab;   % all methods
 run_all_datasets_matlab('TRIAD');
 ```
 
-All Python scripts read the input logs directly from the project root and
-save their outputs to ``results/``. MATLAB functions expect the same log
-files but write their figures and MAT-files to ``MATLAB/results/``. The two
-directories are completely independent so the pipelines do not overwrite
-each other's output.
+Python reads inputs from `DATA/IMU`, `DATA/GNSS`, and the truth file from
+`DATA/Truth/STATE_X001.txt`. Outputs go to `results/`. MATLAB uses the same
+inputs but writes figures and MAT-files to `MATLAB/results/`. The two
+directories are independent so results do not overwrite each other.
 
 ### Per-Task Overview
 
@@ -215,7 +246,7 @@ trajectory:
 
 ```bash
 python src/validate_with_truth.py --est-file <kf.mat> \
-    --truth-file STATE_X001.txt --output results
+    --truth-file DATA/Truth/STATE_X001.txt --output results
 ```
 
 Optional arguments `--ref-lat`, `--ref-lon` and `--ref-r0` override the reference

@@ -32,6 +32,7 @@ ensure_dependencies()
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
+from paths import ensure_results_dir as _ensure_results, truth_path as _truth_path_helper
 SCRIPT = HERE / "GNSS_IMU_Fusion.py"
 LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -88,8 +89,7 @@ def run_one(imu, gnss, method, verbose=False):
 
 
 def main():
-    results_dir = pathlib.Path("results")
-    results_dir.mkdir(parents=True, exist_ok=True)
+    results_dir = _ensure_results()
     logging.info("Ensured '%s' directory exists.", results_dir)
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", action="store_true", help="Print detailed debug info")
@@ -195,7 +195,7 @@ def main():
                 mat_out,
             )
 
-        truth_path = ROOT / "STATE_X001.txt"
+        truth_path = _truth_path_helper()
         est_mat = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat"
         if truth_path.exists():
             first = np.loadtxt(truth_path, comments="#", max_rows=1)
