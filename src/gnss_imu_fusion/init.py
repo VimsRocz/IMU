@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 import numpy as np
 import pandas as pd
@@ -28,6 +28,7 @@ def compute_reference_vectors(
     Optional[np.ndarray],
     np.ndarray,
     np.ndarray,
+    List[str],
 ]:
     """Return latitude/longitude and reference vectors in the NED frame."""
     logging.info("Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.")
@@ -76,6 +77,7 @@ def compute_reference_vectors(
         mag_ned,
         initial_vel_ned,
         np.array([x_ecef, y_ecef, z_ecef]),
+        list(gnss_data.columns),
     )
 
 

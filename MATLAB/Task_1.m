@@ -150,60 +150,58 @@ fprintf('Longitude (deg):             %.6f\n', lon_deg);
 
 
 % ================================
+% ================================
 % Subtask 1.5: Plot Location on Earth Map
 % ================================
 fprintf('\nSubtask 1.5: Plotting location on Earth map.\n');
 
-% Create a geographic plot if Mapping Toolbox is available
-if exist('geoplot', 'file') == 2 && license('test', 'map_toolbox')
-    figure('Name', 'Initial Location on Earth Map', 'Position', [100, 100, 1000, 500]);
-    geobasemap satellite; % Use satellite imagery as the basemap
-
-    % Set map limits to focus on the location
-    geolimits([lat_deg - 2, lat_deg + 2], [lon_deg - 2, lon_deg + 2]);
-
-    % Plot the initial location with a red marker
-    hold on;
-    geoplot(lat_deg, lon_deg, 'ro', 'MarkerSize', 10, 'MarkerFaceColor', 'r');
-
-    % Add a text label
-    text_str = sprintf('Lat: %.4f°, Lon: %.4f°', lat_deg, lon_deg);
-    text(lon_deg + 0.1, lat_deg, text_str, 'Color', 'white', 'FontSize', 12, 'FontWeight', 'bold');
-    hold off;
-
-    % Set plot title
-    title('Initial Location on Earth Map');
-
-    % Save the plot as both PDF and PNG using a reasonable page size
-    set(gcf, 'PaperPositionMode', 'auto');
-    base_fig = figure(gcf);
-    save_plot(base_fig, imu_name, gnss_name, method, 1);
-else
-    warning('Mapping Toolbox not found. Skipping geographic plot.');
+fig = figure('Name','Task 1 – Initial Location (World View)');
+gx = geoaxes(fig); %#ok<LAXES>
+try
+    geobasemap(gx,'landcover');
+catch
+    geobasemap(gx,'none');
 end
-% close(gcf); % Uncomment to close the figure after saving
+hold(gx,'on');
+geoscatter(gx,lat_deg,lon_deg,40,'filled');
+set(gx,'LatitudeLim',[-90 90],'LongitudeLim',[-180 180]);
+title(gx,'Task 1 – Initial Location (World View)');
+fig_path = fullfile(results_dir, sprintf('%s_task1_location_map.fig', tag));
+savefig(fig, fig_path);
 
-% Save results for later tasks
+% Prepare Task 1 artifacts
+fprintf('Saving Task 1 artifacts...\n');
+C_e2n = compute_C_ECEF_to_NED(deg2rad(lat_deg), deg2rad(lon_deg));
+task1 = struct();
+task1.lat0_deg = lat_deg;
+task1.lon0_deg = lon_deg;
+task1.h0_m = alt_m;
+task1.g_ned = g_NED;
+task1.omega_ie_ned = omega_ie_NED;
+task1.R_ecef_to_ned = C_e2n;
+task1.R_ned_to_ecef = C_e2n';
+task1.r0_ecef_m = ref_r0;
+task1.gnss_columns = gnss_data.Properties.VariableNames;
 
+dataset_match = regexp(gnss_name,'X\d+','match','once');
+if isempty(dataset_match), dataset_match = ''; end
+truth_file = fullfile(paths.root,'DATA','Truth','STATE_X001.txt');
+task1.meta = struct('dataset_id',dataset_match,...
+    'method',method,'imu_file',imu_path,'gnss_file',gnss_path,...
+    'truth_file',truth_file,'time_saved',datestr(datetime('now'),'yyyy-mm-ddTHH:MM:SS'),...
+    'versions',struct('matlab',version));
 
-lat = lat_deg; %#ok<NASGU>
-lon = lon_deg; %#ok<NASGU>
-omega_NED = omega_ie_NED; %#ok<NASGU>
-
-results = struct('lat', lat_deg, 'lon', lon_deg, 'g_NED', g_NED, 'omega_NED', omega_ie_NED);
-save_task_results(results, imu_name, gnss_name, method, 1);
-
-% --------------------------------------------------------------------
-% Also save a simple initialization file for downstream tasks
-% --------------------------------------------------------------------
+mat_path = fullfile(results_dir, sprintf('%s_task1_results.mat', tag));
+save(mat_path,'task1');
+% legacy init file for downstream compatibility
 init_struct = struct('lat', lat_deg, 'lon', lon_deg, ...
                      'g_NED', g_NED, 'omega_NED', omega_ie_NED);
-if exist('ref_r0', 'var')
+if exist('ref_r0','var')
     init_struct.ref_r0 = ref_r0; %#ok<STRNU>
 end
 init_file = fullfile(results_dir, sprintf('Task1_init_%s.mat', tag));
-save(init_file, '-struct', 'init_struct');
-fprintf('Initial data saved to %s\n', init_file);
+save(init_file,'-struct','init_struct');
+fprintf('Task 1: saved artifacts (.mat) and interactive figure (.fig) under MATLAB/results/\n');
 
 % Return results and store in base workspace for interactive use
 result = struct('lat', lat_deg, 'lon', lon_deg, ...

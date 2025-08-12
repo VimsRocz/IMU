@@ -149,6 +149,13 @@ run_triad_only(struct('dataset_id','X002','method','TRIAD'));
 % uses DATA/... and writes to MATLAB/results/
 ```
 
+Task 1 outputs are cached for reuse:
+
+- Python Task 1 saves an interactive HTML map under `results/`.
+- MATLAB Task 1 opens a popup and saves a `.fig` under `MATLAB/results/`.
+- Both stacks persist Task 1 inputs/outputs. Reload them via `src/task1_cache.py`
+  (Python) or by loading the `.mat` file (MATLAB).
+
 Notes
 
 - Python saves to `results/` and MATLAB saves to `MATLAB/results/` on purpose.
