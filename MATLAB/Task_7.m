@@ -15,6 +15,7 @@ function Task_7()
 %       Task_7()
 
     fprintf('--- Starting Task 7: Residual Analysis with Task4 truth (ECEF) ---\n');
+    addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
 
     paths = project_paths();
     results_dir = paths.matlab_results;

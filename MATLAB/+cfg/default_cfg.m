@@ -1,5 +1,6 @@
 function s = default_cfg()
 %DEFAULT_CFG  Central place for run-time policy (no hidden defaults in tasks).
+addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'src', 'utils'));
 p = project_paths();
 s = struct();
 s.dataset_id = '';        % must be set by caller

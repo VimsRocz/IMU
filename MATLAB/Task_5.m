@@ -20,6 +20,8 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %       'vel_r'            - R(4:6,4:6) velocity measurement variance   [m^2/s^2] (0.25)
 %       'scale_factor'     - accelerometer scale factor                 [-]      (required)
 
+addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
+
 paths = project_paths();
 results_dir = paths.matlab_results;
 addpath(fullfile(paths.root,'MATLAB','lib'));
