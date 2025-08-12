@@ -12,6 +12,21 @@ function task3_results = Task_3(imu_path, gnss_path, method)
 
 addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
 
+% Obtain configuration for plotting
+try
+    cfg = evalin('caller','cfg');
+catch
+    try
+        cfg = evalin('base','cfg');
+    catch
+        cfg = cfg.default_cfg();
+    end
+end
+visibleFlag = 'off';
+if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
+    visibleFlag = 'on';
+end
+
 % paths
 p = project_paths();                      % has fields: root, matlab_results, etc.
 results_dir = p.matlab_results;
@@ -55,11 +70,36 @@ catch
 end
 
 try
-    R_svd = svd_wahba([g_ned w_ned], [g_body w_body]);
-    q_svd = rotm2quat(R_svd);
+R_svd = svd_wahba([g_ned w_ned], [g_body w_body]);
+q_svd = rotm2quat(R_svd);
 catch
     R_svd = R_tri;
     q_svd = q_tri;
+end
+
+% ---- diagnostic figure: compare attitude methods ----
+eul_tri = rad2deg(rotm2eul(R_tri, 'ZYX'));
+eul_dav = rad2deg(rotm2eul(R_dav, 'ZYX'));
+eul_svd = rad2deg(rotm2eul(R_svd, 'ZYX'));
+diff_dav = eul_dav - eul_tri;
+diff_svd = eul_svd - eul_tri;
+fig_cmp = figure('Name', 'Task 3 Attitude Comparison', 'Visible', visibleFlag);
+bar([diff_dav; diff_svd]');
+set(gca,'XTickLabel',{'Yaw','Pitch','Roll'});
+ylabel('Difference [deg]');
+legend({'Davenport - TRIAD','SVD - TRIAD'},'Location','best');
+title('Attitude difference vs TRIAD');
+base = sprintf('%s_%s_%s_task3_attitude', imu_id, gnss_id, method);
+fig_path = fullfile(results_dir, [base '.fig']);
+save_plot_fig(fig_cmp, fig_path);
+if isfield(cfg.plots,'save_pdf') && cfg.plots.save_pdf
+    pdf_path = fullfile(results_dir, [base '.pdf']);
+    set(fig_cmp, 'PaperPosition', [0 0 8 6]);
+    print(fig_cmp, pdf_path, '-dpdf', '-bestfit');
+end
+if isfield(cfg.plots,'save_png') && cfg.plots.save_png
+    png_path = fullfile(results_dir, [base '.png']);
+    exportgraphics(fig_cmp, png_path, 'Resolution', 300);
 end
 
 % ---- pack canonical struct that Task_4 expects ----
