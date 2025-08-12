@@ -24,7 +24,7 @@ function [t_fix, notes] = fix_time_vector(t_raw, dt_hint)
 %
 %   See also: PRINT_TIMELINE_MATLAB, TIMELINE_MATLAB
 
-    notes = strings(0,1);
+    notes = strings_compat(0,1);
     t = double(t_raw(:));
 
     % Drop nonfinite entries

@@ -18,12 +18,12 @@ function timeline_matlab(run_id, imu_path, gnss_path, truth_path)
     out_txt = fullfile(paths.matlab_results, [run_id '_timeline.txt']);
     if exist(out_txt,'file'), delete(out_txt); end
 
-    notes = strings(0,1);
+    notes = strings_compat(0,1);
 
     fprintf('%s\n', ['== Timeline summary: ' run_id ' ==']);
 
     % --- IMU ---
-    imu = readmatrix(imu_path);
+    imu = readmatrix_compat(imu_path);
     [t_imu, n_i] = fix_time_vector(imu(:,2), 1/400);
     imu_dt = diff(t_imu);
     imu_hz = 1/median(imu_dt);

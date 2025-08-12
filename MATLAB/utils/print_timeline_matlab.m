@@ -12,12 +12,12 @@ function [txt, meta] = print_timeline_matlab(rid, imu_path, gnss_path, truth_pat
 % - GNSS uses Posix_Time or builds from UTC_* columns, else @1Hz fallback
 % - TRUTH ignores '#' comments and uses column 2 as time
 
-lines = strings(0,1);
-notes = strings(0,1);
+lines = strings_compat(0,1);
+notes = strings_compat(0,1);
 meta = struct();
 
 % ---------- IMU ----------
-imu = readmatrix(imu_path,'FileType','text');
+imu = readmatrix_compat(imu_path,'FileType','text');
 nI = size(imu,1);
 col = [];
 for c = 1:min(3,size(imu,2)) % try first 3 columns
