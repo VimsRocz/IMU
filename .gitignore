@@ -1,36 +1,17 @@
-# ignore all generated results
-/results/
+# Generated results
+PYTHON/results/
 MATLAB/results/
-MATLAB/src/MATLAB/results/
 
-# ignore any DS_Store files
-.DS_Store
-**/.DS_Store
-
-
-# Python cache and temp files
+# Bytecode and caches
 __pycache__/
-**/__pycache__/
-src/__pycache__/
-src/gnss_imu_fusion/__pycache__/
 *.pyc
 *.pyo
 
-# Virtual environments
-.venv/
-venv/
+# Data artifacts
+*.mat
+*.npz
+*.log
+*.bak
 
-# Log and throwaway files
-testing.py
-triad_init_log.txt
-src/testing.py
-src/triad_init_log.txt
-output_matlab/
-src/logs/
-src/results/
-src/task5_results_all_methods.png
-task5_results_all_methods.png
-run_output.txt
-run_all_output.txt
-
-STATE_IMU_*.txt
+# Misc
+.DS_Store

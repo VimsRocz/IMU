@@ -5,22 +5,21 @@ function run_triad_only(cfg)
 %   run_triad_only();
 %   run_triad_only(struct(''dataset_id'',''X002''));
 
-% ---- paths / utils ----
-% Ensure utils are on the path before calling project_paths
-here = fileparts(mfilename('fullpath'));  % .../MATLAB
-utils_candidates = {
-    fullfile(here,'utils'),
-    fullfile(here,'src','utils'),
-    fullfile(here,'src','utils','attitude'),
-    fullfile(here,'src','utils','frames')
-};
-for i = 1:numel(utils_candidates)
-    p = utils_candidates{i};
-    if exist(p,'dir') && ~contains(path, [p pathsep])
-        addpath(p);
-    end
-end
-paths = project_paths();  % adds utils; returns root/matlab/results
+% Resolve repo root from MATLAB/ folder
+thisFile  = mfilename('fullpath');
+matlabDir = fileparts(thisFile);
+repoRoot  = fileparts(matlabDir);
+
+dataDir   = fullfile(repoRoot, 'DATA');
+imuDir    = fullfile(dataDir, 'IMU');
+gnssDir   = fullfile(dataDir, 'GNSS');
+truthDir  = fullfile(dataDir, 'Truth');
+
+matResDir = fullfile(matlabDir, 'results');
+if ~exist(matResDir,'dir'); mkdir(matResDir); end
+addpath(genpath(fullfile(matlabDir,'src')));   % MATLAB utilities
+
+paths = struct('root', repoRoot, 'matlab_results', matResDir);
 if nargin==0 || isempty(cfg), cfg = struct(); end
 
 % ---- config (explicit, no hidden defaults) ----
@@ -49,10 +48,9 @@ if ~isfield(cfg,'trace_first_n'), cfg.trace_first_n = 0; end
 cfg.paths = paths;
 
 % ---- resolve inputs using DATA/* structure ----
-repoRoot = paths.root;
-cfg.imu_path   = fullfile(repoRoot,'DATA','IMU',   cfg.imu_file);
-cfg.gnss_path  = fullfile(repoRoot,'DATA','GNSS',  cfg.gnss_file);
-cfg.truth_path = fullfile(repoRoot,'DATA','Truth', cfg.truth_file);
+cfg.imu_path   = fullfile(imuDir,   cfg.imu_file);
+cfg.gnss_path  = fullfile(gnssDir,  cfg.gnss_file);
+cfg.truth_path = fullfile(truthDir, cfg.truth_file);
 if ~isfile(cfg.imu_path)
     error('IMU file not found: %s', cfg.imu_path);
 end
