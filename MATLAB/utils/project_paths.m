@@ -25,6 +25,7 @@ utils_candidates = {
     fullfile(paths.matlab,'src','utils')
     fullfile(paths.root,'MATLAB','utils')
     fullfile(paths.root,'src','utils')
+    fullfile(paths.root,'PYTHON','src','utils')
 };
 
 found_any = false;
