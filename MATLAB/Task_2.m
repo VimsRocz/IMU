@@ -131,8 +131,7 @@ function Task2 = Task_2(imu_path, gnss_path, method)
         fprintf('Applied predefined bias for %s\n', imu_name);
     end
 
-    fprintf('g_body = [% .4f % .4f % .4f]\n', g_body);
-    fprintf('omega_ie_body = [% .6f % .6f % .6f]\n', omega_ie_body);
+
     fprintf('Accelerometer bias = [% .6f % .6f % .6f] m/s^2\n', accel_bias);
     fprintf('Gyroscope bias = [% .6f % .6f % .6f] rad/s\n', gyro_bias);
 
