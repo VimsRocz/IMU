@@ -51,7 +51,7 @@ from utils import save_mat
 # Import helper utilities from the utils package
 from utils.timeline import print_timeline
 from utils.resolve_truth_path import resolve_truth_path
-from run_id import run_id as build_run_id
+from utils.run_id import run_id as build_run_id
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
 
