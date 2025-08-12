@@ -6,6 +6,7 @@
 
 clc; close all; warning('off','all');
 addpath('MATLAB');
+addpath('MATLAB/src');   % ensure utilities are available
 
 datasets = {
     struct('id','X001','imu','IMU_X001.dat','gnss','GNSS_X001.csv')
@@ -43,4 +44,3 @@ for i = 1:numel(datasets)
 end
 
 fprintf('\n[TRIAD] All datasets finished in %.2f s\n', toc(overallStart));
-

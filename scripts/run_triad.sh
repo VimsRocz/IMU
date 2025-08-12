@@ -7,7 +7,6 @@ if command -v matlab >/dev/null 2>&1; then
   matlab -batch "run('MATLAB/run_triad_batch.m')"
 else
   echo "MATLAB is not available in PATH. Please run inside MATLAB:"
-  echo "  addpath('MATLAB'); run_triad_only();"
+  echo "  addpath('MATLAB'); addpath('MATLAB/src'); run_triad_only();"
   exit 1
 fi
-

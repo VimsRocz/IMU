@@ -3,7 +3,8 @@ function run_triad_batch()
 %   Designed for: matlab -batch "run('MATLAB/run_triad_batch.m')"
 
 clc; close all; warning('off','all');
-addpath('MATLAB');
+addpath('MATLAB');              % root MATLAB folder (task scripts)
+addpath('MATLAB/src');          % ensure utilities (project_paths, etc.) are on path
 
 cfg = struct();
 cfg.dataset_id = 'X002';
@@ -29,4 +30,3 @@ catch ME
 end
 
 end
-
