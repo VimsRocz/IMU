@@ -30,7 +30,6 @@ import os
 import pathlib
 import subprocess
 import sys
-from typing import Iterable, Tuple
 import logging
 import re
 import time
@@ -68,8 +67,6 @@ try:
 except ModuleNotFoundError:  # allow running without PyYAML installed
     yaml = None
 
-DEFAULT_DATASETS: Iterable[Tuple[str, str]] = default_dataset_pairs()
-
 DEFAULT_METHODS = ["TRIAD", "SVD", "Davenport"]
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
@@ -83,7 +80,7 @@ def load_config(path: str):
         data = yaml.safe_load(fh) or {}
     datasets = [
         (item["imu"], item["gnss"]) for item in data.get("datasets", [])
-    ] or list(DEFAULT_DATASETS)
+    ] or list(default_dataset_pairs())
     methods = data.get("methods", DEFAULT_METHODS)
     return datasets, methods
 
@@ -165,7 +162,7 @@ def main(argv=None):
     if args.config:
         cases, methods = load_config(args.config)
     else:
-        cases, methods = list(DEFAULT_DATASETS), list(DEFAULT_METHODS)
+        cases, methods = list(default_dataset_pairs()), list(DEFAULT_METHODS)
 
     logger.debug(f"Datasets: {cases}")
     logger.debug(f"Methods: {methods}")
