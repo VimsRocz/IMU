@@ -1,4 +1,4 @@
-function [best_q, best_r, report] = task5_autotune(imu_path, gnss_path, method, grid_q, grid_r)
+function [best_q, best_r, report] = task5_autotune(imu_path, gnss_path, method, grid_q, grid_r, verbose)
 %TASK5_AUTOTUNE Grid-search vel_q_scale and vel_r to minimise RMSE_pos.
 %   [BEST_Q, BEST_R, REPORT] = TASK5_AUTOTUNE(IMU_PATH, GNSS_PATH, METHOD,
 %   GRID_Q, GRID_R) runs Task_5 over the Cartesian product of GRID_Q and
@@ -9,6 +9,7 @@ function [best_q, best_r, report] = task5_autotune(imu_path, gnss_path, method, 
 
     if nargin < 4 || isempty(grid_q), grid_q = [5, 10, 20, 40]; end
     if nargin < 5 || isempty(grid_r), grid_r = [0.25, 0.5, 1.0]; end
+    if nargin < 6 || isempty(verbose), verbose = false; end
 
     % Ensure paths are strings for Task_5 compatibility
     imu_path = string(imu_path);
@@ -21,7 +22,9 @@ function [best_q, best_r, report] = task5_autotune(imu_path, gnss_path, method, 
     max_steps = 120000;  % ~5 minutes of IMU at 400 Hz
     for q = grid_q
         for r = grid_r
-            fprintf('[Autotune] Trying vel_q_scale=%.3f  vel_r=%.3f ...\n', q, r);
+            if verbose
+                fprintf('[Autotune] Trying vel_q_scale=%.3f  vel_r=%.3f ...\n', q, r);
+            end
             try
                 res = Task_5(imu_path, gnss_path, method, [], 'vel_q_scale', q, 'vel_r', r, 'trace_first_n', 0, 'max_steps', max_steps);
                 rmse = res.rmse_pos;
@@ -44,4 +47,6 @@ function [best_q, best_r, report] = task5_autotune(imu_path, gnss_path, method, 
     report = struct('table', T, 'best_rmse', best_rmse, ...
         'best_rmse_q', best_q, 'best_rmse_r', best_r);
     disp(T);
+    fprintf('[Autotune] Best vel_q_scale=%.3f  vel_r=%.3f  RMSE=%.3f\n', ...
+        best_q, best_r, best_rmse);
 end
