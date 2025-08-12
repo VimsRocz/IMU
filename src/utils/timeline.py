@@ -13,12 +13,22 @@ import pandas as pd
 
 
 def _read_truth_time(truth_path, notes):
-    """Read STATE_* truth file robustly:
+    """Read STATE_* truth file robustly.
 
-    - Ignore lines starting with '#'
-    - Split on any whitespace
-    - Coerce 1st column to numeric, drop NaN rows
-    - Return time starting at zero
+    Parameters
+    ----------
+    truth_path : str or Path
+        Path to the truth file (whitespace delimited).
+    notes : list[str]
+        Diagnostics are appended here on failure.
+
+    Returns
+    -------
+    np.ndarray | None
+        Time vector starting at zero or ``None`` if parsing fails.
+
+    The parser ignores lines starting with ``#`` and expects column 2 to
+    contain the relative time in seconds.
     """
     if not truth_path or not Path(truth_path).exists():
         return None
@@ -33,8 +43,8 @@ def _read_truth_time(truth_path, notes):
         keep_default_na=True,
     )
 
-    # coerce first column to numeric; drop bad rows
-    t = pd.to_numeric(st.iloc[:, 0], errors="coerce").to_numpy(np.float64)
+    col = 1 if st.shape[1] > 1 else 0
+    t = pd.to_numeric(st.iloc[:, col], errors="coerce").to_numpy(np.float64)
     mask = np.isfinite(t)
     t = t[mask]
     if t.size < 2:
@@ -279,8 +289,34 @@ def print_timeline_summary(
 
 
 # Backward compatibility with existing callers
-print_timeline = print_timeline_summary
+# Legacy export: ``print_timeline_summary`` operated on file paths and run IDs.
+# For the new pipeline we provide a lightweight variant that accepts the time
+# vectors directly.  It mirrors the MATLAB helper and prints a concise three
+# line summary.  Existing callers can still use :func:`print_timeline_summary`.
+
+
+def print_timeline(imu_t, gnss_t, truth_t=None, logger=None):
+    """Print a short timeline summary for IMU, GNSS and optional truth."""
+    def _summ(t):
+        if t is None or len(t) == 0:
+            return "(missing)"
+        dt = np.diff(t)
+        hz = 1.0 / np.median(dt) if len(dt) else float("nan")
+        return (
+            f"n={len(t)} hz={hz:.3f} dt_med={np.median(dt):.6f}"
+            f" t0={t[0]:.3f} t1={t[-1]:.3f} monotonic={np.all(dt>0)}"
+        )
+
+    line_imu = f"IMU   | {_summ(imu_t)}"
+    line_gnss = f"GNSS  | {_summ(gnss_t)}"
+    line_truth = f"TRUTH | {_summ(truth_t)}" if truth_t is not None else "TRUTH | (not provided)"
+    msg = "\n".join([line_imu, line_gnss, line_truth])
+    if logger:
+        logger.info(msg)
+    else:  # pragma: no cover - console fallback
+        print(msg)
+
+
 
 
 __all__ = ["print_timeline_summary", "print_timeline"]
-

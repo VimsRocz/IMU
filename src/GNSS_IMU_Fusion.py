@@ -34,7 +34,7 @@ import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
 
-from scripts.plot_utils import save_plot, plot_attitude
+from scripts.plot_utils import plot_attitude
 from utils import (
     is_static,
     compute_C_ECEF_to_NED,
@@ -46,6 +46,7 @@ from constants import GRAVITY, EARTH_RATE
 from .compute_biases import compute_biases
 from scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
+from utils.save_plot_all import save_plot_all
 from .gnss_imu_fusion.init_vectors import (
     average_rotation_matrices,
     svd_alignment,
@@ -205,8 +206,17 @@ def main():
     gnss_stem = Path(gnss_file).stem
     tag = TAG(imu=imu_stem, gnss=gnss_stem, method=method)
     summary_tag = f"{imu_stem}_{gnss_stem}"
+    dataset_id = imu_stem
 
     logging.info(f"Running attitude-estimation method: {method}")
+
+    truth_quat0 = None
+    if truth_file:
+        try:
+            truth_first = np.loadtxt(truth_file, comments="#", max_rows=1)
+            truth_quat0 = truth_first[8:12]
+        except Exception:
+            truth_quat0 = None
 
     # ================================
     # TASK 1: Define Reference Vectors in NED Frame
@@ -242,25 +252,19 @@ def main():
         else:
             fig = plt.figure(figsize=(10, 5))
             ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+            ax.set_global()
             ax.stock_img()
-            ax.set_extent(
-                [lon_deg - 5, lon_deg + 5, lat_deg - 5, lat_deg + 5],
-                crs=ccrs.PlateCarree(),
-            )
             ax.plot(lon_deg, lat_deg, "ro", markersize=10, transform=ccrs.PlateCarree())
             ax.text(
-                lon_deg + 1,
+                lon_deg + 3,
                 lat_deg,
-                f"Lat: {lat_deg:.4f}°, Lon: {lon_deg:.4f}°",
+                f"{dataset_id}\nLat: {lat_deg:.4f}°\nLon: {lon_deg:.4f}°",
                 transform=ccrs.PlateCarree(),
             )
-            fig.suptitle("Task 1: Initial Location on Earth Map")
+            fig.suptitle("Task 1: Initial Location on Earth")
             fig.tight_layout()
-            pdf = Path("results") / f"{tag}_task1_location_map.pdf"
-            png = pdf.with_suffix(".png")
-            fig.savefig(pdf, bbox_inches="tight")
-            fig.savefig(png, dpi=150, bbox_inches="tight")
-            plt.close(fig)
+            out = Path("results") / f"{tag}_task1_location_map"
+            save_plot_all(fig, str(out), show_plot=True)
             logging.info("Location map saved")
     else:
         logging.info("Skipping plot generation (--no-plots)")
@@ -598,32 +602,57 @@ def main():
 
     logging.info("Subtask 3.7: Plotting validation errors and quaternion components.")
 
-    methods_plot = methods
+    methods_plot = ["TRIAD", "Davenport", "SVD"]
+    grav_vals = np.array([grav_errors[m] for m in methods_plot], dtype=float)
+    erate_vals = np.array([omega_errors[m] for m in methods_plot], dtype=float)
 
-    gravity_errors = [results[m]["gravity_error"] for m in methods_plot]
-    earth_rate_errors = [results[m]["earth_rate_error"] for m in methods_plot]
+    if not np.isfinite(grav_vals).all():
+        logging.warning("Task3:grav NaN -> 0")
+        grav_vals = np.nan_to_num(grav_vals, nan=0.0, posinf=0.0, neginf=0.0)
+    if not np.isfinite(erate_vals).all():
+        logging.warning("Task3:erate NaN -> 0")
+        erate_vals = np.nan_to_num(erate_vals, nan=0.0, posinf=0.0, neginf=0.0)
+
+    logging.info(
+        "[Task3] Gravity errors (deg): TRIAD=%.6g, Davenport=%.6g, SVD=%.6g",
+        *grav_vals
+    )
+    logging.info(
+        "[Task3] Earth-rate errors (deg): TRIAD=%.6g, Davenport=%.6g, SVD=%.6g",
+        *erate_vals
+    )
+
+    assert grav_vals.size and erate_vals.size, "Task3:NoData: No error data computed for plotting."
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    x = np.arange(len(methods_plot))
-    width = 0.35
 
-    axes[0].bar(x, gravity_errors, width)
-    axes[0].set_xticks(x)
-    axes[0].set_xticklabels(methods_plot)
+    axes[0].bar(methods_plot, grav_vals)
     axes[0].set_title("Gravity Error")
     axes[0].set_ylabel("Error (degrees)")
+    ymax = np.max(np.abs(grav_vals))
+    if ymax == 0:
+        ymax = 0.01
+    axes[0].set_ylim(-1.1 * ymax, 1.1 * ymax)
+    axes[0].grid(True)
+    for i, v in enumerate(grav_vals):
+        axes[0].text(i, v, f"{v:.3g}", ha="center", va="bottom")
 
-    axes[1].bar(x, earth_rate_errors, width)
-    axes[1].set_xticks(x)
-    axes[1].set_xticklabels(methods_plot)
+    axes[1].bar(methods_plot, erate_vals)
     axes[1].set_title("Earth Rate Error")
     axes[1].set_ylabel("Error (degrees)")
+    ymax = np.max(np.abs(erate_vals))
+    if ymax == 0:
+        ymax = 0.01
+    axes[1].set_ylim(-1.1 * ymax, 1.1 * ymax)
+    axes[1].grid(True)
+    for i, v in enumerate(erate_vals):
+        axes[1].text(i, v, f"{v:.3g}", ha="center", va="bottom")
 
     fig.suptitle("Task 3: Attitude Error Comparison")
-    plt.tight_layout()
+    fig.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task3_errors_comparison.pdf")
-    plt.close()
+        outbase = f"results/{tag}_task3_errors_comparison"
+        save_plot_all(fig, outbase, show_plot=True)
     logging.info("Error comparison plot saved")
 
     # Collect quaternion data for both cases
@@ -655,9 +684,25 @@ def main():
 
     plt.tight_layout()
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task3_quaternions_comparison.pdf")
-    plt.close()
+        save_plot_all(fig, f"results/{tag}_task3_quaternions_comparison", show_plot=True)
+    
     logging.info("Quaternion comparison plot saved")
+
+    if truth_quat0 is not None and not args.no_plots:
+        fig_truth, ax_truth = plt.subplots(figsize=(8, 4))
+        ax_truth.bar(range(4), quats_case1["TRIAD"], width=0.4, label="Computed")
+        ax_truth.bar(
+            np.arange(4) + 0.4,
+            truth_quat0,
+            width=0.4,
+            label="Truth",
+        )
+        ax_truth.set_xticks(np.arange(4) + 0.2)
+        ax_truth.set_xticklabels(["qw", "qx", "qy", "qz"])
+        ax_truth.set_ylabel("Value")
+        ax_truth.set_title("Task 3: Quaternion vs. Truth")
+        ax_truth.legend(loc="best")
+        save_plot_all(fig_truth, f"results/{tag}_task3_quaternions_truth", show_plot=True)
 
     # --------------------------------
     # Subtask 3.8: Store Rotation Matrices for Later Tasks
@@ -1006,85 +1051,15 @@ def main():
         ax.set_xlabel("Time (s)")
         ax.set_ylabel("Acceleration (m/s²)")
         ax.legend(loc="best")
-    fig_comp.suptitle(f"Task 4 – {method} – NED Frame (IMU-derived vs. Measured GNSS)")
+    fig_comp.suptitle(f"Task 4 – {method} – NED Frame (IMU vs. GNSS)")
     fig_comp.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_comparison_ned.pdf")
-    plt.close()
-    logging.info("Comparison plot in NED frame saved")
+        save_plot_all(fig_comp, f"results/{tag}_task4_all_ned", show_plot=True)
+    logging.info("NED frame plot saved")
 
     # Plot 1: Data in mixed frames (GNSS position/velocity in ECEF, IMU acceleration in body)
-    logging.info("Plotting data in mixed frames.")
-    fig_mixed, axes_mixed = plt.subplots(3, 3, figsize=(15, 10))
-    directions_pos = ["X_ECEF", "Y_ECEF", "Z_ECEF"]
-    directions_vel = ["VX_ECEF", "VY_ECEF", "VZ_ECEF"]
-    directions_acc = ["AX_body", "AY_body", "AZ_body"]
-    for i in range(3):
-        for j in range(3):
-            ax = axes_mixed[i, j]
-            if i == 0:  # Position
-                ax.plot(t_rel_gnss, gnss_pos_ecef[:, j], "k-", label="Measured GNSS")
-                ax.set_title(f"Position {directions_pos[j]}")
-            elif i == 1:  # Velocity
-                ax.plot(t_rel_gnss, gnss_vel_ecef[:, j], "k-", label="Measured GNSS")
-                ax.set_title(f"Velocity {directions_vel[j]}")
-            else:  # Acceleration
-                for m in methods:
-                    c = colors.get(m, None)
-                    ax.plot(
-                        t_rel_ilu,
-                        acc_body_corrected[m][:, j],
-                        color=c,
-                        alpha=0.7,
-                        label=f"Derived IMU ({m})",
-                    )
-                ax.set_title(f"Acceleration {directions_acc[j]}")
-            ax.set_xlabel("Time (s)")
-            ax.set_ylabel("Value")
-            ax.legend(loc="best")
-    fig_mixed.suptitle(
-        f"Task 4 – {method} – Mixed Frames (IMU-derived vs. Measured GNSS)"
-    )
-    fig_mixed.tight_layout(rect=[0, 0, 1, 0.95])
-    if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_mixed_frames.pdf")
-    plt.close()
-    logging.info("Mixed frames plot saved")
-
-    # Plot 2: All data in NED frame
-    logging.info("Plotting all data in NED frame.")
-    fig_ned, axes_ned = plt.subplots(3, 3, figsize=(15, 10))
-    directions_ned = ["N", "E", "D"]
-    for i in range(3):
-        for j in range(3):
-            ax = axes_ned[i, j]
-            if i == 0:  # Position
-                ax.plot(t_rel_gnss, gnss_pos_ned[:, j], "k-", label="Measured GNSS")
-                ax.set_title(f"Position {directions_ned[j]}")
-            elif i == 1:  # Velocity
-                ax.plot(t_rel_gnss, gnss_vel_ned[:, j], "k-", label="Measured GNSS")
-                ax.set_title(f"Velocity V{directions_ned[j]}")
-            else:  # Acceleration
-                for m in methods:
-                    c = colors.get(m, None)
-                    f_ned = C_B_N_methods[m] @ acc_body_corrected[m].T
-                    ax.plot(
-                        t_rel_ilu,
-                        f_ned[j],
-                        color=c,
-                        alpha=0.7,
-                        label=f"Derived IMU ({m})",
-                    )
-                ax.set_title(f"Acceleration A{directions_ned[j]}")
-            ax.set_xlabel("Time (s)")
-            ax.set_ylabel("Value")
-            ax.legend(loc="best")
-    fig_ned.suptitle(f"Task 4 – {method} – NED Frame (IMU-derived vs. Measured GNSS)")
-    fig_ned.tight_layout(rect=[0, 0, 1, 0.95])
-    if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_all_ned.pdf")
-    plt.close()
-    logging.info("All data in NED frame plot saved")
+    # Plot in ECEF frame
+    logging.info("Plotting all data in ECEF frame.")
 
     # Plot 3: All data in ECEF frame
     logging.info("Plotting all data in ECEF frame.")
@@ -1133,11 +1108,10 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_ecef.suptitle(f"Task 4 – {method} – ECEF Frame (IMU-derived vs. Measured GNSS)")
+    fig_ecef.suptitle(f"Task 4 – {method} – ECEF Frame (IMU vs. GNSS)")
     fig_ecef.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_all_ecef.pdf")
-    plt.close()
+        save_plot_all(fig_ecef, f"results/{tag}_task4_all_ecef", show_plot=True)
     logging.info("All data in ECEF frame plot saved")
 
     # Plot 4: All data in body frame
@@ -1169,11 +1143,10 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_body.suptitle(f"Task 4 – {method} – Body Frame (IMU-derived vs. Measured GNSS)")
+    fig_body.suptitle(f"Task 4 – {method} – Body Frame (IMU vs. GNSS)")
     fig_body.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_all_body.pdf")
-    plt.close()
+        save_plot_all(fig_body, f"results/{tag}_task4_all_body", show_plot=True)
     logging.info("All data in body frame plot saved")
 
     # ================================
@@ -1600,72 +1573,15 @@ def main():
         )
 
     plt.tight_layout()
-    out_pdf = f"results/{tag}_task5_results_{method}.pdf"
+    base = f"results/{tag}_task5_results_ned_{method}"
     if not args.no_plots:
-        save_plot(fig, out_pdf, f"Task 5: Kalman Filter Results — {tag}")
-    logging.info(f"Subtask 5.8.2: {method} plot saved as '{out_pdf}'")
+        fig.suptitle(f"Task 5 – {method} – NED Frame")
+        save_plot_all(fig, base, show_plot=True)
+    logging.info(f"Subtask 5.8.2: {method} plot saved as '{base}.png'")
     logging.debug(
-        f"# Subtask 5.8.2: {method} plotting completed. Saved as '{out_pdf}'."
+        f"# Subtask 5.8.2: {method} plotting completed. Saved as '{base}.png'"
     )
 
-    # Plot fused data in mixed reference frames
-    logging.info("Plotting fused data in mixed frames.")
-    fig_mixed_fused, ax_mixed_fused = plt.subplots(3, 3, figsize=(15, 10))
-    dirs_pos = ["X_ECEF", "Y_ECEF", "Z_ECEF"]
-    dirs_vel = ["VX_ECEF", "VY_ECEF", "VZ_ECEF"]
-    dirs_acc = ["AX_body", "AY_body", "AZ_body"]
-    c = colors.get(method, None)
-    pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
-    vel_ecef = (C_NED_to_ECEF @ fused_vel[method].T).T
-    C_N_B = C_B_N_methods[method].T
-    acc_body = (C_N_B @ fused_acc[method].T).T
-    for i in range(3):
-        for j in range(3):
-            ax = ax_mixed_fused[i, j]
-            if i == 0:
-                ax.plot(t_rel_gnss, gnss_pos_ecef[:, j], "k-", label="Measured GNSS")
-                ax.plot(
-                    t_rel_ilu,
-                    pos_ecef[:, j],
-                    c,
-                    alpha=0.7,
-                    label=f"Fused (GNSS+IMU, {method})",
-                )
-                if truth_pos_ecef_i is not None:
-                    ax.plot(t_rel_ilu, truth_pos_ecef_i[:, j], "m-", label="Truth")
-                ax.set_title(f"Position {dirs_pos[j]}")
-            elif i == 1:
-                ax.plot(t_rel_gnss, gnss_vel_ecef[:, j], "k-", label="Measured GNSS")
-                ax.plot(
-                    t_rel_ilu,
-                    vel_ecef[:, j],
-                    c,
-                    alpha=0.7,
-                    label=f"Fused (GNSS+IMU, {method})",
-                )
-                if truth_vel_ecef_i is not None:
-                    ax.plot(t_rel_ilu, truth_vel_ecef_i[:, j], "m-", label="Truth")
-                ax.set_title(f"Velocity {dirs_vel[j]}")
-            else:
-                ax.plot(
-                    t_rel_ilu,
-                    acc_body[:, j],
-                    c,
-                    alpha=0.7,
-                    label=f"Fused (GNSS+IMU, {method})",
-                )
-                ax.set_title(f"Acceleration {dirs_acc[j]}")
-            ax.set_xlabel("Time (s)")
-            ax.set_ylabel("Value")
-            ax.legend(loc="best")
-    fig_mixed_fused.suptitle(
-        f"Task 5 – {method} – Mixed Frames (Fused vs. Measured GNSS)"
-    )
-    fig_mixed_fused.tight_layout(rect=[0, 0, 1, 0.95])
-    if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_mixed_frames.pdf")
-    plt.close()
-    logging.info("Fused mixed frames plot saved")
 
     # ----- Additional reference frame plots -----
     logging.info("Plotting all data in NED frame.")
@@ -1715,8 +1631,7 @@ def main():
     fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused vs. Measured GNSS)")
     fig_ned_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_ned.pdf")
-    plt.close()
+        save_plot_all(fig_ned_all, f"results/{tag}_task5_all_ned", show_plot=True)
     logging.info("All data in NED frame plot saved")
 
     logging.info("Plotting all data in ECEF frame.")
@@ -1777,8 +1692,7 @@ def main():
     fig_ecef_all.suptitle(f"Task 5 – {method} – ECEF Frame (Fused vs. Measured GNSS)")
     fig_ecef_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_ecef.pdf")
-    plt.close()
+        save_plot_all(fig_ecef_all, f"results/{tag}_task5_all_ecef", show_plot=True)
     logging.info("All data in ECEF frame plot saved")
 
     logging.info("Plotting all data in body frame.")
@@ -1837,56 +1751,31 @@ def main():
     fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused vs. Measured GNSS)")
     fig_body_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_body.pdf")
-    plt.close()
+        save_plot_all(fig_body_all, f"results/{tag}_task5_all_body", show_plot=True)
     logging.info("All data in body frame plot saved")
 
     # Plot pre-fit innovations
-    fig_innov, ax_innov = plt.subplots(3, 1, sharex=True, figsize=(8, 6))
-    labels = ["North", "East", "Down"]
-    innov_pos = innov_pos_all[method]
-    innov_vel = innov_vel_all[method]
-    for i in range(3):
-        ax_innov[i].plot(innov_pos[:, i], label="Position")
-        ax_innov[i].plot(innov_vel[:, i], label="Velocity", linestyle="--")
-        ax_innov[i].set_ylabel(f"{labels[i]} residual")
-        ax_innov[i].grid(True)
-    ax_innov[0].legend(loc="best")
-    ax_innov[-1].set_xlabel("GNSS update index")
-    fig_innov.suptitle("Task 5 – Pre-fit Innovations (Fused vs. Measured GNSS)")
-    fig_innov.tight_layout()
-    innov_pdf = f"results/{tag}_{method.lower()}_innovations.pdf"
-    if not args.no_plots:
-        save_plot(fig_innov, innov_pdf, "Pre-fit Innovations")
-
-    # Plot residuals and attitude using helper functions
+    # Plot residuals using helper functions
     if not args.no_plots:
         res = compute_residuals(gnss_time, gnss_pos_ned, imu_time, fused_pos[method])
-        plot_residuals(gnss_time, res, f"results/residuals_{tag}_{method}.pdf")
-        plot_attitude(
-            imu_time,
-            attitude_q_all[method],
-            f"results/attitude_angles_{tag}_{method}.pdf",
-        )
+        plot_residuals(gnss_time, res, f"results/residuals_{tag}_{method}")
 
     # Create plot summary
     summary = {
-        f"{tag}_location_map.pdf": "Initial location on Earth map",
-        f"{tag}_task3_errors_comparison.pdf": "Attitude initialization error comparison",
-        f"{tag}_task3_quaternions_comparison.pdf": "Quaternion components for initialization",
-        f"{tag}_task4_comparison_ned.pdf": "GNSS vs IMU data in NED frame",
-        f"{tag}_task4_mixed_frames.pdf": "GNSS/IMU data in mixed frames",
-        f"{tag}_task4_all_ned.pdf": "Integrated data in NED frame",
-        f"{tag}_task4_all_ecef.pdf": "Integrated data in ECEF frame",
-        f"{tag}_task4_all_body.pdf": "Integrated data in body frame",
-        f"{tag}_task5_results_{method}.pdf": f"Kalman filter results using {method}",
-        f"{tag}_task5_mixed_frames.pdf": "Kalman filter results in mixed frames",
-        f"{tag}_task5_all_ned.pdf": "Kalman filter results in NED frame",
-        f"{tag}_task5_all_ecef.pdf": "Kalman filter results in ECEF frame",
-        f"{tag}_task5_all_body.pdf": "Kalman filter results in body frame",
-        f"{tag}_{method.lower()}_residuals.pdf": "Position and velocity residuals",
-        f"{tag}_{method.lower()}_innovations.pdf": "Pre-fit innovations",
-        f"{tag}_{method.lower()}_attitude_angles.pdf": "Attitude angles over time",
+        f"{tag}_location_map.png": "Initial location on Earth map",
+        f"{tag}_task3_errors_comparison.png": "Attitude initialization error comparison",
+        f"{tag}_task3_quaternions_comparison.png": "Quaternion components for initialization",
+        f"{tag}_task4_comparison_ned.png": "GNSS vs IMU data in NED frame",
+        f"{tag}_task4_mixed_frames.png": "GNSS/IMU data in mixed frames",
+        f"{tag}_task4_all_ned.png": "Integrated data in NED frame",
+        f"{tag}_task4_all_ecef.png": "Integrated data in ECEF frame",
+        f"{tag}_task4_all_body.png": "Integrated data in body frame",
+        f"{tag}_task5_results_{method}.png": f"Kalman filter results using {method}",
+        f"{tag}_task5_mixed_frames.png": "Kalman filter results in mixed frames",
+        f"{tag}_task5_all_ned.png": "Kalman filter results in NED frame",
+        f"{tag}_task5_all_ecef.png": "Kalman filter results in ECEF frame",
+        f"{tag}_task5_all_body.png": "Kalman filter results in body frame",
+        f"{tag}_{method.lower()}_residuals.png": "Position and velocity residuals",
     }
     summary_path = os.path.join("results", f"{tag}_plot_summary.md")
     with open(summary_path, "w") as f:
@@ -1920,20 +1809,6 @@ def main():
 
     # --- Attitude angles ----------------------------------------------------
     euler = R.from_quat(attitude_q_all[method]).as_euler("xyz", degrees=True)
-    if not args.no_plots:
-        plt.figure()
-        plt.plot(imu_time, euler[:, 0], label="Roll")
-        plt.plot(imu_time, euler[:, 1], label="Pitch")
-        plt.plot(imu_time, euler[:, 2], label="Yaw")
-        plt.xlabel("Time (s)")
-        plt.ylabel("Angle (deg)")
-        plt.legend(loc="best")
-        plt.title(f"Task 6: {tag} Attitude Angles")
-        png = Path("results") / f"{tag}_task6_attitude_angles.png"
-        pdf = png.with_suffix(".pdf")
-        plt.savefig(png)
-        plt.savefig(pdf)
-        plt.close()
 
     C_NED_to_ECEF = C_ECEF_to_NED.T
     pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
@@ -2067,8 +1942,6 @@ def main():
             gnss_vel_ned,
             tag,
         )
-
-        save_attitude_over_time(imu_time, euler_deg, dataset_id, method)
 
         plot_all_methods(
             imu_time,

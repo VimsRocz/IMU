@@ -1,4 +1,4 @@
-function Task_7()
+function Task7 = Task_7()
 %TASK_7 Plot ECEF residuals between truth and fused estimate.
 %   TASK_7() loads the fused state history ``x_log`` produced by Task 5 and
 %   the ground truth trajectory from Task 4. Earlier versions of the
@@ -14,21 +14,26 @@ function Task_7()
 %   Usage:
 %       Task_7()
 
-    fprintf('--- Starting Task 7: Residual Analysis with Task4 truth (ECEF) ---\n');
+fprintf('--- Starting Task 7: Residual Analysis with Task4 truth (ECEF) ---\n');
 
-    paths = project_paths();
-    results_dir = paths.matlab_results;
+paths = project_paths();
+results_dir = paths.matlab_results;
 
-    %% Load state history from Task 5
-    files = dir(fullfile(results_dir, '*_task5_results.mat'));
-    if isempty(files)
-        error('Task_7: no Task 5 results found.');
-    end
-    [~, fname, ~] = fileparts(files(1).name);
-    run_id = erase(fname, '_task5_results');
-    mat5 = fullfile(results_dir, files(1).name);
-    S5 = load(mat5);
-    x_log = S5.x_log; % 15xN state log
+print_task_start('Task_7');
+fprintf('TASK 7: Plot ECEF residuals between truth and fused estimate\n');
+
+fprintf('\nSubtask 7.1: Loading state history from Task 5.\n');
+%% Load state history from Task 5
+files = dir(fullfile(results_dir, '*_task5_results.mat'));
+if isempty(files)
+    error('Task_7: no Task 5 results found.');
+end
+[~, fname, ~] = fileparts(files(1).name);
+run_id = erase(fname, '_task5_results');
+mat5 = fullfile(results_dir, files(1).name);
+S5 = load(mat5);
+x_log = S5.x_log; % 15xN state log
+fprintf('Loaded state history from: %s\n', mat5);
     if isfield(S5, 't_est') && isfield(S5, 'dt')
         t_est = S5.t_est(:);
         dt    = S5.dt;
@@ -54,27 +59,29 @@ function Task_7()
             end
         end
     end
-    t_est = zero_base_time(t_est);
-    t_est_down = t_est(1:400:end);
-    ref_lat = S5.ref_lat;
-    ref_lon = S5.ref_lon;
-    ref_r0  = S5.ref_r0;
-    fprintf('Task 7: Loaded x_log from %s, size: %dx%d\n', mat5, size(x_log));
+t_est = zero_base_time(t_est);
+t_est_down = t_est(1:400:end);
+ref_lat = S5.ref_lat;
+ref_lon = S5.ref_lon;
+ref_r0  = S5.ref_r0;
+fprintf('Loaded x_log from %s, size: %dx%d\n', mat5, size(x_log));
 
-    %% Load ground truth
-    % Task 4 may not save the truth time vector. Reconstruct it from the
-    % GNSS CSV if needed.
-    data_dir = fileparts(fileparts(results_dir));
-    mat4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', run_id));
-    if ~isfile(mat4)
-        pair_tag = regexp(run_id, 'IMU_[^_]+_GNSS_[^_]+', 'match', 'once');
-        mat4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-    end
-    if isfile(mat4)
-        S4 = load(mat4);
-    else
-        error('Task_7: missing Task4 results to get truth data.');
-    end
+fprintf('\nSubtask 7.2: Loading ground truth data.\n');
+%% Load ground truth
+% Task 4 may not save the truth time vector. Reconstruct it from the
+% GNSS CSV if needed.
+data_dir = fileparts(fileparts(results_dir));
+mat4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', run_id));
+if ~isfile(mat4)
+    pair_tag = regexp(run_id, 'IMU_[^_]+_GNSS_[^_]+', 'match', 'once');
+    mat4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
+end
+if isfile(mat4)
+    S4 = load(mat4);
+    fprintf('Loaded ground truth from: %s\n', mat4);
+else
+    error('Task_7: missing Task4 results to get truth data.');
+end
 
     if isfield(S4, 'pos_truth')
         pos_truth_ecef = S4.pos_truth';
@@ -211,13 +218,36 @@ function Task_7()
             directions{i}, vel_range(1), vel_range(2), vel_exceed);
     end
 
-    %% Save results
-    results_out = fullfile(results_dir, sprintf('%s_task7_results.mat', run_id));
-    save_overwrite(results_out, 'pos_error', 'vel_error', 'pos_est_i', 'vel_est_i', 't_grid');
-    fprintf('Task 7: Results saved to %s\n', results_out);
-    fprintf('[SUMMARY] method=KF rmse_pos=%.2f m final_pos=%.2f m ', ...
-            sqrt(mean(sum(pos_error.^2,2))), final_pos);
-    fprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', ...
-            sqrt(mean(sum(vel_error.^2,2))), final_vel);
-    fprintf('Task 7: Completed successfully\n');
+fprintf('\nSubtask 7.6: Saving Task7 results in canonical format.\n');
+%% Save results
+results_out = fullfile(results_dir, sprintf('%s_task7_results.mat', run_id));
+save_overwrite(results_out, 'pos_error', 'vel_error', 'pos_est_i', 'vel_est_i', 't_grid');
+fprintf('Legacy results saved to %s\n', results_out);
+
+% Create canonical Task7 struct with residual analysis results and metadata
+Task7 = struct();
+Task7.pos_error = pos_error;
+Task7.vel_error = vel_error;
+Task7.pos_est_i = pos_est_i;
+Task7.vel_est_i = vel_est_i;
+Task7.t_grid = t_grid;
+Task7.final_pos_error = final_pos;
+Task7.final_vel_error = final_vel;
+Task7.rmse_pos = sqrt(mean(sum(pos_error.^2,2)));
+Task7.rmse_vel = sqrt(mean(sum(vel_error.^2,2)));
+Task7.meta = struct('dataset', run_id, 'method', 'KF');
+
+% Save canonical Task7 results using TaskIO
+outpath7 = fullfile(results_dir, sprintf('%s_task7_results.mat', run_id));
+TaskIO.save('Task7', Task7, outpath7);
+
+% Expose to workspace for interactive use
+assignin('base', 'Task7', Task7);
+
+fprintf('Task 7 canonical results -> %s\n', outpath7);
+fprintf('[SUMMARY] method=KF rmse_pos=%.2f m final_pos=%.2f m ', ...
+        sqrt(mean(sum(pos_error.^2,2))), final_pos);
+fprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', ...
+        sqrt(mean(sum(vel_error.^2,2))), final_vel);
+fprintf('Task 7: Completed successfully\n');
 end

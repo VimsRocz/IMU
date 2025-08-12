@@ -3,7 +3,7 @@ function rebuild_and_save_fig(mat_path, fig_out_path)
 %   rebuild_and_save_fig(mat_path, fig_out_path) loads plotting data saved
 %   from Python and recreates the figure, exporting it as a MATLAB .fig.
 %
-%   The .mat file schema is defined in python/utils/save_plot_all.py.
+%   The .mat file schema is defined in src/utils/save_plot_all.py.
 
     S = load(mat_path);
     f = figure('Color','w');

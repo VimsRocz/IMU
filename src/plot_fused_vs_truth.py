@@ -7,6 +7,7 @@ from typing import Iterable
 
 import numpy as np
 import matplotlib.pyplot as plt
+from utils.save_plot_all import save_plot_all
 
 
 def plot_fused_vs_truth(
@@ -29,7 +30,8 @@ def plot_fused_vs_truth(
     fused : array-like of shape (N, 3)
         Fused GNSS+IMU estimate in the same frame as ``truth``.
     output_path : str or Path
-        Where to write the generated figure (PDF or PNG).
+        Base path where the figure will be written. ``.png`` and ``.pickle``
+        are appended automatically.
     frame_label : str, optional
         Name of the reference frame for the title, e.g. ``"ECEF"``.
     unit : str, optional
@@ -83,7 +85,6 @@ def plot_fused_vs_truth(
     fig.suptitle(title)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
 
-    output_path = Path(output_path)
+    output_path = Path(output_path).with_suffix("")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path)
-    plt.close(fig)
+    save_plot_all(fig, str(output_path), show_plot=True)

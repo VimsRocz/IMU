@@ -39,6 +39,7 @@ import io
 from evaluate_filter_results import run_evaluation_npz
 
 from utils import compute_C_ECEF_to_NED
+from utils.print_task_start import print_task_start
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -48,10 +49,8 @@ ROOT = HERE.parent
 
 # Allow importing helper utilities under ``src/utils`` without clashing with
 # the top-level ``utils.py`` module.
-import sys as _sys
-_sys.path.append(str(HERE / "utils"))
-from timeline import print_timeline_summary  # type: ignore
-from resolve_truth_path import resolve_truth_path  # type: ignore
+from utils.timeline import print_timeline_summary  # type: ignore
+from utils.resolve_truth_path import resolve_truth_path  # type: ignore
 
 try:
     import yaml
@@ -168,7 +167,7 @@ def main(argv=None):
     for (imu, gnss), m in itertools.product(cases, methods):
         tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
         log_path = pathlib.Path("results") / f"{tag}.log"
-        print(f"\u25b6 {tag}")
+        print_task_start(tag)
         imu_path = pathlib.Path(imu)
         gnss_path = pathlib.Path(gnss)
 

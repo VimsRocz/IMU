@@ -4,6 +4,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
+from utils.save_plot_all import save_plot_all
 
 
 def _norm(v: np.ndarray) -> np.ndarray:
@@ -48,8 +49,9 @@ def plot_overlay(
         Only "state" is supported.  The "truth" option is obsolete.
     suffix : str or None, optional
         Filename suffix appended to ``"{method}_{frame}"`` when saving the
-        figure. Defaults to ``"_overlay_state.pdf"`` when truth data is
-        supplied and ``"_overlay.pdf"`` otherwise.
+        figure. Defaults to ``"_overlay_state"`` when truth data is
+        supplied and ``"_overlay"`` otherwise. Extensions are added based on
+        the ``formats`` argument to :func:`save_plot_all`.
     filename : str or None, optional
         Full filename (relative to ``out_dir``) for the saved figure. When
         provided, overrides the ``method``/``frame`` naming scheme and the
@@ -62,7 +64,7 @@ def plot_overlay(
         t_truth, pos_truth, vel_truth, acc_truth = truth
 
     if suffix is None:
-        suffix = "_overlay_state.pdf" if t_truth is not None else "_overlay.pdf"
+        suffix = "_overlay_state" if t_truth is not None else "_overlay"
 
     axis_labels = {
         "NED": ["\u0394N [m]", "\u0394E [m]", "\u0394D [m]"],
@@ -165,18 +167,9 @@ def plot_overlay(
     fig.suptitle(title)
     fig.tight_layout(rect=[0, 0, 1, 0.9])
     if filename is not None:
-        out_path = Path(out_dir) / filename
+        out_path = Path(out_dir) / Path(filename).with_suffix("")
     else:
         out_path = Path(out_dir) / f"{method}_{frame}{suffix}"
 
-    fname_pdf = out_path.with_suffix(".pdf")
-    fname_png = out_path.with_suffix(".png")
-    fig.savefig(fname_pdf, dpi=300, bbox_inches="tight")
-    fig.savefig(fname_png, dpi=150, bbox_inches="tight")
-    try:
-        from utils import save_plot_mat
-        save_plot_mat(fig, str(out_path.with_suffix(".mat")))
-    except Exception:
-        pass
-    print(f"Saved overlay figure {fname_pdf}")
-    plt.close(fig)
+    save_plot_all(fig, str(out_path), show_plot=True)
+    print(f"Saved overlay figure {out_path}.pickle")

@@ -21,6 +21,7 @@ from tabulate import tabulate
 import time
 from velocity_utils import derive_velocity
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
+from utils.save_plot_all import save_plot_all
 
 
 def _find_cols(df: pd.DataFrame, options: Sequence[Sequence[str]]) -> Sequence[str]:
@@ -126,16 +127,9 @@ def run_evaluation(
         axes[1, i].grid(True)
     fig.suptitle("Task 7 – GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out_path = plot_path(out_dir, tag or "", 7, "3", "residuals_position_velocity")
-    fig.savefig(out_path)
-    print(f"Saved {out_path}")
-    try:
-        from utils import save_plot_mat, save_plot_fig
-        save_plot_mat(fig, str(out_path.with_suffix(".mat")))
-        save_plot_fig(fig, str(out_path.with_suffix(".fig")))
-    except Exception:
-        pass
-    plt.close(fig)
+    out_path = plot_path(out_dir, tag or "", 7, "3", "residuals_position_velocity", ext="png").with_suffix("")
+    save_plot_all(fig, str(out_path), show_plot=True)
+    print(f"Saved {out_path}.png")
 
     # Histograms of residuals
     for arr, name in [(res_pos, "position"), (res_vel, "velocity")]:
@@ -147,16 +141,9 @@ def run_evaluation(
             axes[i].grid(True)
         fig.suptitle(f"Task 7 – Histogram of {name} residuals")
         fig.tight_layout(rect=[0, 0, 1, 0.95])
-        hist_path = plot_path(out_dir, tag or "", 7, f"hist_{name}", "residuals")
-        fig.savefig(hist_path)
-        print(f"Saved {hist_path}")
-        try:
-            from utils import save_plot_mat, save_plot_fig
-            save_plot_mat(fig, str(hist_path.with_suffix(".mat")))
-            save_plot_fig(fig, str(hist_path.with_suffix(".fig")))
-        except Exception:
-            pass
-        plt.close(fig)
+        hist_path = plot_path(out_dir, tag or "", 7, f"hist_{name}", "residuals", ext="png").with_suffix("")
+        save_plot_all(fig, str(hist_path), show_plot=True)
+        print(f"Saved {hist_path}.png")
 
     quat = att[quat_cols].to_numpy()
     rot = R.from_quat(quat[:, [1, 2, 3, 0]])  # w,x,y,z -> x,y,z,w
@@ -172,15 +159,8 @@ def run_evaluation(
     axs[2].set_xlabel("Time [s]")
     fig.suptitle("Task 7 – Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    att_out = plot_path(out_dir, tag or "", 7, "4", "attitude_angles_euler")
-    fig.savefig(att_out)
-    try:
-        from utils import save_plot_mat, save_plot_fig
-        save_plot_mat(fig, str(att_out.with_suffix(".mat")))
-        save_plot_fig(fig, str(att_out.with_suffix(".fig")))
-    except Exception:
-        pass
-    plt.close(fig)
+    att_out = plot_path(out_dir, tag or "", 7, "4", "attitude_angles_euler", ext="png").with_suffix("")
+    save_plot_all(fig, str(att_out), show_plot=True)
 
 
 def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) -> None:
@@ -267,10 +247,9 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         axes[1, i].grid(True)
     fig.suptitle("Task 7 – GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out_path = plot_path(out_dir, tag or "", 7, "3", "residuals_position_velocity")
-    fig.savefig(out_path)
-    print(f"Saved {out_path}")
-    plt.close(fig)
+    out_path = plot_path(out_dir, tag or "", 7, "3", "residuals_position_velocity", ext="png").with_suffix("")
+    save_plot_all(fig, str(out_path), show_plot=True)
+    print(f"Saved {out_path}.png")
 
     rot = R.from_quat(quat[:, [1, 2, 3, 0]])
     euler = rot.as_euler("xyz", degrees=True)
@@ -284,10 +263,9 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     axs[2].set_xlabel("Time [s]")
     fig.suptitle("Task 7 – Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    att_path = plot_path(out_dir, tag or "", 7, "4", "attitude_angles_euler")
-    fig.savefig(att_path)
-    print(f"Saved {att_path}")
-    plt.close(fig)
+    att_path = plot_path(out_dir, tag or "", 7, "4", "attitude_angles_euler", ext="png").with_suffix("")
+    save_plot_all(fig, str(att_path), show_plot=True)
+    print(f"Saved {att_path}.png")
 
     # Error norm plots
     norm_pos = np.linalg.norm(res_pos, axis=1)
@@ -304,10 +282,9 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     ax.legend()
     ax.grid(True)
     fig.tight_layout()
-    norm_path = plot_path(out_dir, tag or "", 7, "3", "error_norms")
-    fig.savefig(norm_path)
-    print(f"Saved {norm_path}")
-    plt.close(fig)
+    norm_path = plot_path(out_dir, tag or "", 7, "3", "error_norms", ext="png").with_suffix("")
+    save_plot_all(fig, str(norm_path), show_plot=True)
+    print(f"Saved {norm_path}.png")
 
     # Subtask 7.5: difference Truth - Fused in multiple frames
     if fused_time is not None and fused_pos is not None and fused_vel is not None:
@@ -405,20 +382,10 @@ def subtask7_5_diff_plot(
 
         fig.suptitle(f"Truth - Fused Differences ({frame} Frame)")
         fig.tight_layout(rect=[0, 0, 1, 0.95])
-        base = plot_path(out_dir, run_id, 7, "5", "diff_truth_fused_over_time")
-        pdf = base.with_name(base.stem + f"_{frame}.pdf")
-        png = pdf.with_suffix(".png")
-        fig.savefig(pdf)
-        print(f"Saved {pdf}")
-        fig.savefig(png)
-        print(f"Saved {png}")
-        try:
-            from utils import save_plot_mat, save_plot_fig
-            save_plot_mat(fig, str(pdf.with_suffix(".mat")))
-            save_plot_fig(fig, str(pdf.with_suffix(".fig")))
-        except Exception:
-            pass
-        plt.close(fig)
+        base = plot_path(out_dir, run_id, 7, "5", "diff_truth_fused_over_time", ext="png").with_suffix("")
+        fig_base = base.with_name(base.name + f"_{frame}")
+        save_plot_all(fig, str(fig_base), show_plot=True)
+        print(f"Saved {fig_base}.png")
 
         pos_thr = 1.0
         vel_thr = 1.0

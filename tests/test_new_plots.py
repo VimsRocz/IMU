@@ -38,13 +38,13 @@ def test_body_frame_plots(tmp_path, monkeypatch):
 
     res_dir = Path("results")
     expected = [
-        "*_task4_all_body.pdf",
-        "*_task5_all_body.pdf",
+        "*_task4_all_body.png",
+        "*_task5_all_body.png",
     ]
     for pattern in expected:
         matches = list(res_dir.glob(pattern))
         assert matches, f"Missing plot {pattern}"
 
     # cleanup
-    for f in res_dir.glob("*.pdf"):
+    for f in res_dir.glob("*.png"):
         f.unlink()
