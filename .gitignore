@@ -22,3 +22,4 @@ __pycache__/
 
 # Misc
 .DS_Store
+triad_init_log.txt
