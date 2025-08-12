@@ -28,14 +28,15 @@ function T = load_truth_file(truth_path)
     end
 
     % Coerce non-numeric columns to numeric when possible
-    for i = 1:width(T)
-        if ~isnumeric(T{:,i})
-            T{:,i} = str2double(string(T{:,i}));
+    vn = T.Properties.VariableNames;
+    for i = 1:numel(vn)
+        col = T.(vn{i});
+        if iscell(col) || isstring(col)
+            T.(vn{i}) = str2double(string(col));
         end
     end
     % Build time vector starting at zero
     time_col = [];
-    vn = T.Properties.VariableNames;
     if any(strcmpi(vn,'Posix_Time'))
         t = T{:,strcmpi(vn,'Posix_Time')};
     elseif any(strcmpi(vn,'time'))
