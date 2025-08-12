@@ -5,6 +5,35 @@ from __future__ import annotations
 import numpy as np
 
 
+def ensure_monotonic(t, logger=None, dt_hint=None):
+    """Return a strictly increasing time vector, repairing if needed."""
+    t = np.asarray(t, dtype=float)
+    if np.all(np.diff(t) > 0):
+        return t, None, 0
+
+    dt = np.diff(t)
+    pos = dt[dt > 0]
+    if pos.size == 0 and (not dt_hint or dt_hint <= 0):
+        raise ValueError(
+            "time vector cannot be repaired (no positive dt and no dt_hint)."
+        )
+    dt_med = float(dt_hint) if (dt_hint and dt_hint > 0) else float(np.median(pos))
+
+    t_fix = t.copy()
+    violations = 0
+    for i in range(1, t_fix.size):
+        if t_fix[i] <= t_fix[i - 1]:
+            t_fix[i] = t_fix[i - 1] + dt_med
+            violations += 1
+
+    if logger:
+        logger.warning(
+            f"[IMU time repair] fixed {violations} non-monotonic steps using dt={dt_med:.6f}s "
+            f"(orig {t[0]:.6f}->{t[-1]:.6f}, fixed {t_fix[0]:.6f}->{t_fix[-1]:.6f})"
+        )
+    return t_fix, dt_med, violations
+
+
 def assert_monotonic(t: np.ndarray) -> None:
     """Raise ``ValueError`` if ``t`` is not strictly increasing."""
     if np.any(np.diff(t) <= 0):
@@ -43,6 +72,7 @@ def assert_shape(name: str, arr: np.ndarray, shape) -> None:
 
 
 __all__ = [
+    "ensure_monotonic",
     "assert_monotonic",
     "assert_rate_stability",
     "assert_no_nans",

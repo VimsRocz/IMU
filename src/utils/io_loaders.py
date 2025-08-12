@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from . import validators
+from .validators import ensure_monotonic
 
 
 def load_imu(path: str | Path, logger=None) -> Dict[str, np.ndarray]:
@@ -18,7 +19,11 @@ def load_imu(path: str | Path, logger=None) -> Dict[str, np.ndarray]:
     t = data[:, 0]
     acc = data[:, 1:4]
     gyro = data[:, 4:7]
-    validators.assert_monotonic(t)
+    # validators.assert_monotonic(t)
+    t_fixed, dt_used, nfix = ensure_monotonic(t, logger)
+    if nfix > 0:
+        t = t_fixed
+        # dt_est = dt_used
     validators.assert_no_nans("acc", acc)
     validators.assert_no_nans("gyro", gyro)
     hz = validators.assert_rate_stability(t)
