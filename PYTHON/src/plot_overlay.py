@@ -5,6 +5,12 @@ from typing import Optional, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 
+# Try to import interactive plotting
+try:
+    from plot_overlay_interactive import plot_overlay_interactive, PLOTLY_AVAILABLE
+except ImportError:
+    PLOTLY_AVAILABLE = False
+
 
 def _norm(v: np.ndarray) -> np.ndarray:
     return np.linalg.norm(v, axis=1)
@@ -35,6 +41,7 @@ def plot_overlay(
     suffix: Optional[str] = None,
     filename: Optional[str] = None,
     include_measurements: bool = True,
+    interactive: bool = True,
 ) -> None:
     """Save a 3x3 overlay plot comparing measured IMU, measured GNSS and
     fused GNSS+IMU tracks.
@@ -57,7 +64,101 @@ def plot_overlay(
     include_measurements : bool, optional
         Plot measured IMU and GNSS series when ``True`` (default). When ``False``
         only the fused estimate and optional truth data are shown.
+    interactive : bool, optional
+        Create interactive Plotly plots when ``True`` (default). Falls back to
+        static matplotlib plots if Plotly is not available.
     """
+    # Try interactive plotting first if requested and available
+    if interactive and PLOTLY_AVAILABLE:
+        try:
+            plot_overlay_interactive(
+                frame=frame,
+                method=method,
+                t_imu=t_imu,
+                pos_imu=pos_imu,
+                vel_imu=vel_imu,
+                acc_imu=acc_imu,
+                t_gnss=t_gnss,
+                pos_gnss=pos_gnss,
+                vel_gnss=vel_gnss,
+                acc_gnss=acc_gnss,
+                t_fused=t_fused,
+                pos_fused=pos_fused,
+                vel_fused=vel_fused,
+                acc_fused=acc_fused,
+                out_dir=out_dir,
+                truth=truth,
+                t_truth=t_truth,
+                pos_truth=pos_truth,
+                vel_truth=vel_truth,
+                acc_truth=acc_truth,
+                filename=filename,
+                include_measurements=include_measurements,
+                save_static=True,  # Also save static versions
+            )
+            print(f"✓ Created interactive plot for {method} {frame} frame")
+            return
+        except Exception as e:
+            print(f"Interactive plotting failed: {e}")
+            print("Falling back to static matplotlib plots...")
+    elif interactive and not PLOTLY_AVAILABLE:
+        print("Plotly not available - using static matplotlib plots")
+    
+    # Original matplotlib plotting code (static plots)
+    _plot_overlay_static(
+        frame=frame,
+        method=method,
+        t_imu=t_imu,
+        pos_imu=pos_imu,
+        vel_imu=vel_imu,
+        acc_imu=acc_imu,
+        t_gnss=t_gnss,
+        pos_gnss=pos_gnss,
+        vel_gnss=vel_gnss,
+        acc_gnss=acc_gnss,
+        t_fused=t_fused,
+        pos_fused=pos_fused,
+        vel_fused=vel_fused,
+        acc_fused=acc_fused,
+        out_dir=out_dir,
+        truth=truth,
+        t_truth=t_truth,
+        pos_truth=pos_truth,
+        vel_truth=vel_truth,
+        acc_truth=acc_truth,
+        suffix=suffix,
+        filename=filename,
+        include_measurements=include_measurements,
+    )
+
+
+def _plot_overlay_static(
+    frame: str,
+    method: str,
+    t_imu: np.ndarray,
+    pos_imu: np.ndarray,
+    vel_imu: np.ndarray,
+    acc_imu: np.ndarray,
+    t_gnss: np.ndarray,
+    pos_gnss: np.ndarray,
+    vel_gnss: np.ndarray,
+    acc_gnss: np.ndarray,
+    t_fused: np.ndarray,
+    pos_fused: np.ndarray,
+    vel_fused: np.ndarray,
+    acc_fused: np.ndarray,
+    out_dir: str,
+    truth: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = None,
+    *,
+    t_truth: Optional[np.ndarray] = None,
+    pos_truth: Optional[np.ndarray] = None,
+    vel_truth: Optional[np.ndarray] = None,
+    acc_truth: Optional[np.ndarray] = None,
+    suffix: Optional[str] = None,
+    filename: Optional[str] = None,
+    include_measurements: bool = True,
+) -> None:
+    """Create static matplotlib overlay plots (original implementation)."""
     if truth is not None:
         t_truth, pos_truth, vel_truth, acc_truth = truth
 

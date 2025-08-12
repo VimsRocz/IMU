@@ -1,8 +1,8 @@
-function pdf_path = task6_overlay_plot(est_file, truth_file, method, frame, dataset, output_dir, debug)
+function pdf_path = task6_overlay_plot(est_file, truth_file, method, frame, dataset, output_dir, debug, interactive)
 %TASK6_OVERLAY_PLOT  Overlay fused estimate with ground truth.
 %
 %   pdf_path = TASK6_OVERLAY_PLOT(est_file, truth_file, method, frame,
-%   dataset, output_dir, debug) mirrors the functionality of the Python
+%   dataset, output_dir, debug, interactive) mirrors the functionality of the Python
 %   script ``task6_overlay_plot.py``.  ``est_file`` and ``truth_file`` are
 %   ``.npz`` or ``.txt`` files containing the fused estimator output and
 %   ground truth respectively. ``frame`` is either ``'ECEF'`` or ``'NED'``.
@@ -12,6 +12,9 @@ function pdf_path = task6_overlay_plot(est_file, truth_file, method, frame, data
 %   within the directory returned by ``get_results_dir()``.
 %   ``run_id`` combines the dataset and method, e.g.,
 %   ``IMU_X003_GNSS_X002_TRIAD``.
+%
+%   The ``interactive`` parameter (default true) enables enhanced 3x3 layout
+%   with interactive features including zoom, pan, and data cursors.
 
 if nargin < 4 || isempty(frame)
     frame = 'ECEF';
@@ -25,7 +28,23 @@ end
 if nargin < 7
     debug = false;
 end
+if nargin < 8
+    interactive = true;  % Default to interactive mode
+end
 
+% Use interactive version by default
+if interactive
+    try
+        pdf_path = task6_overlay_plot_interactive(est_file, truth_file, method, ...
+                                                 frame, dataset, output_dir, debug);
+        return;
+    catch ME
+        warning('Interactive plotting failed: %s. Falling back to standard plot.', ME.message);
+        interactive = false;
+    end
+end
+
+% Original implementation (4x1 layout) for compatibility
 [t_est, pos_est, vel_est, acc_est] = load_estimate(est_file, frame);
 [t_truth, pos_truth, vel_truth, acc_truth] = load_truth(truth_file, frame);
 
@@ -44,7 +63,7 @@ acc_truth_i = interp1(t_truth, acc_truth, t_est, 'linear', 'extrap');
 [t_est, pos_est, vel_est, acc_est, pos_truth_i, vel_truth_i, acc_truth_i] = ...
     ensure_equal_length(t_est, pos_est, vel_est, acc_est, pos_truth_i, vel_truth_i, acc_truth_i);
 
-pdf_path = plot_overlay(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
+pdf_path = plot_overlay_legacy(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
     vel_truth_i, acc_truth_i, frame, method, dataset, output_dir);
 
 plot_rmse(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
@@ -169,10 +188,9 @@ assert(size(pos_est,1) == size(pos_truth,1));
 end
 
 % -------------------------------------------------------------------------
-function pdf_path = plot_overlay(t_est, pos_est, vel_est, acc_est, pos_truth, vel_truth, acc_truth, frame, method, dataset, out_dir)
-%PLOT_OVERLAY Create 2x3 overlay plot of fused vs truth.
-%   The fused estimate is drawn in a red solid line with 'x' markers, while
-%   the ground truth uses a black dotted line with '*' markers for clarity.
+function pdf_path = plot_overlay_legacy(t_est, pos_est, vel_est, acc_est, pos_truth, vel_truth, acc_truth, frame, method, dataset, out_dir)
+%PLOT_OVERLAY_LEGACY Original 4x1 overlay plot for compatibility.
+%   The original 4x1 layout preserved for backward compatibility.
 
 labels = {'X','Y','Z'};
 if strcmpi(frame,'NED')

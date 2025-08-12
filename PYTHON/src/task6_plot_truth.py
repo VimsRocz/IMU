@@ -20,6 +20,7 @@ import glob
 import os
 
 from plot_overlay import plot_overlay
+from plot_overlay_interactive import create_comparison_dashboard, PLOTLY_AVAILABLE
 from validate_with_truth import load_estimate, assemble_frames
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
 from scipy.spatial.transform import Rotation as R
@@ -66,7 +67,29 @@ def main() -> None:
         action="store_true",
         help="Include IMU and GNSS measurements in the overlay plots",
     )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        default=True,
+        help="Create interactive plots using Plotly (default True)",
+    )
+    parser.add_argument(
+        "--static-only",
+        action="store_true",
+        help="Create only static matplotlib plots (overrides --interactive)",
+    )
+    parser.add_argument(
+        "--create-dashboard",
+        action="store_true",
+        help="Create an interactive dashboard linking all plots",
+    )
     args = parser.parse_args()
+
+    # Handle interactive plotting settings
+    use_interactive = args.interactive and not args.static_only
+    if use_interactive and not PLOTLY_AVAILABLE:
+        print("Warning: Plotly not available. Using static plots only.")
+        use_interactive = False
 
     est_path = Path(args.est_file)
     m = re.match(r"(IMU_\w+)_(GNSS_\w+)_([A-Za-z]+)_kf_output", est_path.stem)
@@ -300,6 +323,7 @@ def main() -> None:
             acc_truth=a_t,
             filename=name_state,
             include_measurements=args.show_measurements,
+            interactive=use_interactive,
         )
 
     if summary_rows:
@@ -318,8 +342,33 @@ def main() -> None:
         print("Files saved in", out_dir)
         for f in saved:
             print(" -", f.name)
+    
+    # Create interactive dashboard if requested
+    if args.create_dashboard and use_interactive:
+        try:
+            create_comparison_dashboard(out_dir)
+        except Exception as e:
+            print(f"Warning: Could not create dashboard: {e}")
+    
     runtime = time.time() - start_time
     print(f"Task 6 runtime: {runtime:.2f} s")
+    
+    # Show information about interactive features if used
+    if use_interactive:
+        print("\n" + "="*60)
+        print("INTERACTIVE PLOTTING ENABLED")
+        print("="*60)
+        print("✓ Interactive HTML plots support:")
+        print("  • Zoom and pan for detailed exploration")
+        print("  • Hover tooltips showing exact values")
+        print("  • Legend toggling to show/hide data series")
+        print("  • Crossfilter-style data brushing")
+        print(f"✓ View plots by opening .html files in {out_dir}")
+        if args.create_dashboard:
+            dashboard_file = out_dir / "task6_interactive_dashboard.html"
+            if dashboard_file.exists():
+                print(f"✓ Dashboard created: {dashboard_file}")
+        print("="*60)
 
 
 if __name__ == "__main__":
