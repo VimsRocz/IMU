@@ -7,8 +7,11 @@ import os
 import argparse
 from pathlib import Path
 
+from src.paths import gnss_path, imu_path, PY_RES_DIR, ensure_py_results
+
 # --- plotting output configuration ----------------------------------------
-os.makedirs("results", exist_ok=True)
+ensure_py_results()
+RES_DIR = PY_RES_DIR
 DATASET_ID = "X001"
 METHOD = "TRIAD"
 TAG = f"{DATASET_ID}_{METHOD}"
@@ -65,7 +68,7 @@ logging.info("TASK 1: Define reference vectors in NED frame")
 # --------------------------------
 logging.info("Subtask 1.1: Setting initial latitude and longitude from GNSS ECEF data.")
 try:
-    gnss_data = pd.read_csv("GNSS_X001.csv")
+    gnss_data = pd.read_csv(gnss_path(f"GNSS_{DATASET_ID}.csv"))
 except Exception as e:
     logging.error(f"Failed to load GNSS data file: {e}")
     raise
@@ -168,7 +171,7 @@ ax.text(
 
 # Set plot title and save
 plt.title("Initial Location on Earth Map")
-loc_pdf = Path("results") / f"{TAG}_task1_location_map.pdf"
+loc_pdf = RES_DIR / f"{TAG}_task1_location_map.pdf"
 plt.savefig(loc_pdf)
 if INTERACTIVE:
     plt.show()
@@ -187,7 +190,7 @@ logging.info("TASK 2: Measure the vectors in the body frame")
 # --------------------------------
 logging.info("Subtask 2.1: Loading and parsing IMU data.")
 try:
-    data = np.loadtxt("IMU_X001.dat")
+    data = np.loadtxt(imu_path(f"IMU_{DATASET_ID}.dat"))
 except Exception as e:
     logging.error(f"Failed to load IMU data file: {e}")
     raise
@@ -195,7 +198,7 @@ if data.shape[1] >= 10:
     acc = data[:, 5:8]  # Velocity increments (m/s)
     gyro = data[:, 2:5]  # Angular increments (rad)
 else:
-    logging.error("Unexpected data format in IMU_X001.dat.")
+    logging.error(f"Unexpected data format in IMU_{DATASET_ID}.dat.")
     raise ValueError("Invalid IMU data format.")
 logging.info(f"IMU data loaded: {data.shape[0]} samples")
 print(f"IMU data loaded: {data.shape[0]} samples")
@@ -607,12 +610,13 @@ axes[1].set_ylabel("Error (degrees)")
 axes[1].legend()
 
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task3_errors_comparison.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task3_errors_comparison.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
-    f"Error comparison plot saved as 'results/{TAG}_task3_errors_comparison.pdf'"
+    "Error comparison plot saved as '%s'",
+    RES_DIR / f"{TAG}_task3_errors_comparison.pdf",
 )
 
 # Collect quaternion data for both cases
@@ -644,12 +648,13 @@ ax.set_title("Quaternion Components for Each Method and Case")
 ax.legend()
 
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task3_quaternions_comparison.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task3_quaternions_comparison.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
-    f"Quaternion comparison plot saved as 'results/{TAG}_task3_quaternions_comparison.pdf'"
+    "Quaternion comparison plot saved as '%s'",
+    RES_DIR / f"{TAG}_task3_quaternions_comparison.pdf",
 )
 
 # --------------------------------
@@ -686,7 +691,7 @@ logging.info("Rotation matrices accessed: %s", list(C_B_N_methods.keys()))
 # --------------------------------
 logging.info("Subtask 4.3: Loading GNSS data.")
 try:
-    gnss_data = pd.read_csv("GNSS_X001.csv")
+    gnss_data = pd.read_csv(gnss_path(f"GNSS_{DATASET_ID}.csv"))
 except Exception as e:
     logging.error(f"Failed to load GNSS data file: {e}")
     raise
@@ -747,7 +752,7 @@ logging.info("GNSS acceleration estimated in NED frame.")
 # --------------------------------
 logging.info("Subtask 4.9: Loading IMU data and correcting for bias for each method.")
 try:
-    imu_data = pd.read_csv("IMU_X001.dat", sep="\s+", header=None)
+    imu_data = pd.read_csv(imu_path(f"IMU_{DATASET_ID}.dat"), sep="\s+", header=None)
     imu_time = np.arange(len(imu_data)) * dt_imu
 
     # Convert velocity increments to acceleration (m/s²)
@@ -916,12 +921,13 @@ for j in range(3):
     ax.set_ylabel("Acceleration (m/s²)")
     ax.legend()
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task4_comparison_ned.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task4_comparison_ned.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
-    f"Comparison plot in NED frame saved as 'results/{TAG}_task4_comparison_ned.pdf'"
+    "Comparison plot in NED frame saved as '%s'",
+    RES_DIR / f"{TAG}_task4_comparison_ned.pdf",
 )
 
 # Plot 1: Data in mixed frames (GNSS position/velocity in ECEF, IMU acceleration in body)
@@ -953,11 +959,14 @@ for i in range(3):
         ax.set_ylabel("Value")
         ax.legend()
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task4_mixed_frames.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task4_mixed_frames.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
-logging.info(f"Mixed frames plot saved as 'results/{TAG}_task4_mixed_frames.pdf'")
+logging.info(
+    "Mixed frames plot saved as '%s'",
+    RES_DIR / f"{TAG}_task4_mixed_frames.pdf",
+)
 
 # Plot 2: All data in NED frame
 logging.info("Plotting all data in NED frame.")
@@ -987,11 +996,14 @@ for i in range(3):
         ax.set_ylabel("Value")
         ax.legend()
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task4_all_ned.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task4_all_ned.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
-logging.info(f"All data in NED frame plot saved as 'results/{TAG}_task4_all_ned.pdf'")
+logging.info(
+    "All data in NED frame plot saved as '%s'",
+    RES_DIR / f"{TAG}_task4_all_ned.pdf",
+)
 
 # Plot 3: All data in ECEF frame
 logging.info("Plotting all data in ECEF frame.")
@@ -1022,11 +1034,14 @@ for i in range(3):
         ax.set_ylabel("Value")
         ax.legend()
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task4_all_ecef.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task4_all_ecef.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
-logging.info(f"All data in ECEF frame plot saved as 'results/{TAG}_task4_all_ecef.pdf'")
+logging.info(
+    "All data in ECEF frame plot saved as '%s'",
+    RES_DIR / f"{TAG}_task4_all_ecef.pdf",
+)
 
 # Plot 4: All data in body frame
 logging.info("Plotting all data in body frame.")
@@ -1057,11 +1072,14 @@ for i in range(3):
         ax.set_ylabel("Value")
         ax.legend()
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task4_all_body.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task4_all_body.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
-logging.info(f"All data in body frame plot saved as 'results/{TAG}_task4_all_body.pdf'")
+logging.info(
+    "All data in body frame plot saved as '%s'",
+    RES_DIR / f"{TAG}_task4_all_body.pdf",
+)
 
 
 import numpy as np
@@ -1089,8 +1107,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(mes
 # --------------------------------
 logging.info("Subtask 5.3: Loading GNSS and IMU data.")
 try:
-    gnss_data = pd.read_csv("GNSS_X001.csv")
-    imu_data = pd.read_csv("IMU_X001.dat", sep="\s+", header=None)
+    gnss_data = pd.read_csv(gnss_path(f"GNSS_{DATASET_ID}.csv"))
+    imu_data = pd.read_csv(imu_path(f"IMU_{DATASET_ID}.dat"), sep="\s+", header=None)
 except Exception as e:
     logging.error(f"Failed to load data: {e}")
     raise
@@ -1379,12 +1397,13 @@ for j in range(3):
     )
 
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_task5_results_TRIAD.pdf")
+plt.savefig(RES_DIR / f"{TAG}_task5_results_TRIAD.pdf")
 if INTERACTIVE:
     plt.show()
 plt.close()
 logging.info(
-    f"Subtask 5.8.1: TRIAD plot saved as 'results/{TAG}_task5_results_TRIAD.pdf'"
+    "Subtask 5.8.1: TRIAD plot saved as '%s'",
+    RES_DIR / f"{TAG}_task5_results_TRIAD.pdf",
 )
 print("# Subtask 5.8.1: TRIAD plotting completed.")
 
@@ -1429,7 +1448,7 @@ axes[1].set_title("Velocity Residuals vs. Time")
 axes[1].legend(loc="best")
 
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_residuals.pdf")
+plt.savefig(RES_DIR / f"{TAG}_residuals.pdf")
 plt.close()
 
 # Compute attitude angles (roll, pitch, yaw) for the selected method
@@ -1446,5 +1465,5 @@ plt.ylabel("Angle (deg)")
 plt.title("Attitude Angles vs. Time")
 plt.legend(loc="best")
 plt.tight_layout()
-plt.savefig(f"results/{TAG}_attitude_angles.pdf")
+plt.savefig(RES_DIR / f"{TAG}_attitude_angles.pdf")
 plt.close()
