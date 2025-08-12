@@ -12,7 +12,7 @@ cfg.method = 'TRIAD';
 cfg.imu_file = 'IMU_X002.dat';
 cfg.gnss_file = 'GNSS_X002.csv';
 cfg.truth_file = 'STATE_X001.txt';
-cfg.plots = struct('popup_figures', false, 'save_pdf', true, 'save_png', true);
+cfg.plots = struct('popup_figures', false, 'save_pdf', false, 'save_png', false);
 
 try
     tStart = tic();

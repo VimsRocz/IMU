@@ -697,7 +697,8 @@ if ~isempty(zupt_indices)
     xlabel('Time (s)'); ylabel('|v| after ZUPT [m/s]');
     title('Velocity magnitude following each ZUPT');
     legend('|v|');
-    save_plot(fig_zupt, imu_name, gnss_name, [method '_ZUPT'], 5);
+    save_plot(fig_zupt, imu_name, gnss_name, [method '_ZUPT'], 5, ...
+              cfg.plots.save_pdf, cfg.plots.save_png);
 end
 
 plot_task5_mixed_frame(imu_time, x_log(1:3,:), x_log(4:6,:), ...

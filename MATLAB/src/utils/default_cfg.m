@@ -9,8 +9,8 @@ cfg.truth_file = '';
 
 cfg.plots = struct();
 cfg.plots.popup_figures = true;      % pop up figures by default
-cfg.plots.save_pdf      = true;      % save as PDF
-cfg.plots.save_png      = true;      % save as PNG
+cfg.plots.save_pdf      = false;     % save as PDF
+cfg.plots.save_png      = false;     % save as PNG
 
 cfg.strict = true;   % tasks should error on missing inputs
 

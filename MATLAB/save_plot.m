@@ -6,14 +6,14 @@ function save_plot(fig, imu_name, gnss_name, method, task, save_pdf, save_png)
 %   SAVE_PDF and SAVE_PNG are false, the figure is saved using
 %   :func:`save_plot_fig` instead.
 %
-%   SAVE_PDF and SAVE_PNG are optional and default to true.
+%   SAVE_PDF and SAVE_PNG are optional and default to false.
 %
 %   Example:
 %       save_plot(fig, 'IMU_X002', 'GNSS_X002', 'TRIAD', 5)
 %   saves results/IMU_X002_GNSS_X002_TRIAD_task5_results.pdf and .png.
 
-    if nargin < 6 || isempty(save_pdf); save_pdf = true; end
-    if nargin < 7 || isempty(save_png); save_png = true; end
+    if nargin < 6 || isempty(save_pdf); save_pdf = false; end
+    if nargin < 7 || isempty(save_png); save_png = false; end
 
     results_dir = get_results_dir();
     if ~exist(results_dir, 'dir')

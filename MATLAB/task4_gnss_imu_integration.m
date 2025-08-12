@@ -1,4 +1,4 @@
-function task4_gnss_imu_integration(gnss_data, imu_data, task1_results, task2_results, task3_results, results_dir, dt)
+function task4_gnss_imu_integration(gnss_data, imu_data, task1_results, task2_results, task3_results, results_dir, dt, cfg)
 %TASK4_GNSS_IMU_INTEGRATION  Integrate IMU data and compare with GNSS.
 %   TASK4_GNSS_IMU_INTEGRATION(GNSS_DATA, IMU_DATA, TASK1_RESULTS,
 %   TASK2_RESULTS, TASK3_RESULTS, RESULTS_DIR, DT) performs the Task 4
@@ -21,8 +21,16 @@ function task4_gnss_imu_integration(gnss_data, imu_data, task1_results, task2_re
 %                                  'Task2_IMU_biases.mat', 'Task3_results_IMU_X002_GNSS_X002.mat', ...
 %                                  get_results_dir(), 0.0025);
 
+addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
 if nargin < 7 || isempty(dt)
     dt = 0.0025; % default sample period
+end
+if nargin < 8 || isempty(cfg)
+    try
+        cfg = evalin('caller','cfg');
+    catch
+        cfg = default_cfg();
+    end
 end
 
 %% Load previous task outputs
@@ -84,7 +92,7 @@ for i=1:3
     grid on; xlabel('Sample'); ylabel('m');
     if i==1, title('North Position'); elseif i==2, title('East Position'); else, title('Down Position'); end
 end
-save_plot(fig, 'IMU', 'GNSS', 'TRIAD', 4);
+save_plot(fig, 'IMU', 'GNSS', 'TRIAD', 4, cfg.plots.save_pdf, cfg.plots.save_png);
 
 %% Save results
 out_file = fullfile(results_dir,'Task4_results_IMU_GNSS.mat');
