@@ -16,5 +16,14 @@ def gnss_path(name: str) -> Path:
 def truth_path(name: str) -> Path:
     return TRUTH_DIR / name
 
-def ensure_py_results() -> None:
+def ensure_results_dir() -> Path:
+    """Ensure the Python results directory exists and return its path."""
     PY_RES_DIR.mkdir(parents=True, exist_ok=True)
+    return PY_RES_DIR
+
+
+# Backwards compatibility helper.  Older code imported ``ensure_py_results``
+# which simply ensured the directory existed without returning it.  Re-export
+# the new helper under that name so existing imports keep working.
+def ensure_py_results() -> Path:  # pragma: no cover - compatibility shim
+    return ensure_results_dir()
