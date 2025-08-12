@@ -22,8 +22,17 @@ function rmse_pos = Task_5_try_once(cfg, vel_q_scale, vel_r)
     end
     fclose(fid);
     steps = min(max_steps, total_samples);
+    % Clone cfg locally and disable all plotting/saving for tuning runs
+    cfg_local = cfg;
+    if ~isfield(cfg_local, 'plots') || ~isstruct(cfg_local.plots)
+        cfg_local.plots = struct();
+    end
+    cfg_local.plots.popup_figures = false;
+    cfg_local.plots.save_pdf = false;
+    cfg_local.plots.save_png = false;
+    cfg = cfg_local; %#ok<NASGU> ensure Task_5 sees modified cfg
     try
-        res = Task_5(cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
+        res = Task_5(cfg_local.imu_path, cfg_local.gnss_path, cfg_local.method, [], ...
             'vel_q_scale', vel_q_scale, 'vel_r', vel_r, ...
             'trace_first_n', 0, 'max_steps', steps, 'dryrun', true); % dryrun suppresses plots/logging
         if isstruct(res) && isfield(res,'rmse_pos')

@@ -95,6 +95,7 @@ end
     dryrun          = p.Results.dryrun;
     if dryrun
         dprintf = @(varargin) [];
+        visibleFlag = 'off'; % suppress any figure visibility
     else
         dprintf = @fprintf;
     end
@@ -800,9 +801,6 @@ dprintf('%s\n', summary_line);
 dprintf('[SUMMARY] method=%s rmse_pos=%.2f m final_pos=%.2f m ', ...
         method, rmse_pos, final_pos_err);
 dprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', rmse_vel, final_vel);
-fid = fopen(fullfile(results_dir, [run_id '_summary.txt']), 'w');
-fprintf(fid, '%s\n', summary_line);
-fclose(fid);
 
 % Store summary metrics and biases for later analysis
 results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, ...
@@ -812,18 +810,22 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
     'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max, ...
     'vel_blow_events', vel_blow_count);
 perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
-% Result Logging -- store the metrics struct under the variable name
-% ``results`` to stay in sync with the Python pipeline.
-if isfile(perf_file)
-    save(perf_file, '-append', 'results');
-else
-    save(perf_file, 'results');
-end
-
 summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt');
-fid_sum = fopen(summary_file, 'a');
-fprintf(fid_sum, '%s\n', summary_line);
-fclose(fid_sum);
+if ~dryrun
+    fid = fopen(fullfile(results_dir, [run_id '_summary.txt']), 'w');
+    fprintf(fid, '%s\n', summary_line);
+    fclose(fid);
+    % Result Logging -- store the metrics struct under the variable name
+    % ``results`` to stay in sync with the Python pipeline.
+    if isfile(perf_file)
+        save(perf_file, '-append', 'results');
+    else
+        save(perf_file, 'results');
+    end
+    fid_sum = fopen(summary_file, 'a');
+    fprintf(fid_sum, '%s\n', summary_line);
+    fclose(fid_sum);
+end
 
 % Persist core results for unit tests and further analysis
 % Persist IMU and GNSS time vectors for Tasks 6 and 7
@@ -844,48 +846,50 @@ ref_lon = deg2rad(lon_deg); %#ok<NASGU>
 
 % Save using the same naming convention as the Python pipeline
 % <IMU>_<GNSS>_<METHOD>_task5_results.mat
-results_file = fullfile(results_dir, sprintf('%s_task5_results.mat', run_id));
-save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
-    'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
-    'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', 'zupt_vel_norm', ...
-    'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
-    'states', 't_est', 'dt', 'imu_rate_hz', 'acc_body_raw', 'trace', 'vel_blow_count');
-% Provide compatibility with the Python pipeline and downstream tasks
-% by storing the fused position under the generic ``pos`` field as well.
-pos = pos_ned; %#ok<NASGU>
-save(results_file, 'x_log', 'pos', '-append');
-dprintf('State history (x_log) saved to %s\n', results_file);
-if isfile(results_file)
-    dprintf('Results saved to %s\n', results_file);
-else
-    warning('Missing %s', results_file);
-end
-try
-    check = load(results_file, 'x_log');
-    dprintf('Task 5: Verified x_log saved, size: %dx%d\n', size(check.x_log));
-catch
-    warning('Task 5: Failed to verify x_log save in %s', results_file);
-end
+if ~dryrun
+    results_file = fullfile(results_dir, sprintf('%s_task5_results.mat', run_id));
+    save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
+        'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
+        'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', 'zupt_vel_norm', ...
+        'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
+        'states', 't_est', 'dt', 'imu_rate_hz', 'acc_body_raw', 'trace', 'vel_blow_count');
+    % Provide compatibility with the Python pipeline and downstream tasks
+    % by storing the fused position under the generic ``pos`` field as well.
+    pos = pos_ned; %#ok<NASGU>
+    save(results_file, 'x_log', 'pos', '-append');
+    dprintf('State history (x_log) saved to %s\n', results_file);
+    if isfile(results_file)
+        dprintf('Results saved to %s\n', results_file);
+    else
+        warning('Missing %s', results_file);
+    end
+    try
+        check = load(results_file, 'x_log');
+        dprintf('Task 5: Verified x_log saved, size: %dx%d\n', size(check.x_log));
+    catch
+        warning('Task 5: Failed to verify x_log save in %s', results_file);
+    end
 
-% Export estimator time vector for compatibility with Python pipeline
-time_file = fullfile(results_dir, sprintf('%s_task5_time.mat', run_id));
-save(time_file, 't_est', 'dt', 'x_log');
-dprintf('Task 5: Saved time vector to %s\n', time_file);
+    % Export estimator time vector for compatibility with Python pipeline
+    time_file = fullfile(results_dir, sprintf('%s_task5_time.mat', run_id));
+    save(time_file, 't_est', 'dt', 'x_log');
+    dprintf('Task 5: Saved time vector to %s\n', time_file);
 
     method_struct = struct('gnss_pos_ned', gnss_pos_ned, 'gnss_vel_ned', gnss_vel_ned, ...
         'gnss_accel_ned', gnss_accel_ned, 'gnss_pos_ecef', gnss_pos_ecef, ...
         'gnss_vel_ecef', gnss_vel_ecef, 'gnss_accel_ecef', gnss_accel_ecef, ...
-    'x_log', x_log, 'vel_log', vel_log, 'accel_from_vel', accel_from_vel, ...
-    'euler_log', euler_log, 'zupt_log', zupt_log, 'zupt_vel_norm', zupt_vel_norm, 'time', time, ...
+        'x_log', x_log, 'vel_log', vel_log, 'accel_from_vel', accel_from_vel, ...
+        'euler_log', euler_log, 'zupt_log', zupt_log, 'zupt_vel_norm', zupt_vel_norm, 'time', time, ...
         'gnss_time', gnss_time, 'pos_ned', pos_ned, 'vel_ned', vel_ned, ...
         'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0);
     % ``method`` already stores the algorithm name (e.g. 'TRIAD'). Use it
     % directly when saving so filenames match the Python pipeline.
     save_task_results(method_struct, imu_name, gnss_name, method, 5);
+end
 
-    % Expose fused position for comparison plots across methods
-    assignin('base', ['pos_kf_' method], x_log(1:3,:)');
-    assignin('base', 't_kf', imu_time);
+% Expose fused position for comparison plots across methods
+assignin('base', ['pos_kf_' method], x_log(1:3,:)');
+assignin('base', 't_kf', imu_time);
 
 % Return results structure and store in base workspace
 result = results;
