@@ -297,19 +297,14 @@ P = eye(15);                         % Larger initial uncertainty
 P(7:9,7:9)   = eye(3) * deg2rad(5)^2; % Attitude uncertainty (5 deg)
 P(10:15,10:15) = eye(6) * 1e-4;      % Bias uncertainty
 
-% Process/measurement noise with auto-tune fallback to Python defaults
-try
-    [Q,R] = task5_autotune(acc_body_raw, gyro_body_raw, dt_imu);
-catch
-    Q = eye(15) * 1e-4;
-    Q(4:6,4:6) = eye(3) * 0.1;
-    Q(10:12,10:12) = eye(3) * accel_bias_noise;
-    Q(13:15,13:15) = eye(3) * gyro_bias_noise;
-    R = zeros(6);
-    R(1:3,1:3) = eye(3) * pos_meas_noise^2;
-    R(4:6,4:6) = eye(3) * 0.25;
-    fprintf('Auto-tune failed; using default Q/R\n');
-end
+% Process/measurement noise (aligned with Python defaults)
+Q = eye(15) * 1e-4;
+Q(4:6,4:6) = eye(3) * 0.1;
+Q(10:12,10:12) = eye(3) * accel_bias_noise;
+Q(13:15,13:15) = eye(3) * gyro_bias_noise;
+R = zeros(6);
+R(1:3,1:3) = eye(3) * pos_meas_noise^2;
+R(4:6,4:6) = eye(3) * 0.25;
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
