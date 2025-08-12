@@ -16,6 +16,8 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 % Usage:
 %   Task_6(task5_file, imu_path, gnss_path, truth_file)
 
+addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
+
 paths = project_paths();
 results_dir = paths.matlab_results;
 addpath(fullfile(paths.root,'MATLAB','lib'));

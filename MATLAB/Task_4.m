@@ -13,6 +13,8 @@ function result = Task_4(imu_path, gnss_path, method)
 % Usage:
 %   Task_4(imu_path, gnss_path, method)
 
+addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
+
 paths = project_paths();
 results_dir = paths.matlab_results;
 lib_path = fullfile(paths.root,'MATLAB','lib');

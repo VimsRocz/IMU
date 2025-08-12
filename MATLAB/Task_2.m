@@ -33,6 +33,7 @@ function body_data = Task_2(imu_path, gnss_path, method)
     if nargin < 2
         gnss_path = '';
     end
+    addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
     if ~isfile(imu_path)
         error('Task_2:IMUFileNotFound', ...
               'Could not find IMU data at:\n  %s', imu_path);

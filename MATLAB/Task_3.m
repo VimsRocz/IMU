@@ -10,6 +10,8 @@ function task3_results = Task_3(imu_path, gnss_path, method)
 %   If Task 1 or Task 2 outputs are missing they are regenerated
 %   automatically to keep the pipeline deterministic.
 
+addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
+
 % paths
 p = project_paths();                      % has fields: root, matlab_results, etc.
 results_dir = p.matlab_results;

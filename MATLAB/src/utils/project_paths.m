@@ -2,6 +2,8 @@ function paths = project_paths()
 %PROJECT_PATHS Return key directories for MATLAB pipeline.
 %   PATHS = PROJECT_PATHS() returns paths for root, MATLAB and results.
 %   Robust against being called from any subdirectory.
+
+%   This is the canonical implementation used throughout the project.
 %
 % Usage:
 %   p = project_paths();
@@ -12,9 +14,6 @@ function paths = project_paths()
 %   paths.root           - project root (parent of MATLAB/)
 %   paths.matlab         - .../MATLAB
 %   paths.matlab_results - .../MATLAB/results (created if missing)
-%
-% This mirrors the version in MATLAB/utils for stability when only
-% MATLAB/src is on the path.
 
 here = fileparts(mfilename('fullpath'));        % .../MATLAB/src/utils
 paths.matlab = fileparts(fileparts(here));      % .../MATLAB
@@ -29,7 +28,6 @@ end
 utils_candidates = {
     fullfile(paths.matlab, 'utils')
     fullfile(paths.matlab, 'src', 'utils')
-    fullfile(paths.root, 'MATLAB', 'utils')
     fullfile(paths.root, 'src', 'utils')
     fullfile(paths.root, 'PYTHON', 'src', 'utils')
 };

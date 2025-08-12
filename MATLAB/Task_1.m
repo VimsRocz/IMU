@@ -12,6 +12,8 @@ if nargin < 3 || isempty(method)
     method = '';
 end
 
+addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
+
 if ~isfile(gnss_path)
     error('Task_1:GNSSFileNotFound', ...
           'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
