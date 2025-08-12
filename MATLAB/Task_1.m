@@ -156,14 +156,12 @@ fprintf('Longitude (deg):             %.6f\n', lon_deg);
 fprintf('\nSubtask 1.5: Plotting location on Earth map.\n');
 
 fig = figure('Name','Task 1 – Initial Location (World View)');
-ax = worldmap('World');
-setm(ax,'Origin',[0 0 0]);
-hold on;
-load coastlines;
-plotm(coastlat,coastlon,'k');
-plotm(lat_deg,lon_deg,'r.');
-geolimits([-90 90],[-180 180]);
-title('Task 1 – Initial Location (World View)');
+gx = geoaxes(fig,'Basemap','colorterrain');
+hold(gx,'on');
+geolimits(gx,[-90 90],[-180 180]);
+geoscatter(gx,lat_deg,lon_deg,100,'r','filled');
+text(gx,lat_deg,lon_deg,tag,'VerticalAlignment','bottom');
+title(gx,'Location on Earth Map');
 fig_path = fullfile(results_dir, sprintf('%s_task1_location_map.fig', tag));
 savefig(fig, fig_path);
 
