@@ -173,7 +173,7 @@ vx = gnss_data.VX_ECEF_mps;
 vy = gnss_data.VY_ECEF_mps;
 vz = gnss_data.VZ_ECEF_mps;
 gnss_vel_ecef = [vx vy vz];
-fprintf('-> GNSS data shape: %d x %d\n', size(gnss_pos_ecef));
+fprintf('GNSS data shape: (%d, %d)\n', size(gnss_pos_ecef));
 
 
 %% ========================================================================
@@ -186,7 +186,8 @@ ref_r0 = gnss_pos_ecef(first_valid_idx, :)'; % ECEF position vector as a column
 [lat_deg_ref, lon_deg_ref, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
 ref_lat = deg2rad(lat_deg_ref);
 ref_lon = deg2rad(lon_deg_ref);
-fprintf('-> Reference point: lat=%.6f rad, lon=%.6f rad, r0=[%.1f, %.1f, %.1f]\n', ref_lat, ref_lon, ref_r0);
+fprintf('Reference point: lat=%.6f rad, lon=%.6f rad, r0=[%.8f %.8f %.8f]\n', ...
+        ref_lat, ref_lon, ref_r0(1), ref_r0(2), ref_r0(3));
 
 
 %% ========================================================================

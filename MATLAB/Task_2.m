@@ -105,6 +105,14 @@ function body_data = Task_2(imu_path, gnss_path, method)
         accel_bias = dataset_bias_map.(imu_name);
     end
 
+    % Print detailed Task 2 vectors matching Python output format
+    fprintf('Task 2 vectors: g_body=[%.4e %.4e %.4e], omega_ie_body=[%.5e %.5e %.5e]\n', ...
+            g_body(1), g_body(2), g_body(3), omega_ie_body(1), omega_ie_body(2), omega_ie_body(3));
+    fprintf('Estimated IMU dt: %.6f s\n', dt);
+    fprintf('Gravity vector (body): [%.8e %.8e %.8e]\n', g_body(1), g_body(2), g_body(3));
+    fprintf('Earth rotation (body): [%.8e %.8e %.8e]\n', omega_ie_body(1), omega_ie_body(2), omega_ie_body(3));
+    
+    % Legacy format for backward compatibility
     fprintf('Task 2: g_body = [% .4f % .4f % .4f]\n', g_body);
     fprintf('Task 2: omega_ie_body = [% .6f % .6f % .6f]\n', omega_ie_body);
     fprintf(['Task 2 summary: static interval %d:%d, g_body = [% .4f % .4f % .4f], ' ...
