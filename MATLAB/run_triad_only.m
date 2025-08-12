@@ -82,7 +82,7 @@ fprintf('MATLAB results dir: %s\n', cfg.paths.matlab_results);
 try_task('Task_1', @Task_1, cfg.imu_path, cfg.gnss_path, cfg.method);
 try_task('Task_2', @Task_2, cfg.imu_path, cfg.gnss_path, cfg.method);
 try_task('Task_3', @Task_3, cfg.imu_path, cfg.gnss_path, cfg.method);
-try_task('Task_4', @Task_4, cfg.imu_path, cfg.gnss_path, cfg.method);
+try_task('Task_4', @Task_4, cfg.imu_path, cfg.gnss_path, cfg.method, cfg);
 % Optionally auto-tune Q/R on a small grid before the final full run
 if cfg.autotune
     try

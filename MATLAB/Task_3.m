@@ -24,7 +24,21 @@ gnss_id = erase(gnss_base, '.csv');
 % ensure Task1/Task2 outputs exist (run them if missing)
 t1 = fullfile(results_dir, sprintf('Task1_init_%s_%s_%s.mat', imu_id, gnss_id, method));
 t2 = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', imu_id, gnss_id, method));
-if ~isfile(t1), Task_1(imu_path, gnss_path, method); end
+
+% Check for Task1 file - try Task1_init format first, then fall back to task1_results format
+if ~isfile(t1)
+    % Try alternative task1_results format
+    dataset_name = sprintf('%s_%s', imu_id, gnss_id);
+    t1_alt = fullfile(results_dir, sprintf('%s_%s_task1_results.mat', dataset_name, method));
+    if isfile(t1_alt)
+        t1 = t1_alt;
+        fprintf('Task 3: Using task1_results file: %s\n', t1);
+    else
+        % Neither file exists, run Task_1
+        Task_1(imu_path, gnss_path, method);
+    end
+end
+
 if ~isfile(t2), Task_2(imu_path, gnss_path, method); end
 
 S1 = load(t1);   % expects ref vectors etc.
@@ -36,8 +50,22 @@ else
 end
 
 % ---- compute DCMs (use existing implementations) ----
-g_ned  = S1.g_NED(:);          % reference gravity in NED
-w_ned  = S1.omega_NED(:);      % earth rotation in NED
+% Handle different field names for gravity and omega vectors
+if isfield(S1, 'g_NED')
+    g_ned = S1.g_NED(:);          % reference gravity in NED
+elseif isfield(S1, 'Task1') && isfield(S1.Task1, 'gravity_ned')
+    g_ned = S1.Task1.gravity_ned(:);
+else
+    error('Task_3: No gravity vector found in Task1 file');
+end
+
+if isfield(S1, 'omega_NED')
+    w_ned = S1.omega_NED(:);      % earth rotation in NED
+elseif isfield(S1, 'Task1') && isfield(S1.Task1, 'omega_ie_ned')
+    w_ned = S1.Task1.omega_ie_ned(:);
+else
+    error('Task_3: No omega vector found in Task1 file');
+end
 g_body = bd.g_body(:);         % measured gravity in body
 w_body = bd.omega_ie_body(:);  % measured earth rotation in body
 

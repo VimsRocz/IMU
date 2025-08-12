@@ -137,16 +137,16 @@ end
         Task3.R = Task3.Task3.R;
     else
         warning('[Task_5] No rotation field found (R/Rbn). Available: %s', strjoin(fieldnames(Task3),', '));
-        dump_structure(''Task5.T3_loaded'', Task3, 0, 3);
+        dump_structure('Task5.T3_loaded', Task3, 0, 3);
         Task3.R = [];
     end
     if is_debug()
-        dump_structure(''Task5.Task3_loaded'', Task3, 0, 3);
+        dump_structure('Task5.Task3_loaded', Task3, 0, 3);
     end
 
     mi = find(strcmpi(Task3.methods, method), 1);
     if isempty(mi)
-        error(''Task5:NoMethod'',''Method %s not in Task3.methods'', method);
+        error('Task5:NoMethod','Method %s not in Task3.methods', method);
     end
     R_b2n = Task3.R(:,:,mi);
     q_b2n = Task3.q(mi,:);
