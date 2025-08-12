@@ -66,6 +66,7 @@ from paths import (
     truth_path as _truth_path_helper,
     ensure_results_dir as _ensure_results,
     python_results_dir as _py_results_dir,
+    available_dataset_ids,
 )
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
@@ -143,11 +144,13 @@ def main(argv: Iterable[str] | None = None) -> None:
         description="Run TRIAD (Task-1) on a selected dataset",
         allow_abbrev=False,
     )
+    dataset_choices = available_dataset_ids()
+    default_ds = "X002" if "X002" in dataset_choices else (dataset_choices[0] if dataset_choices else None)
     parser.add_argument(
         "--dataset",
-        choices=["X001", "X002", "X003"],
-        default="X002",
-        help="Dataset ID to use (default X002)",
+        choices=dataset_choices,
+        default=default_ds,
+        help=f"Dataset ID to use (default {default_ds})",
     )
     parser.add_argument("--imu", type=str, help="Path to IMU data file")
     parser.add_argument("--gnss", type=str, help="Path to GNSS data file")
@@ -201,6 +204,8 @@ def main(argv: Iterable[str] | None = None) -> None:
     method = "TRIAD"
 
     results: List[Dict[str, float | str]] = []
+    task_count = 0
+    subtask_count = 0
 
     # Resolve inputs from CLI or dataset selection
     if args.imu:
@@ -279,6 +284,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     start_t = time.time()
     ret, summaries = run_case(cmd, log_path)
     runtime = time.time() - start_t
+    task_count += 1
     if ret != 0:
         raise subprocess.CalledProcessError(ret, cmd)
 
@@ -493,9 +499,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         }
         _write_run_meta("results", run_id, **meta)
 
-    # ----------------------------
-    # Task 6: Truth overlay plots
-    # ----------------------------
+    tasks = []
     truth_file = truth_path
     if truth_file.exists():
         overlay_cmd = [
@@ -514,45 +518,63 @@ def main(argv: Iterable[str] | None = None) -> None:
         ]
         if args.show_measurements:
             overlay_cmd.append("--show-measurements")
-        with open(log_path, "a") as log:
-            log.write("\nTASK 6: Overlay fused output with truth\n")
-            msg = "Starting Task 6 overlay ..."
-            logger.info(msg)
-            log.write(msg + "\n")
-            proc = subprocess.Popen(
-                overlay_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-            for line in proc.stdout:
-                print(line, end="")
-                log.write(line)
-            proc.wait()
 
-    # ----------------------------
-    # Task 7: Evaluation
-    # ----------------------------
-    # Task 7 plots are now saved directly under the ``results``
-    # directory without subfolders for easier navigation.
-    task7_dir = results_dir
-    with open(log_path, "a") as log:
-        log.write("\nTASK 7: Evaluate residuals\n")
-        msg = "Running Task 7 evaluation ..."
-        logger.info(msg)
-        log.write(msg + "\n")
-        buf = io.StringIO()
-        with redirect_stdout(buf):
-            try:
-                run_evaluation_npz(str(npz_path), str(task7_dir), run_id)
-            except Exception as e:  # pragma: no cover - graceful failure
-                print(f"Task 7 failed: {e}")
-        output = buf.getvalue()
-        print(output, end="")
-        log.write(output)
-        print(
-            f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{run_id}/"
-        )
+        def task_overlay():
+            with open(log_path, "a") as log:
+                log.write("\\nOverlay fused output with truth\\n")
+                msg = "Starting overlay ..."
+                logger.info(msg)
+                log.write(msg + "\\n")
+                proc = subprocess.Popen(
+                    overlay_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+                for line in proc.stdout:
+                    print(line, end="")
+                    log.write(line)
+                proc.wait()
+
+        tasks.append(("Overlay fused output with truth", task_overlay))
+
+    def task_evaluation():
+        task7_dir = results_dir
+        with open(log_path, "a") as log:
+            log.write("\\nEvaluate residuals\\n")
+            msg = "Running evaluation ..."
+            logger.info(msg)
+            log.write(msg + "\\n")
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                try:
+                    run_evaluation_npz(str(npz_path), str(task7_dir), run_id)
+                except Exception as e:  # pragma: no cover - graceful failure
+                    print(f"Evaluation failed: {e}")
+            output = buf.getvalue()
+            print(output, end="")
+            log.write(output)
+            print(
+                f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{run_id}/"
+            )
+
+    tasks.append(("Evaluate residuals", task_evaluation))
+
+    for idx, (label, func) in enumerate(tasks, start=1):
+        logger.info(f"Task {idx}: {label}")
+        try:
+            func()
+            subtask_count += 1
+        except Exception as e:
+            print(f"Task {idx} failed: {e}")
+
+    summary_counts = {
+        "dataset": args.dataset,
+        "tasks": task_count,
+        "subtasks": subtask_count,
+    }
+    print("[COUNTS] " + json.dumps(summary_counts))
+    (results_dir / f"{run_id}_counts.json").write_text(json.dumps(summary_counts, indent=2))
 
     # --- nicely formatted summary table --------------------------------------
     if results:

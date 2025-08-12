@@ -66,3 +66,60 @@ def normalize_gnss_headers(df):
     """
 
     return df.rename(columns=lambda c: c.strip())
+
+
+# ---------------------------------------------------------------------------
+# Dataset discovery helpers
+# ---------------------------------------------------------------------------
+
+def _filter_small(names):
+    """Return ``names`` without entries containing ``'small'``."""
+    return sorted(n for n in names if "small" not in n)
+
+
+def available_imu_files(include_small: bool = False):
+    """Return a sorted list of IMU data files."""
+    names = [p.name for p in IMU_DIR.glob("IMU_*.dat")]
+    return sorted(names) if include_small else _filter_small(names)
+
+
+def available_gnss_files(include_small: bool = False):
+    """Return a sorted list of GNSS data files."""
+    names = [p.name for p in GNSS_DIR.glob("GNSS_*.csv")]
+    return sorted(names) if include_small else _filter_small(names)
+
+
+def available_dataset_ids():
+    """Return dataset IDs present in both IMU and GNSS directories.
+
+    Dataset IDs are inferred from filenames like ``IMU_X001.dat`` and
+    ``GNSS_X001.csv``.  Files containing ``'small'`` are ignored.
+    """
+
+    imu_ids = {n.split("_")[1].split(".")[0] for n in available_imu_files()}
+    gnss_ids = {n.split("_")[1].split(".")[0] for n in available_gnss_files()}
+    return sorted(imu_ids & gnss_ids)
+
+
+def default_dataset_pairs():
+    """Return list of ``(imu_file, gnss_file)`` pairs discovered at runtime.
+
+    Each IMU file is paired with the GNSS file sharing the same dataset ID.  If
+    no matching GNSS file exists, the last GNSS file in sorted order is used as
+    a fallback (mirroring historical behaviour for ``X003``).
+    """
+
+    imu_files = available_imu_files()
+    gnss_files = available_gnss_files()
+    if not gnss_files:
+        return [(imu, "") for imu in imu_files]
+
+    gnss_lookup = {n.split("_")[1].split(".")[0]: n for n in gnss_files}
+    fallback = gnss_files[-1]
+    pairs = []
+    for imu in imu_files:
+        ds_id = imu.split("_")[1].split(".")[0]
+        gnss = gnss_lookup.get(ds_id, fallback)
+        pairs.append((imu, gnss))
+    return pairs
+
