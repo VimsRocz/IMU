@@ -34,6 +34,20 @@ function body_data = Task_2(imu_path, gnss_path, method)
         gnss_path = '';
     end
     addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
+    % Obtain configuration (plots, paths, etc.)
+    try
+        cfg = evalin('caller','cfg');
+    catch
+        try
+            cfg = evalin('base','cfg');
+        catch
+            cfg = cfg.default_cfg();
+        end
+    end
+    visibleFlag = 'off';
+    if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
+        visibleFlag = 'on';
+    end
     if ~isfile(imu_path)
         error('Task_2:IMUFileNotFound', ...
               'Could not find IMU data at:\n  %s', imu_path);
@@ -114,11 +128,38 @@ function body_data = Task_2(imu_path, gnss_path, method)
     fprintf('Accelerometer bias = [% .6f % .6f % .6f] m/s^2\n', accel_bias);
     fprintf('Gyroscope bias     = [% .6f % .6f % .6f] rad/s\n', gyro_bias);
 
+    % Prepare results directory for plots and output
     paths = project_paths();
     results_dir = paths.matlab_results;
     if ~exist(results_dir,'dir'); mkdir(results_dir); end
 
     imu_id = imu_name; gnss_id = gnss_name; method_tag = method;
+
+    % ---- diagnostic figure: static interval visualisation ----
+    t = (0:size(acc_filt,1)-1) * dt;
+    acc_norm = vecnorm(acc_filt, 2, 2);
+    fig_static = figure('Name', 'Task 2 Static Interval', 'Visible', visibleFlag);
+    plot(t, acc_norm, 'b-');
+    hold on;
+    y = ylim;
+    patch([t(static_start) t(static_end) t(static_end) t(static_start)], ...
+          [y(1) y(1) y(2) y(2)], [0.9 0.9 0.9], 'FaceAlpha', 0.3, 'EdgeColor', 'none');
+    hold off;
+    xlabel('Time (s)'); ylabel('|a| [m/s^2]');
+    title('Static Interval Detection');
+    legend({'|a|','Static interval'}, 'Location', 'best');
+    base = sprintf('%s_%s_%s_task2_static', imu_id, gnss_id, method_tag);
+    fig_path = fullfile(results_dir, [base '.fig']);
+    save_plot_fig(fig_static, fig_path);
+    if isfield(cfg.plots,'save_pdf') && cfg.plots.save_pdf
+        pdf_path = fullfile(results_dir, [base '.pdf']);
+        set(fig_static, 'PaperPosition', [0 0 8 6]);
+        print(fig_static, pdf_path, '-dpdf', '-bestfit');
+    end
+    if isfield(cfg.plots,'save_png') && cfg.plots.save_png
+        png_path = fullfile(results_dir, [base '.png']);
+        exportgraphics(fig_static, png_path, 'Resolution', 300);
+    end
 
     % ---- store Task 2 body-frame results ----
     body_data = struct();
