@@ -1,184 +1,56 @@
-import subprocess
+"""Utility to save matplotlib figures in multiple formats.
+
+The helper mirrors the MATLAB implementation and ensures a figure is written
+as ``.png`` and ``.pickle`` by default. Additional formats can be requested via
+the ``formats`` argument. The function always returns a list of written
+file paths so callers can index artefacts easily.
+"""
+
+from __future__ import annotations
+
 import pickle
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, List
 
-import numpy as np
-from scipy.io import savemat
-
-
-try:  # Optional import; matplotlib might not be installed for tests
-    import matplotlib.figure
+try:  # pragma: no cover - matplotlib optional in tests
     import matplotlib.pyplot as plt
-except Exception:  # pragma: no cover - handled at runtime
-    matplotlib = None  # type: ignore
+    import matplotlib.figure
+except Exception:  # pragma: no cover
     plt = None  # type: ignore
-
-
-def _extract_axes_schema(fig: "matplotlib.figure.Figure") -> dict:
-    """Extract basic line plot info from the first axes of ``fig``."""
-    ax = fig.gca()
-    lines_out = []
-    for ln in ax.get_lines():
-        x = ln.get_xdata(orig=False)
-        y = ln.get_ydata(orig=False)
-        label = ln.get_label()
-        if label and label.startswith("_"):
-            label = ""
-        lines_out.append(
-            dict(
-                x=np.asarray(x, dtype=float),
-                y=np.asarray(y, dtype=float),
-                label=label or "",
-                color=ln.get_color(),
-                linestyle=ln.get_linestyle(),
-                linewidth=float(ln.get_linewidth()),
-                marker=ln.get_marker(),
-                markersize=float(ln.get_markersize()),
-            )
-        )
-
-    schema = dict(
-        title=ax.get_title() or "",
-        xlabel=ax.get_xlabel() or "",
-        ylabel=ax.get_ylabel() or "",
-        lines=lines_out,
-        legend=dict(
-            loc="best",
-            visible=any(l.get("label") for l in lines_out),
-        ),
-    )
-    return schema
-
-
-def _ensure_dir(p: str) -> None:
-    Path(p).parent.mkdir(parents=True, exist_ok=True)
-
-
-def _try_matlab_engine(mat_path: str, fig_out: str) -> bool:
-    """Attempt to use MATLAB Engine to save ``fig_out`` from ``mat_path``."""
-    try:
-        import matlab.engine  # type: ignore
-    except Exception:
-        return False
-    try:  # pragma: no cover - requires MATLAB
-        eng = matlab.engine.start_matlab()
-        eng.rebuild_and_save_fig(mat_path, fig_out, nargout=0)
-        eng.quit()
-        return True
-    except Exception:
-        return False
-
-
-def _try_matlab_cli(mat_path: str, fig_out: str) -> bool:
-    """Attempt to call MATLAB from the command line to save ``fig_out``."""
-    cmd = [
-        "matlab",
-        "-batch",
-        f"rebuild_and_save_fig('{mat_path.replace('\\', '/')}', '{fig_out.replace('\\', '/')}')",
-    ]
-    try:  # pragma: no cover - requires MATLAB
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return True
-    except Exception:
-        return False
+    matplotlib = None  # type: ignore
 
 
 def save_plot_all(
     fig: "matplotlib.figure.Figure",
     basepath: str,
     formats: Iterable[str] | None = None,
-    show_plot: bool = True,
-) -> None:
-    """Save a matplotlib ``fig`` to multiple ``formats`` and optionally display it.
-
-    Parameters
-    ----------
-    fig : matplotlib.figure.Figure
-        The figure to save.
-    basepath : str
-        Path without extension where files will be written.
-    formats : Iterable[str], optional
-        Iterable of extensions. ``".fig"`` triggers MATLAB export using the
-        engine or command line when included. ``".pickle"`` or ``".pkl"``
-        serialises the figure for interactive reloading in Python. If ``None``
-        (default) the figure is saved as ``.png`` and ``.pickle``.
-    show_plot : bool, optional
-        Whether to display the figure interactively using :func:`plt.show`.
-    """
-    _ensure_dir(basepath)
-
-    if formats is None:
-        fmt_lower = [".png", ".pickle"]
-    else:
-        fmt_lower = [e.lower() for e in formats]
-    for ext in fmt_lower:
-        if ext in {".png", ".pdf", ".svg"}:
-            fig.savefig(basepath + ext, dpi=300, bbox_inches="tight")
-            print(f"Saved -> {basepath + ext}")
-        elif ext in {".pickle", ".pkl"}:
-            with open(basepath + ext, "wb") as fh:
+    *,
+    show_plot: bool = False,
+    logger=None,
+) -> List[str]:
+    """Save ``fig`` to all ``formats`` and return list of written paths."""
+    base = Path(basepath)
+    base.parent.mkdir(parents=True, exist_ok=True)
+    fmts = [f.lower() for f in (formats or ["png", "pickle"])]
+    written: List[str] = []
+    for fmt in fmts:
+        suffix = "." + fmt.lstrip(".")
+        out = base.with_suffix(suffix)
+        if fmt in {"png", "pdf"}:
+            fig.savefig(out, dpi=300, bbox_inches="tight")
+        elif fmt == "pickle":
+            with open(out, "wb") as fh:
                 pickle.dump(fig, fh)
-            print(f"Saved -> {basepath + ext}")
-
-    if ".fig" not in fmt_lower:
-        if show_plot and plt is not None:
-            plt.show()
-        return
-
-    schema = _extract_axes_schema(fig)
-    mat_payload = dict(
-        title=schema["title"],
-        xlabel=schema["xlabel"],
-        ylabel=schema["ylabel"],
-        legend_loc=schema["legend"]["loc"],
-        legend_visible=int(bool(schema["legend"]["visible"])),
-        n_lines=len(schema["lines"]),
-    )
-
-    lines = schema["lines"]
-    mat_payload["line_x"] = [np.asarray(l["x"], dtype=float) for l in lines]
-    mat_payload["line_y"] = [np.asarray(l["y"], dtype=float) for l in lines]
-    mat_payload["line_label"] = np.array([l["label"] for l in lines], dtype=object)
-    mat_payload["line_color"] = np.array([l["color"] for l in lines], dtype=object)
-    mat_payload["line_ls"] = np.array([l["linestyle"] for l in lines], dtype=object)
-    mat_payload["line_lw"] = np.array([float(l["linewidth"]) for l in lines], dtype=float)
-    mat_payload["line_marker"] = np.array([l["marker"] for l in lines], dtype=object)
-    mat_payload["line_mks"] = np.array([float(l["markersize"]) for l in lines], dtype=float)
-
-    mat_path = basepath + "_pyplot_dump.mat"
-    savemat(mat_path, mat_payload)
-    fig_out = basepath + ".fig"
-
-    if _try_matlab_engine(mat_path, fig_out) or _try_matlab_cli(mat_path, fig_out):
-        print(f"Saved -> {fig_out}")
-    else:
-        print(
-            "WARNING: MATLAB not available; skipped .fig export. Kept .mat for later conversion:",
-            mat_path,
-        )
-
+        else:  # unsupported format
+            continue
+        written.append(str(out))
+        if logger:
+            logger.debug("Saved %s", out)
+        else:  # pragma: no cover
+            print(f"Saved -> {out}")
     if show_plot and plt is not None:
         plt.show()
+    return written
 
 
-if __name__ == "__main__":
-    import argparse
-    import numpy as np
-    import matplotlib.pyplot as plt
-
-    ap = argparse.ArgumentParser(description="Demo plot export utility")
-    ap.add_argument("--demo", type=str, default="results/demo_plot", help="Output basepath")
-    args = ap.parse_args()
-
-    x = np.linspace(0, 2 * np.pi, 400)
-    fig = plt.figure()
-    ax = fig.gca()
-    ax.plot(x, np.sin(x), label="sin")
-    ax.plot(x, np.cos(x), "--", label="cos")
-    ax.set_title("Demo")
-    ax.set_xlabel("rad")
-    ax.set_ylabel("value")
-    ax.legend()
-
-    save_plot_all(fig, args.demo)
+__all__ = ["save_plot_all"]

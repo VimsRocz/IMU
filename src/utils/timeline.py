@@ -289,7 +289,34 @@ def print_timeline_summary(
 
 
 # Backward compatibility with existing callers
-print_timeline = print_timeline_summary
+# Legacy export: ``print_timeline_summary`` operated on file paths and run IDs.
+# For the new pipeline we provide a lightweight variant that accepts the time
+# vectors directly.  It mirrors the MATLAB helper and prints a concise three
+# line summary.  Existing callers can still use :func:`print_timeline_summary`.
+
+
+def print_timeline(imu_t, gnss_t, truth_t=None, logger=None):
+    """Print a short timeline summary for IMU, GNSS and optional truth."""
+    def _summ(t):
+        if t is None or len(t) == 0:
+            return "(missing)"
+        dt = np.diff(t)
+        hz = 1.0 / np.median(dt) if len(dt) else float("nan")
+        return (
+            f"n={len(t)} hz={hz:.3f} dt_med={np.median(dt):.6f}"
+            f" t0={t[0]:.3f} t1={t[-1]:.3f} monotonic={np.all(dt>0)}"
+        )
+
+    line_imu = f"IMU   | {_summ(imu_t)}"
+    line_gnss = f"GNSS  | {_summ(gnss_t)}"
+    line_truth = f"TRUTH | {_summ(truth_t)}" if truth_t is not None else "TRUTH | (not provided)"
+    msg = "\n".join([line_imu, line_gnss, line_truth])
+    if logger:
+        logger.info(msg)
+    else:  # pragma: no cover - console fallback
+        print(msg)
+
+
 
 
 __all__ = ["print_timeline_summary", "print_timeline"]
