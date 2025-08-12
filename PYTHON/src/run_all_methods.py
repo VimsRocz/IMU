@@ -51,7 +51,11 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
-from paths import ensure_results_dir as _ensure_results, truth_path as _truth_path_helper
+from paths import (
+    ensure_results_dir as _ensure_results,
+    imu_path as _imu_path_helper,
+    gnss_path as _gnss_path_helper,
+)
 
 # Import helper utilities from the utils package
 from utils.timeline import print_timeline_summary  # type: ignore
@@ -112,8 +116,8 @@ def run_case(cmd, log_path):
 
 
 def main(argv=None):
-    _ensure_results()
-    logger.info("Ensured 'results/' directory exists.")
+    results_dir = _ensure_results()
+    logger.info("Ensured '%s' directory exists.", results_dir)
     parser = argparse.ArgumentParser(
         description="Run GNSS_IMU_Fusion with multiple datasets and methods",
     )
@@ -156,7 +160,7 @@ def main(argv=None):
             prediction_file="outputs/predicted_states.csv",
             gnss_file="outputs/gnss_measurements.csv",
             attitude_file="outputs/estimated_attitude.csv",
-            save_path="results",
+            save_path=str(results_dir),
         )
         return
 
@@ -170,11 +174,11 @@ def main(argv=None):
 
     results = []
     for (imu, gnss), m in itertools.product(cases, methods):
-        tag = f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{m}"
-        log_path = pathlib.Path("results") / f"{tag}.log"
+        imu_path = _imu_path_helper(imu)
+        gnss_path = _gnss_path_helper(gnss)
+        tag = f"{imu_path.stem}_{gnss_path.stem}_{m}"
+        log_path = results_dir / f"{tag}.log"
         print(f"\u25b6 {tag}")
-        imu_path = pathlib.Path(imu)
-        gnss_path = pathlib.Path(gnss)
 
         # Print and save a concise timeline summary for the current dataset.
         try:
@@ -182,7 +186,7 @@ def main(argv=None):
         except Exception:
             truth_path = None
         try:
-            print_timeline_summary(tag, str(imu_path), str(gnss_path), truth_path, out_dir="results")
+            print_timeline_summary(tag, str(imu_path), str(gnss_path), truth_path, out_dir=results_dir)
         except Exception:
             # Timeline is best-effort; continue even if it fails
             pass
@@ -244,7 +248,7 @@ def main(argv=None):
         # ------------------------------------------------------------------
         # Convert NPZ output to a MATLAB file with explicit frame variables
         # ------------------------------------------------------------------
-        npz_path = pathlib.Path("results") / f"{tag}_kf_output.npz"
+        npz_path = results_dir / f"{tag}_kf_output.npz"
         if npz_path.exists():
             try:
                 data = np.load(npz_path, allow_pickle=True)
@@ -414,7 +418,7 @@ def main(argv=None):
             # Task 7: Evaluation
             # ----------------------------
             # Updated: Task 7 outputs are saved directly in ``results/``
-            task7_dir = pathlib.Path("results")
+            task7_dir = results_dir
             with open(log_path, "a") as log:
                 log.write("\nTASK 7: Evaluate residuals\n")
                 msg = "Running Task 7 evaluation ..."
@@ -482,7 +486,7 @@ def main(argv=None):
                 "Runtime_s",
             ],
         )
-        df.to_csv(pathlib.Path("results") / "summary.csv", index=False)
+        df.to_csv(results_dir / "summary.csv", index=False)
 
 
 if __name__ == "__main__":

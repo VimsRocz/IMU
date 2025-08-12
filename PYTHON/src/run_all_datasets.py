@@ -31,6 +31,8 @@ from tqdm import tqdm
 # Overlay helper functions
 from validate_with_truth import load_estimate, assemble_frames
 from plot_overlay import plot_overlay
+from utils.timeline import print_timeline_summary
+from utils.resolve_truth_path import resolve_truth_path
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -38,7 +40,12 @@ ensure_dependencies()
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
-from paths import ensure_results_dir as _ensure_results, truth_path as _truth_path_helper
+from paths import (
+    ensure_results_dir as _ensure_results,
+    truth_path as _truth_path_helper,
+    imu_path as _imu_path_helper,
+    gnss_path as _gnss_path_helper,
+)
 SCRIPT = HERE / "GNSS_IMU_Fusion.py"
 LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -57,11 +64,9 @@ METHODS = DEFAULT_METHODS.copy()
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
 
-def run_one(imu, gnss, method, verbose=False):
+def run_one(imu_path, gnss_path, method, verbose=False):
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log = LOG_DIR / f"{imu}_{gnss}_{method}_{ts}.log"
-    imu_path = pathlib.Path(imu)
-    gnss_path = pathlib.Path(gnss)
+    log = LOG_DIR / f"{imu_path.stem}_{gnss_path.stem}_{method}_{ts}.log"
 
     cmd = [
         sys.executable,
@@ -132,13 +137,20 @@ def main():
     fusion_results = []
 
     for imu, gnss, method in tqdm(cases, desc="All cases"):
+        imu_path = pathlib.Path(imu)
+        gnss_path = pathlib.Path(gnss)
+        if not imu_path.exists():
+            imu_path = _imu_path_helper(imu)
+        if not gnss_path.exists():
+            gnss_path = _gnss_path_helper(gnss)
+
         if args.verbose:
             # Debugging information for file pairing and timestamps
             print("==== DEBUG: File Pairing ====")
-            print("IMU file:", imu)
-            print("GNSS file:", gnss)
-            gnss_df = pd.read_csv(gnss)
-            imu_data = np.loadtxt(imu)
+            print("IMU file:", imu_path)
+            print("GNSS file:", gnss_path)
+            gnss_df = pd.read_csv(gnss_path)
+            imu_data = np.loadtxt(imu_path)
             print("GNSS shape:", gnss_df.shape)
             print("IMU shape:", imu_data.shape)
             print("GNSS time [start, end]:", gnss_df['Posix_Time'].iloc[0], gnss_df['Posix_Time'].iloc[-1])
@@ -148,16 +160,24 @@ def main():
             print("GNSS Head:\n", gnss_df.head())
             print("IMU Head:\n", imu_data[:5])
             print("============================")
-        imu_path = pathlib.Path(imu)
-        gnss_path = pathlib.Path(gnss)
+
+        rid = f"{imu_path.stem}_{gnss_path.stem}_{method}"
+        try:
+            truth_path = resolve_truth_path()
+        except Exception:
+            truth_path = None
+        try:
+            print_timeline_summary(rid, str(imu_path), str(gnss_path), truth_path, out_dir=results_dir)
+        except Exception:
+            pass
 
         start = time.time()
-        summaries = run_one(imu, gnss, method, verbose=args.verbose)
+        summaries = run_one(imu_path, gnss_path, method, verbose=args.verbose)
         runtime = time.time() - start
         for summary in summaries:
             kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
             fusion_results.append({
-                "dataset"  : pathlib.Path(imu).stem.split("_")[1],
+                "dataset"  : imu_path.stem.split("_")[1],
                 "method"   : kv.get("method", method),
                 "rmse_pos" : float(kv.get("rmse_pos", "nan").replace("m", "")),
                 "final_pos": float(kv.get("final_pos", "nan").replace("m", "")),
@@ -183,7 +203,7 @@ def main():
             })
 
         # --- Save standard MATLAB output ---------------------------------
-        npz_path = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.npz"
+        npz_path = results_dir / f"{imu_path.stem}_{gnss_path.stem}_{method}_kf_output.npz"
         if npz_path.exists():
             data = np.load(npz_path, allow_pickle=True)
             mat_out = {
@@ -197,12 +217,12 @@ def main():
                 if key not in ["time_residuals", "fused_pos", "fused_vel", "P_hist", "attitude_q"]:
                     mat_out[key] = data[key]
             save_mat(
-                results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat",
+                results_dir / f"{imu_path.stem}_{gnss_path.stem}_{method}_kf_output.mat",
                 mat_out,
             )
 
         truth_path = _truth_path_helper()
-        est_mat = results_dir / f"{pathlib.Path(imu).stem}_{pathlib.Path(gnss).stem}_{method}_kf_output.mat"
+        est_mat = results_dir / f"{imu_path.stem}_{gnss_path.stem}_{method}_kf_output.mat"
         if truth_path.exists():
             first = np.loadtxt(truth_path, comments="#", max_rows=1)
             r0 = first[2:5]
