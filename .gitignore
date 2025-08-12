@@ -1,6 +1,10 @@
 # Generated results
-PYTHON/results/
-MATLAB/results/
+results/*
+!results/.gitkeep
+PYTHON/results/*
+!PYTHON/results/.gitkeep
+MATLAB/results/*
+!MATLAB/results/.gitkeep
 
 # Bytecode and caches
 __pycache__/
@@ -12,6 +16,8 @@ __pycache__/
 *.npz
 *.log
 *.bak
+*.pdf
+*.png
 
 # Misc
 .DS_Store

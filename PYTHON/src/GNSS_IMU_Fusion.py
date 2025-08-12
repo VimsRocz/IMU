@@ -25,10 +25,13 @@ import re
 from pathlib import Path
 
 if __package__ is None:
-    # When executed directly, ensure the project root (the parent of this file)
-    # is on ``sys.path``.  This allows importing the ``src`` package just like
-    # the test suite does.
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    # When executed directly, ensure both the ``src`` directory and its parent
+    # are on ``sys.path`` so package-relative imports resolve correctly.  The
+    # ``src`` directory is inserted first to prefer its ``scripts`` package over
+    # the top-level ``PYTHON/scripts`` helpers.
+    here = Path(__file__).resolve()
+    sys.path.insert(0, str(here.parent))
+    sys.path.insert(1, str(here.parent.parent))
     __package__ = "src"
 
 import matplotlib.pyplot as plt

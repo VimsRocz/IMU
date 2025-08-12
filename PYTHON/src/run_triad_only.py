@@ -125,12 +125,14 @@ def _write_run_meta(outdir, run_id, **kv):
 
 
 def main(argv: Iterable[str] | None = None) -> None:
-    results_dir = _ensure_results()
-    logger.info("Ensured '%s' directory exists.", results_dir)
-    print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
-
     parser = argparse.ArgumentParser(
         description="Run GNSS_IMU_Fusion with the TRIAD method on the X002 dataset",
+    )
+    parser.add_argument("--imu", type=str, help="Path to IMU data file")
+    parser.add_argument("--gnss", type=str, help="Path to GNSS data file")
+    parser.add_argument("--truth", type=str, help="Path to truth data file")
+    parser.add_argument(
+        "--outdir", type=str, help="Directory to write results (default PYTHON/results)"
     )
     parser.add_argument("--no-plots", action="store_true", help="Skip plot generation")
     parser.add_argument(
@@ -149,6 +151,14 @@ def main(argv: Iterable[str] | None = None) -> None:
     parser.add_argument("--truth-rate", type=float, default=None, help="Hint truth sample rate [Hz]")
 
     args = parser.parse_args(argv)
+
+    if args.outdir:
+        results_dir = Path(args.outdir)
+        results_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        results_dir = _ensure_results()
+    logger.info("Ensured '%s' directory exists.", results_dir)
+    print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
 
     if args.verbose:
         logger.setLevel(logging.DEBUG)
@@ -169,23 +179,20 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     results: List[Dict[str, float | str]] = []
 
-    imu_file = "IMU_X002.dat"
-    gnss_file = "GNSS_X002.csv"
-
-    imu_path = _imu_path_helper(imu_file)
-    gnss_path = _gnss_path_helper(gnss_file)
+    imu_path = Path(args.imu) if args.imu else _imu_path_helper("IMU_X002.dat")
+    gnss_path = Path(args.gnss) if args.gnss else _gnss_path_helper("GNSS_X002.csv")
+    truth_path = Path(args.truth) if args.truth else _truth_path_helper("STATE_X001.txt")
+    if not truth_path.exists():
+        alt = resolve_truth_path()
+        if alt:
+            truth_path = Path(alt)
 
     run_id = build_run_id(str(imu_path), str(gnss_path), method)
     log_path = results_dir / f"{run_id}.log"
     print(f"\u25b6 {run_id}")
 
-    # Prefer DATA/Truth but fall back to legacy resolution if needed
-    truth_path = str(_truth_path_helper())
-    if not pathlib.Path(truth_path).exists():
-        truth_path = resolve_truth_path()
-
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
-    print_timeline(run_id, str(imu_path), str(gnss_path), truth_path, out_dir=str(results_dir))
+    print_timeline(run_id, str(imu_path), str(gnss_path), str(truth_path), out_dir=str(results_dir))
 
     if logger.isEnabledFor(logging.DEBUG):
         try:
@@ -203,7 +210,7 @@ def main(argv: Iterable[str] | None = None) -> None:
             )
         except Exception as e:  # pragma: no cover - best effort
             logger.warning(
-                "Failed data preview for %s or %s: %s", imu_file, gnss_file, e
+                "Failed data preview for %s or %s: %s", imu_path, gnss_path, e
             )
 
     cmd = [
@@ -241,7 +248,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
         results.append(
             {
-                "dataset": pathlib.Path(imu_file).stem,
+                "dataset": imu_path.stem,
                 "method": kv.get("method", method),
                 "rmse_pos": float(kv.get("rmse_pos", "nan").replace("m", "")),
                 "final_pos": float(kv.get("final_pos", "nan").replace("m", "")),
@@ -428,7 +435,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         meta = {
             "imu_file": str(imu_path),
             "gnss_file": str(gnss_path),
-            "truth_file": str(_truth_path_helper()) if _truth_path_helper().exists() else None,
+            "truth_file": str(truth_path) if truth_path.exists() else None,
             "imu_rate_hz": _infer_rate(t_imu) or args.imu_rate,
             "gnss_rate_hz": args.gnss_rate,
             "truth_rate_hz": args.truth_rate,
@@ -439,7 +446,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     # ----------------------------
     # Task 6: Truth overlay plots
     # ----------------------------
-    truth_file = _truth_path_helper()
+    truth_file = truth_path
     if truth_file.exists():
         overlay_cmd = [
             sys.executable,
