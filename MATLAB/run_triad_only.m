@@ -5,7 +5,10 @@ function run_triad_only(cfg)
 %   run_triad_only();
 %   run_triad_only(struct('dataset_id','X002'));
 
+% Add utility paths first before calling any functions
 addpath(genpath(fullfile(pwd,'MATLAB','src','utils')));
+addpath(genpath(fullfile(pwd,'MATLAB','utils')));
+
 set_debug(strcmpi(getenv('DEBUG'),'1') || strcmpi(getenv('DEBUG'),'true'));
 log_msg('[BOOT] run_triad_only.m loaded');
 paths = project_paths();  % adds utils; returns root/matlab/results
