@@ -13,8 +13,8 @@ function task5_plot_comparison(run_id)
 %
 %   See also: plot_frame_comparison, Task_5
 
-% add utils folder to path
-addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))),'src','utils'));
+% Ensure repository paths are initialized so utility functions can be found
+project_paths();
 
     if nargin < 1 || isempty(run_id)
         error('task5_plot_comparison:MissingRunID', 'RUN_ID is required');
