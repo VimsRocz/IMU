@@ -11,13 +11,7 @@ import matplotlib.pyplot as plt
 from tabulate import tabulate
 
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic, zero_base_time
-import importlib.util
-from pathlib import Path as _Path
-
-_frames_path = _Path(__file__).resolve().parent / "utils" / "frames.py"
-_spec = importlib.util.spec_from_file_location("_frames", _frames_path)
-_frames = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_frames)
+from utils import frames as _frames
 R_ecef_to_ned = _frames.R_ecef_to_ned
 ecef_vec_to_ned = _frames.ecef_vec_to_ned
 from plot_overlay import plot_overlay
