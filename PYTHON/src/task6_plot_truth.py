@@ -98,22 +98,42 @@ def main() -> None:
             "Estimator filename must follow <IMU>_<GNSS>_<METHOD>_kf_output.*"
         )
 
-    root = Path(__file__).resolve().parent.parent
-    data_dir = root / "Data"
+    root = Path(__file__).resolve().parent.parent.parent
+    data_dir = root / "DATA"
 
     if args.imu_file:
         imu_file = Path(args.imu_file)
     else:
-        imu_file = data_dir / f"{m.group(1)}.dat"
-        if not imu_file.is_file():
-            imu_file = root / f"{m.group(1)}.dat"
+        # Try multiple locations for IMU file
+        imu_candidates = [
+            data_dir / "IMU" / f"{m.group(1)}.dat",
+            root / f"{m.group(1)}.dat",
+            Path(f"{m.group(1)}.dat")
+        ]
+        imu_file = None
+        for candidate in imu_candidates:
+            if candidate.is_file():
+                imu_file = candidate
+                break
+        if imu_file is None:
+            raise FileNotFoundError(f"Could not find IMU file for {m.group(1)}")
 
     if args.gnss_file:
         gnss_file = Path(args.gnss_file)
     else:
-        gnss_file = data_dir / f"{m.group(2)}.csv"
-        if not gnss_file.is_file():
-            gnss_file = root / f"{m.group(2)}.csv"
+        # Try multiple locations for GNSS file
+        gnss_candidates = [
+            data_dir / "GNSS" / f"{m.group(2)}.csv",
+            root / f"{m.group(2)}.csv",
+            Path(f"{m.group(2)}.csv")
+        ]
+        gnss_file = None
+        for candidate in gnss_candidates:
+            if candidate.is_file():
+                gnss_file = candidate
+                break
+        if gnss_file is None:
+            raise FileNotFoundError(f"Could not find GNSS file for {m.group(2)}")
 
     imu_file = imu_file.resolve()
     gnss_file = gnss_file.resolve()
@@ -126,6 +146,8 @@ def main() -> None:
         if dataset_match:
             dataset_id = dataset_match.group(1)
             candidates = [
+                data_dir / "Truth" / f"STATE_{dataset_id}.txt",
+                data_dir / "Truth" / f"STATE_{dataset_id}_small.txt",
                 root / f"STATE_{dataset_id}.txt",
                 root / f"STATE_{dataset_id}_small.txt",
             ]
