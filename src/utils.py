@@ -16,6 +16,8 @@ import logging
 def zero_base_time(t):
     """Return time vector shifted to start at zero."""
     t = np.asarray(t, dtype=np.float64)
+    if t.size == 0:
+        return t
     return t - t[0]
 
 

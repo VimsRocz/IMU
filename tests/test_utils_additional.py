@@ -4,6 +4,7 @@ from src.utils import (
     save_static_zupt_params,
     ecef_to_ned,
     compute_C_ECEF_to_NED,
+    zero_base_time,
 )
 
 np = pytest.importorskip("numpy")
@@ -51,3 +52,9 @@ def test_ecef_to_ned_multi_vector():
     C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
     expected = np.array([C @ (p - ref_ecef) for p in pos_ecef])
     assert np.allclose(ned, expected)
+
+
+def test_zero_base_time_empty_and_shift():
+    assert zero_base_time([]).size == 0
+    t = np.array([5.0, 6.5, 7.0])
+    assert np.allclose(zero_base_time(t), t - 5.0)
