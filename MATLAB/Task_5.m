@@ -385,17 +385,19 @@ prev_a_ned = zeros(3,1);
 prev_vel = x(4:6);
 
 % --- Pre-allocate Log Arrays ---
-num_steps = size(acc_body_raw, 1);
+total_samples = size(acc_body_raw, 1);
 if isfinite(max_steps)
-    num_steps = min(num_steps, max_steps);
+    steps = min(total_samples, max_steps);
+else
+    steps = total_samples;
 end
-x_log = zeros(15, num_steps);
+x_log = zeros(15, steps);
 fprintf('Task 5: x_log initialized with size %dx%d\n', size(x_log));
-euler_log = zeros(3, num_steps);
-zupt_log = zeros(1, num_steps);
-zupt_vel_norm = nan(1, num_steps); % velocity norm after each ZUPT
-acc_log = zeros(3, num_steps); % Acceleration from propagated IMU data
-num_imu_samples = num_steps;
+euler_log = zeros(3, steps);
+zupt_log = zeros(1, steps);
+zupt_vel_norm = nan(1, steps); % velocity norm after each ZUPT
+acc_log = zeros(3, steps); % Acceleration from propagated IMU data
+num_imu_samples = steps;
 zupt_count = 0;
 zupt_fail_count = 0;            % count ZUPT events not clamped to zero
 vel_blow_count = 0;             % track number of velocity blow-ups

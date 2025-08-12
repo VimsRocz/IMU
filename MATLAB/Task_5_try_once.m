@@ -7,10 +7,13 @@ function rmse_pos = Task_5_try_once(cfg, vel_q_scale, vel_r)
     if nargin < 3, error('Task_5_try_once:args','cfg, vel_q_scale, vel_r required'); end
     % Use at most first 200k IMU steps for speed during tuning
     max_steps = 200000;
+    % Determine total IMU samples to avoid requesting more steps than exist
+    total_samples = size(readmatrix(cfg.imu_path), 1);
+    steps = min(max_steps, total_samples);
     try
         res = Task_5(cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
             'vel_q_scale', vel_q_scale, 'vel_r', vel_r, ...
-            'trace_first_n', 0, 'max_steps', max_steps, 'dryrun', true);
+            'trace_first_n', 0, 'max_steps', steps, 'dryrun', true);
         if isstruct(res) && isfield(res,'rmse_pos')
             rmse_pos = res.rmse_pos;
         else
