@@ -19,6 +19,12 @@ Run the script with ``--config config.yml`` to process those files.
 """
 
 import argparse
+from pathlib import Path as _Path
+import sys as _sys
+_SRC = _Path(__file__).resolve().parent
+if str(_SRC) not in _sys.path:
+    _sys.path.insert(0, str(_SRC))
+REPO_ROOT = _SRC.parents[2]
 import itertools
 import os
 import pathlib
@@ -47,12 +53,9 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 from paths import ensure_results_dir as _ensure_results, truth_path as _truth_path_helper
 
-# Allow importing helper utilities under ``src/utils`` without clashing with
-# the top-level ``utils.py`` module.
-import sys as _sys
-_sys.path.append(str(HERE / "utils"))
-from timeline import print_timeline_summary  # type: ignore
-from resolve_truth_path import resolve_truth_path  # type: ignore
+# Import helper utilities from the utils package
+from utils.timeline import print_timeline_summary  # type: ignore
+from utils.resolve_truth_path import resolve_truth_path  # type: ignore
 
 try:
     import yaml

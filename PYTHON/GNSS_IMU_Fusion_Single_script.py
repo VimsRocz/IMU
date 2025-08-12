@@ -1,3 +1,11 @@
+from pathlib import Path as _Path
+import sys as _sys
+# Add PYTHON/src to sys.path so local modules resolve without PYTHONPATH
+_PY_SRC = _Path(__file__).resolve().parent / "src"
+if str(_PY_SRC) not in _sys.path:
+    _sys.path.insert(0, str(_PY_SRC))
+REPO_ROOT = _PY_SRC.parents[2]
+
 import pandas as pd
 import numpy as np
 import logging
@@ -7,7 +15,7 @@ import os
 import argparse
 from pathlib import Path
 
-from src.paths import gnss_path, imu_path, PY_RES_DIR, ensure_py_results
+from paths import gnss_path, imu_path, PY_RES_DIR, ensure_py_results
 
 # --- plotting output configuration ----------------------------------------
 ensure_py_results()
@@ -30,8 +38,8 @@ parser.add_argument(
 args = parser.parse_args()
 INTERACTIVE = args.interactive
 
-from src.constants import EARTH_RATE
-from src.utils import compute_C_ECEF_to_NED, zero_base_time
+from constants import EARTH_RATE
+from utils import compute_C_ECEF_to_NED, zero_base_time
 
 # Setup logging
 logging.basicConfig(

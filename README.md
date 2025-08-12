@@ -38,15 +38,18 @@ python3 -m venv .venv
 source .venv/bin/activate             # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Run TRIAD
-PYTHONPATH=src python3 src/run_triad_only.py \
-  --imu ../DATA/IMU/IMU_X002.dat \
-  --gnss ../DATA/GNSS/GNSS_X002.csv \
-  --truth ../DATA/Truth/STATE_X001.txt \
-  --outdir results
+# One-liner (no PYTHONPATH):
+# From repo root
+python PYTHON/src/run_triad_only.py --dataset X002
 
-Outputs: PYTHON/results/…
+# Or from PYTHON directory
+python src/run_triad_only.py --dataset X002
+
+# Optional explicit overrides
+#   --imu/--gnss/--truth/--outdir
 ```
+
+Outputs go to `PYTHON/results/`.
 
 ### MATLAB (Task-1)
 
@@ -59,11 +62,11 @@ Outputs: MATLAB/results/…
 
 ### Troubleshooting
 
-Python import error `utils.utils`: see `PYTHON/README.md` for a one-file bridge that resolves the module/package name collision.
+- Imports: All entry points auto-handle `sys.path` so no `PYTHONPATH` is needed.
+- Data: Defaults point to `DATA/IMU/IMU_<ID>.dat`, `DATA/GNSS/GNSS_<ID>.csv`, and `DATA/Truth/STATE_X001.txt`.
 
 ### Contributing
 
 Work on a feature branch (e.g., `TASK_1`), push, and open a PR into main. Do not commit generated outputs outside the `results/` folders.
 
 MIT License
-

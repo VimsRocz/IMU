@@ -14,6 +14,15 @@ Usage
 
 from __future__ import annotations
 
+# Self-contained imports: make local src importable from any CWD
+from pathlib import Path as _Path
+import sys as _sys
+_SRC = _Path(__file__).resolve().parent
+if str(_SRC) not in _sys.path:
+    _sys.path.insert(0, str(_SRC))
+# Repository root (…/IMU)
+REPO_ROOT = _SRC.parents[2]
+
 import argparse
 import json
 import logging
@@ -39,10 +48,9 @@ from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
 from utils import save_mat
 
-# Allow importing helper utilities under ``src/utils``.
-sys.path.append(str(Path(__file__).resolve().parent / "utils"))
-from timeline import print_timeline
-from resolve_truth_path import resolve_truth_path
+# Import helper utilities from the utils package
+from utils.timeline import print_timeline
+from utils.resolve_truth_path import resolve_truth_path
 from run_id import run_id as build_run_id
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
@@ -52,7 +60,13 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
-from paths import imu_path as _imu_path_helper, gnss_path as _gnss_path_helper, truth_path as _truth_path_helper, ensure_results_dir as _ensure_results
+from paths import (
+    imu_path as _imu_path_helper,
+    gnss_path as _gnss_path_helper,
+    truth_path as _truth_path_helper,
+    ensure_results_dir as _ensure_results,
+    python_results_dir as _py_results_dir,
+)
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
@@ -126,7 +140,14 @@ def _write_run_meta(outdir, run_id, **kv):
 
 def main(argv: Iterable[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Run GNSS_IMU_Fusion with the TRIAD method on the X002 dataset",
+        description="Run TRIAD (Task-1) on a selected dataset",
+        allow_abbrev=False,
+    )
+    parser.add_argument(
+        "--dataset",
+        choices=["X001", "X002", "X003"],
+        default="X002",
+        help="Dataset ID to use (default X002)",
     )
     parser.add_argument("--imu", type=str, help="Path to IMU data file")
     parser.add_argument("--gnss", type=str, help="Path to GNSS data file")
@@ -156,7 +177,9 @@ def main(argv: Iterable[str] | None = None) -> None:
         results_dir = Path(args.outdir)
         results_dir.mkdir(parents=True, exist_ok=True)
     else:
-        results_dir = _ensure_results()
+        # Standard default: PYTHON/results
+        results_dir = _py_results_dir()
+        results_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Ensured '%s' directory exists.", results_dir)
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
 
@@ -179,13 +202,40 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     results: List[Dict[str, float | str]] = []
 
-    imu_path = Path(args.imu) if args.imu else _imu_path_helper("IMU_X002.dat")
-    gnss_path = Path(args.gnss) if args.gnss else _gnss_path_helper("GNSS_X002.csv")
-    truth_path = Path(args.truth) if args.truth else _truth_path_helper("STATE_X001.txt")
+    # Resolve inputs from CLI or dataset selection
+    if args.imu:
+        imu_path = Path(args.imu)
+    else:
+        imu_path = _imu_path_helper(args.dataset)
+
+    if args.gnss:
+        gnss_path = Path(args.gnss)
+    else:
+        gnss_path = _gnss_path_helper(args.dataset)
+
+    if args.truth:
+        truth_path = Path(args.truth)
+    else:
+        truth_path = _truth_path_helper("STATE_X001.txt")
     if not truth_path.exists():
         alt = resolve_truth_path()
         if alt:
             truth_path = Path(alt)
+
+    # Input validation with friendly errors
+    header = [
+        "Running TRIAD with:",
+        f"  IMU:   {imu_path}",
+        f"  GNSS:  {gnss_path}",
+        f"  Truth: {truth_path if truth_path else 'N/A'}",
+        f"  Out:   {results_dir}",
+    ]
+    print("\n".join(header))
+    for p in (imu_path, gnss_path):
+        if not Path(p).exists():
+            raise FileNotFoundError(f"Required input not found: {p}")
+    if truth_path and not Path(truth_path).exists():
+        raise FileNotFoundError(f"Truth file not found: {truth_path}")
 
     run_id = build_run_id(str(imu_path), str(gnss_path), method)
     log_path = results_dir / f"{run_id}.log"

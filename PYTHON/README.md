@@ -21,11 +21,14 @@ Shared in ../DATA/:
 Run TRIAD (Task-1)
 
 ```
-PYTHONPATH=src python3 src/run_triad_only.py \
-  --imu ../DATA/IMU/IMU_X002.dat \
-  --gnss ../DATA/GNSS/GNSS_X002.csv \
-  --truth ../DATA/Truth/STATE_X001.txt \
-  --outdir results
+# From repo root
+python PYTHON/src/run_triad_only.py --dataset X002
+
+# Or from PYTHON directory
+python src/run_triad_only.py --dataset X002
+
+# Optional explicit overrides
+#   --imu/--gnss/--truth/--outdir
 ```
 
 Options
@@ -38,34 +41,13 @@ Outputs
 
 Artifacts (PNG/PDF/JSON/txt) are written to PYTHON/results/.
 
-Troubleshooting: ModuleNotFoundError: utils.utils
-
-If you have both src/utils.py and src/utils/:
-
-Create this file:
-
-PYTHON/src/utils/__init__.py
-
-Contents:
-
-```
-from importlib import import_module as _imp
-_utils = _imp('utils')  # loads PYTHON/src/utils.py
-compute_C_ECEF_to_NED = _utils.compute_C_ECEF_to_NED
-ecef_to_geodetic = _utils.ecef_to_geodetic
-__all__ = ['compute_C_ECEF_to_NED', 'ecef_to_geodetic']
-```
-
-Run with:
-
-```
-PYTHONPATH=src python3 src/run_triad_only.py ...
-```
+Notes
+- No `PYTHONPATH` needed: entry scripts add `src/` to `sys.path` automatically.
+- `utils` collision resolved: `src/utils/__init__.py` forwards symbols from `utils_legacy`.
 
 Tests (optional)
 
 ```
 pip install -r requirements-dev.txt
-PYTHONPATH=src pytest -q tests
+pytest -q tests
 ```
-

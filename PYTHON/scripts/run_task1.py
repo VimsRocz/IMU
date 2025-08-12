@@ -9,13 +9,20 @@ from __future__ import annotations
 
 import argparse
 import pickle
-from pathlib import Path
+from pathlib import Path, Path as _Path
+import sys as _sys
+
+# Make PYTHON/src importable regardless of CWD
+_PY_SRC = _Path(__file__).resolve().parents[1] / "src"
+if str(_PY_SRC) not in _sys.path:
+    _sys.path.insert(0, str(_PY_SRC))
+REPO_ROOT = _PY_SRC.parents[2]
 
 import cartopy.crs as ccrs  # type: ignore
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from src.paths import gnss_path, imu_path, PY_RES_DIR, ensure_py_results
+from paths import gnss_path, imu_path, PY_RES_DIR, ensure_py_results
 
 
 def run(imu_file: str, gnss_file: str, method: str = "TRIAD") -> None:
@@ -77,4 +84,3 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     run(args.imu, args.gnss, args.method)
-

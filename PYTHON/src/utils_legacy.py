@@ -437,3 +437,4 @@ def interpolate_series(
 
     out = np.vstack([np.interp(t_ref, t_data, series[:, i]) for i in range(series.shape[1])]).T
     return out
+
