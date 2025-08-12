@@ -26,7 +26,7 @@ for i = 1:numel(datasets)
     cfg.imu_file = ds.imu;
     cfg.gnss_file = ds.gnss;
     cfg.truth_file = truth_file;
-    cfg.plots = struct('popup_figures', false, 'save_pdf', true, 'save_png', true);
+    cfg.plots = struct('popup_figures', false, 'save_pdf', false, 'save_png', false);
 
     fprintf('\n[TRIAD] ===== Dataset %s =====\n', ds.id);
     tStart = tic();
