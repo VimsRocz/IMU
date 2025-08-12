@@ -35,6 +35,9 @@ save_mat = base_utils.save_mat
 save_plot_fig = base_utils.save_plot_fig
 save_plot_mat = base_utils.save_plot_mat
 zero_base_time = base_utils.zero_base_time
+detect_static_interval = base_utils.detect_static_interval
+validate_gravity_vector = base_utils.validate_gravity_vector
+gravity_ecef = base_utils.gravity_ecef
 
 __all__ = [
     "compute_C_ECEF_to_NED",
@@ -47,4 +50,7 @@ __all__ = [
     "save_plot_fig",
     "save_plot_mat",
     "zero_base_time",
+    "detect_static_interval",
+    "validate_gravity_vector",
+    "gravity_ecef",
 ]

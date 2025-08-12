@@ -27,3 +27,13 @@ def ensure_results_dir() -> Path:
 # the new helper under that name so existing imports keep working.
 def ensure_py_results() -> Path:  # pragma: no cover - compatibility shim
     return ensure_results_dir()
+
+
+def normalize_gnss_headers(df):
+    """Return a copy of ``df`` with normalised GNSS column headers.
+
+    Column names are stripped of leading/trailing whitespace to avoid
+    downstream import errors.  The dataframe is otherwise unchanged.
+    """
+
+    return df.rename(columns=lambda c: c.strip())
