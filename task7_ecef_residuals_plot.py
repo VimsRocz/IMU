@@ -9,7 +9,7 @@ This script loads a fused estimator output file and the corresponding
 ground truth trajectory.  If the estimator output already contains the
 ``truth_pos_ecef``, ``truth_vel_ecef`` and ``truth_time`` fields produced
 by Task 4, the ``--truth-file`` argument is optional.  Otherwise the
-STATE_X text log must be provided or inferrable from the dataset name.
+STATE_X text log must be provided or inferable from the dataset name.
 The truth trajectory is synchronised to the estimator by cross-correlating
 position and velocity magnitudes before interpolation to the estimator time
 vector.  Position, velocity and acceleration residuals are plotted.  The time axis is
