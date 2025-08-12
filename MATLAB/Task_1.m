@@ -199,6 +199,29 @@ Task1.meta = struct('dataset', dataset_name, 'method', method);
 outpath = [base '.mat'];
 TaskIO.save('Task1', Task1, outpath);
 
+% Also save the Task1_init_*.mat file that Task_3 expects
+[~, imu_base, ~] = fileparts(imu_path);
+[~, gnss_base, ~] = fileparts(gnss_path);
+imu_id = erase(imu_base, '.dat');
+gnss_id = erase(gnss_base, '.csv');
+init_filename = sprintf('Task1_init_%s_%s_%s.mat', imu_id, gnss_id, method);
+init_filepath = fullfile(results_dir, init_filename);
+
+% Create variables in the format expected by Task_3 and others
+lat = lat_deg;
+lon = lon_deg;
+g_NED = g_NED;
+omega_NED = omega_ie_NED;
+if exist('ref_r0','var')
+    ref_r0 = ref_r0;
+else
+    ref_r0 = [];
+end
+
+% Save the init file
+save(init_filepath, 'lat', 'lon', 'g_NED', 'omega_NED', 'ref_r0', '-v7.3');
+fprintf('Task 1: Saved Task1_init file -> %s\n', init_filepath);
+
 % Expose to workspace
 assignin('base','Task1', Task1);
 

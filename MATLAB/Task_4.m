@@ -1,8 +1,10 @@
-function result = Task_4(imu_path, gnss_path, method)
+function result = Task_4(imu_path, gnss_path, method, cfg)
 %TASK_4 GNSS and IMU data integration and comparison
-%   Task_4(IMU_PATH, GNSS_PATH, METHOD) runs the GNSS/IMU integration
+%   Task_4(IMU_PATH, GNSS_PATH, METHOD, CFG) runs the GNSS/IMU integration
 %   using the attitude estimates from Task 3. METHOD is unused but kept
 %   for backwards compatibility with older scripts.
+%   CFG is an optional configuration struct. If not provided, default
+%   configuration will be used.
 %   Requires that `Task_3` has already saved a dataset-specific results file
 %   under `results/` such as `Task3_results_IMU_X001_GNSS_X001.mat`.
 %   Task 4 expects the bias estimates from Task 2. These must be stored with
@@ -12,17 +14,26 @@ function result = Task_4(imu_path, gnss_path, method)
 %
 % Usage:
 %   Task_4(imu_path, gnss_path, method)
+%   Task_4(imu_path, gnss_path, method, cfg)
 
 paths = project_paths();
 results_dir = paths.matlab_results;
 lib_path = fullfile(paths.root,'MATLAB','lib');
 if exist(lib_path,'dir'), addpath(lib_path); end
 
-% pull configuration from caller
-try
-    cfg = evalin('caller','cfg');
-catch
-    error('cfg not found in caller workspace');
+% Handle cfg parameter
+if nargin < 4 || isempty(cfg)
+    % Try to get from caller workspace first (for backward compatibility)
+    try
+        cfg = evalin('caller','cfg');
+    catch
+        % Create default cfg if not available
+        cfg = struct();
+        cfg.plots = struct();
+        cfg.plots.popup_figures = false;
+        cfg.plots.save_pdf = true;
+        cfg.plots.save_png = true;
+    end
 end
 
 visibleFlag = 'off';
@@ -93,7 +104,7 @@ gyro_bias = bd.gyro_bias(:).';
 
 % Load rotation matrices produced by Task 3
 % Prefer Task 3 results from workspace; fall back to MAT files
-if evalin('base','exist(''task3_results'',''var'')')
+if evalin('base','exist(''task3_results'',''var'')'))
     task3_results = evalin('base','task3_results');
 else
     cand1 = fullfile(results_dir, sprintf('Task3_results_%s_%s.mat', imu_id, gnss_id));
@@ -106,7 +117,7 @@ else
         error('Task 4: Task 3 results missing. Tried:\n  %s\n  %s', cand1, cand2);
     end
     if ~isfield(S3, 'task3_results')
-        error('Task 4: variable ''task3_results'' missing from Task 3 MAT file.');
+        error('Task 4: variable "task3_results" missing from Task 3 MAT file.');
     end
     task3_results = S3.task3_results;
 end
@@ -175,7 +186,7 @@ ref_r0 = gnss_pos_ecef(first_valid_idx, :)'; % ECEF position vector as a column
 [lat_deg_ref, lon_deg_ref, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
 ref_lat = deg2rad(lat_deg_ref);
 ref_lon = deg2rad(lon_deg_ref);
-fprintf('-> Reference point: lat=%.6f rad, lon=%.6f rad, r0=[%.1f, %.1f, %.1f]''\n', ref_lat, ref_lon, ref_r0);
+fprintf('-> Reference point: lat=%.6f rad, lon=%.6f rad, r0=[%.1f, %.1f, %.1f]\n', ref_lat, ref_lon, ref_r0);
 
 
 %% ========================================================================
