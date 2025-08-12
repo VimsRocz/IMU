@@ -80,7 +80,11 @@ def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
 def detect_static_interval(accel_data, gyro_data, window_size=200,
                            accel_var_thresh=0.01, gyro_var_thresh=1e-6,
                            min_length=100):
-    """Find the longest initial static segment using variance thresholding.
+    """Find the longest static segment in the data using variance thresholding.
+
+    The search spans the entire dataset to locate the longest interval
+    where both accelerometer and gyroscope variances remain below the
+    specified thresholds.
 
     Parameters
     ----------
