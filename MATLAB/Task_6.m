@@ -1,4 +1,4 @@
-function Task_6(task5_file, imu_path, gnss_path, truth_file)
+function Task6 = Task_6(task5_file, imu_path, gnss_path, truth_file)
 %TASK_6 Overlay ground truth on Task 5 results.
 %   TASK_6(TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE) loads the
 %   Task 5 results MAT file along with the raw IMU, GNSS and ground truth
@@ -29,6 +29,7 @@ try
 catch
 end
 
+% Input validation
 if nargin < 4
     error('Task_6:BadArgs', 'Expected TASK5_FILE, IMU_PATH, GNSS_PATH, TRUTH_FILE');
 end
@@ -38,11 +39,32 @@ end
 % Use a row vector so element-wise operations broadcast correctly
 sign_ned = [1, 1, -1];
 
-fprintf('Starting Task 6 overlay ...\n');
-start_time = tic;
-
+% Extract dataset identifiers
 [~, imu_name, ~]  = fileparts(imu_path);
 [~, gnss_name, ~] = fileparts(gnss_path);
+
+% Create run ID from task5_file name or construct it
+tok = regexp(task5_file, '(TRIAD|Davenport|SVD)', 'match', 'once');
+if ~isempty(tok)
+    method = tok;
+else
+    method = 'TRIAD';  % default fallback
+end
+
+if isempty(method)
+    tag = [imu_name '_' gnss_name];
+else
+    tag = [imu_name '_' gnss_name '_' method];
+end
+
+print_task_start(tag);
+if ~isempty(method)
+    fprintf('Running attitude-estimation method: %s\n', method);
+end
+fprintf('TASK 6: Overlay ground truth on Task 5 results\n');
+
+fprintf('\nSubtask 6.1: Loading and validating Task 5 results.\n');
+start_time = tic;
 
 
 % paths and results_dir already defined above
@@ -433,6 +455,24 @@ try
 catch ME
     warning('Task 6 comparison plots failed: %s', ME.message);
 end
+
+fprintf('\nSubtask 6.8: Saving canonical Task6 results.\n');
+% Create canonical Task6 struct with overlay metrics and metadata
+Task6 = struct();
+Task6.metrics = metrics;
+Task6.runtime = runtime;
+Task6.meta = struct('dataset', run_id, 'method', method, 'imu_id', imu_name, 'gnss_id', gnss_name);
+
+% Save canonical Task6 results using TaskIO
+outpath6 = fullfile(results_dir, sprintf('%s_%s_%s_task6_results.mat', imu_name, gnss_name, method));
+TaskIO.save('Task6', Task6, outpath6);
+
+% Expose to workspace for interactive use
+assignin('base', 'Task6', Task6);
+
+fprintf('Task 6 canonical results -> %s\n', outpath6);
+fprintf('Task 6 completed successfully.\n');
+fprintf('Runtime: %.2f seconds\n', runtime);
 end
 
 function y = centre(x)
