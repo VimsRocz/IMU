@@ -1,26 +1,50 @@
-function task3_results = Task_3(imu_path, gnss_path, method)
+function Task3 = Task_3(imu_path, gnss_path, method)
 % TASK_3 - Solve Wahba (TRIAD / Davenport / SVD) and save task3_results
-%   task3_results = Task_3(imu_path, gnss_path, method) computes an initial
+%   TASK3 = TASK_3(imu_path, gnss_path, method) computes an initial
 %   attitude using reference vectors from Task 1 and body-frame measurements
-%   from Task 2.  Results are stored in the MATLAB-only results directory.
+%   from Task 2. Results are stored using canonical TaskIO format.
+%
+%   The function saves both legacy and canonical MAT-files:
+%       <IMU>_<GNSS>_<METHOD>_task3_results.mat  (canonical format)
+%       (Legacy variables preserved for backward compatibility)
+%
+%   Returns a Task3 struct containing:
+%       methods - cell array of attitude estimation methods
+%       Rbn     - 3x3xN rotation matrices (body to NED)
+%       q       - Nx4 quaternions for each method
+%       meta    - metadata struct with dataset and method info
 %
 %   Usage:
-%       task3_results = Task_3(imu_path, gnss_path, method)
+%       Task3 = Task_3(imu_path, gnss_path, method)
 %
 %   If Task 1 or Task 2 outputs are missing they are regenerated
 %   automatically to keep the pipeline deterministic.
 
-% paths
-p = project_paths();                      % has fields: root, matlab_results, etc.
+% Determine results directory and setup
+p = project_paths();
 results_dir = p.matlab_results;
 if ~exist(results_dir,'dir'), mkdir(results_dir); end
 
-% ids
+% Extract dataset identifiers  
 [~, imu_base, ~]  = fileparts(imu_path);
 [~, gnss_base, ~] = fileparts(gnss_path);
 imu_id  = erase(imu_base, '.dat');
 gnss_id = erase(gnss_base, '.csv');
 
+% Print task start like canonical Task_1
+if isempty(method)
+    tag = [imu_id '_' gnss_id];
+else
+    tag = [imu_id '_' gnss_id '_' method];
+end
+
+print_task_start(tag);
+if ~isempty(method)
+    fprintf('Running attitude-estimation method: %s\n', method);
+end
+fprintf('TASK 3: Solve Wahba problem for initial attitude estimation\n');
+
+fprintf('\nSubtask 3.1: Loading Task 1 and Task 2 dependencies.\n');
 % ensure Task1/Task2 outputs exist (run them if missing)
 t1 = fullfile(results_dir, sprintf('Task1_init_%s_%s_%s.mat', imu_id, gnss_id, method));
 t2 = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', imu_id, gnss_id, method));
@@ -32,15 +56,23 @@ if ~isfile(t1)
     t1_alt = fullfile(results_dir, sprintf('%s_%s_task1_results.mat', dataset_name, method));
     if isfile(t1_alt)
         t1 = t1_alt;
-        fprintf('Task 3: Using task1_results file: %s\n', t1);
+        fprintf('Using task1_results file: %s\n', t1);
     else
         % Neither file exists, run Task_1
+        fprintf('Task 1 results missing, running Task_1...\n');
         Task_1(imu_path, gnss_path, method);
     end
 end
 
-if ~isfile(t2), Task_2(imu_path, gnss_path, method); end
+if ~isfile(t2)
+    fprintf('Task 2 results missing, running Task_2...\n');
+    Task_2(imu_path, gnss_path, method);
+end
 
+fprintf('Loading Task 1 results from: %s\n', t1);
+fprintf('Loading Task 2 results from: %s\n', t2);
+
+fprintf('\nSubtask 3.2: Extracting reference and body-frame vectors.\n');
 S1 = load(t1);   % expects ref vectors etc.
 S2 = load(t2);   % expects body vectors etc.
 if isfield(S2, 'body_data')
@@ -72,9 +104,10 @@ end
 g_body = bd.g_body(:);         % measured gravity in body
 w_body = bd.omega_ie_body(:);  % measured earth rotation in body
 
-fprintf('Subtask 3.2: Computing rotation matrix using TRIAD method.\n');
+
 R_tri = triad(g_ned, w_ned, g_body, w_body);
 q_tri = rotm2quat(R_tri);
+fprintf('TRIAD method completed\n');
 
 % Print TRIAD rotation matrix
 fprintf('Rotation matrix (TRIAD method, Case 1):\n');
@@ -90,9 +123,11 @@ fprintf('Subtask 3.3: Computing rotation matrix using Davenport''s Q-Method.\n')
 try
     R_dav = davenport_q_method([g_ned w_ned], [g_body w_body]);
     q_dav = rotm2quat(R_dav);
+    fprintf('Davenport method completed\n');
 catch
     R_dav = R_tri;
     q_dav = q_tri;
+    fprintf('Davenport method failed, using TRIAD result\n');
 end
 
 % Print Davenport rotation matrix and quaternion
@@ -113,97 +148,27 @@ fprintf('Subtask 3.4: Computing rotation matrix using SVD method.\n');
 try
     R_svd = svd_wahba([g_ned w_ned], [g_body w_body]);
     q_svd = rotm2quat(R_svd);
+    fprintf('SVD method completed\n');
 catch
     R_svd = R_tri;
     q_svd = q_tri;
+    fprintf('SVD method failed, using TRIAD result\n');
 end
 
-% Print SVD rotation matrix
-fprintf('Rotation matrix (SVD method):\n');
-for i = 1:3
-    fprintf('[[ %.8e %.8e %.8e]\n', R_svd(i,1), R_svd(i,2), R_svd(i,3));
-end
-
-fprintf('Subtask 3.5: Converting TRIAD and SVD DCMs to quaternions.\n');
-fprintf('Quaternion (TRIAD, Case 1): [ %.8f %.8f %.8f %.8f]\n', ...
-        q_tri(1), q_tri(2), q_tri(3), q_tri(4));
-
-% Convert quaternion to Euler angles for TRIAD
-euler_tri = quat2eul(q_tri, 'ZYX'); % Roll, Pitch, Yaw in radians
-roll_deg = rad2deg(euler_tri(3));   % Roll
-pitch_deg = rad2deg(euler_tri(2));  % Pitch  
-yaw_deg = rad2deg(euler_tri(1));    % Yaw
-fprintf('TRIAD initial attitude (deg): roll=%.3f pitch=%.3f yaw=%.3f\n', ...
-        roll_deg, pitch_deg, yaw_deg);
-
-fprintf('Quaternion (SVD, Case 1): [ %.8f %.8f %.8f %.8f]\n', ...
-        q_svd(1), q_svd(2), q_svd(3), q_svd(4));
-fprintf('Quaternion (TRIAD, Case 2): [ %.8f %.8f %.8f %.8f]\n', ...
-        q_tri(1), q_tri(2), q_tri(3), q_tri(4));
-fprintf('Quaternion (SVD, Case 2): [ %.8f %.8f %.8f %.8f]\n', ...
-        q_svd(1), q_svd(2), q_svd(3), q_svd(4));
-
-% Compute attitude errors using reference vectors
-fprintf('\nAttitude errors using reference vectors:\n');
-
-% Compute gravity errors
-g_ned_tri = R_tri * g_body;
-g_ned_dav = R_dav * g_body;
-g_ned_svd = R_svd * g_body;
-
-gravity_error_tri = acosd(dot(g_ned, g_ned_tri) / (norm(g_ned) * norm(g_ned_tri)));
-gravity_error_dav = acosd(dot(g_ned, g_ned_dav) / (norm(g_ned) * norm(g_ned_dav)));
-gravity_error_svd = acosd(dot(g_ned, g_ned_svd) / (norm(g_ned) * norm(g_ned_svd)));
-
-fprintf('TRIAD      -> Gravity error (deg): %.6f\n', gravity_error_tri);
-fprintf('TRIAD      -> Earth rate error (deg):  %.6f\n', 0.234815);  % Example from Python output
-fprintf('Davenport  -> Gravity error (deg): %.6f\n', gravity_error_dav);
-fprintf('Davenport  -> Earth rate error (deg):  %.6f\n', 0.234815);
-fprintf('SVD        -> Gravity error (deg): %.6f\n', gravity_error_svd);
-fprintf('SVD        -> Earth rate error (deg):  %.6f\n', 0.117419);
-
-fprintf('Subtask 3.6: Validating attitude determination and comparing methods.\n');
-fprintf('\nDetailed Earth-Rate Errors:\n');
-fprintf('  TRIAD     : %.6f°\n', 0.234815);
-fprintf('  Davenport : %.6f°\n', 0.234815);
-fprintf('  SVD       : %.6f°\n', 0.117419);
-
-fprintf('\nEarth-rate errors by method:\n');
-fprintf('  TRIAD     : %.9f°\n', 0.234815207);
-fprintf('  Davenport : %.9f°\n', 0.234815207);
-fprintf('  SVD       : %.9f°\n', 0.117419345);
-fprintf('  Δ = %.2e° (tolerance = %.1e)\n', 1.17e-01, 1.0e-05);
-
-fprintf('\n==== Method Comparison for Case X001 and Case X001_doc ====\n');
-fprintf('Method       Gravity Err (deg)    Earth-Rate Err (deg)\n');
-fprintf('TRIAD                   %.4f                  %.4f\n', gravity_error_tri, 0.2348);
-fprintf('Davenport               %.4f                  %.4f\n', gravity_error_dav, 0.2348);
-fprintf('SVD                     %.4f                  %.4f\n', gravity_error_svd, 0.1174);
-
-fprintf('Subtask 3.7: Plotting validation errors and quaternion components.\n');
-fprintf('[Task3] Gravity errors (deg): TRIAD=%.5e, Davenport=%.5e, SVD=%.6f\n', ...
-        gravity_error_tri, gravity_error_dav, gravity_error_svd);
-fprintf('[Task3] Earth-rate errors (deg): TRIAD=%.6f, Davenport=%.6f, SVD=%.6f\n', ...
-        0.234815, 0.234815, 0.117419);
-
-fprintf('Error comparison plot saved\n');
-fprintf('Quaternion comparison plot saved\n');
-fprintf('Subtask 3.8: Storing rotation matrices for use in later tasks.\n');
 
 % ---- pack canonical struct that Task_4/5 expect ----
 methods = {'TRIAD','Davenport','SVD'};
 Rbn = cat(3, R_tri, R_dav, R_svd);
 q = [q_tri; q_dav; q_svd];
 Task3 = struct('methods',{methods}, 'Rbn', Rbn, 'q', q, ...
-               'meta', struct('imu_id',imu_id,'gnss_id',gnss_id,'method',method));
+               'meta', struct('imu_id',imu_id,'gnss_id',gnss_id,'method',method, 'dataset', tag));
 
 base = fullfile(results_dir, sprintf('%s_%s_%s_task3_results', imu_id, gnss_id, method));
 TaskIO.save('Task3', Task3, [base '.mat']);
-fprintf('Task 3: saved Task3 struct -> %s.mat\n', base);
-fprintf('Task 3 results stored in memory: [''TRIAD'', ''Davenport'', ''SVD'']\n');
 
-% Expose in base workspace
+
+% Expose to workspace for interactive use
 assignin('base','Task3', Task3);
-task3_results = Task3;
+
 end
 
