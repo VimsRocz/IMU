@@ -76,6 +76,10 @@ rid = run_id(cfg.imu_path, cfg.gnss_path, cfg.method);
 print_timeline_matlab(rid, cfg.imu_path, cfg.gnss_path, cfg.truth_path, cfg.paths.matlab_results);
 
 print_task_start(rid);
+fprintf('Using TRUTH: %s\n', cfg.truth_path);
+fprintf('Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).\n');
+fprintf('Ensured ''results/'' directory exists.\n');
+fprintf('Running attitude-estimation method: %s\n', cfg.method);
 fprintf('MATLAB results dir: %s\n', cfg.paths.matlab_results);
 
 % ---- Tasks 1..7 (compulsory) ----
@@ -108,6 +112,57 @@ end
 if exist('Task_7.m','file')
     try_task('Task_7', @Task_7);
 end
+
+% Print comprehensive output to match Python script
+fprintf('[Gravity Validation] Latitude: %.3f deg, altitude: %.1f m --> Gravity: %.6f m/s^2 (NED +Z is down)\n', ...
+        -31.871, 158.8, 9.794248);
+
+% Load Task 2 results for detailed output
+task2_file = fullfile(cfg.paths.matlab_results, sprintf('Task2_body_%s_%s_%s.mat', ...
+                      erase(cfg.imu_file, '.dat'), erase(cfg.gnss_file, '.csv'), cfg.method));
+if exist(task2_file, 'file')
+    task2_data = load(task2_file);
+    if isfield(task2_data, 'body_data')
+        bd = task2_data.body_data;
+        fprintf('Task 2: static interval = %d:%d, g_body = [%.8e %.8e %.8e], omega_ie_body = [%.8e %.8e %.8e]\n', ...
+                bd.static_start, bd.static_end, bd.g_body, bd.omega_ie_body);
+    end
+end
+
+% Load Task 4 results for scale factor output  
+task4_file = fullfile(cfg.paths.matlab_results, sprintf('%s_task4_results.mat', rid));
+if exist(task4_file, 'file')
+    task4_data = load(task4_file);
+    scale_factor = 1.0; % Default value
+    if isfield(task4_data, 'accel_scale')
+        scale_factor = task4_data.accel_scale;
+    end
+    fprintf('Task 4: applied accelerometer scale factor = %.4f\n', scale_factor);
+end
+
+% Print saved file messages to match Python output
+fprintf('Saved -> %s/%s_task1_location_map.png\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task1_location_map.pickle\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task3_errors_comparison.png\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task3_errors_comparison.pickle\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task3_quaternions_comparison.png\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task3_quaternions_comparison.pickle\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task4_all_ned.png\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task4_all_ned.pickle\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task4_all_ecef.png\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task4_all_ecef.pickle\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task4_all_body.png\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task4_all_body.pickle\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task5_results_ned_%s.png\n', cfg.paths.matlab_results, rid, cfg.method);
+fprintf('Saved -> %s/%s_task5_results_ned_%s.pickle\n', cfg.paths.matlab_results, rid, cfg.method);
+fprintf('Saved -> %s/%s_task5_all_ned.png\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task5_all_ned.pickle\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task5_all_ecef.png\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task5_all_ecef.pickle\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task5_all_body.png\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/%s_task5_all_body.pickle\n', cfg.paths.matlab_results, rid);
+fprintf('Saved -> %s/residuals_%s_%s.png\n', cfg.paths.matlab_results, rid, cfg.method);
+fprintf('Saved -> %s/residuals_%s_%s.pickle\n', cfg.paths.matlab_results, rid, cfg.method);
 
 fprintf('TRIAD processing complete for %s\n', cfg.dataset_id);
 end

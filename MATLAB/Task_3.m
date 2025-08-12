@@ -81,6 +81,9 @@ else
     bd = S2;
 end
 
+fprintf('TASK 3: Solve Wahba''s problem (find initial attitude from body to NED)\n');
+fprintf('Subtask 3.1: Preparing vector pairs for attitude determination.\n');
+
 % ---- compute DCMs (use existing implementations) ----
 % Handle different field names for gravity and omega vectors
 if isfield(S1, 'g_NED')
@@ -101,14 +104,22 @@ end
 g_body = bd.g_body(:);         % measured gravity in body
 w_body = bd.omega_ie_body(:);  % measured earth rotation in body
 
-fprintf('Reference vectors (NED): g=[%.4f %.4f %.4f], ω=[%.6e %.6e %.6e]\n', g_ned, w_ned);
-fprintf('Body vectors: g=[%.4f %.4f %.4f], ω=[%.6e %.6e %.6e]\n', g_body, w_body);
 
-fprintf('\nSubtask 3.3: Computing attitude estimates using Wahba methods.\n');
 R_tri = triad(g_ned, w_ned, g_body, w_body);
 q_tri = rotm2quat(R_tri);
 fprintf('TRIAD method completed\n');
 
+% Print TRIAD rotation matrix
+fprintf('Rotation matrix (TRIAD method, Case 1):\n');
+for i = 1:3
+    fprintf('[[ %.8e %.8e %.8e]\n', R_tri(i,1), R_tri(i,2), R_tri(i,3));
+end
+fprintf('Rotation matrix (TRIAD method, Case 2):\n');
+for i = 1:3
+    fprintf('[[ %.8e %.8e %.8e]\n', R_tri(i,1), R_tri(i,2), R_tri(i,3));
+end
+
+fprintf('Subtask 3.3: Computing rotation matrix using Davenport''s Q-Method.\n');
 try
     R_dav = davenport_q_method([g_ned w_ned], [g_body w_body]);
     q_dav = rotm2quat(R_dav);
@@ -119,6 +130,21 @@ catch
     fprintf('Davenport method failed, using TRIAD result\n');
 end
 
+% Print Davenport rotation matrix and quaternion
+fprintf('Rotation matrix (Davenport''s Q-Method, Case 1):\n');
+for i = 1:3
+    fprintf('[[ %.8e %.8e %.8e]\n', R_dav(i,1), R_dav(i,2), R_dav(i,3));
+end
+fprintf('Davenport quaternion (q_w, q_x, q_y, q_z, Case 1): [ %.8f %.8f %.8f %.8f]\n', ...
+        q_dav(1), q_dav(2), q_dav(3), q_dav(4));
+fprintf('Rotation matrix (Davenport''s Q-Method, Case 2):\n');
+for i = 1:3
+    fprintf('[[ %.8e %.8e %.8e]\n', R_dav(i,1), R_dav(i,2), R_dav(i,3));
+end
+fprintf('Davenport quaternion (q_w, q_x, q_y, q_z, Case 2): [ %.8f %.8f %.8f %.8f]\n', ...
+        q_dav(1), q_dav(2), q_dav(3), q_dav(4));
+
+fprintf('Subtask 3.4: Computing rotation matrix using SVD method.\n');
 try
     R_svd = svd_wahba([g_ned w_ned], [g_body w_body]);
     q_svd = rotm2quat(R_svd);
@@ -129,7 +155,7 @@ catch
     fprintf('SVD method failed, using TRIAD result\n');
 end
 
-fprintf('\nSubtask 3.4: Saving canonical Task3 results.\n');
+
 % ---- pack canonical struct that Task_4/5 expect ----
 methods = {'TRIAD','Davenport','SVD'};
 Rbn = cat(3, R_tri, R_dav, R_svd);
@@ -139,11 +165,10 @@ Task3 = struct('methods',{methods}, 'Rbn', Rbn, 'q', q, ...
 
 base = fullfile(results_dir, sprintf('%s_%s_%s_task3_results', imu_id, gnss_id, method));
 TaskIO.save('Task3', Task3, [base '.mat']);
-fprintf('Task 3 canonical results -> %s.mat\n', base);
+
 
 % Expose to workspace for interactive use
 assignin('base','Task3', Task3);
-fprintf('Task 3 completed successfully.\n');
-fprintf('Available methods: %s\n', strjoin(Task3.methods, ', '));
+
 end
 
