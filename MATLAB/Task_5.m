@@ -52,6 +52,18 @@ end
         method = 'TRIAD';
     end
 
+    % Allow string or char inputs for file paths and convert to char
+    pin = inputParser;
+    addRequired(pin, 'imu_path', @(x) isstring(x) || ischar(x));
+    addRequired(pin, 'gnss_path', @(x) isstring(x) || ischar(x));
+    addRequired(pin, 'method',    @(x) isstring(x) || ischar(x));
+    addOptional(pin, 'gnss_pos_ned', [], @(x) isempty(x) || isnumeric(x));
+    parse(pin, imu_path, gnss_path, method, gnss_pos_ned);
+    imu_path    = char(pin.Results.imu_path);
+    gnss_path   = char(pin.Results.gnss_path);
+    method      = char(pin.Results.method);
+    gnss_pos_ned = pin.Results.gnss_pos_ned;
+
     % Optional noise parameters
     p = inputParser;
     addParameter(p, 'accel_noise', 0.1);       % [m/s^2]

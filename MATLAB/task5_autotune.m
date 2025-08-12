@@ -10,6 +10,10 @@ function [best_q, best_r, report] = task5_autotune(imu_path, gnss_path, method, 
     if nargin < 4 || isempty(grid_q), grid_q = [5, 10, 20, 40]; end
     if nargin < 5 || isempty(grid_r), grid_r = [0.25, 0.5, 1.0]; end
 
+    % Ensure paths are strings for Task_5 compatibility
+    imu_path = string(imu_path);
+    gnss_path = string(gnss_path);
+
     results = [];
     k = 1;
     best_rmse = inf; best_q = grid_q(1); best_r = grid_r(1);
