@@ -27,13 +27,10 @@ IMU/
 
 ## How to Run
 ### Python
+
 ```bash
 pip install -r requirements.txt  # if needed
-python src/run_triad_only.py
-```
-```bash
-pip install -r requirements.txt  # if needed
-python PYTHON/GNSS_IMU_Fusion_Single_script.py
+python python src/run_triad_only.py
 ```
 This script reads from `DATA/` and writes plots to `PYTHON/results/`.
 
