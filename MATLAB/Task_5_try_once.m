@@ -1,8 +1,8 @@
 function rmse_pos = Task_5_try_once(cfg, vel_q_scale, vel_r)
 %TASK_5_TRY_ONCE Call Task_5 once with given Q/R and return RMSE position.
 %   RMSE_POS = TASK_5_TRY_ONCE(CFG, VEL_Q_SCALE, VEL_R) runs Task_5 with a
-%   limited step count and plotting disabled, returning the scalar RMSE of
-%   position error for autotuning.
+%   limited step count and plotting/printing disabled (dryrun=true),
+%   returning the scalar RMSE of position error for autotuning.
 
     if nargin < 3, error('Task_5_try_once:args','cfg, vel_q_scale, vel_r required'); end
     % Use at most first 200k IMU steps for speed during tuning

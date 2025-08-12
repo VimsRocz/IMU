@@ -5,7 +5,8 @@ function [best_q, best_r, report] = task5_autotune(imu_path, gnss_path, method, 
 %   GRID_R and selects the pair that minimises RMSE_pos (computed against
 %   GNSS). REPORT contains fields {table, best_rmse, best_rmse_q,
 %   best_rmse_r}. This function can be slow on large datasets; consider
-%   running with a reduced time span if needed.
+%   running with a reduced time span if needed. Task_5 is invoked with
+%   dryrun=true to suppress plots and console output during the sweep.
 
     if nargin < 4 || isempty(grid_q), grid_q = [5, 10, 20, 40]; end
     if nargin < 5 || isempty(grid_r), grid_r = [0.25, 0.5, 1.0]; end
@@ -26,7 +27,7 @@ function [best_q, best_r, report] = task5_autotune(imu_path, gnss_path, method, 
                 fprintf('[Autotune] Trying vel_q_scale=%.3f  vel_r=%.3f ...\n', q, r);
             end
             try
-                res = Task_5(imu_path, gnss_path, method, [], 'vel_q_scale', q, 'vel_r', r, 'trace_first_n', 0, 'max_steps', max_steps);
+                res = Task_5(imu_path, gnss_path, method, [], 'vel_q_scale', q, 'vel_r', r, 'trace_first_n', 0, 'max_steps', max_steps, 'dryrun', true);
                 rmse = res.rmse_pos;
                 results(k).vel_q_scale = q; %#ok<AGROW>
                 results(k).vel_r = r;      %#ok<AGROW>
