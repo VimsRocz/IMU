@@ -75,17 +75,20 @@ def check_files(
     imu_file: str, gnss_file: str
 ) -> tuple[pathlib.Path, pathlib.Path]:
     """Return validated paths for the IMU and GNSS files."""
-
+    logger.info("Checking files: imu=%s gnss=%s", imu_file, gnss_file)
     imu_path = pathlib.Path(imu_file)
     gnss_path = pathlib.Path(gnss_file)
+    logger.info("Validated files exist: imu=%s gnss=%s", imu_path, gnss_path)
     return imu_path, gnss_path
 
 
 def _unwrap_clock_1s(t_raw, wrap=1.0, tol=0.25):
     """Unwrap a clock that resets every ``wrap`` seconds (default 1s)."""
     import numpy as np
+    logger.info("Unwrapping clock with wrap=%s tol=%s", wrap, tol)
     t = np.asarray(t_raw, dtype=float).ravel()
     if t.size == 0:
+        logger.info("No timestamps provided; returning empty array")
         return t, 0
     out = t.copy()
     wraps = 0
@@ -95,12 +98,19 @@ def _unwrap_clock_1s(t_raw, wrap=1.0, tol=0.25):
             wraps += 1
             offset += wrap
         out[i] = t[i] + offset
+    logger.info("Unwrapped clock applied %d wraps", wraps)
     return out, wraps
 
 
 def _make_monotonic_time(t_like, fallback_len=None, dt=None, imu_rate_hint=None):
     """Build a strictly increasing IMU timebase."""
     import numpy as np
+    logger.info(
+        "Building monotonic time: len=%s dt=%s imu_rate_hint=%s",
+        len(t_like) if hasattr(t_like, "__len__") else None,
+        dt,
+        imu_rate_hint,
+    )
     if t_like is None or (hasattr(t_like, "__len__") and len(t_like) == 0):
         if dt is None:
             if imu_rate_hint and imu_rate_hint > 0:
@@ -109,7 +119,9 @@ def _make_monotonic_time(t_like, fallback_len=None, dt=None, imu_rate_hint=None)
                 raise ValueError("No IMU timestamps and no dt/imu_rate_hint provided.")
         n = int(fallback_len) if fallback_len is not None else 0
         t = np.arange(n, dtype=float) * float(dt)
-        return t, {"source": "synth", "wraps": 0, "dt": dt}
+        meta = {"source": "synth", "wraps": 0, "dt": dt}
+        logger.info("Generated synthetic timebase of %d samples", n)
+        return t, meta
 
     t = np.asarray(t_like, dtype=float).ravel()
     meta = {"source": "file", "wraps": 0}
@@ -126,6 +138,7 @@ def _make_monotonic_time(t_like, fallback_len=None, dt=None, imu_rate_hint=None)
         eps = np.finfo(float).eps
         t = t + np.arange(t.size) * eps
         meta["jitter_eps_applied"] = True
+    logger.info("Monotonic timebase built with %d samples", t.size)
     return t, meta
 
 
@@ -135,7 +148,7 @@ def _write_run_meta(outdir, run_id, **kv):
     meta_path = outdir / f"{run_id}_runmeta.json"
     with meta_path.open("w", encoding="utf-8") as f:
         json.dump(kv, f, indent=2, sort_keys=True)
-    print(f"Saved run meta -> {meta_path}")
+    logger.info("Saved run meta -> %s", meta_path)
 
 
 def main(argv: Iterable[str] | None = None) -> None:
@@ -166,7 +179,14 @@ def main(argv: Iterable[str] | None = None) -> None:
         type=int,
         help="Run a single helper task and exit",
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        "--debug",
+        dest="debug",
+        action="store_true",
+        help="Enable verbose task-level logging",
+    )
     parser.add_argument("--imu-rate", type=float, default=None, help="Hint IMU sample rate [Hz]")
     parser.add_argument("--gnss-rate", type=float, default=None, help="Hint GNSS sample rate [Hz]")
     parser.add_argument("--truth-rate", type=float, default=None, help="Hint truth sample rate [Hz]")
@@ -183,7 +203,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     logger.info("Ensured '%s' directory exists.", results_dir)
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
 
-    if args.verbose:
+    if args.debug:
         logger.setLevel(logging.DEBUG)
 
     if args.task == 7:
@@ -221,6 +241,9 @@ def main(argv: Iterable[str] | None = None) -> None:
         alt = resolve_truth_path()
         if alt:
             truth_path = Path(alt)
+    logger.info(
+        "Resolved input files: imu=%s gnss=%s truth=%s", imu_path, gnss_path, truth_path
+    )
 
     # Input validation with friendly errors
     header = [
@@ -230,6 +253,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         f"  Truth: {truth_path if truth_path else 'N/A'}",
         f"  Out:   {results_dir}",
     ]
+    logger.info("%s", "\n".join(header))
     print("\n".join(header))
     for p in (imu_path, gnss_path):
         if not Path(p).exists():
@@ -275,12 +299,14 @@ def main(argv: Iterable[str] | None = None) -> None:
     ]
     if args.no_plots:
         cmd.append("--no-plots")
-
+    logger.info("Running fusion command: %s", cmd)
     start_t = time.time()
     ret, summaries = run_case(cmd, log_path)
     runtime = time.time() - start_t
     if ret != 0:
+        logger.info("Fusion command failed with return code %s", ret)
         raise subprocess.CalledProcessError(ret, cmd)
+    logger.info("Fusion command completed in %.2fs", runtime)
 
     # Move generated files when a separate results directory was used in older
     # versions. With the flat layout ``results_dir`` equals ``base_results`` so
@@ -296,19 +322,31 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     for summary in summaries:
         kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
-        results.append(
-            {
-                "dataset": imu_path.stem,
-                "method": kv.get("method", method),
-                "rmse_pos": float(kv.get("rmse_pos", "nan").replace("m", "")),
-                "final_pos": float(kv.get("final_pos", "nan").replace("m", "")),
-                "rms_resid_pos": float(kv.get("rms_resid_pos", "nan").replace("m", "")),
-                "max_resid_pos": float(kv.get("max_resid_pos", "nan").replace("m", "")),
-                "rms_resid_vel": float(kv.get("rms_resid_vel", "nan").replace("m", "")),
-                "max_resid_vel": float(kv.get("max_resid_vel", "nan").replace("m", "")),
-                "runtime": runtime,
-            }
-        )
+        metrics = {
+            "dataset": imu_path.stem,
+            "method": kv.get("method", method),
+            "rmse_pos": float(kv.get("rmse_pos", "nan").replace("m", "")),
+            "final_pos": float(kv.get("final_pos", "nan").replace("m", "")),
+            "rms_resid_pos": float(kv.get("rms_resid_pos", "nan").replace("m", "")),
+            "max_resid_pos": float(kv.get("max_resid_pos", "nan").replace("m", "")),
+            "rms_resid_vel": float(kv.get("rms_resid_vel", "nan").replace("m", "")),
+            "max_resid_vel": float(kv.get("max_resid_vel", "nan").replace("m", "")),
+            "accel_bias": float(kv.get("accel_bias", "nan")),
+            "gyro_bias": float(kv.get("gyro_bias", "nan")),
+            "zupt_count": float(kv.get("ZUPT_count", "nan")),
+            "grav_err_mean_deg": float(kv.get("GravErrMean_deg", "nan")),
+            "grav_err_max_deg": float(kv.get("GravErrMax_deg", "nan")),
+            "earth_rate_err_mean_deg": float(kv.get("EarthRateErrMean_deg", "nan")),
+            "earth_rate_err_max_deg": float(kv.get("EarthRateErrMax_deg", "nan")),
+            "runtime": runtime,
+        }
+        results.append(metrics)
+    if results:
+        metrics_path = results_dir / f"{run_id}_metrics.json"
+        with metrics_path.open("w", encoding="utf-8") as f:
+            json.dump(results[0], f, indent=2, sort_keys=True)
+        np.savez(results_dir / f"{run_id}_metrics.npz", **results[0])
+        logger.info("Saved metrics to %s and %s", metrics_path, metrics_path.with_suffix('.npz'))
 
     # ------------------------------------------------------------------
     # Convert NPZ output to a MATLAB file with explicit frame variables
@@ -516,7 +554,7 @@ def main(argv: Iterable[str] | None = None) -> None:
             overlay_cmd.append("--show-measurements")
         with open(log_path, "a") as log:
             log.write("\nTASK 6: Overlay fused output with truth\n")
-            msg = "Starting Task 6 overlay ..."
+            msg = f"Starting Task 6 overlay: cmd={overlay_cmd}"
             logger.info(msg)
             log.write(msg + "\n")
             proc = subprocess.Popen(
@@ -529,6 +567,7 @@ def main(argv: Iterable[str] | None = None) -> None:
                 print(line, end="")
                 log.write(line)
             proc.wait()
+            logger.info("Task 6 overlay completed with return code %s", proc.returncode)
 
     # ----------------------------
     # Task 7: Evaluation
@@ -553,6 +592,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         print(
             f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{run_id}/"
         )
+        logger.info("Task 7 evaluation complete; results in %s", task7_dir)
 
     # --- nicely formatted summary table --------------------------------------
     if results:

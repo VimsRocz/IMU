@@ -97,6 +97,7 @@ def compute_C_NED_to_ECEF(lat: float, lon: float) -> np.ndarray:
 
 def run_case(cmd, log_path):
     """Run a single fusion command and log output live to console and file."""
+    logger.info("Executing fusion command: %s", cmd)
     with open(log_path, "w") as log:
         proc = subprocess.Popen(
             cmd,
@@ -112,7 +113,8 @@ def run_case(cmd, log_path):
             if m:
                 summary_lines.append(m.group(1))
         proc.wait()
-        return proc.returncode, summary_lines
+    logger.info("Fusion command completed with return code %s", proc.returncode)
+    return proc.returncode, summary_lines
 
 
 def main(argv=None):
@@ -143,12 +145,14 @@ def main(argv=None):
     parser.add_argument(
         "-v",
         "--verbose",
+        "--debug",
+        dest="debug",
         action="store_true",
         help="Enable verbose debug output",
     )
     args = parser.parse_args(argv)
 
-    if args.verbose:
+    if args.debug:
         logger.setLevel(logging.DEBUG)
 
     if args.task == 7:

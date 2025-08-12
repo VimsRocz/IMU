@@ -10,6 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 import os
 from typing import Sequence
+import json
+import logging
 
 from naming import plot_path
 
@@ -21,6 +23,8 @@ from tabulate import tabulate
 import time
 from velocity_utils import derive_velocity
 from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
+
+logger = logging.getLogger(__name__)
 
 
 def _find_cols(df: pd.DataFrame, options: Sequence[Sequence[str]]) -> Sequence[str]:
@@ -50,6 +54,14 @@ def run_evaluation(
     tag
         Optional dataset tag added as a prefix to the plot filenames.
     """
+    logger.info(
+        "run_evaluation inputs: prediction=%s gnss=%s attitude=%s out=%s tag=%s",
+        prediction_file,
+        gnss_file,
+        attitude_file,
+        save_path,
+        tag,
+    )
     out_dir = Path(save_path)
     # All Task 7 plots are written directly into ``results/``
     # unless a different directory is provided.
@@ -112,6 +124,17 @@ def run_evaluation(
     print("Position residual std  [m]:", std_pos)
     print("Velocity residual mean [m/s]:", mean_vel)
     print("Velocity residual std  [m/s]:", std_vel)
+    metrics = {
+        "mean_pos": mean_pos.tolist(),
+        "std_pos": std_pos.tolist(),
+        "mean_vel": mean_vel.tolist(),
+        "std_vel": std_vel.tolist(),
+    }
+    metrics_json = out_dir / f"{tag or Path(prediction_file).stem}_residual_metrics.json"
+    with metrics_json.open("w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2)
+    np.savez(out_dir / f"{tag or Path(prediction_file).stem}_residual_metrics.npz", **metrics)
+    logger.info("Saved residual metrics to %s", metrics_json)
 
     labels = ["X", "Y", "Z"]
     fig, axes = plt.subplots(2, 3, figsize=(12, 6), sharex=True)
@@ -195,6 +218,12 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     tag
         Optional dataset tag used to prefix the filenames.
     """
+    logger.info(
+        "run_evaluation_npz inputs: npz=%s out=%s tag=%s",
+        npz_file,
+        save_path,
+        tag,
+    )
     start_time = time.time()
     out_dir = Path(save_path)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -253,6 +282,17 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     print("Position residual std  [m]:", std_pos)
     print("Velocity residual mean [m/s]:", mean_vel)
     print("Velocity residual std  [m/s]:", std_vel)
+    metrics = {
+        "mean_pos": mean_pos,
+        "std_pos": std_pos,
+        "mean_vel": mean_vel,
+        "std_vel": std_vel,
+    }
+    metrics_json = out_dir / f"{tag or Path(npz_file).stem}_residual_metrics.json"
+    with metrics_json.open("w", encoding="utf-8") as f:
+        json.dump({k: v.tolist() for k, v in metrics.items()}, f, indent=2)
+    np.savez(out_dir / f"{tag or Path(npz_file).stem}_residual_metrics.npz", **metrics)
+    logger.info("Saved residual metrics to %s", metrics_json)
 
     labels = ["X", "Y", "Z"]
     fig, axes = plt.subplots(2, 3, figsize=(12, 6), sharex=True)
@@ -364,6 +404,9 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     print(
         f"[SUMMARY] method={method} rmse_pos={rmse_pos:.3f}m final_pos={final_pos:.3f}m "
         f"rmse_vel={rmse_vel:.3f}m/s final_vel={final_vel:.3f}m/s runtime={runtime:.2f}s"
+    )
+    logger.info(
+        "Evaluation complete for %s: rmse_pos=%.3f final_pos=%.3f", npz_file, rmse_pos, final_pos
     )
 
 
