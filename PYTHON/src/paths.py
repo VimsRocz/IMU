@@ -51,6 +51,52 @@ def ensure_results_dir() -> Path:
     return PY_RES_DIR
 
 
+def available_imu_files(include_small: bool = False) -> list[str]:
+    """Return a sorted list of IMU data files.
+
+    Parameters
+    ----------
+    include_small : bool, optional
+        If ``True``, include files with the ``_small`` suffix.
+    """
+
+    return sorted(
+        p.name
+        for p in IMU_DIR.glob("IMU_*.dat")
+        if include_small or "_small" not in p.stem
+    )
+
+
+def available_gnss_files(include_small: bool = False) -> list[str]:
+    """Return a sorted list of GNSS data files.
+
+    Parameters
+    ----------
+    include_small : bool, optional
+        If ``True``, include files with the ``_small`` suffix.
+    """
+
+    return sorted(
+        p.name
+        for p in GNSS_DIR.glob("GNSS_*.csv")
+        if include_small or "_small" not in p.stem
+    )
+
+
+def available_dataset_ids(include_small: bool = False) -> list[str]:
+    """Return dataset identifiers with available IMU or GNSS data.
+
+    Parameters
+    ----------
+    include_small : bool, optional
+        If ``True``, include datasets with the ``_small`` suffix.
+    """
+
+    imu_ids = {f[4:-4] for f in available_imu_files(include_small)}
+    gnss_ids = {f[5:-4] for f in available_gnss_files(include_small)}
+    return sorted(imu_ids | gnss_ids)
+
+
 # Backwards compatibility helper.  Older code imported ``ensure_py_results``
 # which simply ensured the directory existed without returning it.  Re-export
 # the new helper under that name so existing imports keep working.

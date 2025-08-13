@@ -66,6 +66,7 @@ from paths import (
     truth_path as _truth_path_helper,
     ensure_results_dir as _ensure_results,
     python_results_dir as _py_results_dir,
+    available_dataset_ids as _available_dataset_ids,
 )
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
@@ -158,9 +159,13 @@ def main(argv: Iterable[str] | None = None) -> None:
     )
     parser.add_argument(
         "--dataset",
-        choices=["X001", "X002", "X003"],
         default="X002",
-        help="Dataset ID to use (default X002)",
+        help="Dataset ID to use (default X002).",
+    )
+    parser.add_argument(
+        "--include-small",
+        action="store_true",
+        help="Include *_small datasets when listing available IDs.",
     )
     parser.add_argument("--imu", type=str, help="Path to IMU data file")
     parser.add_argument("--gnss", type=str, help="Path to GNSS data file")
@@ -192,6 +197,12 @@ def main(argv: Iterable[str] | None = None) -> None:
     parser.add_argument("--truth-rate", type=float, default=None, help="Hint truth sample rate [Hz]")
 
     args = parser.parse_args(argv)
+
+    valid_ids = _available_dataset_ids(include_small=args.include_small)
+    if args.dataset not in valid_ids:
+        parser.error(
+            f"Dataset {args.dataset} not found. Available datasets: {', '.join(valid_ids)}"
+        )
 
     if args.outdir:
         results_dir = Path(args.outdir)
