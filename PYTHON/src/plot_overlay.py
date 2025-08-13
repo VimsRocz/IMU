@@ -7,24 +7,15 @@ import matplotlib.pyplot as plt
 
 
 def plot_overlay_interactive_safe(*args, **kwargs):
-    """Lazy-import the interactive overlay module.
-
-    Importing :mod:`plot_overlay_interactive` pulls in Plotly which may not be
-    installed in minimal environments.  By importing on demand we avoid raising
-    at module import time when only static plotting is required.
-    """
-
-    try:  # pragma: no cover - exercised at runtime
+    try:
         from plot_overlay_interactive import (
             PLOTLY_AVAILABLE,
             plot_overlay_interactive,
         )
-    except Exception as e:  # pragma: no cover - graceful degradation
-        raise RuntimeError(f"Interactive plotting not available: {e}") from e
-
+    except Exception as e:
+        raise RuntimeError(f"Interactive plotting not available: {e}")
     if not PLOTLY_AVAILABLE:
         raise RuntimeError("Plotly not available.")
-
     return plot_overlay_interactive(*args, **kwargs)
 
 
