@@ -160,9 +160,9 @@ def plot_task3_errors(
     axs[0].bar(methods, ge)
     axs[0].set_title("Gravity Error")
     axs[0].set_ylabel("Error (degrees)")
-    gmax = np.nanmax(np.abs(ge)) if ge.size else 1e-6
+    gmax = np.nanmax(ge) if ge.size else 1e-6
     gmax = max(gmax, 1e-6)
-    axs[0].set_ylim(0, gmax * 1.25)
+    axs[0].set_ylim(0, gmax * 1.1)
     for x, y in zip(methods, ge):
         axs[0].text(
             x,
@@ -178,9 +178,9 @@ def plot_task3_errors(
     axs[1].bar(methods, ee)
     axs[1].set_title("Earth Rate Error")
     axs[1].set_ylabel("Error (degrees)")
-    emax = np.nanmax(np.abs(ee)) if ee.size else 1e-6
+    emax = np.nanmax(ee) if ee.size else 1e-6
     emax = max(emax, 1e-6)
-    axs[1].set_ylim(0, emax * 1.25)
+    axs[1].set_ylim(0, emax * 1.1)
     for x, y in zip(methods, ee):
         axs[1].text(
             x,
