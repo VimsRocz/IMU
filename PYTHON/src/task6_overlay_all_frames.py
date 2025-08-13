@@ -18,6 +18,80 @@ import numpy as np
 import pandas as pd
 import scipy.io as sio
 import matplotlib.pyplot as plt
+import warnings
+
+
+def quat_normalize(q: np.ndarray) -> np.ndarray:
+    """Normalize quaternion array along the last axis."""
+
+    q = np.asarray(q, dtype=float)
+    n = np.linalg.norm(q, axis=-1, keepdims=True)
+    n[n == 0] = 1.0
+    return q / n
+
+
+def quat_make_hemisphere_continuous(q: np.ndarray) -> np.ndarray:
+    """Ensure sign continuity for a quaternion sequence."""
+
+    q = np.asarray(q, dtype=float).copy()
+    for i in range(1, len(q)):
+        if np.dot(q[i], q[i - 1]) < 0.0:
+            q[i] *= -1.0
+    return q
+
+
+def slerp_series(t_src: np.ndarray, q_src: np.ndarray, t_dst: np.ndarray) -> np.ndarray:
+    """Interpolate quaternion series using Slerp with linear fallback."""
+
+    q_src = quat_make_hemisphere_continuous(quat_normalize(np.asarray(q_src)))
+    t_src = np.asarray(t_src, dtype=float)
+    t_dst = np.asarray(t_dst, dtype=float)
+    try:  # pragma: no cover - SciPy optional
+        from scipy.spatial.transform import Rotation, Slerp
+
+        rot = Rotation.from_quat(np.column_stack([q_src[:, 1:], q_src[:, :1]]))
+        slerp = Slerp(t_src, rot)
+        interp = slerp(t_dst).as_quat()
+        q_dst = np.column_stack([interp[:, 3], interp[:, 0], interp[:, 1], interp[:, 2]])
+        return quat_make_hemisphere_continuous(quat_normalize(q_dst))
+    except Exception:  # pragma: no cover - best effort
+        q_lin = np.empty((len(t_dst), 4))
+        for i in range(4):
+            q_lin[:, i] = np.interp(t_dst, t_src, q_src[:, i])
+        return quat_make_hemisphere_continuous(quat_normalize(q_lin))
+
+
+def quat_to_dcm_batch(q: np.ndarray) -> np.ndarray:
+    """Convert quaternions [N,4] to direction cosine matrices [N,3,3]."""
+
+    q = quat_normalize(np.asarray(q))
+    qw, qx, qy, qz = q.T
+    dcm = np.empty((q.shape[0], 3, 3))
+    dcm[:, 0, 0] = 1 - 2 * (qy * qy + qz * qz)
+    dcm[:, 0, 1] = 2 * (qx * qy - qw * qz)
+    dcm[:, 0, 2] = 2 * (qx * qz + qw * qy)
+    dcm[:, 1, 0] = 2 * (qx * qy + qw * qz)
+    dcm[:, 1, 1] = 1 - 2 * (qx * qx + qz * qz)
+    dcm[:, 1, 2] = 2 * (qy * qz - qw * qx)
+    dcm[:, 2, 0] = 2 * (qx * qz - qw * qy)
+    dcm[:, 2, 1] = 2 * (qy * qz + qw * qx)
+    dcm[:, 2, 2] = 1 - 2 * (qx * qx + qy * qy)
+    return dcm
+
+
+def rotate_series_by_quat_series(v_ned: np.ndarray, q_b2n: np.ndarray, to_body: bool = True) -> np.ndarray:
+    """Rotate vector series using per-sample quaternions."""
+
+    if v_ned is None or q_b2n is None:
+        return None
+    v = np.asarray(v_ned)
+    q = np.asarray(q_b2n)
+    if q.ndim == 1:
+        q = np.repeat(q[np.newaxis, :], len(v), axis=0)
+    dcm = quat_to_dcm_batch(q)
+    if to_body:
+        dcm = np.transpose(dcm, (0, 2, 1))
+    return np.einsum("nij,nj->ni", dcm, v)
 
 
 # ---------------------------------------------------------------------------
@@ -43,11 +117,21 @@ def load_estimates(est_file: str) -> Dict[str, np.ndarray]:
             if not k.startswith("__")
         }
 
+    keys = {k.lower(): k for k in data.keys()}
+
     def pick(*names):
         for n in names:
-            if n in data:
-                return np.asarray(data[n])
+            k = keys.get(n.lower())
+            if k:
+                return np.asarray(data[k])
         return None
+
+    def pick_with_key(*names):
+        for n in names:
+            k = keys.get(n.lower())
+            if k:
+                return np.asarray(data[k]), k
+        return None, None
 
     out: Dict[str, np.ndarray] = {
         "time": pick("time", "t"),
@@ -60,8 +144,29 @@ def load_estimates(est_file: str) -> Dict[str, np.ndarray]:
         "pos_body": pick("pos_body"),
         "vel_body": pick("vel_body"),
         "acc_body": pick("acc_body"),
-        "q_b2n": pick("q_b2n", "quat_b2n"),
     }
+
+    q_raw, q_key = pick_with_key(
+        "q_b2n",
+        "quat_b2n",
+        "qbn",
+        "q_b2ned",
+        "quatbn",
+        "quats",
+        "quat_wxyz",
+    )
+    if q_raw is not None:
+        q_arr = np.atleast_2d(q_raw)
+        if not (q_key and "wxyz" in q_key.lower()):
+            if np.mean(np.abs(q_arr[:, 0])) < np.mean(np.abs(q_arr[:, 3])):
+                q_arr = q_arr[:, [3, 0, 1, 2]]
+        q_arr = quat_make_hemisphere_continuous(quat_normalize(q_arr))
+        out["q_b2n"] = q_arr
+
+    t_q = pick("time_q", "t_q", "time_quat", "t_quat", "time_att", "t_att")
+    if t_q is not None:
+        out["time_q"] = np.asarray(t_q).ravel()
+
     return out
 
 
@@ -79,12 +184,45 @@ def load_truth(truth_file: str) -> Dict[str, np.ndarray]:
                 return df[[cols[n] for n in names]].to_numpy()
             return None
 
+        def pick_quat(prefixes: Tuple[str, ...]) -> Optional[np.ndarray]:
+            for p in prefixes:
+                names_wxyz = [f"{p}_{c}" for c in ("w", "x", "y", "z")]
+                if all(n in cols for n in names_wxyz):
+                    q = df[[cols[n] for n in names_wxyz]].to_numpy()
+                    return quat_make_hemisphere_continuous(quat_normalize(q))
+                names_xyzw = [f"{p}_{c}" for c in ("x", "y", "z", "w")]
+                if all(n in cols for n in names_xyzw):
+                    q = df[[cols[n] for n in names_xyzw]].to_numpy()
+                    q = q[:, [3, 0, 1, 2]]
+                    return quat_make_hemisphere_continuous(quat_normalize(q))
+            return None
+
         tcol = cols.get("time") or cols.get("t")
         out["time"] = df[tcol].to_numpy() if tcol else np.arange(len(df))
         out["pos_ecef"] = trip("pos_ecef", ("x", "y", "z"))
         out["vel_ecef"] = trip("vel_ecef", ("x", "y", "z"))
         out["pos_ned"] = trip("pos_ned", ("n", "e", "d"))
         out["vel_ned"] = trip("vel_ned", ("n", "e", "d"))
+        q_truth = pick_quat((
+            "q_b2n_truth",
+            "quat_b2n_truth",
+            "q_b2n",
+            "quat_b2n",
+            "qbn",
+            "quatbn",
+            "quats",
+            "quat",
+        ))
+        if q_truth is not None:
+            out["q_b2n_truth"] = q_truth
+        t_qcol = (
+            cols.get("time_q")
+            or cols.get("t_q")
+            or cols.get("time_quat")
+            or cols.get("t_quat")
+        )
+        if t_qcol is not None:
+            out["time_q"] = df[t_qcol].to_numpy()
         return out
     except Exception:
         arr = np.loadtxt(truth_file)
@@ -136,40 +274,6 @@ def ecef_to_ned_vec(v_ecef: np.ndarray, lat_deg: float, lon_deg: float) -> np.nd
 def ned_to_ecef_vec(v_ned: np.ndarray, lat_deg: float, lon_deg: float) -> np.ndarray:
     R = R_ecef_to_ned(lat_deg, lon_deg)
     return (R.T @ v_ned.T).T
-
-
-def quat_to_dcm(qw: float, qx: float, qy: float, qz: float) -> np.ndarray:
-    """Quaternion (body->NED) to direction cosine matrix."""
-
-    q0, q1, q2, q3 = qw, qx, qy, qz
-    return np.array(
-        [
-            [1 - 2 * (q2 * q2 + q3 * q3), 2 * (q1 * q2 - q0 * q3), 2 * (q1 * q3 + q0 * q2)],
-            [2 * (q1 * q2 + q0 * q3), 1 - 2 * (q1 * q1 + q3 * q3), 2 * (q2 * q3 - q0 * q1)],
-            [2 * (q1 * q3 - q0 * q2), 2 * (q2 * q3 + q0 * q1), 1 - 2 * (q1 * q1 + q2 * q2)],
-        ]
-    )
-
-
-def ned_to_body(v_ned: np.ndarray, q_b2n: np.ndarray | Tuple[float, float, float, float]) -> np.ndarray:
-    """Rotate NED vectors into the body frame.
-
-    ``q_b2n`` may be a constant quaternion or an array of shape (N,4) providing a
-    quaternion per sample.  In both cases the returned array matches the shape of
-    ``v_ned``.
-    """
-
-    v = np.asarray(v_ned)
-    q = np.asarray(q_b2n)
-    if q.ndim == 1:
-        Rb2n = quat_to_dcm(*q)
-        Rn2b = Rb2n.T
-        return (Rn2b @ v.T).T
-    out = np.zeros_like(v)
-    for i in range(len(v)):
-        Rb2n = quat_to_dcm(*q[i])
-        out[i] = Rb2n.T @ v[i]
-    return out
 
 
 # ---------------------------------------------------------------------------
@@ -281,8 +385,12 @@ def plot_methods_overlay_3x3(
 # ---------------------------------------------------------------------------
 
 
-def _build_frames(data: Dict[str, np.ndarray], lat_deg: float | None, lon_deg: float | None, q_b2n: np.ndarray | Tuple[float, float, float, float] | None) -> Dict[str, Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]:
-    """Construct NED, ECEF and BODY triplets from raw data."""
+def _build_ned_ecef(
+    data: Dict[str, np.ndarray],
+    lat_deg: float | None,
+    lon_deg: float | None,
+) -> Dict[str, Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]:
+    """Construct NED and ECEF triplets from raw data."""
 
     lat = lat_deg
     lon = lon_deg
@@ -307,21 +415,9 @@ def _build_frames(data: Dict[str, np.ndarray], lat_deg: float | None, lon_deg: f
     if acc_ecef is None and lat is not None and acc_ned is not None:
         acc_ecef = ned_to_ecef_vec(acc_ned, lat, lon)
 
-    q = data.get("q_b2n")
-    if q is None:
-        q = q_b2n
-    if q is None:
-        q = (1.0, 0.0, 0.0, 0.0)
-    body = (
-        ned_to_body(pos_ned, q) if pos_ned is not None else None,
-        ned_to_body(vel_ned, q) if vel_ned is not None else None,
-        ned_to_body(acc_ned, q) if acc_ned is not None else None,
-    )
-
     return {
         "NED": (pos_ned, vel_ned, acc_ned),
         "ECEF": (pos_ecef, vel_ecef, acc_ecef),
-        "BODY": body,
     }
 
 
@@ -350,26 +446,81 @@ def run_task6_overlay_all_frames(
     if t is None:
         raise ValueError("Estimator output lacks time array")
 
-    q = est.get("q_b2n") or q_b2n_const
-    frames_est = _build_frames(est, lat_deg, lon_deg, q)
-    frames_tru = _build_frames(tru, lat_deg, lon_deg, q)
+    q_hist = est.get("q_b2n")
+    if q_hist is not None:
+        t_q = est.get("time_q")
+        if q_hist.shape[0] != len(t):
+            t_src = t_q if t_q is not None else np.linspace(t[0], t[-1], len(q_hist))
+            q_hist = slerp_series(t_src, q_hist, t)
+
+    frames_est = _build_ned_ecef(est, lat_deg, lon_deg)
+    frames_tru = _build_ned_ecef(tru, lat_deg, lon_deg)
+
     t_truth = tru.get("time", t)
     for trip in frames_tru.values():
         for i in range(3):
             if trip[i] is not None:
                 trip[i] = interp_to(t_truth, trip[i], t)
 
+    q_truth = tru.get("q_b2n_truth")
+    if q_truth is not None:
+        t_q_truth = tru.get("time_q")
+        if q_truth.shape[0] != len(t_truth):
+            t_src = t_q_truth if t_q_truth is not None else np.linspace(t_truth[0], t_truth[-1], len(q_truth))
+            q_truth = slerp_series(t_src, q_truth, t_truth)
+        q_truth = slerp_series(t_truth, q_truth, t)
+
+    if q_hist is not None:
+        q_body = q_hist
+    elif q_b2n_const is not None:
+        q_body = np.repeat(np.asarray(q_b2n_const)[None, :], len(t), axis=0)
+    else:
+        q_body = None
+        warnings.warn("No quaternion provided; BODY overlays mirror NED")
+
+    if q_body is not None:
+        body_est = (
+            rotate_series_by_quat_series(frames_est["NED"][0], q_body, True) if frames_est["NED"][0] is not None else None,
+            rotate_series_by_quat_series(frames_est["NED"][1], q_body, True) if frames_est["NED"][1] is not None else None,
+            rotate_series_by_quat_series(frames_est["NED"][2], q_body, True) if frames_est["NED"][2] is not None else None,
+        )
+    else:
+        body_est = frames_est["NED"]
+
+    if q_truth is not None:
+        q_tru_body = q_truth
+    elif q_body is not None:
+        q_tru_body = q_body
+        print("Truth BODY rotated using estimator quaternion")
+    else:
+        q_tru_body = None
+
+    if q_tru_body is not None:
+        body_tru = (
+            rotate_series_by_quat_series(frames_tru["NED"][0], q_tru_body, True) if frames_tru["NED"][0] is not None else None,
+            rotate_series_by_quat_series(frames_tru["NED"][1], q_tru_body, True) if frames_tru["NED"][1] is not None else None,
+            rotate_series_by_quat_series(frames_tru["NED"][2], q_tru_body, True) if frames_tru["NED"][2] is not None else None,
+        )
+    else:
+        body_tru = frames_tru["NED"]
+
+    frames_est_all = {"NED": frames_est["NED"], "ECEF": frames_est["ECEF"], "BODY": body_est}
+    frames_tru_all = {"NED": frames_tru["NED"], "ECEF": frames_tru["ECEF"], "BODY": body_tru}
+
+    manifest_path = out_dir / "task6_overlay_manifest.json"
     manifest: Dict[str, str] = {}
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text())
+
     for name in ["NED", "ECEF", "BODY"]:
-        est_trip = frames_est[name]
-        tru_trip = frames_tru[name]
+        est_trip = frames_est_all[name]
+        tru_trip = frames_tru_all[name]
         if est_trip[0] is None or tru_trip[0] is None:
             continue
         out = out_dir / f"task6_overlay_{name}.png"
         plot_overlay_3x3(t, est_trip, tru_trip, f"Task 6: Overlay ({name})", out)
         manifest[f"task6_overlay_{name}"] = str(out.resolve())
 
-    manifest_path = out_dir / "task6_overlay_manifest.json"
     with manifest_path.open("w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
 
@@ -405,13 +556,48 @@ def run_task6_compare_methods_all_frames(
     if t_base is None:
         raise ValueError("Estimator output lacks time array")
 
-    q_base = base.get("q_b2n") or q_b2n_const
-    frames_truth = _build_frames(truth, lat_deg, lon_deg, q_base)
+    q_base = base.get("q_b2n")
+    if q_base is not None:
+        t_q_base = base.get("time_q")
+        if q_base.shape[0] != len(t_base):
+            t_src = t_q_base if t_q_base is not None else np.linspace(t_base[0], t_base[-1], len(q_base))
+            q_base = slerp_series(t_src, q_base, t_base)
+    elif q_b2n_const is not None:
+        q_base = np.repeat(np.asarray(q_b2n_const)[None, :], len(t_base), axis=0)
+    else:
+        q_base = None
+
+    frames_truth = _build_ned_ecef(truth, lat_deg, lon_deg)
     t_truth = truth.get("time", t_base)
     for trip in frames_truth.values():
         for i in range(3):
             if trip[i] is not None:
                 trip[i] = interp_to(t_truth, trip[i], t_base)
+
+    q_truth = truth.get("q_b2n_truth")
+    if q_truth is not None:
+        t_q_truth = truth.get("time_q")
+        if q_truth.shape[0] != len(t_truth):
+            t_src = t_q_truth if t_q_truth is not None else np.linspace(t_truth[0], t_truth[-1], len(q_truth))
+            q_truth = slerp_series(t_src, q_truth, t_truth)
+        q_truth = slerp_series(t_truth, q_truth, t_base)
+
+    if q_truth is not None:
+        q_tru_body = q_truth
+    elif q_base is not None:
+        q_tru_body = q_base
+        print("Truth BODY rotated using estimator quaternion")
+    else:
+        q_tru_body = None
+
+    if q_tru_body is not None:
+        frames_truth["BODY"] = (
+            rotate_series_by_quat_series(frames_truth["NED"][0], q_tru_body, True) if frames_truth["NED"][0] is not None else None,
+            rotate_series_by_quat_series(frames_truth["NED"][1], q_tru_body, True) if frames_truth["NED"][1] is not None else None,
+            rotate_series_by_quat_series(frames_truth["NED"][2], q_tru_body, True) if frames_truth["NED"][2] is not None else None,
+        )
+    else:
+        frames_truth["BODY"] = frames_truth["NED"]
 
     methods_frames: Dict[str, Dict[str, Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]] = {}
     for name, path in method_files.items():
@@ -419,12 +605,31 @@ def run_task6_compare_methods_all_frames(
         t_est = est.get("time")
         if t_est is None:
             continue
-        q_m = est.get("q_b2n") or q_base
-        frames = _build_frames(est, lat_deg, lon_deg, q_m)
+        q_m = est.get("q_b2n")
+        if q_m is not None:
+            t_qm = est.get("time_q")
+            if q_m.shape[0] != len(t_est):
+                t_src = t_qm if t_qm is not None else np.linspace(t_est[0], t_est[-1], len(q_m))
+                q_m = slerp_series(t_src, q_m, t_est)
+            q_m_interp = slerp_series(t_est, q_m, t_base)
+        elif q_b2n_const is not None:
+            q_m_interp = np.repeat(np.asarray(q_b2n_const)[None, :], len(t_base), axis=0)
+        else:
+            q_m_interp = None
+
+        frames = _build_ned_ecef(est, lat_deg, lon_deg)
         for trip in frames.values():
             for i in range(3):
                 if trip[i] is not None:
                     trip[i] = interp_to(t_est, trip[i], t_base)
+        if q_m_interp is not None:
+            frames["BODY"] = (
+                rotate_series_by_quat_series(frames["NED"][0], q_m_interp, True) if frames["NED"][0] is not None else None,
+                rotate_series_by_quat_series(frames["NED"][1], q_m_interp, True) if frames["NED"][1] is not None else None,
+                rotate_series_by_quat_series(frames["NED"][2], q_m_interp, True) if frames["NED"][2] is not None else None,
+            )
+        else:
+            frames["BODY"] = frames["NED"]
         methods_frames[name] = frames
 
     manifest_path = out_dir / "task6_overlay_manifest.json"
