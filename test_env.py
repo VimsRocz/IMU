@@ -6,7 +6,6 @@ import yaml
 import tqdm
 import tabulate
 import rich
-import fpdf
 import filterpy
 import cartopy
 import geomaglib
