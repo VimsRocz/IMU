@@ -35,7 +35,7 @@ GNSS ECEF → NED → comparison plots
 
 ### 4.13 Validate and Plot
 - Plot GNSS, raw IMU and integrated IMU data in NED, body and ECEF frames.
-- Save the PDFs as `results/<tag>_task4_*.pdf` and list them in `plot_summary.md`.
+- Save the PNGs as `results/<tag>_task4_*.png` and list them in `plot_summary.md`.
 - Use the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) when naming GNSS, IMU and fused series.
 - When the `STATE_X001.txt` reference trajectory is available you can run the Python
   script `src/validate_with_truth.py` or call the MATLAB helper

@@ -48,11 +48,8 @@ else
         hold off;
     end
 end
-% Save PDF & PNG
+% Save PNG
 fname = [out_prefix '_' frame_name '_comparison'];
-if cfg.plots.save_pdf
-    saveas(gcf, [fname '.pdf'], 'pdf');
-end
 if cfg.plots.save_png
     saveas(gcf, [fname '.png'], 'png');
 end
