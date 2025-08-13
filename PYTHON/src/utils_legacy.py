@@ -80,14 +80,20 @@ def ensure_dependencies(requirements: Optional[pathlib.Path] = None) -> None:
         ])
 
 
-def detect_static_interval(accel_data, gyro_data, window_size=200,
-                           accel_var_thresh=0.01, gyro_var_thresh=1e-6,
-                           min_length=100):
+def detect_static_interval(
+    accel_data,
+    gyro_data,
+    window_size=200,
+    accel_var_thresh=0.01,
+    gyro_var_thresh=1e-6,
+    min_length=100,
+):
     """Find the longest static segment in the data using variance thresholding.
 
-    The search spans the entire dataset to locate the longest interval
-    where both accelerometer and gyroscope variances remain below the
-    specified thresholds.
+    The search spans the entire dataset to locate the longest interval where
+    both accelerometer and gyroscope variances remain below the specified
+    thresholds. The defaults are calibrated so zero-velocity updates fire
+    during genuine stationary periods without being overly sensitive to noise.
 
     Parameters
     ----------
@@ -143,8 +149,10 @@ def detect_static_interval(accel_data, gyro_data, window_size=200,
 
 def is_static(accel_win, gyro_win, accel_var_thresh=0.01, gyro_var_thresh=1e-6):
     """Check if the current IMU window is static."""
-    return (np.max(np.var(accel_win, axis=0)) < accel_var_thresh and
-            np.max(np.var(gyro_win, axis=0)) < gyro_var_thresh)
+    return (
+        np.max(np.var(accel_win, axis=0)) < accel_var_thresh
+        and np.max(np.var(gyro_win, axis=0)) < gyro_var_thresh
+    )
 
 # Additional utilities for logging and thresholding
 

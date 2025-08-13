@@ -153,7 +153,7 @@ def main():
     parser.add_argument(
         "--vel-q-scale",
         type=float,
-        default=10.0,
+        default=1.0,
         help=(
             "Scale applied to velocity process noise block Q[3:6,3:6] "
             "(base 0.01 m^2/s^2)"
@@ -162,7 +162,7 @@ def main():
     parser.add_argument(
         "--vel-r",
         type=float,
-        default=0.25,
+        default=1.0,
         help=(
             "Diagonal variance for GNSS velocity measurements R[3:6,3:6] "
             "[m^2/s^2]"
