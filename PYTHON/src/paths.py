@@ -1,4 +1,7 @@
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Core resolvers
 ROOT = Path(__file__).resolve().parents[2]   # PYTHON/src -> PYTHON -> ROOT
@@ -66,3 +69,29 @@ def normalize_gnss_headers(df):
     """
 
     return df.rename(columns=lambda c: c.strip())
+
+
+def default_dataset_pairs() -> list[tuple[str, str]]:
+    """Return default list of ``(IMU, GNSS)`` dataset file pairs.
+
+    The function scans :data:`IMU_DIR` and :data:`GNSS_DIR` and returns only
+    pairs for which both an IMU and matching GNSS file exist.  IMU files without
+    a corresponding GNSS file are skipped with a warning.  If no GNSS files are
+    present an exception is raised to alert the caller.
+    """
+
+    imu_files = sorted(IMU_DIR.glob("IMU_*.dat"))
+    gnss_files = {p.stem.split("_", 1)[1]: p.name for p in GNSS_DIR.glob("GNSS_*.csv")}
+
+    if not gnss_files:
+        raise FileNotFoundError(f"No GNSS files found in {GNSS_DIR}")
+
+    pairs: list[tuple[str, str]] = []
+    for imu in imu_files:
+        dataset = imu.stem.split("_", 1)[1]
+        gnss = gnss_files.get(dataset)
+        if gnss:
+            pairs.append((imu.name, gnss))
+        else:
+            logger.warning("Skipping %s; no matching GNSS file found", imu.name)
+    return pairs
