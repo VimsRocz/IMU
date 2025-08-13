@@ -1868,7 +1868,12 @@ def main():
         for j in range(3):
             ax = ax_ned_all[i, j]
             if i == 0:
-                ax.plot(t_rel_gnss, gnss_pos_ned[:, j], "k-", label="Measured GNSS")
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_pos_ned[:, j],
+                    "k-",
+                    label="Derived GNSS (ECEF→NED)",
+                )
                 ax.plot(
                     t_rel_ilu,
                     fused_pos[method][:, j],
@@ -1880,7 +1885,12 @@ def main():
                     ax.plot(t_rel_ilu, truth_pos_ned_i[:, j], "m-", label="Truth")
                 ax.set_title(f"Position {dirs_ned[j]}")
             elif i == 1:
-                ax.plot(t_rel_gnss, gnss_vel_ned[:, j], "k-", label="Measured GNSS")
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_vel_ned[:, j],
+                    "k-",
+                    label="Derived GNSS (ECEF→NED)",
+                )
                 ax.plot(
                     t_rel_ilu,
                     fused_vel[method][:, j],
@@ -1892,7 +1902,12 @@ def main():
                     ax.plot(t_rel_ilu, truth_vel_ned_i[:, j], "m-", label="Truth")
                 ax.set_title(f"Velocity V{dirs_ned[j]}")
             else:
-                ax.plot(t_rel_gnss, gnss_acc_ned[:, j], "k-", label="Measured GNSS")
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_acc_ned[:, j],
+                    "k-",
+                    label="Derived GNSS (ECEF→NED)",
+                )
                 ax.plot(
                     t_rel_ilu,
                     fused_acc[method][:, j],
@@ -1904,7 +1919,9 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused vs. Measured GNSS)")
+    fig_ned_all.suptitle(
+        f"Task 5 – {method} – NED Frame (Fused vs. Derived GNSS)"
+    )
     fig_ned_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_all_ned.png", dpi=200, bbox_inches="tight")
@@ -1930,7 +1947,12 @@ def main():
         for j in range(3):
             ax = ax_ecef_all[i, j]
             if i == 0:
-                ax.plot(t_rel_gnss, gnss_pos_ecef[:, j], "k-", label="Measured GNSS")
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_pos_ecef[:, j],
+                    "k-",
+                    label="Measured GNSS Position",
+                )
                 ax.plot(
                     t_rel_ilu,
                     pos_ecef[:, j],
@@ -1942,7 +1964,12 @@ def main():
                     ax.plot(t_rel_ilu, truth_pos_ecef_i[:, j], "m-", label="Truth")
                 ax.set_title(f"Position {dirs_ecef[j]}_ECEF")
             elif i == 1:
-                ax.plot(t_rel_gnss, gnss_vel_ecef[:, j], "k-", label="Measured GNSS")
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_vel_ecef[:, j],
+                    "k-",
+                    label="Measured GNSS Velocity",
+                )
                 ax.plot(
                     t_rel_ilu,
                     vel_ecef[:, j],
@@ -1954,7 +1981,12 @@ def main():
                     ax.plot(t_rel_ilu, truth_vel_ecef_i[:, j], "m-", label="Truth")
                 ax.set_title(f"Velocity V{dirs_ecef[j]}_ECEF")
             else:
-                ax.plot(t_rel_gnss, gnss_acc_ecef[:, j], "k-", label="Derived GNSS")
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_acc_ecef[:, j],
+                    "k-",
+                    label="Derived GNSS Acceleration",
+                )
                 ax.plot(
                     t_rel_ilu,
                     acc_ecef[:, j],
@@ -1966,7 +1998,9 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_ecef_all.suptitle(f"Task 5 – {method} – ECEF Frame (Fused vs. Measured GNSS)")
+    fig_ecef_all.suptitle(
+        f"Task 5 – {method} – ECEF Frame (Fused vs. Measured GNSS; Acc Derived)"
+    )
     fig_ecef_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_all_ecef.png", dpi=200, bbox_inches="tight")
@@ -1990,7 +2024,12 @@ def main():
         for j in range(3):
             ax = ax_body_all[i, j]
             if i == 0:
-                ax.plot(t_rel_gnss, gnss_pos_body[:, j], "k-", label="Measured GNSS")
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_pos_body[:, j],
+                    "k-",
+                    label="Derived GNSS",
+                )
                 ax.plot(
                     t_rel_ilu,
                     pos_body[:, j],
@@ -2002,7 +2041,12 @@ def main():
                     ax.plot(t_rel_ilu, truth_pos_body[:, j], "m-", label="Truth")
                 ax.set_title(f"Position r{dirs_body[j]}_body")
             elif i == 1:
-                ax.plot(t_rel_gnss, gnss_vel_body[:, j], "k-", label="Measured GNSS")
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_vel_body[:, j],
+                    "k-",
+                    label="Derived GNSS",
+                )
                 ax.plot(
                     t_rel_ilu,
                     vel_body[:, j],
@@ -2014,7 +2058,12 @@ def main():
                     ax.plot(t_rel_ilu, truth_vel_body[:, j], "m-", label="Truth")
                 ax.set_title(f"Velocity v{dirs_body[j]}_body")
             else:
-                ax.plot(t_rel_gnss, gnss_acc_body[:, j], "k-", label="Derived GNSS")
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_acc_body[:, j],
+                    "k-",
+                    label="Derived GNSS Acceleration",
+                )
                 ax.plot(
                     t_rel_ilu,
                     acc_body[:, j],
@@ -2026,7 +2075,9 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused vs. Measured GNSS)")
+    fig_body_all.suptitle(
+        f"Task 5 – {method} – Body Frame (Fused vs. Derived GNSS)"
+    )
     fig_body_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task5_all_body.png", dpi=200, bbox_inches="tight")

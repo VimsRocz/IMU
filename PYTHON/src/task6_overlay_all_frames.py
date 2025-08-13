@@ -309,7 +309,12 @@ def plot_overlay_3x3(
         for i in range(3):  # rows: components
             ax = axes[i, j]
             if est is not None:
-                ax.plot(time, est[:, i], label="Estimated" if (i == 0 and j == 0) else None, linewidth=1.2)
+                ax.plot(
+                    time,
+                    est[:, i],
+                    label="Fused" if (i == 0 and j == 0) else None,
+                    linewidth=1.2,
+                )
             if tru is not None:
                 ax.plot(
                     time,
@@ -328,7 +333,7 @@ def plot_overlay_3x3(
     axes[0, 2].set_title("Acceleration")
     handles, labels = axes[0, 0].get_legend_handles_labels()
     if handles:
-        fig.legend(handles, labels, ncol=3, loc="upper center")
+        fig.legend(handles, labels, ncol=2, loc="upper center")
     fig.suptitle(title)
     fig.tight_layout(rect=[0, 0, 1, 0.92])
     fig.savefig(outfile, dpi=150)
@@ -354,7 +359,12 @@ def plot_methods_overlay_3x3(
             for name, trip in methods_triplets.items():
                 est = trip[j]
                 if est is not None:
-                    ax.plot(time, est[:, i], label=name if (i == 0 and j == 0) else None, linewidth=1.2)
+                    ax.plot(
+                        time,
+                        est[:, i],
+                        label=(f"Fused {name}" if (i == 0 and j == 0) else None),
+                        linewidth=1.2,
+                    )
             if tru is not None:
                 ax.plot(
                     time,
