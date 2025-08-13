@@ -129,6 +129,79 @@ def summarize_errors(angle_deg: np.ndarray) -> Dict[str, float]:
     }
 
 
+def plot_task3_errors(
+    methods: List[str],
+    grav_err_deg: List[float] | np.ndarray,
+    earth_err_deg: List[float] | np.ndarray,
+    out_png: str | Path,
+) -> None:
+    """Plot Task 3 gravity/earth-rate errors and save figure.
+
+    Parameters
+    ----------
+    methods : list of str
+        Names of the attitude-determination methods in display order.
+    grav_err_deg : array-like
+        Gravity vector errors in degrees corresponding to ``methods``.
+    earth_err_deg : array-like
+        Earth-rate vector errors in degrees corresponding to ``methods``.
+    out_png : path-like
+        Output path for the saved ``.png`` file.
+    """
+
+    methods = list(methods)
+    ge = np.asarray(grav_err_deg, float)
+    ee = np.asarray(earth_err_deg, float)
+
+    fig, axs = plt.subplots(1, 2, figsize=(12, 4), constrained_layout=True)
+    fig.suptitle("Task 3: Attitude Error Comparison")
+
+    # Gravity error -------------------------------------------------------
+    axs[0].bar(methods, ge)
+    axs[0].set_title("Gravity Error")
+    axs[0].set_ylabel("Error (degrees)")
+    gmax = np.nanmax(np.abs(ge)) if ge.size else 1e-6
+    gmax = max(gmax, 1e-6)
+    axs[0].set_ylim(0, gmax * 1.25)
+    for x, y in zip(methods, ge):
+        axs[0].text(
+            x,
+            y + gmax * 0.05,
+            f"{y:.6f}",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            rotation=90,
+        )
+
+    # Earth-rate error ----------------------------------------------------
+    axs[1].bar(methods, ee)
+    axs[1].set_title("Earth Rate Error")
+    axs[1].set_ylabel("Error (degrees)")
+    emax = np.nanmax(np.abs(ee)) if ee.size else 1e-6
+    emax = max(emax, 1e-6)
+    axs[1].set_ylim(0, emax * 1.25)
+    for x, y in zip(methods, ee):
+        axs[1].text(
+            x,
+            y + emax * 0.05,
+            f"{y:.6f}",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            rotation=90,
+        )
+
+    axs[0].grid(alpha=0.3)
+    axs[1].grid(alpha=0.3)
+
+    out_png = Path(out_png)
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_png, dpi=150)
+    plt.close(fig)
+    print(f"[Task3] Saved error comparison -> {out_png}")
+
+
 def run_task3(run_id: str, runs: List[str] | None = None) -> None:
     """Generate quaternion overlay and error plots for given runs."""
     if runs is None:
