@@ -46,7 +46,13 @@ def save_task2_summary_png(
     fig, axes = plt.subplots(2, 2, figsize=(10, 6))
 
     ax = axes[0, 0]
+    keep = t > 1.0
+    if np.any(keep):
+        p99 = np.nanpercentile(acc_norm[keep], 99.5)
+    else:
+        p99 = np.nanpercentile(acc_norm, 99.5)
     ax.plot(t, acc_norm)
+    ax.set_ylim(0, max(20, p99))
     ax.axvspan(t[static_start], t[static_end], color="red", alpha=0.3)
     ax.set_ylabel("|acc| [m/s²]")
     ax.set_title("Accelerometer norm")
@@ -130,7 +136,7 @@ def task2_measure_body_vectors(
     ax.set_xticklabels(labels, rotation=45, ha="right")
     ax.set_ylabel("Value")
     ax.set_title(
-        f"Task 2: Measured Vectors in Body Frame with Errors\nID: {plot_id}"
+        f"Task 2: Measured vectors in body frame\nID: {plot_id}"
     )
 
     for bar, val in zip(bars, values):
