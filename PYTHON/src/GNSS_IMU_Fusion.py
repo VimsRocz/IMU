@@ -38,9 +38,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
-import cartopy.crs as ccrs  # type: ignore
-from geopy.geocoders import Nominatim
-from geopy.extra.rate_limiter import RateLimiter
 
 from .scripts.plot_utils import save_plot, plot_attitude
 from paths import (
@@ -52,6 +49,7 @@ from paths import (
     PY_RES_DIR,
 )
 from task1_cache import save_task1_artifacts
+from utils.run_id import run_id as make_run_id
 from utils import (
     is_static,
     compute_C_ECEF_to_NED,
@@ -125,68 +123,6 @@ def check_files(imu_file: str, gnss_file: str) -> tuple[str, str]:
     imu_path = _imu_path_helper(imu_file)
     gnss_path = _gnss_path_helper(gnss_file)
     return str(imu_path), str(gnss_path)
-
-
-def plot_task1_map(imu_file: str, gnss_file: str, method: str) -> None:
-    """Create and save a whole-Earth location map for Task 1."""
-
-    _ensure_results()
-    gnss = pd.read_csv(_gnss_path_helper(gnss_file))
-
-    fig = plt.figure(figsize=(10, 5))
-    ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.set_global()
-    ax.stock_img()
-    gl = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle="--", color="gray")
-    gl.top_labels = False
-    gl.right_labels = False
-
-    dataset_label = f"{Path(imu_file).stem}_{Path(gnss_file).stem}"
-    lons = gnss["Longitude_deg"].to_numpy()
-    lats = gnss["Latitude_deg"].to_numpy()
-    ax.scatter(lons, lats, s=20, c="red", transform=ccrs.PlateCarree())
-
-    for lon, lat in zip(lons, lats):
-        ax.text(
-            lon,
-            lat,
-            f"{dataset_label}\n{lat:.4f}, {lon:.4f}",
-            fontsize=6,
-            transform=ccrs.PlateCarree(),
-            ha="left",
-            va="bottom",
-        )
-
-    geolocator = Nominatim(user_agent="imu_task1_plot")
-    reverse = RateLimiter(
-        geolocator.reverse, min_delay_seconds=1, swallow_exceptions=True
-    )
-    seen_places: set[str] = set()
-    for lon, lat in zip(lons, lats):
-        location = reverse((lat, lon), language="en", exactly_one=True)
-        if not location or not getattr(location, "raw", None):
-            continue
-        addr = location.raw.get("address", {})
-        place = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("state")
-        if place and place not in seen_places:
-            seen_places.add(place)
-            ax.text(
-                lon,
-                lat,
-                place,
-                fontsize=8,
-                color="blue",
-                transform=ccrs.PlateCarree(),
-                ha="right",
-                va="top",
-            )
-
-    tag = f"{dataset_label}_{method}_task1_location_map"
-    out_path = PY_RES_DIR / f"{tag}.png"
-    fig.savefig(out_path, dpi=300)
-    logging.info("Task 1 plot saved to %s", out_path)
-    plt.close(fig)
-
 
 def main():
     _ensure_results()
@@ -283,6 +219,8 @@ def main():
     gnss_stem = Path(gnss_file).stem
     tag = TAG(imu=imu_stem, gnss=gnss_stem, method=method)
     summary_tag = f"{imu_stem}_{gnss_stem}"
+    run_id = make_run_id(imu_file, gnss_file, method)
+    out_dir = PY_RES_DIR
 
     logging.info(f"Running attitude-estimation method: {method}")
 
@@ -344,7 +282,12 @@ def main():
     save_task1_artifacts(Path("results"), tag, meta, arrays, gnss_columns)
 
     if not args.no_plots:
-        plot_task1_map(imu_file, gnss_file, method)
+        from task1_worldmap_png import save_task1_worldmap_png
+        try:
+            png_path = save_task1_worldmap_png(gnss_file, run_id, out_dir)
+            print(f"Task 1: saved world map PNG -> {png_path}")
+        except Exception as ex:
+            print(f"Task 1: world map PNG failed: {ex}")
     else:
         logging.info("Skipping plot generation (--no-plots)")
 
@@ -1925,7 +1868,7 @@ def main():
 
     # Create plot summary
     summary = {
-        f"{tag}_location_map.pdf": "Initial location on Earth map",
+        f"{run_id}_task1_worldmap.png": "Task 1 world map",
         f"{tag}_task3_errors_comparison.pdf": "Attitude initialization error comparison",
         f"{tag}_task3_quaternions_comparison.pdf": "Quaternion components for initialization",
         f"{tag}_task4_comparison_ned.pdf": "GNSS vs IMU data in NED frame",
