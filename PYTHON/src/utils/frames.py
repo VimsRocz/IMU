@@ -53,6 +53,25 @@ def R_ecef_to_ned(lat_rad: float, lon_rad: float) -> np.ndarray:
     return compute_C_ECEF_to_NED(lat_rad, lon_rad)
 
 
-def ecef_vec_to_ned(vec_ecef: Iterable[float], lat_rad: float, lon_rad: float) -> np.ndarray:
-    """Rotate an ECEF vector into the NED frame."""
-    return R_ecef_to_ned(lat_rad, lon_rad) @ np.asarray(vec_ecef).T
+def ecef_vec_to_ned(
+    vec_ecef: Iterable[float], lat_rad: float, lon_rad: float
+) -> np.ndarray:
+    """Rotate one or more ECEF vectors into the NED frame.
+
+    Parameters
+    ----------
+    vec_ecef : array_like
+        A single 3‑element vector or an array of shape ``(N, 3)`` containing
+        multiple ECEF vectors.  The returned array preserves this shape.
+    lat_rad, lon_rad : float
+        Geodetic latitude and longitude in **radians**.
+
+    Returns
+    -------
+    numpy.ndarray
+        The input vector(s) rotated into the NED frame with the same leading
+        dimensions as ``vec_ecef``.
+    """
+
+    vec = np.asarray(vec_ecef)
+    return vec @ R_ecef_to_ned(lat_rad, lon_rad).T
