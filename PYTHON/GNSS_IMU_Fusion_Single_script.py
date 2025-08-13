@@ -15,7 +15,7 @@ import os
 import argparse
 from pathlib import Path
 
-from paths import gnss_path, imu_path, PY_RES_DIR, ensure_py_results
+from paths import gnss_path, imu_path, truth_path, PY_RES_DIR, ensure_py_results
 
 # --- plotting output configuration ----------------------------------------
 ensure_py_results()
@@ -1259,9 +1259,9 @@ for j in range(3):
         f"First = {gnss_acc_ned_interp[0, j]:.4f}, Last = {gnss_acc_ned_interp[-1, j]:.4f}"
     )
 
-# Attempt to load ground truth trajectory in STATE_X001.txt
+# Attempt to load ground truth trajectory
 try:
-    truth = np.loadtxt("STATE_X001.txt")
+    truth = np.loadtxt(truth_path(f"STATE_{DATASET_ID}.txt"))
     truth_time = truth[:, 1]
     truth_pos_ecef = truth[:, 2:5]
     truth_vel_ecef = truth[:, 5:8]
@@ -1401,9 +1401,57 @@ print("# Subtask 5.8.1: TRIAD plotting completed.")
 # Colors: TRIAD (red), Davenport (green), SVD (blue), GNSS (black), Truth (magenta).
 
 # ================================
-# Task 6: Plot residuals and attitude angles
+# Task 6: Truth and Fused overlay
 # ================================
-logging.info("Task 6: plotting residuals and attitude angles.")
+logging.info("Task 6: generating truth overlay plots.")
+
+if truth_pos_ned_interp is not None:
+    fig, axes = plt.subplots(3, 3, figsize=(15, 10))
+
+    # Position
+    for j in range(3):
+        ax = axes[0, j]
+        ax.plot(imu_time, truth_pos_ned_interp[:, j], colors["Truth"], linestyle="--", label="Truth")
+        ax.plot(imu_time, fused_pos["TRIAD"][:, j], colors["TRIAD"], alpha=0.7, label="Fused TRIAD")
+        ax.set_title(f"Position {directions[j]}")
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Position (m)")
+        ax.legend()
+
+    # Velocity
+    for j in range(3):
+        ax = axes[1, j]
+        ax.plot(imu_time, truth_vel_ned_interp[:, j], colors["Truth"], linestyle="--", label="Truth")
+        ax.plot(imu_time, fused_vel["TRIAD"][:, j], colors["TRIAD"], alpha=0.7, label="Fused TRIAD")
+        ax.set_title(f"Velocity {directions[j]}")
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Velocity (m/s)")
+        ax.legend()
+
+    # Acceleration
+    for j in range(3):
+        ax = axes[2, j]
+        ax.plot(imu_time, truth_acc_ned_interp[:, j], colors["Truth"], linestyle="--", label="Truth")
+        ax.plot(imu_time, fused_acc["TRIAD"][:, j], colors["TRIAD"], alpha=0.7, label="Fused TRIAD")
+        ax.set_title(f"Acceleration {directions[j]}")
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Acceleration (m/s²)")
+        ax.legend()
+
+    plt.tight_layout()
+    out_path = RES_DIR / f"{TAG}_task6_truth_overlay_TRIAD.pdf"
+    plt.savefig(out_path)
+    if INTERACTIVE:
+        plt.show()
+    plt.close()
+    logging.info("Task 6 truth overlay plot saved as '%s'", out_path)
+else:
+    logging.warning("Task 6 skipped: truth data not available.")
+
+# ================================
+# Task 7: Plot residuals and attitude angles
+# ================================
+logging.info("Task 7: plotting residuals and attitude angles.")
 
 from scipy.spatial.transform import Rotation as R
 
