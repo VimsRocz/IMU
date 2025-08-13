@@ -199,6 +199,57 @@ def check_files(imu_file: str, gnss_file: str) -> tuple[str, str]:
     gnss_path = _gnss_path_helper(gnss_file)
     return str(imu_path), str(gnss_path)
 
+
+def load_truth_as_ned(truth_path: str, ref_lat: float, ref_lon: float, r0_ecef: np.ndarray):
+    """Load STATE_X truth file and convert position/velocity to NED."""
+    raw = np.loadtxt(truth_path)
+    t_truth = raw[:, 0]
+    pos_ecef = raw[:, 1:4]
+    vel_ecef = raw[:, 4:7]
+    C = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+    pos_ned = np.array([C @ (p - r0_ecef) for p in pos_ecef])
+    vel_ned = np.array([C @ v for v in vel_ecef])
+    return t_truth, pos_ned, vel_ned
+
+
+def plot_task6_truth_overlay(
+    t: np.ndarray,
+    pos_fused: np.ndarray,
+    vel_fused: np.ndarray,
+    pos_truth: np.ndarray,
+    vel_truth: np.ndarray,
+    out_png: str | Path,
+) -> None:
+    """Plot Task 6 overlay of fused vs truth position and velocity."""
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(3, 2, figsize=(12, 8))
+    labels = ["North", "East", "Down"]
+    for i in range(3):
+        ax = axes[i, 0]
+        ax.plot(t, pos_truth[:, i], label="TRUTH")
+        ax.plot(t, pos_fused[:, i], linestyle="--", label="FUSED")
+        ax.set_ylabel(f"Pos {labels[i]} [m]")
+        if i == 0:
+            ax.set_title("Task 6 — Position: TRUTH vs FUSED")
+        ax.grid(True)
+
+        ax = axes[i, 1]
+        ax.plot(t, vel_truth[:, i], label="TRUTH")
+        ax.plot(t, vel_fused[:, i], linestyle="--", label="FUSED")
+        ax.set_ylabel(f"Vel {labels[i]} [m/s]")
+        if i == 0:
+            ax.set_title("Task 6 — Velocity: TRUTH vs FUSED")
+        ax.grid(True)
+
+    for ax in axes.flatten():
+        ax.set_xlabel("Time [s]")
+    axes[0, 0].legend(loc="upper right")
+    fig.tight_layout()
+    Path(out_png).parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_png, dpi=150)
+    plt.close(fig)
+
 def main():
     _ensure_results()
     logging.info("Ensured 'results/' directory exists.")
@@ -214,8 +265,22 @@ def main():
     )
     parser.add_argument("--mag-file", help="CSV file with magnetometer data")
     parser.add_argument(
+        "--measure-source",
+        choices=["gnss", "truth"],
+        default="gnss",
+        help="Use GNSS or TRUTH as the KF measurement source",
+    )
+    parser.add_argument(
         "--truth-file",
-        help="Optional ground truth trajectory in STATE_X001.txt format",
+        type=str,
+        required=False,
+        help="Path to STATE_X001.txt (truth) for Task 6",
+    )
+    parser.add_argument(
+        "--tag",
+        type=str,
+        default="",
+        help="Optional suffix for output filenames",
     )
     parser.add_argument(
         "--use-gnss-heading",
@@ -285,6 +350,7 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
 
     method = args.method
+    measure_source = args.measure_source
     imu_file, gnss_file = check_files(args.imu_file, args.gnss_file)
     truth_file = args.truth_file
 
@@ -292,9 +358,10 @@ def main():
 
     imu_stem = Path(imu_file).stem
     gnss_stem = Path(gnss_file).stem
-    tag = TAG(imu=imu_stem, gnss=gnss_stem, method=method)
+    method_tag = method + ("_" + args.tag if args.tag else "")
+    tag = TAG(imu=imu_stem, gnss=gnss_stem, method=method_tag)
     summary_tag = f"{imu_stem}_{gnss_stem}"
-    run_id = make_run_id(imu_file, gnss_file, method)
+    run_id = make_run_id(imu_file, gnss_file, method_tag)
     global RUN_ID
     RUN_ID = run_id
     out_dir = PY_RES_DIR
@@ -1419,12 +1486,28 @@ def main():
 
     gnss_pos_ned = ecef_to_ned(gnss_pos_ecef, ref_lat, ref_lon, ref_r0)
     gnss_vel_ned = np.array([C_ECEF_to_NED @ v for v in gnss_vel_ecef])
-
-    # Compute GNSS acceleration
     gnss_acc_ecef = np.zeros_like(gnss_vel_ecef)
     dt = np.diff(gnss_time, prepend=gnss_time[0])
     gnss_acc_ecef[1:] = (gnss_vel_ecef[1:] - gnss_vel_ecef[:-1]) / dt[1:, np.newaxis]
     gnss_acc_ned = np.array([C_ECEF_to_NED @ a for a in gnss_acc_ecef])
+
+    # Optionally use truth data as measurement source
+    truth_pos_ned = truth_vel_ned = None
+    if measure_source == "truth":
+        if not truth_file:
+            raise ValueError("Provide --truth-file for measure-source=truth")
+        t_truth, truth_pos_ned, truth_vel_ned = load_truth_as_ned(
+            truth_file, ref_lat, ref_lon, ref_r0
+        )
+        gnss_time = zero_base_time(t_truth)
+        gnss_pos_ned = truth_pos_ned
+        gnss_vel_ned = truth_vel_ned
+        gnss_acc_ned = np.gradient(gnss_vel_ned, gnss_time, axis=0)
+        meas_R_pos = np.eye(3) * 1e-2
+        meas_R_vel = np.eye(3) * 1e-2
+    else:
+        meas_R_pos = np.eye(3)
+        meas_R_vel = np.eye(3) * args.vel_r
 
     # Load IMU data
     imu_time = np.arange(len(imu_data)) * dt_imu
@@ -1527,10 +1610,11 @@ def main():
         kf.F = np.eye(13)
         kf.H = np.hstack((np.eye(6), np.zeros((6, 7))))
         kf.P *= 1.0
-        kf.R = np.eye(6) * 0.1  # position/velocity measurement variance [m^2/s^2]
         kf.Q = np.eye(13) * 0.01  # process noise base [m^2/s^2]
         kf.Q[3:6, 3:6] *= args.vel_q_scale
-        kf.R[3:6, 3:6] = np.eye(3) * args.vel_r
+        kf.R = np.block(
+            [[meas_R_pos, np.zeros((3, 3))], [np.zeros((3, 3)), meas_R_vel]]
+        )
         logging.info(f"Adjusted Q[3:6,3:6]: {kf.Q[3:6,3:6]}")
         logging.info(f"Adjusted R[3:6,3:6]: {kf.R[3:6,3:6]}")
         fused_pos[m][0] = imu_pos[m][0]
@@ -2195,6 +2279,7 @@ def main():
             vel_blow_events=vel_blow_count,
         ),
         time=imu_time,
+        t=imu_time,
         pos_ned=fused_pos[method],
         vel_ned=fused_vel[method],
         fused_pos=fused_pos[method],
@@ -2234,6 +2319,7 @@ def main():
             "earth_rate_err_max": np.array([omega_err_max]),
             "vel_blow_events": np.array([vel_blow_count]),
             "time": imu_time,
+            "t": imu_time,
             "pos_ned": fused_pos[method],
             "vel_ned": fused_vel[method],
             "fused_pos": fused_pos[method],
@@ -2260,12 +2346,22 @@ def main():
         },
     )
 
+    if measure_source == "truth" and truth_pos_ned is not None:
+        plot_task6_truth_overlay(
+            imu_time,
+            fused_pos[method],
+            fused_vel[method],
+            truth_pos_ned,
+            truth_vel_ned,
+            Path("results") / f"{tag}_task6_truth_vs_fused.png",
+        )
+
     # --- Persist for cross-dataset comparison ------------------------------
     import pickle
     import gzip
 
     pack = {
-        "method": method,
+        "method": method_tag,
         "dataset": summary_tag.split("_")[1],
         "t": t_rel_ilu,
         "pos_ned": fused_pos[method],
@@ -2273,7 +2369,7 @@ def main():
         "pos_gnss": gnss_pos_ned,
         "vel_gnss": gnss_vel_ned,
     }
-    fname = Path("results") / f"{summary_tag}_{method}_compare.pkl.gz"
+    fname = Path("results") / f"{summary_tag}_{method_tag}_compare.pkl.gz"
     with gzip.open(fname, "wb") as f:
         pickle.dump(pack, f)
 
