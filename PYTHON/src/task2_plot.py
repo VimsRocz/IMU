@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import uuid
 
 
 def save_task2_summary_png(
@@ -60,4 +61,76 @@ def save_task2_summary_png(
     out_png = out_dir / f"{run_id}_task2_summary.png"
     fig.savefig(out_png, dpi=300)
     plt.close(fig)
+    return out_png
+
+
+def task2_measure_body_vectors(
+    imu_data,
+    static_indices: tuple[int, int],
+    output_dir: str | Path,
+) -> Path:
+    """Plot measured gravity and Earth rotation vectors with error bars."""
+
+    start, end = static_indices
+    plot_id = uuid.uuid4().hex
+    print(f"Task 2 plot ID: {plot_id}")
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        acc_cols = ["accel_x", "accel_y", "accel_z"]
+        gyro_cols = ["gyro_x", "gyro_y", "gyro_z"]
+        static_df = imu_data.iloc[start:end]
+        acc = static_df[acc_cols].to_numpy()
+        gyro = static_df[gyro_cols].to_numpy()
+        g_body = -np.mean(acc, axis=0)
+        omega_ie_body = np.mean(gyro, axis=0)
+        acc_err = np.std(acc, axis=0)
+        gyro_err = np.std(gyro, axis=0)
+        errors = np.concatenate([acc_err, gyro_err])
+    except Exception:
+        g_body = np.zeros(3)
+        omega_ie_body = np.zeros(3)
+        errors = np.full(6, 1e-6)
+        print("Error data not available; using defaults")
+    else:
+        if np.all(errors == 0):
+            errors = np.full(6, 1e-6)
+            print("Error data not available; using defaults")
+
+    labels = [
+        "Gravity X",
+        "Gravity Y",
+        "Gravity Z",
+        "Earth Rot X",
+        "Earth Rot Y",
+        "Earth Rot Z",
+    ]
+    values = np.concatenate([g_body, omega_ie_body])
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    x = np.arange(len(labels))
+    bars = ax.bar(x, values, yerr=errors, capsize=5)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=45, ha="right")
+    ax.set_ylabel("Value")
+    ax.set_title(
+        f"Task 2: Measured Vectors in Body Frame with Errors\nID: {plot_id}"
+    )
+
+    for bar, val in zip(bars, values):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            f"{val:.2e}",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+        )
+
+    fig.tight_layout()
+    out_png = out_dir / "IMU_X002_GNSS_X002_TRIAD_task2_vectors.png"
+    fig.savefig(out_png, dpi=300)
+    plt.close(fig)
+    print(f"Task 2: saved plot -> {out_png}")
     return out_png
