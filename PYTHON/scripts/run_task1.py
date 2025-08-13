@@ -1,14 +1,13 @@
 """Task 1: plot GNSS track on a whole-earth map.
 
 This script loads GNSS latitude/longitude data using ``src.paths`` and
-produces a global map using Cartopy.  The plot is saved both as a PNG image
-and as a pickled Matplotlib figure for interactive reuse.
+produces a global map using Cartopy.  The plot is saved as a single PNG
+image.
 """
 
 from __future__ import annotations
 
 import argparse
-import pickle
 from pathlib import Path, Path as _Path
 import sys as _sys
 
@@ -21,8 +20,10 @@ REPO_ROOT = _PY_SRC.parents[2]
 import cartopy.crs as ccrs  # type: ignore
 import matplotlib.pyplot as plt
 import pandas as pd
+from geopy.extra.rate_limiter import RateLimiter
+from geopy.geocoders import Nominatim
 
-from paths import gnss_path, imu_path, PY_RES_DIR, ensure_py_results
+from paths import gnss_path, PY_RES_DIR, ensure_py_results
 
 
 def run(imu_file: str, gnss_file: str, method: str = "TRIAD") -> None:
@@ -47,29 +48,56 @@ def run(imu_file: str, gnss_file: str, method: str = "TRIAD") -> None:
     fig = plt.figure(figsize=(10, 5))
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.set_global()
-    ax.coastlines()
-    ax.gridlines(draw_labels=True)
-    ax.scatter(
-        gnss["Longitude_deg"],
-        gnss["Latitude_deg"],
-        s=10,
-        c="red",
-        transform=ccrs.PlateCarree(),
+    ax.stock_img()
+    gl = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle="--", color="gray")
+    gl.top_labels = False
+    gl.right_labels = False
+
+    dataset_label = f"{Path(imu_file).stem}_{Path(gnss_file).stem}"
+    lons = gnss["Longitude_deg"].to_numpy()
+    lats = gnss["Latitude_deg"].to_numpy()
+    ax.scatter(lons, lats, s=20, c="red", transform=ccrs.PlateCarree())
+
+    # Annotate GNSS points with dataset name and coordinates
+    for lon, lat in zip(lons, lats):
+        ax.text(
+            lon,
+            lat,
+            f"{dataset_label}\n{lat:.4f}, {lon:.4f}",
+            fontsize=6,
+            transform=ccrs.PlateCarree(),
+            ha="left",
+            va="bottom",
+        )
+
+    # Reverse geocode to add nearby place names
+    geolocator = Nominatim(user_agent="imu_task1_plot")
+    reverse = RateLimiter(
+        geolocator.reverse, min_delay_seconds=1, swallow_exceptions=True
     )
+    seen_places: set[str] = set()
+    for lon, lat in zip(lons, lats):
+        location = reverse((lat, lon), language="en", exactly_one=True)
+        if not location or not getattr(location, "raw", None):
+            continue
+        addr = location.raw.get("address", {})
+        place = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("state")
+        if place and place not in seen_places:
+            seen_places.add(place)
+            ax.text(
+                lon,
+                lat,
+                place,
+                fontsize=8,
+                color="blue",
+                transform=ccrs.PlateCarree(),
+                ha="right",
+                va="top",
+            )
 
-    imu_name = Path(imu_file).stem
-    gnss_name = Path(gnss_file).stem
-    tag = f"{imu_name}_{gnss_name}_{method}_task1_location_map"
-
-    # Save static image
+    tag = f"{dataset_label}_{method}_task1_location_map"
     png_path = PY_RES_DIR / f"{tag}.png"
     fig.savefig(png_path, dpi=300)
-
-    # Save interactive figure using pickle
-    pkl_path = PY_RES_DIR / f"{tag}.pickle"
-    with open(pkl_path, "wb") as fh:
-        pickle.dump(fig, fh)
-
     plt.close(fig)
 
 

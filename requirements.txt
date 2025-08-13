@@ -13,3 +13,4 @@ pyproj
 fastdtw
 plotly>=5.0
 kaleido
+geopy

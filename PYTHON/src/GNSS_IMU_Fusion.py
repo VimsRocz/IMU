@@ -38,14 +38,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
+import cartopy.crs as ccrs  # type: ignore
+from geopy.geocoders import Nominatim
+from geopy.extra.rate_limiter import RateLimiter
 
-from scripts.plot_utils import save_plot, plot_attitude
+from .scripts.plot_utils import save_plot, plot_attitude
 from paths import (
     imu_path as _imu_path_helper,
     gnss_path as _gnss_path_helper,
     truth_path as _truth_path_helper,
     ensure_results_dir as _ensure_results,
     normalize_gnss_headers,
+    PY_RES_DIR,
 )
 from task1_cache import save_task1_artifacts
 from utils import (
@@ -57,7 +61,7 @@ from utils import (
 )
 from constants import GRAVITY, EARTH_RATE
 from .compute_biases import compute_biases
-from scripts.validate_filter import compute_residuals, plot_residuals
+from .scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
 from .gnss_imu_fusion.init_vectors import (
     average_rotation_matrices,
@@ -121,6 +125,65 @@ def check_files(imu_file: str, gnss_file: str) -> tuple[str, str]:
     imu_path = _imu_path_helper(imu_file)
     gnss_path = _gnss_path_helper(gnss_file)
     return str(imu_path), str(gnss_path)
+
+
+def plot_task1_map(imu_file: str, gnss_file: str, method: str) -> None:
+    """Create and save a whole-Earth location map for Task 1."""
+
+    _ensure_results()
+    gnss = pd.read_csv(_gnss_path_helper(gnss_file))
+
+    fig = plt.figure(figsize=(10, 5))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    ax.set_global()
+    ax.stock_img()
+    gl = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle="--", color="gray")
+    gl.top_labels = False
+    gl.right_labels = False
+
+    dataset_label = f"{Path(imu_file).stem}_{Path(gnss_file).stem}"
+    lons = gnss["Longitude_deg"].to_numpy()
+    lats = gnss["Latitude_deg"].to_numpy()
+    ax.scatter(lons, lats, s=20, c="red", transform=ccrs.PlateCarree())
+
+    for lon, lat in zip(lons, lats):
+        ax.text(
+            lon,
+            lat,
+            f"{dataset_label}\n{lat:.4f}, {lon:.4f}",
+            fontsize=6,
+            transform=ccrs.PlateCarree(),
+            ha="left",
+            va="bottom",
+        )
+
+    geolocator = Nominatim(user_agent="imu_task1_plot")
+    reverse = RateLimiter(
+        geolocator.reverse, min_delay_seconds=1, swallow_exceptions=True
+    )
+    seen_places: set[str] = set()
+    for lon, lat in zip(lons, lats):
+        location = reverse((lat, lon), language="en", exactly_one=True)
+        if not location or not getattr(location, "raw", None):
+            continue
+        addr = location.raw.get("address", {})
+        place = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("state")
+        if place and place not in seen_places:
+            seen_places.add(place)
+            ax.text(
+                lon,
+                lat,
+                place,
+                fontsize=8,
+                color="blue",
+                transform=ccrs.PlateCarree(),
+                ha="right",
+                va="top",
+            )
+
+    tag = f"{dataset_label}_{method}_task1_location_map"
+    fig.savefig(PY_RES_DIR / f"{tag}.png", dpi=300)
+    plt.close(fig)
 
 
 def main():
@@ -267,11 +330,6 @@ def main():
         "numpy": np.__version__,
         "pandas": pd.__version__,
     }
-    try:
-        import plotly
-        versions["plotly"] = plotly.__version__
-    except Exception:  # pragma: no cover - best effort
-        pass
     meta = {
         "dataset_id": dataset_id,
         "method": method,
@@ -284,32 +342,7 @@ def main():
     save_task1_artifacts(Path("results"), tag, meta, arrays, gnss_columns)
 
     if not args.no_plots:
-        try:
-            import plotly.graph_objects as go
-        except ModuleNotFoundError:
-            logging.error(
-                "Plotly not installed. Please run `pip install -r requirements.txt` to enable interactive map."
-            )
-        else:
-            fig = go.Figure(
-                go.Scattergeo(lat=[lat_deg], lon=[lon_deg], mode="markers", marker=dict(size=8, color="red"))
-            )
-            fig.update_layout(
-                title="Task 1 – Initial Location (World View)",
-                geo=dict(
-                    projection=dict(type="equirectangular"),
-                    scope="world",
-                    showland=True,
-                    showcountries=True,
-                    showcoastlines=True,
-                    showlakes=True,
-                    lonaxis=dict(showgrid=True),
-                    lataxis=dict(showgrid=True),
-                ),
-            )
-            html_path = Path("results") / f"{tag}_task1_location_map.html"
-            fig.write_html(str(html_path))
-            logging.info(f"Task 1: saved interactive map -> {html_path}")
+        plot_task1_map(imu_file, gnss_file, method)
     else:
         logging.info("Skipping plot generation (--no-plots)")
 
