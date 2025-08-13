@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 from typing import Optional, Tuple, List
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from ..constants import GRAVITY, EARTH_RATE
 from ..utils import (
@@ -14,6 +16,7 @@ from ..utils import (
     validate_gravity_vector,
 )
 from ..compute_biases import compute_biases
+from ..paths import PY_RES_DIR
 from .init_vectors import butter_lowpass_filter
 
 
@@ -86,6 +89,7 @@ def measure_body_vectors(
     static_start: Optional[int] = None,
     static_end: Optional[int] = None,
     mag_file: Optional[str] = None,
+    tag: Optional[str] = None,
 ) -> Tuple[float, np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """Estimate gravity and Earth rotation in the body frame.
 
@@ -169,6 +173,7 @@ def measure_body_vectors(
         f"Task 2: static interval = {static_start}:{static_end}, g_body = {g_body}, omega_ie_body = {omega_ie_body}"
     )
 
+    # Optional magnetometer
     mag_body = None
     if mag_file:
         try:
@@ -177,4 +182,26 @@ def measure_body_vectors(
                 mag_body = np.mean(mag_data[:, :3], axis=0)
         except Exception as exc:  # pragma: no cover - optional feature
             logging.debug("Failed to load magnetometer file: %s", exc)
+
+    # Plot accelerometer and gyroscope norms with static interval highlighted
+    try:
+        t = time - time[0]
+        acc_norm = np.linalg.norm(acc, axis=1)
+        gyro_norm = np.linalg.norm(gyro, axis=1)
+        fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+        ax[0].plot(t, acc_norm)
+        ax[0].axvspan(t[static_start], t[static_end], color="red", alpha=0.3)
+        ax[0].set_ylabel("|acc| [m/s²]")
+        ax[1].plot(t, gyro_norm)
+        ax[1].axvspan(t[static_start], t[static_end], color="red", alpha=0.3)
+        ax[1].set_ylabel("|gyro| [rad/s]")
+        ax[1].set_xlabel("Time [s]")
+        plot_tag = tag or Path(imu_file).stem
+        plot_path = PY_RES_DIR / f"{plot_tag}_task2_static_interval.png"
+        fig.savefig(plot_path, dpi=300)
+        plt.close(fig)
+        logging.info("Task 2 plot saved to %s", plot_path)
+    except Exception as exc:  # pragma: no cover - plotting is best effort
+        logging.debug("Task 2 plot generation failed: %s", exc)
+
     return dt, g_body, omega_ie_body, mag_body
