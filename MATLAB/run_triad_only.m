@@ -18,6 +18,7 @@ truthDir  = fullfile(dataDir, 'Truth');
 matResDir = fullfile(matlabDir, 'results');
 if ~exist(matResDir,'dir'); mkdir(matResDir); end
 addpath(genpath(fullfile(matlabDir,'src')));   % MATLAB utilities
+addpath(genpath(fullfile(matlabDir,'utils'))); % extra helpers
 
 paths = struct('root', repoRoot, 'matlab_results', matResDir);
 if nargin==0 || isempty(cfg), cfg = struct(); end
@@ -115,11 +116,123 @@ end
 Task_5(cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
        'vel_q_scale', cfg.vel_q_scale, 'vel_r', cfg.vel_r, 'trace_first_n', cfg.trace_first_n);
 
-% Task 6 can accept either the Task 5 .mat or (imu,gnss,truth) paths — use the version you have:
-if exist('Task_6.m','file')
-    Task_6(fullfile(cfg.paths.matlab_results, sprintf('%s_task5_results.mat', rid)), ...
-           cfg.imu_path, cfg.gnss_path, cfg.truth_path);
+runTag = rid; resultsDir = cfg.paths.matlab_results; dataTruthDir = truthDir;
+
+disp('Starting Task 6 overlay ...');
+
+% Load Task-5 results (must contain time vector and, if available, q_b2n[t])
+res5 = load(fullfile(resultsDir, sprintf('%s_task5_results.mat', runTag)));
+% Expected available:
+%  t_est [N x 1], pos_ned_est/vel_ned_est/acc_ned_est [N x 3] OR equivalents
+%  pos_ecef_est/vel_ecef_est/acc_ecef_est [N x 3] (if stored)
+%  q_b2n_hist [N x 4] (wxyz)  <-- optional but preferred
+
+% Time base
+if isfield(res5,'t_est'), t_est = res5.t_est; else, error('Task6: t_est missing'); end
+N = numel(t_est);
+
+% Estimated NED triplets (build if missing from Task-4/5 cached signals)
+EST = struct('pos_ned',[],'vel_ned',[],'acc_ned',[], ...
+             'pos_ecef',[],'vel_ecef',[],'acc_ecef',[]);
+copyIf = @(S,fn) (isfield(S,fn) && ~isempty(S.(fn)));
+if copyIf(res5,'pos_ned_est'), EST.pos_ned = res5.pos_ned_est; end
+if copyIf(res5,'vel_ned_est'), EST.vel_ned = res5.vel_ned_est; end
+if copyIf(res5,'acc_ned_est'), EST.acc_ned = res5.acc_ned_est; end
+if copyIf(res5,'pos_ecef_est'), EST.pos_ecef = res5.pos_ecef_est; end
+if copyIf(res5,'vel_ecef_est'), EST.vel_ecef = res5.vel_ecef_est; end
+if copyIf(res5,'acc_ecef_est'), EST.acc_ecef = res5.acc_ecef_est; end
+
+% Truth loading (ECEF + optional NED)
+truthPath = fullfile(dataTruthDir, 'STATE_X001.txt');
+T = readtable(truthPath, detectImportOptions(truthPath));
+t_truth = extractTimeVec(T);
+[pos_ecef_truth, vel_ecef_truth] = extractECEF(T);
+[pos_ned_truth, vel_ned_truth]   = extractNED(T);
+
+% lat/lon from Task-1/4
+if isfield(res5,'ref_lat'), computed_lat_rad = res5.ref_lat; else, computed_lat_rad = 0; end
+if isfield(res5,'ref_lon'), computed_lon_rad = res5.ref_lon; else, computed_lon_rad = 0; end
+lat = computed_lat_rad; lon = computed_lon_rad;  % already computed earlier
+
+% Ensure NED truth (convert from ECEF if needed)
+if isempty(pos_ned_truth) && ~isempty(pos_ecef_truth)
+    pos_ned_truth = attitude_tools('ecef2ned_vec', pos_ecef_truth, lat, lon);
 end
+if isempty(vel_ned_truth) && ~isempty(vel_ecef_truth)
+    vel_ned_truth = attitude_tools('ecef2ned_vec', vel_ecef_truth, lat, lon);
+end
+
+% Interp truth to estimator time
+interp = @(X) attitude_tools('interp_to', t_truth, X, t_est);
+TRU_NED.pos = interp(pos_ned_truth);
+TRU_NED.vel = interp(vel_ned_truth);
+TRU_NED.acc = [];  % optional in truth
+
+% Build EST NED (convert from ECEF if missing)
+if isempty(EST.pos_ned) && ~isempty(EST.pos_ecef)
+    EST.pos_ned = attitude_tools('ecef2ned_vec', EST.pos_ecef, lat, lon);
+end
+if isempty(EST.vel_ned) && ~isempty(EST.vel_ecef)
+    EST.vel_ned = attitude_tools('ecef2ned_vec', EST.vel_ecef, lat, lon);
+end
+if isempty(EST.acc_ned) && ~isempty(EST.acc_ecef)
+    EST.acc_ned = attitude_tools('ecef2ned_vec', EST.acc_ecef, lat, lon);
+end
+
+EST_NED.pos = EST.pos_ned; EST_NED.vel = EST.vel_ned; EST_NED.acc = EST.acc_ned;
+
+% Build ECEF triplets (prefer native; else convert from NED)
+if isempty(EST.pos_ecef) && ~isempty(EST.pos_ned)
+    EST.pos_ecef = attitude_tools('ned2ecef_vec', EST.pos_ned, lat, lon);
+end
+if isempty(EST.vel_ecef) && ~isempty(EST.vel_ned)
+    EST.vel_ecef = attitude_tools('ned2ecef_vec', EST.vel_ned, lat, lon);
+end
+if isempty(EST.acc_ecef) && ~isempty(EST.acc_ned)
+    EST.acc_ecef = attitude_tools('ned2ecef_vec', EST.acc_ned, lat, lon);
+end
+TRU_ECEF.pos = interp(pos_ecef_truth);
+TRU_ECEF.vel = interp(vel_ecef_truth);
+TRU_ECEF.acc = [];
+
+% BODY with time-varying q_b2n[t] if available
+q_hist = [];
+if isfield(res5,'q_b2n_hist'), q_hist = res5.q_b2n_hist; end
+if ~isempty(q_hist)
+    if size(q_hist,1)==N && size(q_hist,2)==4, q_hist = q_hist.'; end % make [4 x N]
+    q_hist = attitude_tools('quat_hemi', attitude_tools('quat_normalize', q_hist));
+else
+    % fallback: Task-3 constant quaternion if stored, else identity
+    if exist(fullfile(resultsDir, sprintf('%s_task3_results.mat', runTag)), 'file')
+        r3 = load(fullfile(resultsDir, sprintf('%s_task3_results.mat', runTag)));
+        if isfield(r3,'q_triad'), q_hist = repmat(r3.q_triad(:),1,N); end
+    end
+    if isempty(q_hist), q_hist = repmat([1;0;0;0],1,N); end
+end
+
+TRU_BODY.pos = []; TRU_BODY.vel = []; TRU_BODY.acc = [];
+if ~isempty(EST_NED.pos), EST_BODY.pos = attitude_tools('ned2body_series', EST_NED.pos, q_hist); else, EST_BODY.pos = []; end
+if ~isempty(EST_NED.vel), EST_BODY.vel = attitude_tools('ned2body_series', EST_NED.vel, q_hist); else, EST_BODY.vel = []; end
+if ~isempty(EST_NED.acc), EST_BODY.acc = attitude_tools('ned2body_series', EST_NED.acc, q_hist); else, EST_BODY.acc = []; end
+
+if ~isempty(TRU_NED.pos), TRU_BODY.pos = attitude_tools('ned2body_series', TRU_NED.pos, q_hist); end
+if ~isempty(TRU_NED.vel), TRU_BODY.vel = attitude_tools('ned2body_series', TRU_NED.vel, q_hist); end
+if ~isempty(TRU_NED.acc), TRU_BODY.acc = attitude_tools('ned2body_series', TRU_NED.acc, q_hist); end
+
+% 3×3 overlays (PNG)
+out6 = fullfile(resultsDir, sprintf('%s_task6_', runTag));
+attitude_tools('plot_overlay_3x3', t_est, struct('pos',EST_NED.pos,'vel',EST_NED.vel,'acc',EST_NED.acc), struct('pos',TRU_NED.pos,'vel',TRU_NED.vel,'acc',TRU_NED.acc), 'Task 6: Overlay (NED)', [out6 'overlay_NED.png']);
+attitude_tools('plot_overlay_3x3', t_est, struct('pos',EST.pos_ecef,'vel',EST.vel_ecef,'acc',EST.acc_ecef), struct('pos',TRU_ECEF.pos,'vel',TRU_ECEF.vel,'acc',TRU_ECEF.acc), 'Task 6: Overlay (ECEF)', [out6 'overlay_ECEF.png']);
+attitude_tools('plot_overlay_3x3', t_est, struct('pos',EST_BODY.pos,'vel',EST_BODY.vel,'acc',EST_BODY.acc), struct('pos',TRU_BODY.pos,'vel',TRU_BODY.vel,'acc',TRU_BODY.acc), 'Task 6: Overlay (BODY)', [out6 'overlay_BODY.png']);
+
+disp('Task 6 overlay PNGs saved.');
+
+quatType = 'constant';
+if ~isempty(q_hist) && size(unique(q_hist.', 'rows'),1) > 1
+    quatType = 'time-varying';
+end
+fprintf('[Task6] Overlays saved (NED/ECEF/BODY). Using %s quaternion: %d\n', ...
+    quatType, ~isempty(q_hist));
 
 if exist('Task_7.m','file')
     Task_7();
@@ -127,3 +240,55 @@ end
 
 fprintf('TRIAD processing complete for %s\n', cfg.dataset_id);
 end
+
+function t = extractTimeVec(T)
+    t = [];
+    for c = T.Properties.VariableNames
+        nm = lower(c{1});
+        if any(strcmp(nm, {'time','t','posix_time','sec','seconds'}))
+            t = T.(c{1}); t = t(:); return;
+        end
+    end
+    t = (0:height(T)-1)'; % fallback
+end
+
+function [P,V] = extractECEF(T)
+    P=[]; V=[];
+    cx = findCol(T, {'pos_ecef_x','ecef_x','x_ecef','x'});
+    cy = findCol(T, {'pos_ecef_y','ecef_y','y_ecef','y'});
+    cz = findCol(T, {'pos_ecef_z','ecef_z','z_ecef','z'});
+    if ~isempty(cx)&&~isempty(cy)&&~isempty(cz)
+        P = [T.(cx), T.(cy), T.(cz)];
+    end
+    vx = findCol(T, {'vel_ecef_x','vx_ecef','ecef_vx','vx'});
+    vy = findCol(T, {'vel_ecef_y','vy_ecef','ecef_vy','vy'});
+    vz = findCol(T, {'vel_ecef_z','vz_ecef','ecef_vz','vz'});
+    if ~isempty(vx)&&~isempty(vy)&&~isempty(vz)
+        V = [T.(vx), T.(vy), T.(vz)];
+    end
+end
+
+function [P,V] = extractNED(T)
+    P=[]; V=[];
+    cn = findCol(T, {'pos_n','ned_n','north'});
+    ce = findCol(T, {'pos_e','ned_e','east'});
+    cd = findCol(T, {'pos_d','ned_d','down'});
+    if ~isempty(cn)&&~isempty(ce)&&~isempty(cd)
+        P = [T.(cn), T.(ce), T.(cd)];
+    end
+    vn = findCol(T, {'vel_n','ned_vn','vn','north_vel'});
+    ve = findCol(T, {'vel_e','ned_ve','ve','east_vel'});
+    vd = findCol(T, {'vel_d','ned_vd','vd','down_vel'});
+    if ~isempty(vn)&&~isempty(ve)&&~isempty(vd)
+        V = [T.(vn), T.(ve), T.(vd)];
+    end
+end
+
+function nm = findCol(T, cand)
+    nm = '';
+    for k=1:numel(cand)
+        idx = find(strcmpi(T.Properties.VariableNames, cand{k}), 1);
+        if ~isempty(idx), nm = T.Properties.VariableNames{idx}; return; end
+    end
+end
+

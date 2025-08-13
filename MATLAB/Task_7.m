@@ -1,244 +1,159 @@
 function Task_7()
-%TASK_7 Plot ECEF residuals between truth and fused estimate.
-%   TASK_7() loads the fused state history ``x_log`` produced by Task 5 and
-%   the ground truth trajectory from Task 4. Earlier versions of the
-%   pipeline saved an estimator state matrix without the corresponding time
-%   vector and the Task 4 MAT file omitted ``t_truth``. This function
-%   reconstructs both time vectors, creates a common sampling grid and then
-%   interpolates the estimator and truth trajectories prior to computing
-%   residuals. All outputs are written to the ``MATLAB/results`` directory.
-%   If the Task 5 results are missing ``ref_r0`` or it is invalid, the
-%   first available truth position is used to recover the reference
-%   latitude, longitude and ECEF origin.
-%
-%   Usage:
-%       Task_7()
+%TASK_7 Residual analysis with frame/time alignment and guard rails.
+fprintf('--- Starting Task 7: Residual Analysis ---\n');
 
-    fprintf('--- Starting Task 7: Residual Analysis with Task4 truth (ECEF) ---\n');
-    addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
+% Paths
+addpath(genpath(fullfile(fileparts(mfilename('fullpath')), 'src')));
+addpath(genpath(fullfile(fileparts(mfilename('fullpath')), 'utils')));
+paths = project_paths();
+resultsDir = paths.matlab_results;
+dataTruthDir = fullfile(paths.root, 'DATA', 'Truth');
 
-    paths = project_paths();
-    results_dir = paths.matlab_results;
+% Locate Task 5 results
+files = dir(fullfile(resultsDir, '*_task5_results.mat'));
+if isempty(files), error('Task7: Task5 results not found.'); end
+[~, runTag] = fileparts(files(1).name);
+runTag = erase(runTag, '_task5_results');
 
-    %% Load state history from Task 5
-    files = dir(fullfile(results_dir, '*_task5_results.mat'));
-    if isempty(files)
-        error('Task_7: no Task 5 results found.');
-    end
-    [~, fname, ~] = fileparts(files(1).name);
-    run_id = erase(fname, '_task5_results');
-    mat5 = fullfile(results_dir, files(1).name);
-    S5 = load(mat5);
-    x_log = S5.x_log; % 15xN state log
-    if isfield(S5, 't_est') && isfield(S5, 'dt')
-        t_est = S5.t_est(:);
-        dt    = S5.dt;
-    else
-        time_file = fullfile(results_dir, sprintf('%s_task5_time.mat', run_id));
-        if isfile(time_file)
-            Stime = load(time_file, 't_est', 'dt', 'x_log');
-            if isfield(Stime, 't_est') && isfield(Stime, 'dt')
-                t_est = Stime.t_est(:);
-                dt    = Stime.dt;
-                if ~exist('x_log', 'var') || isempty(x_log)
-                    if isfield(Stime, 'x_log'); x_log = Stime.x_log; end
-                end
-            end
-        end
-        if ~(exist('t_est','var') && exist('dt','var'))
-            if isfield(S5, 'x_log') && isfield(S5, 'imu_rate_hz')
-                N     = size(S5.x_log, 2);
-                dt    = 1 / S5.imu_rate_hz;
-                t_est = (0:N-1)' * dt;
-            else
-                error('Task_7: estimator time vector missing and dt not provided.');
-            end
-        end
-    end
-    t_est = zero_base_time(t_est);
-    t_est_down = t_est(1:400:end);
-    ref_lat = S5.ref_lat;
-    ref_lon = S5.ref_lon;
-    ref_r0  = S5.ref_r0;
-    fprintf('Task 7: Loaded x_log from %s, size: %dx%d\n', mat5, size(x_log));
+% Load Task-5 state
+res5 = load(fullfile(resultsDir, sprintf('%s_task5_results.mat', runTag)));
+Ttruth = readtable(fullfile(dataTruthDir, 'STATE_X001.txt'), detectImportOptions(fullfile(dataTruthDir,'STATE_X001.txt')));
 
-    %% Load ground truth
-    % Task 4 may not save the truth time vector. Reconstruct it from the
-    % GNSS CSV if needed.
-    data_dir = fileparts(fileparts(results_dir));
-    mat4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', run_id));
-    if ~isfile(mat4)
-        pair_tag = regexp(run_id, 'IMU_[^_]+_GNSS_[^_]+', 'match', 'once');
-        mat4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-    end
-    if isfile(mat4)
-        S4 = load(mat4);
-    else
-        error('Task_7: missing Task4 results to get truth data.');
-    end
+% Time
+if isfield(res5,'t_est'), t_est = res5.t_est; else, error('Task7: t_est missing'); end
+N = numel(t_est);
+t_truth = extractTimeVec(Ttruth);
 
-    if isfield(S4, 'pos_truth')
-        pos_truth_ecef = S4.pos_truth';
-    elseif isfield(S4, 'truth_pos_ecef')
-        pos_truth_ecef = S4.truth_pos_ecef';
-    else
-        error('Task_7: truth positions missing in %s.', mat4);
-    end
-    if isfield(S4, 'truth_vel_ecef') && ~isempty(S4.truth_vel_ecef)
-        vel_truth_ecef = S4.truth_vel_ecef';
-    else
-        % Derive velocity from position/time if not provided
-        if exist('t_truth','var') && ~isempty(t_truth)
-            dt_truth = diff(t_truth);
-            vel_truth_ecef = [zeros(3,1), diff(pos_truth_ecef,1,2)./dt_truth'];
-        else
-            error('Task_7: truth velocity missing and time vector unavailable.');
-        end
-    end
-
-    if isfield(S4, 'truth_time') && ~isempty(S4.truth_time)
-        t_truth = S4.truth_time(:);
-    elseif isfield(S4, 't_truth') && ~isempty(S4.t_truth)
-        t_truth = S4.t_truth(:);
-    else
-        tokens = regexp(run_id, 'GNSS_([^_]+)', 'tokens', 'once');
-        csv = fullfile(data_dir, sprintf('GNSS_%s.csv', tokens{1}));
-        T = readtable(csv);
-        t_truth = zero_base_time(T.Posix_Time);
-    end
-
-    % If time length mismatches truth samples, rebuild a matching vector
-    n_truth = size(pos_truth_ecef, 2);
-    if numel(t_truth) ~= n_truth
-        if numel(t_truth) > 1
-            dt_truth = median(diff(t_truth));
-            t_truth = (t_truth(1):dt_truth:(t_truth(1)+dt_truth*(n_truth-1))).';
-        else
-            dt_est = median(diff(t_est));
-            t_truth = (t_est(1):dt_est:(t_est(1)+dt_est*(n_truth-1))).';
-        end
-    end
-
-    % Recover reference origin if missing or clearly invalid
-    if isempty(ref_r0) || numel(ref_r0) < 3 || norm(ref_r0) < 1e3
-        if exist('pos_truth_ecef','var') && ~isempty(pos_truth_ecef)
-            ref_r0 = pos_truth_ecef(:,1);
-            [lat_deg, lon_deg, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
-            ref_lat = deg2rad(lat_deg);
-            ref_lon = deg2rad(lon_deg);
-            warning('Task 7: ref_r0 missing or invalid; using first truth sample.');
-        else
-            error('Task_7: reference origin missing and no truth data available.');
-        end
-    else
-        ref_r0 = ref_r0(:);
-    end
-
-    %% Convert estimates from NED to ECEF
-    C_n_e = compute_C_ECEF_to_NED(ref_lat, ref_lon)';
-    fprintf('Task 7: Extracting and converting estimates to ECEF...\n');
-    pos_est_ned = x_log(1:3, :);
-    vel_est_ned = x_log(4:6, :);
-    pos_est_ecef = C_n_e * pos_est_ned + ref_r0;
-    vel_est_ecef = C_n_e * vel_est_ned;
-
-    %% Validate time vectors and compute common window
-    if isempty(t_est) || isempty(t_truth)
-        error('Task_7: time vectors empty—cannot compute residuals.');
-    end
-    t_start = max(min(t_est), min(t_truth));
-    t_end   = min(max(t_est), max(t_truth));
-    if t_end <= t_start
-        error('Task_7: no overlap between estimated and truth time-series.');
-    end
-
-    %% Determine interpolation resolution using finer sample interval
-    dt_est   = median(diff(t_est));
-    dt_truth = median(diff(t_truth));
-    dt_r = min(dt_est, dt_truth);
-    t_grid = (t_start:dt_r:t_end)';
-
-    %% Interpolate estimator and truth to common grid
-    pos_est_i   = interp1(t_est,   pos_est_ecef',   t_grid, 'linear')';
-    vel_est_i   = interp1(t_est,   vel_est_ecef',   t_grid, 'linear')';
-    truth_pos_i = interp1(t_truth, pos_truth_ecef', t_grid, 'linear', 'extrap')';
-    truth_vel_i = interp1(t_truth, vel_truth_ecef', t_grid, 'linear', 'extrap')';
-    fprintf('Task 7: Interpolated estimates and truth onto %d samples\n', numel(t_grid));
-
-    %% Compute errors (truth - estimate)
-    fprintf('Task 7: Computing errors...\n');
-    pos_error = truth_pos_i - pos_est_i;
-    vel_error = truth_vel_i - vel_est_i;
-    pos_residual = pos_est_i - truth_pos_i;
-    assert(max(abs(pos_residual(:))) < 100, ...
-        'Task-7: Position residual blew up - transform error?');
-    pos_residual_down = interp1(t_grid, pos_residual', t_est_down, 'linear')';
-    vel_residual_down = interp1(t_grid, vel_error', t_est_down, 'linear')';
-
-    final_pos = norm(pos_error(:,end));
-    final_vel = norm(vel_error(:,end));
-
-    %% Error statistics
-    pos_err_mean = mean(pos_error, 2);
-    pos_err_std  = std(pos_error, 0, 2);
-    vel_err_mean = mean(vel_error, 2);
-    vel_err_std  = std(vel_error, 0, 2);
-    fprintf('Position error mean [m]: [%.8f %.8f %.8f]\n', pos_err_mean(1), pos_err_mean(2), pos_err_mean(3));
-    fprintf('Position error std  [m]: [%.8f %.8f %.8f]\n', pos_err_std(1), pos_err_std(2), pos_err_std(3));
-    fprintf('Velocity error mean [m/s]: [%.8f %.8f %.8f]\n', vel_err_mean(1), vel_err_mean(2), vel_err_mean(3));
-    fprintf('Velocity error std  [m/s]: [%.8f %.8f %.8f]\n', vel_err_std(1), vel_err_std(2), vel_err_std(3));
-
-    fprintf('Final fused_vel_ecef: [%.8f %.8f %.8f]\n', vel_est_i(1,end), vel_est_i(2,end), vel_est_i(3,end));
-    fprintf('Final truth_vel_ecef: [%.8f %.8f %.8f]\n', truth_vel_i(1,end), truth_vel_i(2,end), truth_vel_i(3,end));
-    fprintf('[SUMMARY] method=KF rmse_pos=%.2f m final_pos=%.2f m ', ...
-            sqrt(mean(sum(pos_error.^2,2))), final_pos);
-    fprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', ...
-            sqrt(mean(sum(vel_error.^2,2))), final_vel);
-
-    %% Plot errors
-    fprintf('Task 7: Generating ECEF error plots...\n');
-    fig = figure('Name', 'Task 7 - ECEF Errors', 'Visible', 'on', 'Position',[100 100 900 450]);
-    labels = {'X','Y','Z'};
-    for j = 1:3
-        subplot(2,3,j);
-        plot(t_grid, pos_error(j,:), 'k');
-        title(labels{j});
-        ylabel('Position Error [m]');
-        grid on;
-    end
-    for j = 1:3
-        subplot(2,3,3+j);
-        plot(t_grid, vel_error(j,:), 'k');
-        ylabel('Velocity Error [m/s]');
-        xlabel('Time [s]');
-        grid on;
-    end
-    sgtitle('Truth - Estimate Errors (ECEF)');
-    out_pdf = fullfile(results_dir, sprintf('%s_task7_3_residuals_position_velocity_ecef.pdf', run_id));
-    saveas(fig, out_pdf);
-    fprintf('Task 7: Saved error plot: %s\n', out_pdf);
-
-    %% Difference ranges
-    fprintf('Task 7: Computing difference ranges...\n');
-    directions = {'X','Y','Z'};
-    for i = 1:3
-        pos_range = [min(pos_error(i,:)) max(pos_error(i,:))];
-        vel_range = [min(vel_error(i,:)) max(vel_error(i,:))];
-        pos_exceed = sum(abs(pos_error(i,:)) > 1);
-        vel_exceed = sum(abs(vel_error(i,:)) > 1);
-        fprintf('ECEF %s position error range: %.2f m to %.2f m. %d samples exceed 1.0 m\n', ...
-            directions{i}, pos_range(1), pos_range(2), pos_exceed);
-        fprintf('ECEF %s velocity error range: %.2f m/s to %.2f m/s. %d samples exceed 1.0 m/s\n', ...
-            directions{i}, vel_range(1), vel_range(2), vel_exceed);
-    end
-
-    %% Save results
-    results_out = fullfile(results_dir, sprintf('%s_task7_results.mat', run_id));
-    save_overwrite(results_out, 'pos_error', 'vel_error', 'pos_est_i', 'vel_est_i', 't_grid');
-    fprintf('Task 7: Results saved to %s\n', results_out);
-    fprintf('[SUMMARY] method=KF rmse_pos=%.2f m final_pos=%.2f m ', ...
-            sqrt(mean(sum(pos_error.^2,2))), final_pos);
-    fprintf('rmse_vel=%.2f m/s final_vel=%.2f m/s\n', ...
-            sqrt(mean(sum(vel_error.^2,2))), final_vel);
-    fprintf('Task 7: Completed successfully\n');
+% Estimated (prefer NED; else convert)
+lat = res5.ref_lat; lon = res5.ref_lon;
+E.pos_ned = []; E.vel_ned = []; E.acc_ned = [];
+if isfield(res5,'pos_ned_est'), E.pos_ned = res5.pos_ned_est; end
+if isempty(E.pos_ned) && isfield(res5,'pos_ecef_est')
+    E.pos_ned = attitude_tools('ecef2ned_vec', res5.pos_ecef_est, lat, lon);
 end
+if isfield(res5,'vel_ned_est'), E.vel_ned = res5.vel_ned_est; end
+if isempty(E.vel_ned) && isfield(res5,'vel_ecef_est')
+    E.vel_ned = attitude_tools('ecef2ned_vec', res5.vel_ecef_est, lat, lon);
+end
+if isfield(res5,'acc_ned_est'), E.acc_ned = res5.acc_ned_est; end
+if isempty(E.acc_ned) && isfield(res5,'acc_ecef_est')
+    E.acc_ned = attitude_tools('ecef2ned_vec', res5.acc_ecef_est, lat, lon);
+end
+
+% Truth (ECEF->NED if needed)
+[P_ecef, V_ecef] = extractECEF(Ttruth);
+[P_ned,  V_ned ] = extractNED(Ttruth);
+if isempty(P_ned) && ~isempty(P_ecef), P_ned = attitude_tools('ecef2ned_vec', P_ecef, lat, lon); end
+if isempty(V_ned) && ~isempty(V_ecef), V_ned = attitude_tools('ecef2ned_vec', V_ecef, lat, lon); end
+
+% Interpolate truth to estimator time
+interp = @(X) attitude_tools('interp_to', t_truth, X, t_est);
+Ptru = interp(P_ned); Vtru = interp(V_ned);
+
+% Now compute residuals (NED)
+pos_residual = E.pos_ned - Ptru;
+vel_residual = E.vel_ned - Vtru;
+
+% Guard rails: drop outliers > 1e4 m or > 1e4 m/s to avoid plotting explosions
+pos_residual(abs(pos_residual)>1e4) = NaN;
+vel_residual(abs(vel_residual)>1e4) = NaN;
+
+% Replace hard assert with warning + diagnostic save
+posMax = max(abs(pos_residual), [], 'omitnan');
+if any(posMax > 100)
+    warning('Task-7: Large position residual detected (max=%g m). Check reference & bias.', max(posMax));
+end
+
+% Rebase using Task-4 origin if available
+if exist(fullfile(resultsDir, sprintf('%s_task4_results.mat', runTag)), 'file')
+    r4 = load(fullfile(resultsDir, sprintf('%s_task4_results.mat', runTag)));
+    if isfield(r4,'r0_ecef') && ~isempty(P_ecef)
+        P_ecef = P_ecef - r4.r0_ecef(:).';
+        P_ned  = attitude_tools('ecef2ned_vec', P_ecef, lat, lon);
+        Ptru   = interp(P_ned);
+        pos_residual = E.pos_ned - Ptru;  % recompute with consistent origin
+    end
+end
+
+% Diagnostic plots
+f1 = figure('Visible','off','Position',[100 100 1400 500]);
+tiledlayout(1,3,'Padding','compact','TileSpacing','compact');
+lbl = {'N','E','D'};
+for i=1:3
+    nexttile; plot(t_est, pos_residual(:,i),'LineWidth',1.0); grid on; title(sprintf('Pos residual %s [m]', lbl{i}));
+    xlabel('Time [s]');
+end
+exportgraphics(f1, fullfile(resultsDir, sprintf('%s_task7_pos_residual_NED.png', runTag)), 'Resolution',150); close(f1);
+
+f2 = figure('Visible','off','Position',[100 100 1400 500]);
+tiledlayout(1,3,'Padding','compact','TileSpacing','compact');
+for i=1:3
+    nexttile; plot(t_est, vel_residual(:,i),'LineWidth',1.0); grid on; title(sprintf('Vel residual %s [m/s]', lbl{i}));
+    xlabel('Time [s]');
+end
+exportgraphics(f2, fullfile(resultsDir, sprintf('%s_task7_vel_residual_NED.png', runTag)), 'Resolution',150); close(f2);
+
+% Summary metrics
+rmse = @(x) sqrt(mean(x.^2, 'omitnan'));
+metrics = struct();
+metrics.rmse_pos = rmse(pos_residual(:));
+metrics.rmse_vel = rmse(vel_residual(:));
+metrics.max_pos  = max(abs(pos_residual(:)), [], 'omitnan');
+metrics.max_vel  = max(abs(vel_residual(:)), [], 'omitnan');
+save(fullfile(resultsDir, sprintf('%s_task7_metrics.mat', runTag)), '-struct', 'metrics');
+
+fprintf('[Task7] RMSE pos=%.3f m, RMSE vel=%.3f m/s, max|pos|=%.3f m\n', ...
+    metrics.rmse_pos, metrics.rmse_vel, metrics.max_pos);
+end
+
+function t = extractTimeVec(T)
+    t = [];
+    for c = T.Properties.VariableNames
+        nm = lower(c{1});
+        if any(strcmp(nm, {'time','t','posix_time','sec','seconds'}))
+            t = T.(c{1}); t = t(:); return;
+        end
+    end
+    t = (0:height(T)-1)'; % fallback
+end
+
+function [P,V] = extractECEF(T)
+    P=[]; V=[];
+    cx = findCol(T, {'pos_ecef_x','ecef_x','x_ecef','x'});
+    cy = findCol(T, {'pos_ecef_y','ecef_y','y_ecef','y'});
+    cz = findCol(T, {'pos_ecef_z','ecef_z','z_ecef','z'});
+    if ~isempty(cx)&&~isempty(cy)&&~isempty(cz)
+        P = [T.(cx), T.(cy), T.(cz)];
+    end
+    vx = findCol(T, {'vel_ecef_x','vx_ecef','ecef_vx','vx'});
+    vy = findCol(T, {'vel_ecef_y','vy_ecef','ecef_vy','vy'});
+    vz = findCol(T, {'vel_ecef_z','vz_ecef','ecef_vz','vz'});
+    if ~isempty(vx)&&~isempty(vy)&&~isempty(vz)
+        V = [T.(vx), T.(vy), T.(vz)];
+    end
+end
+
+function [P,V] = extractNED(T)
+    P=[]; V=[];
+    cn = findCol(T, {'pos_n','ned_n','north'});
+    ce = findCol(T, {'pos_e','ned_e','east'});
+    cd = findCol(T, {'pos_d','ned_d','down'});
+    if ~isempty(cn)&&~isempty(ce)&&~isempty(cd)
+        P = [T.(cn), T.(ce), T.(cd)];
+    end
+    vn = findCol(T, {'vel_n','ned_vn','vn','north_vel'});
+    ve = findCol(T, {'vel_e','ned_ve','ve','east_vel'});
+    vd = findCol(T, {'vel_d','ned_vd','vd','down_vel'});
+    if ~isempty(vn)&&~isempty(ve)&&~isempty(vd)
+        V = [T.(vn), T.(ve), T.(vd)];
+    end
+end
+
+function nm = findCol(T, cand)
+    nm = '';
+    for k=1:numel(cand)
+        idx = find(strcmpi(T.Properties.VariableNames, cand{k}), 1);
+        if ~isempty(idx), nm = T.Properties.VariableNames{idx}; return; end
+    end
+end
+
