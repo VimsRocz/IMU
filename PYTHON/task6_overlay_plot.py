@@ -244,9 +244,10 @@ def plot_overlay(
     fig.suptitle(f"{dataset} Task 6 Overlay — {method} ({frame} frame)")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     run_id = f"{dataset}_{method}"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    pdf_path = out_dir / f"{run_id}_task6_overlay_state_{frame}.pdf"
-    png_path = out_dir / f"{run_id}_task6_overlay_state_{frame}.png"
+    run_dir = out_dir / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = run_dir / f"{run_id}_task6_overlay_state_{frame}.pdf"
+    png_path = run_dir / f"{run_id}_task6_overlay_state_{frame}.png"
     fig.savefig(pdf_path)
     fig.savefig(png_path)
     plt.close(fig)
@@ -287,9 +288,11 @@ def plot_rmse(
     ax.set_title(f"{dataset} Task 6 RMSE — {method} ({frame} frame)")
     fig.tight_layout()
 
-    out_dir.mkdir(parents=True, exist_ok=True)
-    pdf_path = out_dir / f"{dataset}_{method}_Task6_{frame}_RMSE.pdf"
-    png_path = out_dir / f"{dataset}_{method}_Task6_{frame}_RMSE.png"
+    run_id = f"{dataset}_{method}"
+    run_dir = out_dir / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = run_dir / f"{run_id}_Task6_{frame}_RMSE.pdf"
+    png_path = run_dir / f"{run_id}_Task6_{frame}_RMSE.png"
     fig.savefig(pdf_path)
     fig.savefig(png_path)
     plt.close(fig)
@@ -383,9 +386,10 @@ def main() -> None:
     )
 
     run_id = f"{args.dataset}_{args.method}"
-    saved = sorted(out_dir.glob(f"{run_id}_task6_*.pdf"))
+    run_dir = out_dir / run_id
+    saved = sorted(run_dir.glob(f"{run_id}_task6_*.pdf"))
     if saved:
-        print("Saved files under", out_dir)
+        print("Saved files under", run_dir)
         for f in saved:
             print(" -", f.name)
 
