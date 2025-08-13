@@ -122,17 +122,23 @@ def measure_body_vectors(
     gyro = butter_lowpass_filter(gyro)
     acc = butter_lowpass_filter(acc)
 
+    drop_n = int(1.0 / dt)
+    acc_trim = acc[drop_n:]
+    gyro_trim = gyro[drop_n:]
+
     if static_start is None:
         static_start, static_end = detect_static_interval(
-            acc,
-            gyro,
+            acc_trim,
+            gyro_trim,
             window_size=80,
             accel_var_thresh=0.01,
             gyro_var_thresh=1e-6,
             min_length=80,
         )
+        static_start += drop_n
+        static_end += drop_n
     else:
-        static_start = max(0, static_start)
+        static_start = max(drop_n, static_start)
         static_end = min(static_end or len(acc), len(acc))
     logging.info(
         "Static interval indices: %d to %d (%d samples)",
