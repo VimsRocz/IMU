@@ -23,6 +23,19 @@ except Exception:
     _HAS_GEOPY = False
 
 
+def ensure_deg_latlon(lat_in, lon_in):
+    lat = float(lat_in)
+    lon = float(lon_in)
+    if abs(lat) <= np.pi + 1e-9 and abs(lon) <= 2 * np.pi + 1e-9:
+        lat = np.degrees(lat)
+        lon = np.degrees(lon)
+    if lon > 180:
+        lon = ((lon + 180) % 360) - 180
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise ValueError(f"Bad lat/lon after conversion: lat={lat}, lon={lon}")
+    return lat, lon
+
+
 def _ecef_to_geodetic_wgs84(x, y, z):
     """Convert ECEF [m] -> (lat, lon, h). Returns lat, lon in radians, h in meters.
     Robust closed-form Bowring method (WGS-84)."""
@@ -119,8 +132,10 @@ def save_task1_worldmap_png(gnss_file: str, run_id: str, out_dir="PYTHON/results
 
     # 1) Get lat/lon sequence, compute representative location
     latlon = _gnss_to_latlon_deg(gnss_file)
-    lat_med = float(np.nanmedian(latlon[:,0]))
-    lon_med = float(np.nanmedian(latlon[:,1]))
+    latlon = np.apply_along_axis(lambda r: ensure_deg_latlon(r[0], r[1]), 1, latlon)
+    lat_med = float(np.nanmedian(latlon[:, 0]))
+    lon_med = float(np.nanmedian(latlon[:, 1]))
+    lat_med, lon_med = ensure_deg_latlon(lat_med, lon_med)
     place = _reverse_geocode(lat_med, lon_med)
 
     # 2) Build figure
@@ -165,7 +180,7 @@ def save_task1_worldmap_png(gnss_file: str, run_id: str, out_dir="PYTHON/results
 
     # 3) Save single PNG
     fig.tight_layout()
-    fig.savefig(out_png, dpi=150)
+    fig.savefig(out_png, dpi=200, bbox_inches="tight")
     plt.close(fig)
     print(f"[Task1] Saved location map -> {out_png}")
     return str(out_png)

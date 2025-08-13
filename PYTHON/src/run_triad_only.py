@@ -541,8 +541,6 @@ def main(argv: Iterable[str] | None = None) -> None:
             str(HERE / "task6_plot_truth.py"),
             "--est-file",
             str(npz_path.with_suffix(".mat")),
-            "--imu-file",
-            str(imu_path),
             "--gnss-file",
             str(gnss_path),
             "--truth-file",
