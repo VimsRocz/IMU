@@ -4,11 +4,25 @@ import json
 import uuid
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
 
 from utils import ecef_to_geodetic
+
+
+def ensure_deg_latlon(lat_in, lon_in):
+    lat = float(lat_in)
+    lon = float(lon_in)
+    if abs(lat) <= np.pi + 1e-9 and abs(lon) <= 2 * np.pi + 1e-9:
+        lat = np.degrees(lat)
+        lon = np.degrees(lon)
+    if lon > 180:
+        lon = ((lon + 180) % 360) - 180
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise ValueError(f"Bad lat/lon after conversion: lat={lat}, lon={lon}")
+    return lat, lon
 
 
 def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run_id: str) -> Path:
@@ -32,19 +46,31 @@ def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    if "Height_deg" in gnss_data.columns and "Height_m" not in gnss_data.columns:
+        gnss_data = gnss_data.rename(columns={"Height_deg": "Height_m"})
+
     if {"Latitude_deg", "Longitude_deg"}.issubset(gnss_data.columns):
-        lat = float(gnss_data.loc[gnss_data["Latitude_deg"].notna()].iloc[0]["Latitude_deg"])
-        lon = float(gnss_data.loc[gnss_data["Longitude_deg"].notna()].iloc[0]["Longitude_deg"])
+        lat_raw = float(
+            gnss_data.loc[gnss_data["Latitude_deg"].notna()].iloc[0]["Latitude_deg"]
+        )
+        lon_raw = float(
+            gnss_data.loc[gnss_data["Longitude_deg"].notna()].iloc[0]["Longitude_deg"]
+        )
     else:
         row = gnss_data.loc[
             (gnss_data["X_ECEF_m"] != 0)
             | (gnss_data["Y_ECEF_m"] != 0)
             | (gnss_data["Z_ECEF_m"] != 0)
         ].iloc[0]
-        lat, lon, _ = ecef_to_geodetic(row["X_ECEF_m"], row["Y_ECEF_m"], row["Z_ECEF_m"])
+        lat_raw, lon_raw, _ = ecef_to_geodetic(
+            row["X_ECEF_m"], row["Y_ECEF_m"], row["Z_ECEF_m"]
+        )
 
-    fig = go.Figure(
-        go.Scattergeo(lat=[lat], lon=[lon], mode="markers", marker=dict(size=10, color="red"))
+    lat_deg, lon_deg = ensure_deg_latlon(lat_raw, lon_raw)
+
+    fig = go.Figure()
+    fig.add_scattergeo(
+        lon=[lon_deg], lat=[lat_deg], mode="markers", marker=dict(size=10, color="red")
     )
     fig.update_layout(
         title="Task 1 — Initial GNSS location",
@@ -63,8 +89,8 @@ def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run
 
     info = {
         "plot_id": uuid.uuid4().hex,
-        "latitude": lat,
-        "longitude": lon,
+        "latitude": lat_deg,
+        "longitude": lon_deg,
     }
     info_path = output_dir / f"{run_id}_task1_location_map_info.json"
     with info_path.open("w", encoding="utf-8") as f:

@@ -34,6 +34,8 @@ if __package__ is None:
     sys.path.insert(1, str(here.parent.parent))
     __package__ = "src"
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -162,7 +164,7 @@ def task3_plot_quaternions_and_errors(
     plt.tight_layout()
 
     quat_path = Path(output_dir) / f"{RUN_ID}_task3_quaternions_{timestamp}.png"
-    plt.savefig(quat_path)
+    plt.savefig(quat_path, dpi=200, bbox_inches="tight")
     print(f"Quaternion comparison plot saved: {quat_path}")
     plt.close(fig)
 
@@ -187,7 +189,7 @@ def task3_plot_quaternions_and_errors(
     plt.tight_layout()
 
     err_path = Path(output_dir) / f"{RUN_ID}_task3_errors_{timestamp}.png"
-    plt.savefig(err_path)
+    plt.savefig(err_path, dpi=200, bbox_inches="tight")
     print(f"Error comparison plot saved: {err_path}")
     plt.close(fig)
 
@@ -361,6 +363,8 @@ def main():
         from task1_reference_vectors import task1_reference_vectors
         try:
             gnss_df = pd.read_csv(gnss_file)
+            if "Height_deg" in gnss_df.columns and "Height_m" not in gnss_df.columns:
+                gnss_df = gnss_df.rename(columns={"Height_deg": "Height_m"})
             png_path = task1_reference_vectors(gnss_df, out_dir, run_id)
         except Exception as ex:
             print(f"Task 1: static map generation failed: {ex}")
@@ -802,6 +806,8 @@ def main():
     logging.info("Subtask 4.3: Loading GNSS data.")
     try:
         gnss_data = pd.read_csv(gnss_file)
+        if "Height_deg" in gnss_data.columns and "Height_m" not in gnss_data.columns:
+            gnss_data = gnss_data.rename(columns={"Height_deg": "Height_m"})
         gnss_data = normalize_gnss_headers(gnss_data)
     except Exception as e:
         logging.error(f"Failed to load GNSS data file: {e}")
@@ -1119,7 +1125,7 @@ def main():
     fig_comp.suptitle(f"Task 4 – {method} – NED Frame (IMU-derived vs. Measured GNSS)")
     fig_comp.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_comparison_ned.pdf")
+        plt.savefig(f"results/{tag}_task4_comparison_ned.png", dpi=200, bbox_inches="tight")
     plt.close()
     logging.info("Comparison plot in NED frame saved")
 
@@ -1157,7 +1163,7 @@ def main():
     )
     fig_mixed.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_mixed_frames.pdf")
+        plt.savefig(f"results/{tag}_task4_mixed_frames.png", dpi=200, bbox_inches="tight")
     plt.close()
     logging.info("Mixed frames plot saved")
 
@@ -1192,7 +1198,7 @@ def main():
     fig_ned.suptitle(f"Task 4 – {method} – NED Frame (IMU-derived vs. Measured GNSS)")
     fig_ned.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_all_ned.pdf")
+        plt.savefig(f"results/{tag}_task4_all_ned.png", dpi=200, bbox_inches="tight")
     plt.close()
     logging.info("All data in NED frame plot saved")
 
@@ -1246,7 +1252,7 @@ def main():
     fig_ecef.suptitle(f"Task 4 – {method} – ECEF Frame (IMU-derived vs. Measured GNSS)")
     fig_ecef.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_all_ecef.pdf")
+        plt.savefig(f"results/{tag}_task4_all_ecef.png", dpi=200, bbox_inches="tight")
     plt.close()
     logging.info("All data in ECEF frame plot saved")
 
@@ -1282,7 +1288,7 @@ def main():
     fig_body.suptitle(f"Task 4 – {method} – Body Frame (IMU-derived vs. Measured GNSS)")
     fig_body.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_all_body.pdf")
+        plt.savefig(f"results/{tag}_task4_all_body.png", dpi=200, bbox_inches="tight")
     plt.close()
     logging.info("All data in body frame plot saved")
 
@@ -1309,6 +1315,8 @@ def main():
     logging.info("Subtask 5.3: Loading GNSS and IMU data.")
     try:
         gnss_data = pd.read_csv(gnss_file)
+        if "Height_deg" in gnss_data.columns and "Height_m" not in gnss_data.columns:
+            gnss_data = gnss_data.rename(columns={"Height_deg": "Height_m"})
         gnss_data = normalize_gnss_headers(gnss_data)
         imu_data = pd.read_csv(imu_file, sep=r"\s+", header=None)
     except FileNotFoundError as e:
@@ -1711,12 +1719,12 @@ def main():
         )
 
     plt.tight_layout()
-    out_pdf = f"results/{tag}_task5_results_{method}.pdf"
+    out_png = f"results/{tag}_task5_results_{method}.png"
     if not args.no_plots:
-        save_plot(fig, out_pdf, f"Task 5: Kalman Filter Results — {tag}")
-    logging.info(f"Subtask 5.8.2: {method} plot saved as '{out_pdf}'")
+        save_plot(fig, out_png, f"Task 5: Kalman Filter Results — {tag}")
+    logging.info(f"Subtask 5.8.2: {method} plot saved as '{out_png}'")
     logging.debug(
-        f"# Subtask 5.8.2: {method} plotting completed. Saved as '{out_pdf}'."
+        f"# Subtask 5.8.2: {method} plotting completed. Saved as '{out_png}'."
     )
 
     # Plot fused data in mixed reference frames
@@ -1774,7 +1782,7 @@ def main():
     )
     fig_mixed_fused.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_mixed_frames.pdf")
+        plt.savefig(f"results/{tag}_task5_mixed_frames.png", dpi=200, bbox_inches="tight")
     plt.close()
     logging.info("Fused mixed frames plot saved")
 
@@ -1826,7 +1834,7 @@ def main():
     fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused vs. Measured GNSS)")
     fig_ned_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_ned.pdf")
+        plt.savefig(f"results/{tag}_task5_all_ned.png", dpi=200, bbox_inches="tight")
     plt.close()
     logging.info("All data in NED frame plot saved")
 
@@ -1888,7 +1896,7 @@ def main():
     fig_ecef_all.suptitle(f"Task 5 – {method} – ECEF Frame (Fused vs. Measured GNSS)")
     fig_ecef_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_ecef.pdf")
+        plt.savefig(f"results/{tag}_task5_all_ecef.png", dpi=200, bbox_inches="tight")
     plt.close()
     logging.info("All data in ECEF frame plot saved")
 
@@ -1948,7 +1956,7 @@ def main():
     fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused vs. Measured GNSS)")
     fig_body_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_body.pdf")
+        plt.savefig(f"results/{tag}_task5_all_body.png", dpi=200, bbox_inches="tight")
     plt.close()
     logging.info("All data in body frame plot saved")
 
@@ -1966,38 +1974,38 @@ def main():
     ax_innov[-1].set_xlabel("GNSS update index")
     fig_innov.suptitle("Task 5 – Pre-fit Innovations (Fused vs. Measured GNSS)")
     fig_innov.tight_layout()
-    innov_pdf = f"results/{tag}_{method.lower()}_innovations.pdf"
+    innov_pdf = f"results/{tag}_{method.lower()}_innovations.png"
     if not args.no_plots:
         save_plot(fig_innov, innov_pdf, "Pre-fit Innovations")
 
     # Plot residuals and attitude using helper functions
     if not args.no_plots:
         res = compute_residuals(gnss_time, gnss_pos_ned, imu_time, fused_pos[method])
-        plot_residuals(gnss_time, res, f"results/residuals_{tag}_{method}.pdf")
+        plot_residuals(gnss_time, res, f"results/residuals_{tag}_{method}.png")
         plot_attitude(
             imu_time,
             attitude_q_all[method],
-            f"results/attitude_angles_{tag}_{method}.pdf",
+            f"results/attitude_angles_{tag}_{method}.png",
         )
 
     # Create plot summary
     summary = {
         f"{run_id}_task1_location_map.png": "Task 1 location map",
-        f"{tag}_task3_errors_comparison.pdf": "Attitude initialization error comparison",
-        f"{tag}_task3_quaternions_comparison.pdf": "Quaternion components for initialization",
-        f"{tag}_task4_comparison_ned.pdf": "GNSS vs IMU data in NED frame",
-        f"{tag}_task4_mixed_frames.pdf": "GNSS/IMU data in mixed frames",
-        f"{tag}_task4_all_ned.pdf": "Integrated data in NED frame",
-        f"{tag}_task4_all_ecef.pdf": "Integrated data in ECEF frame",
-        f"{tag}_task4_all_body.pdf": "Integrated data in body frame",
-        f"{tag}_task5_results_{method}.pdf": f"Kalman filter results using {method}",
-        f"{tag}_task5_mixed_frames.pdf": "Kalman filter results in mixed frames",
-        f"{tag}_task5_all_ned.pdf": "Kalman filter results in NED frame",
-        f"{tag}_task5_all_ecef.pdf": "Kalman filter results in ECEF frame",
-        f"{tag}_task5_all_body.pdf": "Kalman filter results in body frame",
-        f"{tag}_{method.lower()}_residuals.pdf": "Position and velocity residuals",
-        f"{tag}_{method.lower()}_innovations.pdf": "Pre-fit innovations",
-        f"{tag}_{method.lower()}_attitude_angles.pdf": "Attitude angles over time",
+        f"{tag}_task3_errors_comparison.png": "Attitude initialization error comparison",
+        f"{tag}_task3_quaternions_comparison.png": "Quaternion components for initialization",
+        f"{tag}_task4_comparison_ned.png": "GNSS vs IMU data in NED frame",
+        f"{tag}_task4_mixed_frames.png": "GNSS/IMU data in mixed frames",
+        f"{tag}_task4_all_ned.png": "Integrated data in NED frame",
+        f"{tag}_task4_all_ecef.png": "Integrated data in ECEF frame",
+        f"{tag}_task4_all_body.png": "Integrated data in body frame",
+        f"{tag}_task5_results_{method}.png": f"Kalman filter results using {method}",
+        f"{tag}_task5_mixed_frames.png": "Kalman filter results in mixed frames",
+        f"{tag}_task5_all_ned.png": "Kalman filter results in NED frame",
+        f"{tag}_task5_all_ecef.png": "Kalman filter results in ECEF frame",
+        f"{tag}_task5_all_body.png": "Kalman filter results in body frame",
+        f"{tag}_{method.lower()}_residuals.png": "Position and velocity residuals",
+        f"{tag}_{method.lower()}_innovations.png": "Pre-fit innovations",
+        f"{tag}_{method.lower()}_attitude_angles.png": "Attitude angles over time",
     }
     summary_path = os.path.join("results", f"{tag}_plot_summary.md")
     with open(summary_path, "w") as f:
@@ -2041,9 +2049,7 @@ def main():
         plt.legend(loc="best")
         plt.title(f"Task 6: {tag} Attitude Angles")
         png = Path("results") / f"{tag}_task6_attitude_angles.png"
-        pdf = png.with_suffix(".pdf")
-        plt.savefig(png)
-        plt.savefig(pdf)
+        plt.savefig(png, dpi=200, bbox_inches="tight")
         plt.close()
 
     C_NED_to_ECEF = C_ECEF_to_NED.T
