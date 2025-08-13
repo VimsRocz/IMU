@@ -236,11 +236,11 @@ def main(argv: Iterable[str] | None = None) -> None:
     if args.truth:
         truth_path = Path(args.truth)
     else:
-        truth_path = _truth_path_helper("STATE_X001.txt")
-    if not truth_path.exists():
-        alt = resolve_truth_path()
-        if alt:
-            truth_path = Path(alt)
+        truth_path = _truth_path_helper(f"STATE_{args.dataset}.txt")
+        if not truth_path.exists():
+            alt = resolve_truth_path()
+            if alt:
+                truth_path = Path(alt)
     logger.info(
         "Resolved input files: imu=%s gnss=%s truth=%s", imu_path, gnss_path, truth_path
     )
