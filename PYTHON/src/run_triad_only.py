@@ -253,6 +253,10 @@ def main(argv: Iterable[str] | None = None) -> None:
             alt = resolve_truth_path()
             if alt:
                 truth_path = Path(alt)
+    if truth_path and not truth_path.exists():
+        logger.warning("Truth file not found: %s; continuing without truth-based tasks", truth_path)
+        print(f"Truth file not found: {truth_path}; continuing without truth-based tasks.")
+        truth_path = None
     logger.info(
         "Resolved input files: imu=%s gnss=%s truth=%s", imu_path, gnss_path, truth_path
     )
@@ -270,15 +274,19 @@ def main(argv: Iterable[str] | None = None) -> None:
     for p in (imu_path, gnss_path):
         if not Path(p).exists():
             raise FileNotFoundError(f"Required input not found: {p}")
-    if truth_path and not Path(truth_path).exists():
-        raise FileNotFoundError(f"Truth file not found: {truth_path}")
 
     run_id_str = run_id(str(imu_path), str(gnss_path), method)
     log_path = results_dir / f"{run_id_str}.log"
     print(f"\u25b6 {run_id_str}")
 
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
-    print_timeline(run_id_str, str(imu_path), str(gnss_path), str(truth_path), out_dir=str(results_dir))
+    print_timeline(
+        run_id_str,
+        str(imu_path),
+        str(gnss_path),
+        str(truth_path) if truth_path else None,
+        out_dir=str(results_dir),
+    )
 
     if logger.isEnabledFor(logging.DEBUG):
         try:
@@ -535,7 +543,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         meta = {
             "imu_file": str(imu_path),
             "gnss_file": str(gnss_path),
-            "truth_file": str(truth_path) if truth_path.exists() else None,
+            "truth_file": str(truth_path) if (truth_path and truth_path.exists()) else None,
             "imu_rate_hz": _infer_rate(t_imu) or args.imu_rate,
             "gnss_rate_hz": args.gnss_rate,
             "truth_rate_hz": args.truth_rate,
@@ -547,7 +555,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     # Task 6: Truth overlay plots
     # ----------------------------
     truth_file = truth_path
-    if truth_file.exists():
+    if truth_file and truth_file.exists():
         # Reuse already-computed lat/lon from Task 1/4
         computed_lat_deg = float(math.degrees(ref_lat))
         computed_lon_deg = float(math.degrees(ref_lon))
