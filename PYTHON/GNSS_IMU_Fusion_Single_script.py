@@ -618,8 +618,8 @@ if q_truth is not None:
     ax.set_xticklabels(labels)
     ax.set_ylabel("Quaternion Component")
     ax.set_title("Task 3: Quaternion Comparison")
-    ax.legend()
-    plt.tight_layout()
+    ax.legend(loc="upper left", bbox_to_anchor=(1, 1))
+    fig.tight_layout()
     plt.savefig(RES_DIR / f"{TAG}_task3_errors_comparison.png")
     if INTERACTIVE:
         plt.show()

@@ -160,8 +160,8 @@ def task3_plot_quaternions_and_errors(
     ax.set_ylabel("Quaternion Value")
     ax.set_ylim(-1, 1)
     ax.set_title("Task 3: Quaternion Components by Method and Case")
-    ax.legend(loc="best")
-    plt.tight_layout()
+    ax.legend(loc="upper left", bbox_to_anchor=(1, 1))
+    fig.tight_layout()
 
     quat_path = Path(output_dir) / f"{RUN_ID}_task3_quaternions_{timestamp}.png"
     plt.savefig(quat_path, dpi=200, bbox_inches="tight")
