@@ -30,7 +30,16 @@ def save_task2_summary_png(
     time = imu_data[:, 1]
     gyro = imu_data[:, 2:5]
     acc = imu_data[:, 5:8]
-    t = time - time[0]
+
+    if len(time) > 1:
+        dt_candidates = np.diff(time[: min(400, len(time))])
+        dt = float(np.mean(dt_candidates[dt_candidates > 0]))
+    else:
+        dt = 1.0 / 400.0
+
+    t = np.arange(len(time)) * dt
+    gyro = gyro / dt
+    acc = acc / dt
     acc_norm = np.linalg.norm(acc, axis=1)
     gyro_norm = np.linalg.norm(gyro, axis=1)
 
@@ -81,8 +90,14 @@ def task2_measure_body_vectors(
         acc_cols = ["accel_x", "accel_y", "accel_z"]
         gyro_cols = ["gyro_x", "gyro_y", "gyro_z"]
         static_df = imu_data.iloc[start:end]
-        acc = static_df[acc_cols].to_numpy()
-        gyro = static_df[gyro_cols].to_numpy()
+        time = imu_data["time"].to_numpy()
+        if len(time) > 1:
+            dt_candidates = np.diff(time[: min(400, len(time))])
+            dt = float(np.mean(dt_candidates[dt_candidates > 0]))
+        else:
+            dt = 1.0 / 400.0
+        acc = static_df[acc_cols].to_numpy() / dt
+        gyro = static_df[gyro_cols].to_numpy() / dt
         g_body = -np.mean(acc, axis=0)
         omega_ie_body = np.mean(gyro, axis=0)
         acc_err = np.std(acc, axis=0)

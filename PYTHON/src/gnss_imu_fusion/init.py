@@ -113,7 +113,8 @@ def measure_body_vectors(
     acc = data[:, 5:8]
 
     if len(time) > 1:
-        dt = float(np.mean(np.diff(time[:100])))
+        dt_candidates = np.diff(time[: min(400, len(time))])
+        dt = float(np.mean(dt_candidates[dt_candidates > 0]))
     else:
         dt = 1.0 / 400.0
     gyro /= dt
@@ -191,7 +192,7 @@ def measure_body_vectors(
 
     # Plot accelerometer and gyroscope norms with static interval highlighted
     try:
-        t = time - time[0]
+        t = np.arange(len(time)) * dt
         acc_norm = np.linalg.norm(acc, axis=1)
         gyro_norm = np.linalg.norm(gyro, axis=1)
         fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
