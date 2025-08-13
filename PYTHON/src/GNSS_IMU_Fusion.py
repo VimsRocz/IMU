@@ -50,7 +50,7 @@ from paths import (
     PY_RES_DIR,
 )
 from task1_cache import save_task1_artifacts
-from task2_plot import save_task2_summary_png
+from task2_plot import save_task2_summary_png, task2_measure_body_vectors
 from utils.run_id import run_id as make_run_id
 from utils import (
     is_static,
@@ -403,6 +403,25 @@ def main():
                 out_dir,
             )
             print(f"Task 2: saved summary PNG -> {png_path}")
+
+            columns = [
+                "index",
+                "time",
+                "gyro_x",
+                "gyro_y",
+                "gyro_z",
+                "accel_x",
+                "accel_y",
+                "accel_z",
+                "temp",
+                "status",
+            ][: imu_data.shape[1]]
+            imu_df = pd.DataFrame(imu_data, columns=columns)
+            task2_measure_body_vectors(
+                imu_df,
+                (static_start, static_end),
+                out_dir,
+            )
         except Exception as ex:  # pragma: no cover - plotting is best effort
             print(f"Task 2: summary PNG failed: {ex}")
     else:
