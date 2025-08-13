@@ -50,12 +50,30 @@ def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run
         gnss_data = gnss_data.rename(columns={"Height_deg": "Height_m"})
 
     if {"Latitude_deg", "Longitude_deg"}.issubset(gnss_data.columns):
-        lat_raw = float(
-            gnss_data.loc[gnss_data["Latitude_deg"].notna()].iloc[0]["Latitude_deg"]
+        # Some of the provided GNSS files contain zero-filled latitude/longitude
+        # columns.  Treat rows where both coordinates are zero as invalid so
+        # that we fall back to the ECEF-derived location instead.
+        valid = (
+            gnss_data["Latitude_deg"].notna()
+            & gnss_data["Longitude_deg"].notna()
+            & (
+                (gnss_data["Latitude_deg"].abs() > 1e-9)
+                | (gnss_data["Longitude_deg"].abs() > 1e-9)
+            )
         )
-        lon_raw = float(
-            gnss_data.loc[gnss_data["Longitude_deg"].notna()].iloc[0]["Longitude_deg"]
-        )
+        if valid.any():
+            row = gnss_data.loc[valid].iloc[0]
+            lat_raw = float(row["Latitude_deg"])
+            lon_raw = float(row["Longitude_deg"])
+        else:
+            row = gnss_data.loc[
+                (gnss_data["X_ECEF_m"] != 0)
+                | (gnss_data["Y_ECEF_m"] != 0)
+                | (gnss_data["Z_ECEF_m"] != 0)
+            ].iloc[0]
+            lat_raw, lon_raw, _ = ecef_to_geodetic(
+                row["X_ECEF_m"], row["Y_ECEF_m"], row["Z_ECEF_m"]
+            )
     else:
         row = gnss_data.loc[
             (gnss_data["X_ECEF_m"] != 0)

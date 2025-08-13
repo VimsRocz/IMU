@@ -81,7 +81,12 @@ def _gnss_to_latlon_deg(gnss_file: str) -> np.ndarray:
                 try:
                     lat = float(row["Latitude_deg"])
                     lon = float(row["Longitude_deg"])
-                    if np.isfinite(lat) and np.isfinite(lon):
+                    # Ignore obviously invalid zero-filled coordinates
+                    if (
+                        np.isfinite(lat)
+                        and np.isfinite(lon)
+                        and (abs(lat) > 1e-9 or abs(lon) > 1e-9)
+                    ):
                         latlon.append([lat, lon])
                 except Exception:
                     continue
