@@ -285,9 +285,9 @@ def main():
         from task1_worldmap_png import save_task1_worldmap_png
         try:
             png_path = save_task1_worldmap_png(gnss_file, run_id, out_dir)
-            print(f"Task 1: saved world map PNG -> {png_path}")
+            print(f"Task 1: saved location map PNG -> {png_path}")
         except Exception as ex:
-            print(f"Task 1: world map PNG failed: {ex}")
+            print(f"Task 1: location map PNG failed: {ex}")
     else:
         logging.info("Skipping plot generation (--no-plots)")
 
@@ -1868,7 +1868,7 @@ def main():
 
     # Create plot summary
     summary = {
-        f"{run_id}_task1_worldmap.png": "Task 1 world map",
+        f"{run_id}_task1_location_map.png": "Task 1 location map",
         f"{tag}_task3_errors_comparison.pdf": "Attitude initialization error comparison",
         f"{tag}_task3_quaternions_comparison.pdf": "Quaternion components for initialization",
         f"{tag}_task4_comparison_ned.pdf": "GNSS vs IMU data in NED frame",
