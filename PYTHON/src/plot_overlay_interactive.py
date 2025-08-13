@@ -278,11 +278,13 @@ def plot_overlay_interactive(
         
         try:
             # Save as PDF (requires kaleido)
-            pdf_file = html_file.with_suffix('.png')
+            pdf_file = html_file.with_suffix('.pdf')
             fig.write_image(str(pdf_file), width=1200, height=800, scale=2)
             print(f"Saved static PDF: {pdf_file}")
         except Exception as e:
-            print(f"Note: Could not save PDF (install kaleido for static export): {e}")
+            print(
+                f"Note: Could not save PDF (install kaleido for static export): {e}"
+            )
 
 
 def create_comparison_dashboard(

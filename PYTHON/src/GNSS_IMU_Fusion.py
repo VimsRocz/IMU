@@ -182,7 +182,9 @@ def plot_task1_map(imu_file: str, gnss_file: str, method: str) -> None:
             )
 
     tag = f"{dataset_label}_{method}_task1_location_map"
-    fig.savefig(PY_RES_DIR / f"{tag}.png", dpi=300)
+    out_path = PY_RES_DIR / f"{tag}.png"
+    fig.savefig(out_path, dpi=300)
+    logging.info("Task 1 plot saved to %s", out_path)
     plt.close(fig)
 
 
@@ -356,6 +358,7 @@ def main():
         static_start=args.static_start,
         static_end=args.static_end,
         mag_file=args.mag_file,
+        tag=tag,
     )
     logging.info(f"Estimated IMU dt: {dt_imu:.6f} s")
     logging.info(f"Gravity vector (body): {g_body}")
