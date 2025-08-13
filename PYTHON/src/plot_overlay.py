@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def plot_overlay_interactive_safe(*args, **kwargs):
+def _plot_overlay_interactive_safe(*args, **kwargs):
     try:
         from plot_overlay_interactive import (
             PLOTLY_AVAILABLE,
@@ -78,7 +78,7 @@ def plot_overlay(
     # Try interactive plotting first if requested
     if interactive:
         try:
-            plot_overlay_interactive_safe(
+            _plot_overlay_interactive_safe(
                 frame=frame,
                 method=method,
                 t_imu=t_imu,

@@ -47,10 +47,6 @@ from tabulate import tabulate
 from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
 from utils import save_mat
-from task6_overlay_all_frames import (
-    run_task6_overlay_all_frames,
-    run_task6_compare_methods_all_frames,
-)
 
 # Import helper utilities from the utils package
 from utils.timeline import print_timeline
@@ -552,53 +548,40 @@ def main(argv: Iterable[str] | None = None) -> None:
     # ----------------------------
     truth_file = truth_path
     if truth_file.exists():
-        out_dir = os.path.join(str(results_dir), run_id_str, "task6")
-        os.makedirs(out_dir, exist_ok=True)
-
         # Reuse already-computed lat/lon from Task 1/4
-        lat_deg = float(math.degrees(ref_lat))
-        lon_deg = float(math.degrees(ref_lon))
+        computed_lat_deg = float(math.degrees(ref_lat))
+        computed_lon_deg = float(math.degrees(ref_lon))
 
-        # Prefer time-varying quaternion if available; fall back to TRIAD quat
-        triad_quat = (
-            quat[0]
-            if "quat" in locals() and quat is not None and len(quat) > 0
-            else np.array([1.0, 0.0, 0.0, 0.0])
-        )
-        q_b2n_const = tuple(triad_quat.tolist())
-
-        kf_output_file = str(npz_path.with_suffix(".mat"))
         with open(log_path, "a") as log:
             log.write("\nTASK 6: Overlay fused output with truth\n")
 
-        run_task6_overlay_all_frames(
-            est_file=kf_output_file,
-            truth_file=str(truth_file.resolve()),
-            output_dir=out_dir,
-            lat_deg=lat_deg,
-            lon_deg=lon_deg,
-            gnss_file=str(gnss_path),
-            q_b2n_const=q_b2n_const,
-        )
-
-        # Methods overlay (auto-discover peer files if present)
-        method_files = {}
+        kf_output_file = str(npz_path.with_suffix(".mat"))
+        gnss_file = str(gnss_path)
+        truth_file = str(truth_path.resolve())
+        src_dir = str(HERE)
+        cmd = [
+            sys.executable, os.path.join(src_dir, 'task6_plot_truth.py'),
+            '--est-file', kf_output_file,
+            '--gnss-file', gnss_file,
+            '--truth-file', truth_file,
+            '--lat', str(computed_lat_deg),
+            '--lon', str(computed_lon_deg),
+            '--run-id', run_id_str,
+            '--no-interactive'
+        ]
         triad_path = kf_output_file
-        davenport_path = triad_path.replace("TRIAD", "Davenport")
-        svd_path = triad_path.replace("TRIAD", "SVD")
-        for name, p in [("TRIAD", triad_path), ("Davenport", davenport_path), ("SVD", svd_path)]:
-            if os.path.isfile(p):
-                method_files[name] = p
-        if method_files:
-            run_task6_compare_methods_all_frames(
-                method_files=method_files,
-                truth_file=str(truth_file.resolve()),
-                output_dir=out_dir,
-                lat_deg=lat_deg,
-                lon_deg=lon_deg,
-                gnss_file=str(gnss_path),
-                q_b2n_const=q_b2n_const,
-            )
+        davenport_path = triad_path.replace('TRIAD', 'Davenport')
+        svd_path = triad_path.replace('TRIAD', 'SVD')
+        if os.path.isfile(davenport_path):
+            cmd += ['--davenport-file', davenport_path]
+        if os.path.isfile(svd_path):
+            cmd += ['--svd-file', svd_path]
+
+        print('Starting Task 6 overlay (CLI):', ' '.join(cmd))
+        try:
+            subprocess.run(cmd, check=True)
+        except Exception as e:
+            print(f'Task 6 overlay failed: {e}')
 
     # ----------------------------
     # Task 7: Evaluation
