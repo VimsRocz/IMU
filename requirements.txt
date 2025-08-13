@@ -12,3 +12,4 @@ geomaglib>=1.2.1
 pyproj
 fastdtw
 plotly>=5.0
+kaleido
