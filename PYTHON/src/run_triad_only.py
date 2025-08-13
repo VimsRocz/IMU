@@ -51,8 +51,7 @@ from utils import save_mat
 # Import helper utilities from the utils package
 from utils.timeline import print_timeline
 from utils.resolve_truth_path import resolve_truth_path
-from utils.run_id import run_id
-from task3_attitude_errors import run_task3
+from utils.run_id import run_id as build_run_id
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
 
@@ -67,7 +66,6 @@ from paths import (
     truth_path as _truth_path_helper,
     ensure_results_dir as _ensure_results,
     python_results_dir as _py_results_dir,
-    available_dataset_ids as _available_dataset_ids,
 )
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
@@ -160,13 +158,9 @@ def main(argv: Iterable[str] | None = None) -> None:
     )
     parser.add_argument(
         "--dataset",
+        choices=["X001", "X002", "X003"],
         default="X002",
-        help="Dataset ID to use (default X002).",
-    )
-    parser.add_argument(
-        "--include-small",
-        action="store_true",
-        help="Include *_small datasets when listing available IDs.",
+        help="Dataset ID to use (default X002)",
     )
     parser.add_argument("--imu", type=str, help="Path to IMU data file")
     parser.add_argument("--gnss", type=str, help="Path to GNSS data file")
@@ -198,12 +192,6 @@ def main(argv: Iterable[str] | None = None) -> None:
     parser.add_argument("--truth-rate", type=float, default=None, help="Hint truth sample rate [Hz]")
 
     args = parser.parse_args(argv)
-
-    valid_ids = _available_dataset_ids(include_small=args.include_small)
-    if args.dataset not in valid_ids:
-        parser.error(
-            f"Dataset {args.dataset} not found. Available datasets: {', '.join(valid_ids)}"
-        )
 
     if args.outdir:
         results_dir = Path(args.outdir)
@@ -248,11 +236,11 @@ def main(argv: Iterable[str] | None = None) -> None:
     if args.truth:
         truth_path = Path(args.truth)
     else:
-        truth_path = _truth_path_helper(f"STATE_{args.dataset}.txt")
-        if not truth_path.exists():
-            alt = resolve_truth_path()
-            if alt:
-                truth_path = Path(alt)
+        truth_path = _truth_path_helper("STATE_X001.txt")
+    if not truth_path.exists():
+        alt = resolve_truth_path()
+        if alt:
+            truth_path = Path(alt)
     logger.info(
         "Resolved input files: imu=%s gnss=%s truth=%s", imu_path, gnss_path, truth_path
     )
@@ -273,12 +261,12 @@ def main(argv: Iterable[str] | None = None) -> None:
     if truth_path and not Path(truth_path).exists():
         raise FileNotFoundError(f"Truth file not found: {truth_path}")
 
-    run_id_str = run_id(str(imu_path), str(gnss_path), method)
-    log_path = results_dir / f"{run_id_str}.log"
-    print(f"\u25b6 {run_id_str}")
+    run_id = build_run_id(str(imu_path), str(gnss_path), method)
+    log_path = results_dir / f"{run_id}.log"
+    print(f"\u25b6 {run_id}")
 
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
-    print_timeline(run_id_str, str(imu_path), str(gnss_path), str(truth_path), out_dir=str(results_dir))
+    print_timeline(run_id, str(imu_path), str(gnss_path), str(truth_path), out_dir=str(results_dir))
 
     if logger.isEnabledFor(logging.DEBUG):
         try:
@@ -325,7 +313,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     # the loop becomes a no-op.
     base_results = pathlib.Path("results")
     if results_dir != base_results:
-        for file in base_results.glob(f"{run_id_str}*"):
+        for file in base_results.glob(f"{run_id}*"):
             dest = results_dir / file.name
             try:
                 file.replace(dest)
@@ -354,16 +342,16 @@ def main(argv: Iterable[str] | None = None) -> None:
         }
         results.append(metrics)
     if results:
-        metrics_path = results_dir / f"{run_id_str}_metrics.json"
+        metrics_path = results_dir / f"{run_id}_metrics.json"
         with metrics_path.open("w", encoding="utf-8") as f:
             json.dump(results[0], f, indent=2, sort_keys=True)
-        np.savez(results_dir / f"{run_id_str}_metrics.npz", **results[0])
+        np.savez(results_dir / f"{run_id}_metrics.npz", **results[0])
         logger.info("Saved metrics to %s and %s", metrics_path, metrics_path.with_suffix('.npz'))
 
     # ------------------------------------------------------------------
     # Convert NPZ output to a MATLAB file with explicit frame variables
     # ------------------------------------------------------------------
-    npz_path = results_dir / f"{run_id_str}_kf_output.npz"
+    npz_path = results_dir / f"{run_id}_kf_output.npz"
     t_imu = None
     tmeta: Dict[str, float | int | str] = {}
     if npz_path.exists():
@@ -485,7 +473,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         if x_log is not None and imu_dt is not None:
             t_est = np.arange(x_log.shape[1]) * imu_dt
             mat_time = {"t_est": t_est, "dt": imu_dt, "x_log": x_log}
-            time_path = results_dir / f"{run_id_str}_task5_time.mat"
+            time_path = results_dir / f"{run_id}_task5_time.mat"
             sio.savemat(str(time_path), mat_time)
             logger.info("Saved Task 5 time data to %s", time_path)
 
@@ -541,47 +529,45 @@ def main(argv: Iterable[str] | None = None) -> None:
             "truth_rate_hz": args.truth_rate,
             "imu_time_meta": tmeta,
         }
-        _write_run_meta("results", run_id_str, **meta)
+        _write_run_meta("results", run_id, **meta)
 
     # ----------------------------
     # Task 6: Truth overlay plots
     # ----------------------------
     truth_file = truth_path
     if truth_file.exists():
-        # Reuse already-computed lat/lon from Task 1/4
-        computed_lat_deg = float(math.degrees(ref_lat))
-        computed_lon_deg = float(math.degrees(ref_lon))
-
+        overlay_cmd = [
+            sys.executable,
+            str(HERE / "task6_plot_truth.py"),
+            "--est-file",
+            str(npz_path.with_suffix(".mat")),
+            "--imu-file",
+            str(imu_path),
+            "--gnss-file",
+            str(gnss_path),
+            "--truth-file",
+            str(truth_file.resolve()),
+            "--output",
+            str(results_dir),
+        ]
+        if args.show_measurements:
+            overlay_cmd.append("--show-measurements")
         with open(log_path, "a") as log:
             log.write("\nTASK 6: Overlay fused output with truth\n")
-
-        kf_output_file = str(npz_path.with_suffix(".mat"))
-        gnss_file = str(gnss_path)
-        truth_file = str(truth_path.resolve())
-        src_dir = str(HERE)
-        cmd = [
-            sys.executable, os.path.join(src_dir, 'task6_plot_truth.py'),
-            '--est-file', kf_output_file,
-            '--gnss-file', gnss_file,
-            '--truth-file', truth_file,
-            '--lat', str(computed_lat_deg),
-            '--lon', str(computed_lon_deg),
-            '--run-id', run_id_str,
-            '--no-interactive'
-        ]
-        triad_path = kf_output_file
-        davenport_path = triad_path.replace('TRIAD', 'Davenport')
-        svd_path = triad_path.replace('TRIAD', 'SVD')
-        if os.path.isfile(davenport_path):
-            cmd += ['--davenport-file', davenport_path]
-        if os.path.isfile(svd_path):
-            cmd += ['--svd-file', svd_path]
-
-        print('Starting Task 6 overlay (CLI):', ' '.join(cmd))
-        try:
-            subprocess.run(cmd, check=True)
-        except Exception as e:
-            print(f'Task 6 overlay failed: {e}')
+            msg = f"Starting Task 6 overlay: cmd={overlay_cmd}"
+            logger.info(msg)
+            log.write(msg + "\n")
+            proc = subprocess.Popen(
+                overlay_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            for line in proc.stdout:
+                print(line, end="")
+                log.write(line)
+            proc.wait()
+            logger.info("Task 6 overlay completed with return code %s", proc.returncode)
 
     # ----------------------------
     # Task 7: Evaluation
@@ -597,14 +583,14 @@ def main(argv: Iterable[str] | None = None) -> None:
         buf = io.StringIO()
         with redirect_stdout(buf):
             try:
-                run_evaluation_npz(str(npz_path), str(task7_dir), run_id_str)
+                run_evaluation_npz(str(npz_path), str(task7_dir), run_id)
             except Exception as e:  # pragma: no cover - graceful failure
                 print(f"Task 7 failed: {e}")
         output = buf.getvalue()
         print(output, end="")
         log.write(output)
         print(
-            f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{run_id_str}/"
+            f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{run_id}/"
         )
         logger.info("Task 7 evaluation complete; results in %s", task7_dir)
 
@@ -656,18 +642,6 @@ def main(argv: Iterable[str] | None = None) -> None:
             ],
         )
         df.to_csv(results_dir / "summary.csv", index=False)
-
-    # Example: compare two datasets quickly
-    base = run_id_str
-    candidate_runs = [base]
-    for alt in ["X001", "X002", "X003"]:
-        if alt not in base:
-            candidate_runs.append(
-                base.replace("X002", alt).replace("X001", alt).replace("X003", alt)
-            )
-    runs: List[str] = []
-    [runs.append(r) for r in candidate_runs if r not in runs]
-    run_task3(base, runs=runs[:2])
 
     print("TRIAD processing complete for X002")
 
