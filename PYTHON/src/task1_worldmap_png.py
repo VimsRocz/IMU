@@ -115,7 +115,7 @@ def save_task1_worldmap_png(gnss_file: str, run_id: str, out_dir="PYTHON/results
     """Create one rectangular world map PNG with colored Earth, GNSS point, labels."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_png = out_dir / f"{run_id}_task1_worldmap.png"
+    out_png = out_dir / f"{run_id}_task1_location_map.png"
 
     # 1) Get lat/lon sequence, compute representative location
     latlon = _gnss_to_latlon_deg(gnss_file)
@@ -167,5 +167,5 @@ def save_task1_worldmap_png(gnss_file: str, run_id: str, out_dir="PYTHON/results
     fig.tight_layout()
     fig.savefig(out_png, dpi=150)
     plt.close(fig)
-    print(f"[Task1] Saved world map -> {out_png}")
+    print(f"[Task1] Saved location map -> {out_png}")
     return str(out_png)
