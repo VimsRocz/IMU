@@ -72,6 +72,12 @@ DEFAULT_DATASETS: Iterable[Tuple[str, str]] = [
     ("IMU_X003.dat", "GNSS_X002.csv"),  # dataset X003 shares GNSS_X002
 ]
 
+SMALL_DATASETS: Iterable[Tuple[str, str]] = [
+    ("IMU_X001_small.dat", "GNSS_X001_small.csv"),
+    ("IMU_X002_small.dat", "GNSS_X002_small.csv"),
+    ("IMU_X003_small.dat", "GNSS_X002_small.csv"),
+]
+
 DEFAULT_METHODS = ["TRIAD", "SVD", "Davenport"]
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
@@ -128,6 +134,11 @@ def main(argv=None):
         help="YAML file specifying datasets and methods",
     )
     parser.add_argument(
+        "--include-small",
+        action="store_true",
+        help="Include *_small dataset variants",
+    )
+    parser.add_argument(
         "--no-plots",
         action="store_true",
         help="Skip plot generation for faster execution",
@@ -172,6 +183,8 @@ def main(argv=None):
         cases, methods = load_config(args.config)
     else:
         cases, methods = list(DEFAULT_DATASETS), list(DEFAULT_METHODS)
+        if args.include_small:
+            cases.extend(SMALL_DATASETS)
 
     logger.debug(f"Datasets: {cases}")
     logger.debug(f"Methods: {methods}")
