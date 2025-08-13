@@ -849,14 +849,14 @@ colors = {"TRIAD": "r", "Davenport": "g", "SVD": "b", "Truth": "m"}
 for j in range(3):
     # Position comparison
     ax = axes_comp[0, j]
-    ax.plot(t_rel_gnss, gnss_pos_ned[:, j], "k--", label="GNSS Position (direct)")
+    ax.plot(t_rel_gnss, gnss_pos_ned[:, j], "k--", label="Derived GNSS Position")
     for m in methods:
         ax.plot(
             t_rel_ilu,
             pos_integ[m][:, j],
             color=colors[m],
             alpha=0.7,
-            label=f"IMU {m} Position (derived)",
+            label=f"Derived IMU Position ({m})",
         )
     ax.set_title(f"Position {directions[j]}")
     ax.set_xlabel("Time (s)")
@@ -865,14 +865,14 @@ for j in range(3):
 
     # Velocity comparison
     ax = axes_comp[1, j]
-    ax.plot(t_rel_gnss, gnss_vel_ned[:, j], "k--", label="GNSS Velocity (direct)")
+    ax.plot(t_rel_gnss, gnss_vel_ned[:, j], "k--", label="Derived GNSS Velocity")
     for m in methods:
         ax.plot(
             t_rel_ilu,
             vel_integ[m][:, j],
             color=colors[m],
             alpha=0.7,
-            label=f"IMU {m} Velocity (derived)",
+            label=f"Derived IMU Velocity ({m})",
         )
     ax.set_title(f"Velocity {directions[j]}")
     ax.set_xlabel("Time (s)")
@@ -881,14 +881,14 @@ for j in range(3):
 
     # Acceleration comparison
     ax = axes_comp[2, j]
-    ax.plot(t_rel_gnss, gnss_acc_ned[:, j], "k--", label="GNSS Derived")
+    ax.plot(t_rel_gnss, gnss_acc_ned[:, j], "k--", label="Derived GNSS Acceleration")
     for m in methods:
         ax.plot(
             t_rel_ilu,
             acc_integ[m][:, j],
             color=colors[m],
             alpha=0.7,
-            label=f"IMU {m} Acceleration",
+            label=f"Derived IMU Acceleration ({m})",
         )
     ax.set_title(f"Acceleration {directions[j]}")
     ax.set_xlabel("Time (s)")

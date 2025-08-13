@@ -72,7 +72,7 @@ def save_task4_plots(method_name: str, dataset_name: str, gnss_ned: pd.DataFrame
     """Plot GNSS vs IMU-only position in N/E/D."""
     for comp in ["N", "E", "D"]:
         fig, ax = plt.subplots()
-        ax.plot(gnss_ned.index, gnss_ned[comp], "-", label="Measured GNSS")
+        ax.plot(gnss_ned.index, gnss_ned[comp], "-", label="Derived GNSS")
         ax.plot(
             imu_ned.index,
             imu_ned[comp],
@@ -80,7 +80,7 @@ def save_task4_plots(method_name: str, dataset_name: str, gnss_ned: pd.DataFrame
             label=f"Derived IMU ({method_name})",
         )
         ax.set_title(
-            f"{method_name} {comp}-pos (IMU-derived vs. Measured GNSS, {dataset_name})"
+            f"{method_name} {comp}-pos (Derived IMU vs. Derived GNSS, {dataset_name})"
         )
         ax.legend(loc="best")
         fig.savefig(
