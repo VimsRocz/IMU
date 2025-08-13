@@ -90,7 +90,7 @@ def measure_body_vectors(
     static_end: Optional[int] = None,
     mag_file: Optional[str] = None,
     tag: Optional[str] = None,
-) -> Tuple[float, np.ndarray, np.ndarray, Optional[np.ndarray]]:
+) -> Tuple[float, np.ndarray, np.ndarray, Optional[np.ndarray], int, int]:
     """Estimate gravity and Earth rotation in the body frame.
 
     The function detects a static IMU segment, logs its duration relative
@@ -98,6 +98,12 @@ def measure_body_vectors(
     all samples, mirroring the MATLAB implementation.  The mean
     accelerometer vector of the static interval is scaled so that its
     magnitude equals ``GRAVITY``.  The raw dataset is left unchanged.
+    Returns
+    -------
+    tuple
+        ``(dt, g_body, omega_ie_body, mag_body, static_start, static_end)``
+        where ``static_start``/``static_end`` are the indices of the detected
+        static interval.
     """
     data = np.loadtxt(imu_file)
     if data.shape[1] < 10:
@@ -204,4 +210,4 @@ def measure_body_vectors(
     except Exception as exc:  # pragma: no cover - plotting is best effort
         logging.debug("Task 2 plot generation failed: %s", exc)
 
-    return dt, g_body, omega_ie_body, mag_body
+    return dt, g_body, omega_ie_body, mag_body, static_start, static_end

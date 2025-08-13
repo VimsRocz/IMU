@@ -49,6 +49,7 @@ from paths import (
     PY_RES_DIR,
 )
 from task1_cache import save_task1_artifacts
+from task2_plot import save_task2_summary_png
 from utils.run_id import run_id as make_run_id
 from utils import (
     is_static,
@@ -296,7 +297,14 @@ def main():
     # ================================
     logging.info("TASK 2: Measure the vectors in the body frame")
 
-    dt_imu, g_body, omega_ie_body, mag_body = measure_body_vectors(
+    (
+        dt_imu,
+        g_body,
+        omega_ie_body,
+        mag_body,
+        static_start,
+        static_end,
+    ) = measure_body_vectors(
         imu_file,
         static_start=args.static_start,
         static_end=args.static_end,
@@ -306,6 +314,24 @@ def main():
     logging.info(f"Estimated IMU dt: {dt_imu:.6f} s")
     logging.info(f"Gravity vector (body): {g_body}")
     logging.info(f"Earth rotation (body): {omega_ie_body}")
+
+    if not args.no_plots:
+        try:
+            imu_data = np.loadtxt(imu_file)
+            png_path = save_task2_summary_png(
+                imu_data,
+                static_start,
+                static_end,
+                g_body,
+                omega_ie_body,
+                run_id,
+                out_dir,
+            )
+            print(f"Task 2: saved summary PNG -> {png_path}")
+        except Exception as ex:  # pragma: no cover - plotting is best effort
+            print(f"Task 2: summary PNG failed: {ex}")
+    else:
+        logging.info("Skipping Task 2 summary plot (--no-plots)")
 
     # ================================
     # TASK 3: Solve Wahba’s Problem
