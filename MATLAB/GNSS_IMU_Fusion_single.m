@@ -1156,21 +1156,21 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     fig = figure('Visible','off','Position',[100 100 1200 900]);
     for i = 1:3
         subplot(3,3,i); hold on;
-        plot(t_gnss, p_gnss_ned(:,i),'k--','DisplayName','Measured GNSS');
+        plot(t_gnss, p_gnss_ned(:,i),'k--','DisplayName','Derived GNSS');
         plot(t_imu, p_imu(:,i),'b-','DisplayName',sprintf('Derived IMU (%s)', method));
-        legend('Measured GNSS', sprintf('Derived IMU (%s)', method));
+        legend('Derived GNSS', sprintf('Derived IMU (%s)', method));
         hold off; grid on; title(['Position ' dims{i}]); ylabel('m');
 
         subplot(3,3,i+3); hold on;
-        plot(t_gnss, v_gnss_ned(:,i),'k--','DisplayName','Measured GNSS');
+        plot(t_gnss, v_gnss_ned(:,i),'k--','DisplayName','Derived GNSS');
         plot(t_imu, v_imu(:,i),'b-','DisplayName',sprintf('Derived IMU (%s)', method));
-        legend('Measured GNSS', sprintf('Derived IMU (%s)', method));
+        legend('Derived GNSS', sprintf('Derived IMU (%s)', method));
         hold off; grid on; title(['Velocity ' dims{i}]); ylabel('m/s');
 
         subplot(3,3,i+6); hold on;
-        plot(t_gnss, a_gnss_ned(:,i),'k--','DisplayName','Measured GNSS');
+        plot(t_gnss, a_gnss_ned(:,i),'k--','DisplayName','Derived GNSS');
         plot(t_imu, a_imu(:,i),'b-','DisplayName',sprintf('Derived IMU (%s)', method));
-        legend('Measured GNSS', sprintf('Derived IMU (%s)', method));
+        legend('Derived GNSS', sprintf('Derived IMU (%s)', method));
         hold off; grid on; title(['Acceleration ' dims{i}]); ylabel('m/s^2');
     end
     sgtitle([method ' Comparison in NED frame']); fname = [base '_Task4_NEDFrame.pdf']; set(fig,'PaperPositionMode','auto'); print(fig,fname,'-dpdf','-bestfit'); close(fig);
