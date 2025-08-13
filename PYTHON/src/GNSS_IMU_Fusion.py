@@ -46,7 +46,6 @@ from .scripts.plot_utils import save_plot, plot_attitude
 from paths import (
     imu_path as _imu_path_helper,
     gnss_path as _gnss_path_helper,
-    truth_path as _truth_path_helper,
     ensure_results_dir as _ensure_results,
     normalize_gnss_headers,
     PY_RES_DIR,
@@ -61,7 +60,7 @@ from utils import (
     interpolate_series,
     zero_base_time,
 )
-from constants import GRAVITY, EARTH_RATE
+from constants import EARTH_RATE
 from .compute_biases import compute_biases
 from .scripts.validate_filter import compute_residuals, plot_residuals
 from scipy.spatial.transform import Rotation as R
@@ -663,13 +662,13 @@ def main():
     omega_err_max = float(np.max(list(omega_errors.values())))
 
     # Load truth quaternion from STATE file if provided
-    q_truth = None
     if truth_file:
         try:
-            truth_arr = np.loadtxt(truth_file, comments="#")
-            q_truth = truth_arr[0, 8:12]
+            np.loadtxt(truth_file, comments="#")
         except Exception as e:
-            logging.warning(f"Failed to load truth quaternion from {truth_file}: {e}")
+            logging.warning(
+                f"Failed to load truth quaternion from {truth_file}: {e}"
+            )
 
     # --------------------------------
     # Subtask 3.6: Validate Attitude Determination and Compare Methods
@@ -1074,7 +1073,12 @@ def main():
     for j in range(3):
         # Position comparison
         ax = axes_comp[0, j]
-        ax.plot(t_rel_gnss, gnss_pos_ned[:, j], "k--", label="Derived GNSS")
+        ax.plot(
+            t_rel_gnss,
+            gnss_pos_ned[:, j],
+            "k--",
+            label="Derived GNSS (ECEF→NED)",
+        )
         for m in methods:
             c = colors.get(m, None)
             ax.plot(
@@ -1082,7 +1086,7 @@ def main():
                 pos_integ[m][:, j],
                 color=c,
                 alpha=0.7,
-                label=f"Derived IMU ({m})",
+                label=f"Derived IMU (Body→NED) ({m})",
             )
         ax.set_title(f"Position {directions[j]}")
         ax.set_xlabel("Time (s)")
@@ -1091,7 +1095,12 @@ def main():
 
         # Velocity comparison
         ax = axes_comp[1, j]
-        ax.plot(t_rel_gnss, gnss_vel_ned[:, j], "k--", label="Derived GNSS")
+        ax.plot(
+            t_rel_gnss,
+            gnss_vel_ned[:, j],
+            "k--",
+            label="Derived GNSS (ECEF→NED)",
+        )
         for m in methods:
             c = colors.get(m, None)
             ax.plot(
@@ -1099,7 +1108,7 @@ def main():
                 vel_integ[m][:, j],
                 color=c,
                 alpha=0.7,
-                label=f"Derived IMU ({m})",
+                label=f"Derived IMU (Body→NED) ({m})",
             )
         ax.set_title(f"Velocity {directions[j]}")
         ax.set_xlabel("Time (s)")
@@ -1108,7 +1117,12 @@ def main():
 
         # Acceleration comparison
         ax = axes_comp[2, j]
-        ax.plot(t_rel_gnss, gnss_acc_ned[:, j], "k--", label="Derived GNSS")
+        ax.plot(
+            t_rel_gnss,
+            gnss_acc_ned[:, j],
+            "k--",
+            label="Derived GNSS (ECEF→NED)",
+        )
         for m in methods:
             c = colors.get(m, None)
             ax.plot(
@@ -1116,13 +1130,15 @@ def main():
                 acc_integ[m][:, j],
                 color=c,
                 alpha=0.7,
-                label=f"Derived IMU ({m})",
+                label=f"Derived IMU (Body→NED) ({m})",
             )
         ax.set_title(f"Acceleration {directions[j]}")
         ax.set_xlabel("Time (s)")
         ax.set_ylabel("Acceleration (m/s²)")
         ax.legend(loc="best")
-    fig_comp.suptitle(f"Task 4 – {method} – NED Frame (Derived IMU vs. Derived GNSS)")
+    fig_comp.suptitle(
+        f"Task 4 – {method} – NED Frame (All Data Derived to NED)"
+    )
     fig_comp.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_comparison_ned.png", dpi=200, bbox_inches="tight")
@@ -1175,10 +1191,20 @@ def main():
         for j in range(3):
             ax = axes_ned[i, j]
             if i == 0:  # Position
-                ax.plot(t_rel_gnss, gnss_pos_ned[:, j], "k-", label="Derived GNSS")
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_pos_ned[:, j],
+                    "k-",
+                    label="Derived GNSS (ECEF→NED)",
+                )
                 ax.set_title(f"Position {directions_ned[j]}")
             elif i == 1:  # Velocity
-                ax.plot(t_rel_gnss, gnss_vel_ned[:, j], "k-", label="Derived GNSS")
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_vel_ned[:, j],
+                    "k-",
+                    label="Derived GNSS (ECEF→NED)",
+                )
                 ax.set_title(f"Velocity V{directions_ned[j]}")
             else:  # Acceleration
                 for m in methods:
@@ -1189,13 +1215,15 @@ def main():
                         f_ned[j],
                         color=c,
                         alpha=0.7,
-                        label=f"Derived IMU ({m})",
+                        label=f"Derived IMU (Body→NED) ({m})",
                     )
                 ax.set_title(f"Acceleration A{directions_ned[j]}")
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_ned.suptitle(f"Task 4 – {method} – NED Frame (Derived IMU vs. Derived GNSS)")
+    fig_ned.suptitle(
+        f"Task 4 – {method} – NED Frame (All Data Derived to NED)"
+    )
     fig_ned.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_all_ned.png", dpi=200, bbox_inches="tight")
@@ -1210,7 +1238,7 @@ def main():
         for j in range(3):
             ax = axes_ecef[i, j]
             if i == 0:  # Position
-                ax.plot(t_rel_gnss, gnss_pos_ecef[:, j], "k-", label="Derived GNSS")
+                ax.plot(t_rel_gnss, gnss_pos_ecef[:, j], "k-", label="Measured GNSS")
                 for m in methods:
                     c = colors.get(m, None)
                     ax.plot(
@@ -1222,7 +1250,7 @@ def main():
                     )
                 ax.set_title(f"Position {directions_ecef[j]}_ECEF")
             elif i == 1:  # Velocity
-                ax.plot(t_rel_gnss, gnss_vel_ecef[:, j], "k-", label="Derived GNSS")
+                ax.plot(t_rel_gnss, gnss_vel_ecef[:, j], "k-", label="Measured GNSS")
                 for m in methods:
                     c = colors.get(m, None)
                     ax.plot(
@@ -1234,6 +1262,12 @@ def main():
                     )
                 ax.set_title(f"Velocity V{directions_ecef[j]}_ECEF")
             else:  # Acceleration
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_acc_ecef[:, j],
+                    "k--",
+                    label="Derived GNSS",
+                )
                 for m in methods:
                     c = colors.get(m, None)
                     f_ned = C_B_N_methods[m] @ acc_body_corrected[m].T
@@ -1249,7 +1283,7 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_ecef.suptitle(f"Task 4 – {method} – ECEF Frame (Derived IMU vs. Derived GNSS)")
+    fig_ecef.suptitle(f"Task 4 – {method} – ECEF Frame (Derived IMU vs. GNSS)")
     fig_ecef.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_all_ecef.png", dpi=200, bbox_inches="tight")
@@ -1265,13 +1299,50 @@ def main():
             ax = axes_body[i, j]
             if i == 0:  # Position
                 r_body = (C_N_B @ gnss_pos_ned.T).T
-                ax.plot(t_rel_gnss, r_body[:, j], "k-", label="Derived GNSS")
+                ax.plot(
+                    t_rel_gnss,
+                    r_body[:, j],
+                    "k-",
+                    label="Derived GNSS",
+                )
+                for m in methods:
+                    c = colors.get(m, None)
+                    pos_body = (C_N_B @ pos_integ[m].T).T
+                    ax.plot(
+                        t_rel_ilu,
+                        pos_body[:, j],
+                        color=c,
+                        alpha=0.7,
+                        label=f"Derived IMU ({m})",
+                    )
                 ax.set_title(f"Position r{directions_body[j]}_body")
             elif i == 1:  # Velocity
-                vel_body = (C_N_B @ gnss_vel_ned.T).T
-                ax.plot(t_rel_gnss, vel_body[:, j], "k-", label="Derived GNSS")
+                vel_body_gnss = (C_N_B @ gnss_vel_ned.T).T
+                ax.plot(
+                    t_rel_gnss,
+                    vel_body_gnss[:, j],
+                    "k-",
+                    label="Derived GNSS",
+                )
+                for m in methods:
+                    c = colors.get(m, None)
+                    vel_body_imu = (C_N_B @ vel_integ[m].T).T
+                    ax.plot(
+                        t_rel_ilu,
+                        vel_body_imu[:, j],
+                        color=c,
+                        alpha=0.7,
+                        label=f"Derived IMU ({m})",
+                    )
                 ax.set_title(f"Velocity v{directions_body[j]}_body")
             else:  # Acceleration
+                gnss_acc_body = (C_N_B @ gnss_acc_ned.T).T
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_acc_body[:, j],
+                    "k--",
+                    label="Derived GNSS",
+                )
                 for m in methods:
                     c = colors.get(m, None)
                     ax.plot(
@@ -1279,13 +1350,15 @@ def main():
                         acc_body_corrected[m][:, j],
                         color=c,
                         alpha=0.7,
-                        label=f"Derived IMU ({m})",
+                        label=f"Measured IMU ({m})",
                     )
                 ax.set_title(f"Acceleration A{directions_body[j]}_body")
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_body.suptitle(f"Task 4 – {method} – Body Frame (Derived IMU vs. Derived GNSS)")
+    fig_body.suptitle(
+        f"Task 4 – {method} – Body Frame (Measured IMU Accel; Derived Pos/Vel vs. Derived GNSS)"
+    )
     fig_body.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         plt.savefig(f"results/{tag}_task4_all_body.png", dpi=200, bbox_inches="tight")
