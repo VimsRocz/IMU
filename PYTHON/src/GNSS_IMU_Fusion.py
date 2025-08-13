@@ -38,6 +38,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from filterpy.kalman import KalmanFilter
+import datetime
 
 from .scripts.plot_utils import save_plot, plot_attitude
 from paths import (
@@ -117,6 +118,78 @@ logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[handler]
 
 # Minimum number of samples required from a static interval for bias estimation
 MIN_STATIC_SAMPLES = 500
+
+RUN_ID = ""
+
+
+def task3_plot_quaternions_and_errors(
+    methods, quaternions_dict, errors_dict, output_dir
+):
+    """Save Task 3 quaternion and error comparison plots.
+
+    Parameters
+    ----------
+    methods : list[str]
+        List of attitude initialisation methods, e.g. ``["TRIAD", "Davenport", "SVD"]``.
+    quaternions_dict : dict[str, array_like]
+        Mapping of ``"<Method>_CaseX"`` to quaternions ``[w, x, y, z]``.
+    errors_dict : dict[str, dict]
+        Mapping of method to gravity/earth-rate errors in degrees.
+    output_dir : pathlib.Path or str
+        Directory in which plots will be written.
+    """
+
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Quaternion component comparison ------------------------------------
+    labels = list(quaternions_dict.keys())
+    components = ["q_w", "q_x", "q_y", "q_z"]
+    x = np.arange(len(labels))
+    width = 0.18
+    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    for i, comp in enumerate(components):
+        vals = [quaternions_dict[label][i] for label in labels]
+        ax.bar(x + (i - 1.5) * width, vals, width, label=comp, color=colors[i])
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=45, ha="right")
+    ax.set_ylabel("Quaternion Value")
+    ax.set_ylim(-1, 1)
+    ax.set_title("Task 3: Quaternion Components by Method and Case")
+    ax.legend(loc="best")
+    plt.tight_layout()
+
+    quat_path = Path(output_dir) / f"{RUN_ID}_task3_quaternions_{timestamp}.png"
+    plt.savefig(quat_path)
+    print(f"Quaternion comparison plot saved: {quat_path}")
+    plt.close(fig)
+
+    # Attitude error comparison ------------------------------------------
+    epsilon = 1e-6
+    grav_vals = [max(epsilon, errors_dict[m]["grav"]) for m in methods]
+    earth_vals = [max(epsilon, errors_dict[m]["earth"]) for m in methods]
+    if any(v <= epsilon for v in grav_vals + earth_vals):
+        print("Near-zero errors detected; plot may appear empty")
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    axes[0].bar(methods, grav_vals, color="tab:purple")
+    axes[0].set_ylabel("Error (deg)")
+    axes[0].set_title("Gravity Error")
+    axes[0].set_ylim(0, max(grav_vals) * 1.1 if max(grav_vals) > 0 else 1)
+
+    axes[1].bar(methods, earth_vals, color="tab:brown")
+    axes[1].set_title("Earth Rate Error")
+    axes[1].set_ylim(0, max(earth_vals) * 1.1 if max(earth_vals) > 0 else 1)
+
+    fig.suptitle("Task 3: Attitude Error Comparison")
+    plt.tight_layout()
+
+    err_path = Path(output_dir) / f"{RUN_ID}_task3_errors_{timestamp}.png"
+    plt.savefig(err_path)
+    print(f"Error comparison plot saved: {err_path}")
+    plt.close(fig)
 
 
 def check_files(imu_file: str, gnss_file: str) -> tuple[str, str]:
@@ -221,6 +294,8 @@ def main():
     tag = TAG(imu=imu_stem, gnss=gnss_stem, method=method)
     summary_tag = f"{imu_stem}_{gnss_stem}"
     run_id = make_run_id(imu_file, gnss_file, method)
+    global RUN_ID
+    RUN_ID = run_id
     out_dir = PY_RES_DIR
 
     logging.info(f"Running attitude-estimation method: {method}")
@@ -660,25 +735,19 @@ def main():
 
     logging.info("Subtask 3.7: Plotting validation errors and quaternion components.")
 
-    if q_truth is not None:
-        fig, ax = plt.subplots(figsize=(8, 5))
-        labels = ["q0", "q1", "q2", "q3"]
-        x = np.arange(len(labels))
-        width = 0.35
-        ax.bar(x - width / 2, q_truth, width, label="Truth")
-        ax.bar(x + width / 2, q_tri, width, label="TRIAD")
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels)
-        ax.set_ylabel("Quaternion Component")
-        ax.set_title("Task 3: Quaternion Comparison")
-        ax.legend(loc="best")
-        plt.tight_layout()
-        if not args.no_plots:
-            plt.savefig(f"results/{tag}_task3_errors_comparison.png")
-        plt.close()
-        logging.info("Quaternion overlay plot saved")
-    else:
-        logging.warning("Truth quaternion not available; skipping quaternion overlay plot")
+    quat_plot_dict = {}
+    for m in methods:
+        quat_plot_dict[f"{m}_Case1"] = quats_case1[m]
+        quat_plot_dict[f"{m}_Case2"] = quats_case2[m]
+
+    error_plot_dict = {
+        m: {"grav": grav_errors[m], "earth": omega_errors[m]} for m in methods
+    }
+
+    if not args.no_plots:
+        task3_plot_quaternions_and_errors(
+            methods, quat_plot_dict, error_plot_dict, out_dir
+        )
 
     # --------------------------------
     # Subtask 3.8: Store Rotation Matrices for Later Tasks
