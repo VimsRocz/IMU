@@ -7,15 +7,32 @@ import matplotlib.pyplot as plt
 
 
 def _plot_overlay_interactive_safe(*args, **kwargs):
-    try:
+    """Safely import and call :func:`plot_overlay_interactive`.
+
+    Plotly and its optional dependencies (such as Kaleido for static export)
+    are not required for the rest of this project, so we avoid importing them at
+    module load time.  Instead, this helper lazily imports the interactive
+    plotting backend when needed and provides a clear error message if the
+    dependencies are missing.
+    """
+
+    try:  # pragma: no cover - import-time failure is environment specific
         from plot_overlay_interactive import (
             PLOTLY_AVAILABLE,
             plot_overlay_interactive,
         )
-    except Exception as e:
-        raise RuntimeError(f"Interactive plotting not available: {e}")
-    if not PLOTLY_AVAILABLE:
-        raise RuntimeError("Plotly not available.")
+    except Exception as e:  # pragma: no cover - graceful degradation
+        raise RuntimeError(
+            "Interactive plotting requires Plotly and its extras. "
+            "Install them with `pip install plotly kaleido`."
+        ) from e
+
+    if not PLOTLY_AVAILABLE:  # pragma: no cover - runtime check
+        raise RuntimeError(
+            "Plotly is not available. Install it with `pip install plotly` to "
+            "enable interactive plotting."
+        )
+
     return plot_overlay_interactive(*args, **kwargs)
 
 
