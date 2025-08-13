@@ -19,7 +19,6 @@ dependencies = [
   "tqdm",
   "tabulate",
   "rich",
-  "fpdf",
   "filterpy",
   "cartopy",
   "geomaglib>=1.2.1",

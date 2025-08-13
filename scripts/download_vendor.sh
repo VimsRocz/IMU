@@ -13,6 +13,6 @@ echo "\n📦 Downloading wheel for flake8 (used in CI)..."
 python -m pip download --only-binary=:all: --dest vendor flake8
 
 echo "\n📦 Downloading source distributions for packages without wheels..."
-python -m pip download --no-binary=filterpy,fpdf,geomag --dest vendor filterpy fpdf geomag
+python -m pip download --no-binary=filterpy,geomag --dest vendor filterpy geomag
 
 echo "\n✅ vendor/ directory is ready"

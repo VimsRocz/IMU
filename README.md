@@ -441,7 +441,7 @@ Figures are saved to `PYTHON/results/`. Interactive exploration lives in `notebo
 
 ### Summary CSV format
 
-`PYTHON/src/summarise_runs.py` parses logs and writes `PYTHON/results/summary.csv`. Columns include: `method`, `imu`, `gnss`, `rmse_pos`, and `final_pos`. `PYTHON/src/generate_summary.py` builds a PDF/table from this CSV.
+`PYTHON/src/summarise_runs.py` parses logs and writes `PYTHON/results/summary.csv`. Columns include: `method`, `imu`, `gnss`, `rmse_pos`, and `final_pos`. `PYTHON/src/generate_summary.py` builds a PNG summary image from this CSV.
 
 ### Tests
 
