@@ -47,6 +47,7 @@ from tabulate import tabulate
 from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
 from utils import save_mat
+from task6_overlay_all_frames import run_task6_overlay_all_frames
 
 # Import helper utilities from the utils package
 from utils.timeline import print_timeline
@@ -548,38 +549,23 @@ def main(argv: Iterable[str] | None = None) -> None:
     # ----------------------------
     truth_file = truth_path
     if truth_file.exists():
-        overlay_cmd = [
-            sys.executable,
-            str(HERE / "task6_plot_truth.py"),
-            "--est-file",
-            str(npz_path.with_suffix(".mat")),
-            "--imu-file",
-            str(imu_path),
-            "--gnss-file",
-            str(gnss_path),
-            "--truth-file",
-            str(truth_file.resolve()),
-            "--output",
-            str(results_dir),
-        ]
-        if args.show_measurements:
-            overlay_cmd.append("--show-measurements")
+        out_dir = os.path.join(str(results_dir), run_id, 'task6')
+        os.makedirs(out_dir, exist_ok=True)
+        lat_deg = math.degrees(ref_lat)
+        lon_deg = math.degrees(ref_lon)
+        triad_quat = quat[0] if 'quat' in locals() and quat is not None and len(quat) > 0 else np.array([1.0,0.0,0.0,0.0])
+        q_b2n = tuple(triad_quat.tolist())
+        kf_output_file = str(npz_path.with_suffix('.mat'))
         with open(log_path, "a") as log:
             log.write("\nTASK 6: Overlay fused output with truth\n")
-            msg = f"Starting Task 6 overlay: cmd={overlay_cmd}"
-            logger.info(msg)
-            log.write(msg + "\n")
-            proc = subprocess.Popen(
-                overlay_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-            for line in proc.stdout:
-                print(line, end="")
-                log.write(line)
-            proc.wait()
-            logger.info("Task 6 overlay completed with return code %s", proc.returncode)
+        run_task6_overlay_all_frames(
+            est_file=kf_output_file,
+            truth_file=str(truth_file.resolve()),
+            output_dir=out_dir,
+            lat_deg=lat_deg,
+            lon_deg=lon_deg,
+            q_b2n=q_b2n,
+        )
 
     # ----------------------------
     # Task 7: Evaluation
