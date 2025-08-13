@@ -1,6 +1,6 @@
 function plot_initial_orientation(out_dir, R_bn)
 %PLOT_INITIAL_ORIENTATION Generate a simple 3-D axis plot of orientation.
-%   PLOT_INITIAL_ORIENTATION(DIR, R_BN) saves a PDF figure showing the NED
+%   PLOT_INITIAL_ORIENTATION(DIR, R_BN) saves a PNG figure showing the NED
 %   axes transformed by R_BN.
 
     figure('Visible','off');
@@ -15,7 +15,7 @@ function plot_initial_orientation(out_dir, R_bn)
     xlabel('X'); ylabel('Y'); zlabel('Z');
     legend({'N','E','D','b_x','b_y','b_z'},'Location','best');
     title('Initial Orientation');
-    pdf_file = fullfile(out_dir, 'initial_orientation.pdf');
-    print('-dpdf', pdf_file);
+    png_file = fullfile(out_dir, 'initial_orientation.png');
+    print('-dpng', png_file);
     close(gcf);
 end

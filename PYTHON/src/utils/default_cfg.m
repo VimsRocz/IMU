@@ -5,5 +5,5 @@ function cfg = default_cfg()
 %   configuration.
 
 cfg = struct();
-cfg.plots = struct('popup_figures', false, 'save_pdf', true, 'save_png', true);
+cfg.plots = struct('popup_figures', false, 'save_png', true);
 end

@@ -6,7 +6,7 @@ function task5_plot_comparison(run_id)
 %   information ``ref_lat``, ``ref_lon``, ``ref_r0`` and ``C_B_N_ref`` must
 %   also be present.  The function writes four figures to
 %   ``results/RUN_ID/`` with filenames following the pattern
-%   ``<RUN_ID>_task5_<FRAME>_comparison.{pdf,png}``.
+%   ``<RUN_ID>_task5_<FRAME>_comparison.png``.
 %
 %   Example:
 %       task5_plot_comparison('IMU_X001_GNSS_X001')

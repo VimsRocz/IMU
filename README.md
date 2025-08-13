@@ -266,8 +266,8 @@ Typical result PDFs:
 - `<tag>_task1_location_map.pdf` – initial location map
 - `task3_errors_comparison.pdf` – attitude initialization error comparison
 - `task3_quaternions_comparison.pdf` – quaternion components for initialization
-- `task4_comparison_ned.pdf` – GNSS vs IMU in NED frame
-- `task4_mixed_frames.pdf` – GNSS/IMU data in mixed frames
+- `task4_comparison_ned.png` – GNSS vs IMU in NED frame
+- `task4_mixed_frames.png` – GNSS/IMU data in mixed frames
 - `task4_all_ned.pdf` – integrated data in NED frame
 - `task4_all_ecef.pdf` – integrated data in ECEF frame
 - `task4_all_body.pdf` – integrated data in body frame

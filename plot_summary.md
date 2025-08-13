@@ -1,8 +1,8 @@
 - **X001_TRIAD_task1_location_map.pdf**: Initial location on Earth map
 - **X001_TRIAD_task3_errors_comparison.pdf**: Attitude initialization error comparison
 - **X001_TRIAD_task3_quaternions_comparison.pdf**: Quaternion components for initialization
-- **X001_TRIAD_task4_comparison_ned.pdf**: GNSS vs IMU data in NED frame
-- **X001_TRIAD_task4_mixed_frames.pdf**: GNSS/IMU data in mixed frames
+- **X001_TRIAD_task4_comparison_ned.png**: GNSS vs IMU data in NED frame
+- **X001_TRIAD_task4_mixed_frames.png**: GNSS/IMU data in mixed frames
 - **X001_TRIAD_task4_all_ned.pdf**: Integrated data in NED frame
 - **X001_TRIAD_task4_all_ecef.pdf**: Integrated data in ECEF frame
 - **X001_TRIAD_task4_all_body.pdf**: Integrated data in body frame

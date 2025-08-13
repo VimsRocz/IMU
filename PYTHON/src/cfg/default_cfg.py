@@ -16,7 +16,6 @@ def default_cfg() -> dict:
         "paths": paths,
         "plots": {
             "popup_figures": False,
-            "save_pdf": True,
             "save_png": True,
         },
     }
