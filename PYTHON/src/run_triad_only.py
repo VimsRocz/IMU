@@ -51,7 +51,8 @@ from utils import save_mat
 # Import helper utilities from the utils package
 from utils.timeline import print_timeline
 from utils.resolve_truth_path import resolve_truth_path
-from utils.run_id import run_id as build_run_id
+from utils.run_id import run_id
+from task3_attitude_errors import run_task3
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
 
@@ -272,12 +273,12 @@ def main(argv: Iterable[str] | None = None) -> None:
     if truth_path and not Path(truth_path).exists():
         raise FileNotFoundError(f"Truth file not found: {truth_path}")
 
-    run_id = build_run_id(str(imu_path), str(gnss_path), method)
-    log_path = results_dir / f"{run_id}.log"
-    print(f"\u25b6 {run_id}")
+    run_id_str = run_id(str(imu_path), str(gnss_path), method)
+    log_path = results_dir / f"{run_id_str}.log"
+    print(f"\u25b6 {run_id_str}")
 
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
-    print_timeline(run_id, str(imu_path), str(gnss_path), str(truth_path), out_dir=str(results_dir))
+    print_timeline(run_id_str, str(imu_path), str(gnss_path), str(truth_path), out_dir=str(results_dir))
 
     if logger.isEnabledFor(logging.DEBUG):
         try:
@@ -324,7 +325,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     # the loop becomes a no-op.
     base_results = pathlib.Path("results")
     if results_dir != base_results:
-        for file in base_results.glob(f"{run_id}*"):
+        for file in base_results.glob(f"{run_id_str}*"):
             dest = results_dir / file.name
             try:
                 file.replace(dest)
@@ -353,16 +354,16 @@ def main(argv: Iterable[str] | None = None) -> None:
         }
         results.append(metrics)
     if results:
-        metrics_path = results_dir / f"{run_id}_metrics.json"
+        metrics_path = results_dir / f"{run_id_str}_metrics.json"
         with metrics_path.open("w", encoding="utf-8") as f:
             json.dump(results[0], f, indent=2, sort_keys=True)
-        np.savez(results_dir / f"{run_id}_metrics.npz", **results[0])
+        np.savez(results_dir / f"{run_id_str}_metrics.npz", **results[0])
         logger.info("Saved metrics to %s and %s", metrics_path, metrics_path.with_suffix('.npz'))
 
     # ------------------------------------------------------------------
     # Convert NPZ output to a MATLAB file with explicit frame variables
     # ------------------------------------------------------------------
-    npz_path = results_dir / f"{run_id}_kf_output.npz"
+    npz_path = results_dir / f"{run_id_str}_kf_output.npz"
     t_imu = None
     tmeta: Dict[str, float | int | str] = {}
     if npz_path.exists():
@@ -484,7 +485,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         if x_log is not None and imu_dt is not None:
             t_est = np.arange(x_log.shape[1]) * imu_dt
             mat_time = {"t_est": t_est, "dt": imu_dt, "x_log": x_log}
-            time_path = results_dir / f"{run_id}_task5_time.mat"
+            time_path = results_dir / f"{run_id_str}_task5_time.mat"
             sio.savemat(str(time_path), mat_time)
             logger.info("Saved Task 5 time data to %s", time_path)
 
@@ -540,7 +541,7 @@ def main(argv: Iterable[str] | None = None) -> None:
             "truth_rate_hz": args.truth_rate,
             "imu_time_meta": tmeta,
         }
-        _write_run_meta("results", run_id, **meta)
+        _write_run_meta("results", run_id_str, **meta)
 
     # ----------------------------
     # Task 6: Truth overlay plots
@@ -594,14 +595,14 @@ def main(argv: Iterable[str] | None = None) -> None:
         buf = io.StringIO()
         with redirect_stdout(buf):
             try:
-                run_evaluation_npz(str(npz_path), str(task7_dir), run_id)
+                run_evaluation_npz(str(npz_path), str(task7_dir), run_id_str)
             except Exception as e:  # pragma: no cover - graceful failure
                 print(f"Task 7 failed: {e}")
         output = buf.getvalue()
         print(output, end="")
         log.write(output)
         print(
-            f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{run_id}/"
+            f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{run_id_str}/"
         )
         logger.info("Task 7 evaluation complete; results in %s", task7_dir)
 
@@ -653,6 +654,18 @@ def main(argv: Iterable[str] | None = None) -> None:
             ],
         )
         df.to_csv(results_dir / "summary.csv", index=False)
+
+    # Example: compare two datasets quickly
+    base = run_id_str
+    candidate_runs = [base]
+    for alt in ["X001", "X002", "X003"]:
+        if alt not in base:
+            candidate_runs.append(
+                base.replace("X002", alt).replace("X001", alt).replace("X003", alt)
+            )
+    runs: List[str] = []
+    [runs.append(r) for r in candidate_runs if r not in runs]
+    run_task3(base, runs=runs[:2])
 
     print("TRIAD processing complete for X002")
 
