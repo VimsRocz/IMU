@@ -358,12 +358,12 @@ def main():
     save_task1_artifacts(Path("results"), tag, meta, arrays, gnss_columns)
 
     if not args.no_plots:
-        from task1_worldmap_png import save_task1_worldmap_png
+        from task1_reference_vectors import task1_reference_vectors
         try:
-            png_path = save_task1_worldmap_png(gnss_file, run_id, out_dir)
-            print(f"Task 1: saved location map PNG -> {png_path}")
+            gnss_df = pd.read_csv(gnss_file)
+            png_path = task1_reference_vectors(gnss_df, out_dir, run_id)
         except Exception as ex:
-            print(f"Task 1: location map PNG failed: {ex}")
+            print(f"Task 1: static map generation failed: {ex}")
     else:
         logging.info("Skipping plot generation (--no-plots)")
 
