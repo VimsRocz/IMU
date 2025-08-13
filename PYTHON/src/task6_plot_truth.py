@@ -92,14 +92,14 @@ def main() -> None:
             q_b2n_const=qbody_tuple,
         )
 
-    print(output_dir / "task6_overlay_NED.png")
-    print(output_dir / "task6_overlay_ECEF.png")
-    print(output_dir / "task6_overlay_BODY.png")
+    print((output_dir / "task6_overlay_NED.png").resolve())
+    print((output_dir / "task6_overlay_ECEF.png").resolve())
+    print((output_dir / "task6_overlay_BODY.png").resolve())
     if method_files:
-        print(output_dir / "task6_methods_overlay_NED.png")
-        print(output_dir / "task6_methods_overlay_ECEF.png")
-        print(output_dir / "task6_methods_overlay_BODY.png")
-    print(output_dir / "task6_overlay_manifest.json")
+        print((output_dir / "task6_methods_overlay_NED.png").resolve())
+        print((output_dir / "task6_methods_overlay_ECEF.png").resolve())
+        print((output_dir / "task6_methods_overlay_BODY.png").resolve())
+    print((output_dir / "task6_overlay_manifest.json").resolve())
 
 
 if __name__ == "__main__":  # pragma: no cover
