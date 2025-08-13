@@ -942,42 +942,6 @@ logging.info(
     RES_DIR / f"{TAG}_task4_mixed_frames.pdf",
 )
 
-# Plot 2: All data in NED frame
-logging.info("Plotting all data in NED frame.")
-fig_ned, axes_ned = plt.subplots(3, 3, figsize=(15, 10))
-directions_ned = ["N", "E", "D"]
-for i in range(3):
-    for j in range(3):
-        ax = axes_ned[i, j]
-        if i == 0:  # Position
-            ax.plot(t_rel_gnss, gnss_pos_ned[:, j], "k-", label="GNSS Position (NED)")
-            ax.set_title(f"Position {directions_ned[j]}")
-        elif i == 1:  # Velocity
-            ax.plot(t_rel_gnss, gnss_vel_ned[:, j], "k-", label="GNSS Velocity (NED)")
-            ax.set_title(f"Velocity V{directions_ned[j]}")
-        else:  # Acceleration
-            for m in methods:
-                f_ned = C_B_N_methods[m] @ acc_body_corrected[m].T
-                ax.plot(
-                    t_rel_ilu,
-                    f_ned[j],
-                    color=colors[m],
-                    alpha=0.7,
-                    label=f"IMU {m} Acceleration (NED)",
-                )
-            ax.set_title(f"Acceleration A{directions_ned[j]}")
-        ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Value")
-        ax.legend()
-plt.tight_layout()
-plt.savefig(RES_DIR / f"{TAG}_task4_all_ned.pdf")
-if INTERACTIVE:
-    plt.show()
-plt.close()
-logging.info(
-    "All data in NED frame plot saved as '%s'",
-    RES_DIR / f"{TAG}_task4_all_ned.pdf",
-)
 
 # Plot 3: All data in ECEF frame
 logging.info("Plotting all data in ECEF frame.")
@@ -1165,6 +1129,59 @@ for m in methods:
             imu_vel[m][i] = np.zeros(3)
             imu_pos[m][i] = imu_pos[m][i - 1]
     logging.info(f"Method {m}: ZUPT applied.")
+
+# Plot 2: Derived IMU and GNSS data in NED frame
+logging.info("Plotting derived IMU and GNSS data in NED frame.")
+fig_ned, axes_ned = plt.subplots(3, 3, figsize=(15, 10))
+directions_ned = ["N", "E", "D"]
+for i in range(3):
+    for j in range(3):
+        ax = axes_ned[i, j]
+        if i == 0:  # Position
+            ax.plot(t_rel_gnss, gnss_pos_ned[:, j], "k-", label="Derived GNSS")
+            for m in methods:
+                ax.plot(
+                    t_rel_ilu,
+                    imu_pos[m][:, j],
+                    color=colors[m],
+                    alpha=0.7,
+                    label=f"Derived IMU ({m})",
+                )
+            ax.set_title(f"Position {directions_ned[j]}")
+        elif i == 1:  # Velocity
+            ax.plot(t_rel_gnss, gnss_vel_ned[:, j], "k-", label="Derived GNSS")
+            for m in methods:
+                ax.plot(
+                    t_rel_ilu,
+                    imu_vel[m][:, j],
+                    color=colors[m],
+                    alpha=0.7,
+                    label=f"Derived IMU ({m})",
+                )
+            ax.set_title(f"Velocity V{directions_ned[j]}")
+        else:  # Acceleration
+            ax.plot(t_rel_gnss, gnss_acc_ned[:, j], "k-", label="Derived GNSS")
+            for m in methods:
+                ax.plot(
+                    t_rel_ilu,
+                    imu_acc[m][:, j],
+                    color=colors[m],
+                    alpha=0.7,
+                    label=f"Derived IMU ({m})",
+                )
+            ax.set_title(f"Acceleration A{directions_ned[j]}")
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Value")
+        ax.legend()
+plt.tight_layout()
+plt.savefig(RES_DIR / f"{TAG}_task4_all_ned.pdf")
+if INTERACTIVE:
+    plt.show()
+plt.close()
+logging.info(
+    "All data in NED frame plot saved as '%s'",
+    RES_DIR / f"{TAG}_task4_all_ned.pdf",
+)
 
 # --------------------------------
 # Subtask 5.6: Kalman Filter for Sensor Fusion for Each Method
