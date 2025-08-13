@@ -5,11 +5,27 @@ from typing import Optional, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Try to import interactive plotting
-try:
-    from plot_overlay_interactive import plot_overlay_interactive, PLOTLY_AVAILABLE
-except ImportError:
-    PLOTLY_AVAILABLE = False
+
+def plot_overlay_interactive_safe(*args, **kwargs):
+    """Lazy-import the interactive overlay module.
+
+    Importing :mod:`plot_overlay_interactive` pulls in Plotly which may not be
+    installed in minimal environments.  By importing on demand we avoid raising
+    at module import time when only static plotting is required.
+    """
+
+    try:  # pragma: no cover - exercised at runtime
+        from plot_overlay_interactive import (
+            PLOTLY_AVAILABLE,
+            plot_overlay_interactive,
+        )
+    except Exception as e:  # pragma: no cover - graceful degradation
+        raise RuntimeError(f"Interactive plotting not available: {e}") from e
+
+    if not PLOTLY_AVAILABLE:
+        raise RuntimeError("Plotly not available.")
+
+    return plot_overlay_interactive(*args, **kwargs)
 
 
 def _norm(v: np.ndarray) -> np.ndarray:
@@ -41,7 +57,7 @@ def plot_overlay(
     suffix: Optional[str] = None,
     filename: Optional[str] = None,
     include_measurements: bool = True,
-    interactive: bool = True,
+    interactive: bool = False,
 ) -> None:
     """Save a 3x3 overlay plot comparing measured IMU, measured GNSS and
     fused GNSS+IMU tracks.
@@ -68,10 +84,10 @@ def plot_overlay(
         Create interactive Plotly plots when ``True`` (default). Falls back to
         static matplotlib plots if Plotly is not available.
     """
-    # Try interactive plotting first if requested and available
-    if interactive and PLOTLY_AVAILABLE:
+    # Try interactive plotting first if requested
+    if interactive:
         try:
-            plot_overlay_interactive(
+            plot_overlay_interactive_safe(
                 frame=frame,
                 method=method,
                 t_imu=t_imu,
@@ -94,15 +110,13 @@ def plot_overlay(
                 acc_truth=acc_truth,
                 filename=filename,
                 include_measurements=include_measurements,
-                save_static=True,  # Also save static versions
+                save_static=True,
             )
             print(f"✓ Created interactive plot for {method} {frame} frame")
             return
-        except Exception as e:
+        except Exception as e:  # pragma: no cover - graceful fallback
             print(f"Interactive plotting failed: {e}")
             print("Falling back to static matplotlib plots...")
-    elif interactive and not PLOTLY_AVAILABLE:
-        print("Plotly not available - using static matplotlib plots")
     
     # Original matplotlib plotting code (static plots)
     _plot_overlay_static(
