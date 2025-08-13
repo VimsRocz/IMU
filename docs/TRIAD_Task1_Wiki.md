@@ -41,8 +41,8 @@ Optional magnetic field if a magnetometer file is provided
 ### 1.5 Plot Initial Location
 - Produce a small map centred on the derived latitude/longitude using the `PlateCarree` projection from `cartopy`.
 - The position is marked with a red dot and labelled with latitude and longitude.
-- The figure is saved as `results/run_triad_only/<tag>_task1_location_map.pdf` (unless `--no-plots` is used).
-- This PDF is listed in `plot_summary.md` as part of the standard results set.
+- The figure is saved as `results/run_triad_only/<tag>_task1_location_map.png` (unless `--no-plots` is used).
+- This PNG is listed in `plot_summary.md` as part of the standard results set.
 - Refer to the [standardized legend terms](PlottingChecklist.md#standardized-legend-terms) when adding legends.
 
 ## Result

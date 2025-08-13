@@ -75,7 +75,7 @@ Task_5(imu, gnss, 'TRIAD');   % uses Task4 results, writes results/IMU_X001_GNSS
 ```matlab
 run_all_datasets_matlab('TRIAD')
 ```
-The script `MATLAB/run_all_datasets_matlab.m` accepts the initialisation method as an optional argument. It scans `Data/` (or the repository root if that folder is missing) for matching IMU and GNSS logs, executes `Task_1` through `Task_5` for each pair and saves the results as `IMU_<id>_GNSS_<id>_<METHOD>_kf_output.mat` in `results/`. `plot_results` is invoked automatically to export the standard PDF figures.
+The script `MATLAB/run_all_datasets_matlab.m` accepts the initialisation method as an optional argument. It scans `Data/` (or the repository root if that folder is missing) for matching IMU and GNSS logs, executes `Task_1` through `Task_5` for each pair and saves the results as `IMU_<id>_GNSS_<id>_<METHOD>_kf_output.mat` in `results/`. `plot_results` is invoked automatically to export the standard PNG figures.
 
 Prerequisites: MATLAB R2023a or newer. The **Signal Processing Toolbox** is strongly
 recommended for the MATLAB pipeline. If the toolbox is missing, Task&nbsp;2 falls back to
@@ -92,7 +92,7 @@ The Navigation Toolbox remains optional but is helpful for some helper scripts.
 run_all_datasets_with_python
 ```
 This wrapper simply invokes `src/run_all_datasets.py` using the active Python
-interpreter. The Python script handles both the batch processing and PDF figure
+interpreter. The Python script handles both the batch processing and PNG figure
 generation, so MATLAB only launches the process. Install Python 3.x along with
 `numpy`, `pandas`, `scipy` and `matplotlib` (or simply `pip install -r
 requirements.txt`).

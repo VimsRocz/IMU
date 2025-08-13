@@ -36,7 +36,7 @@ Optional magnetic field if a magnetometer file is provided
 ### 1.5 Plot Initial Location
 - Create a small map centred on the derived position with `cartopy`.
 - Mark the location with a red dot and label the latitude/longitude.
- - Save the plot as `results/<tag>_task1_location_map.[pdf|png]` unless the `--no-plots` flag is used.
+ - Save the plot as `results/<tag>_task1_location_map.png` unless the `--no-plots` flag is used.
 - See the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) for consistent naming of plot entries.
 
 ## Result

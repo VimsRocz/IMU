@@ -261,27 +261,27 @@ Both filenames should include a dataset identifier such as `IMU_X001` or `STATE_
 
 A sample run of `PYTHON/src/run_triad_only.py` is documented in `Report/index.md`. Each page lists the equations and the figures generated in the `PYTHON/results/` directory.
 
-Typical result PDFs:
+Typical result PNGs:
 
-- `<tag>_task1_location_map.pdf` – initial location map
-- `task3_errors_comparison.pdf` – attitude initialization error comparison
-- `task3_quaternions_comparison.pdf` – quaternion components for initialization
-- `task4_comparison_ned.pdf` – GNSS vs IMU in NED frame
-- `task4_mixed_frames.pdf` – GNSS/IMU data in mixed frames
-- `task4_all_ned.pdf` – integrated data in NED frame
-- `task4_all_ecef.pdf` – integrated data in ECEF frame
-- `task4_all_body.pdf` – integrated data in body frame
-- `task5_results_<method>.pdf` – Kalman filter results for each method
-- `task5_all_ned.pdf` – Kalman filter results in NED frame
-- `task5_all_ecef.pdf` – Kalman filter results in ECEF frame
-- `task5_all_body.pdf` – Kalman filter results in body frame
-- `<method>_residuals.pdf` – position and velocity residuals
-- `<tag>_task6_attitude_angles.pdf` – attitude angles over time
-- `<tag>_<frame>_overlay_truth.pdf` – fused output vs reference (e.g. `IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.pdf`)
-- `<tag>_task7_3_residuals_position_velocity.pdf` – Task 7 position/velocity residuals
-- `task7_4_attitude_angles_euler.pdf` – Task 7 Euler angle plots
-- `task7_fused_vs_truth_error.pdf` – Task 7 fused minus truth velocity error
-- `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf` – Task 7 truth minus fused difference (NED/ECEF/Body)
+- `<tag>_task1_location_map.png` – initial location map
+- `task3_errors_comparison.png` – attitude initialization error comparison
+- `task3_quaternions_comparison.png` – quaternion components for initialization
+- `task4_comparison_ned.png` – GNSS vs IMU in NED frame
+- `task4_mixed_frames.png` – GNSS/IMU data in mixed frames
+- `task4_all_ned.png` – integrated data in NED frame
+- `task4_all_ecef.png` – integrated data in ECEF frame
+- `task4_all_body.png` – integrated data in body frame
+- `task5_results_<method>.png` – Kalman filter results for each method
+- `task5_all_ned.png` – Kalman filter results in NED frame
+- `task5_all_ecef.png` – Kalman filter results in ECEF frame
+- `task5_all_body.png` – Kalman filter results in body frame
+- `<method>_residuals.png` – position and velocity residuals
+- `<tag>_task6_attitude_angles.png` – attitude angles over time
+- `<tag>_<frame>_overlay_truth.png` – fused output vs reference (e.g. `IMU_X002_GNSS_X002_Davenport_task6_ECEF_overlay_state.png`)
+- `<tag>_task7_3_residuals_position_velocity.png` – Task 7 position/velocity residuals
+- `task7_4_attitude_angles_euler.png` – Task 7 Euler angle plots
+- `task7_fused_vs_truth_error.png` – Task 7 fused minus truth velocity error
+- `<tag>_task7_5_diff_truth_fused_over_time_<frame>.png` – Task 7 truth minus fused difference (NED/ECEF/Body)
 
 ### Task 6: State Overlay
 
@@ -296,7 +296,7 @@ python PYTHON/src/task6_plot_truth.py --est-file PYTHON/results/IMU_X001_GNSS_X0
 
 The script attempts to locate `DATA/Truth/STATE_X001.txt` automatically based on the dataset identifier in `--est-file`. Pass `--truth-file` only when the file lives outside the repository root or has a different name.
 
-Passing `--show-measurements` adds the raw IMU and GNSS curves. Figures are written as `PYTHON/results/<tag>_task6_overlay_state_<frame>.(pdf|png)`.
+Passing `--show-measurements` adds the raw IMU and GNSS curves. Figures are written as `PYTHON/results/<tag>_task6_overlay_state_<frame>.png`.
 
 ### Task 7: Evaluation of Filter Results
 
@@ -317,10 +317,10 @@ python PYTHON/src/run_all_methods.py --task 7
 
 Output examples (under `PYTHON/results/`):
 
-- `<tag>_task7_3_residuals_position_velocity.pdf`
-- `<tag>_task7_4_attitude_angles_euler.pdf`
-- `task7_fused_vs_truth_error.pdf`
-- `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf`
+- `<tag>_task7_3_residuals_position_velocity.png`
+- `<tag>_task7_4_attitude_angles_euler.png`
+- `task7_fused_vs_truth_error.png`
+- `<tag>_task7_5_diff_truth_fused_over_time_<frame>.png`
 
 Notes:
 
@@ -441,7 +441,7 @@ Figures are saved to `PYTHON/results/`. Interactive exploration lives in `notebo
 
 ### Summary CSV format
 
-`PYTHON/src/summarise_runs.py` parses logs and writes `PYTHON/results/summary.csv`. Columns include: `method`, `imu`, `gnss`, `rmse_pos`, and `final_pos`. `PYTHON/src/generate_summary.py` builds a PDF/table from this CSV.
+`PYTHON/src/summarise_runs.py` parses logs and writes `PYTHON/results/summary.csv`. Columns include: `method`, `imu`, `gnss`, `rmse_pos`, and `final_pos`. `PYTHON/src/generate_summary.py` builds a PNG/table from this CSV.
 
 ### Tests
 

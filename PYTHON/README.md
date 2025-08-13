@@ -39,7 +39,7 @@ Options
 
 Outputs
 
-Artifacts (PNG/PDF/JSON/txt) are written to PYTHON/results/.
+Artifacts (PNG/JSON/txt) are written to PYTHON/results/.
 
 Notes
 - No `PYTHONPATH` needed: entry scripts add `src/` to `sys.path` automatically.

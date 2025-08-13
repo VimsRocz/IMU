@@ -29,7 +29,7 @@ Convert the ECEF truth trajectory to NED using the reference latitude, longitude
 Align IMU, GNSS and truth samples on the filter time grid.
 
 ### 6.4 Plot and Save
-Call `plot_overlay` for the three frames. Overlay PDFs are stored in ``results/<dataset>/`` as ``<dataset>_<method>_task6_overlay_state_<frame>.pdf``. The ``--show-measurements`` flag mirrors the Python implementation.
+Call `plot_overlay` for the three frames. Overlay PNGs are stored in ``results/<dataset>/`` as ``<dataset>_<method>_task6_overlay_state_<frame>.png``. The ``--show-measurements`` flag mirrors the Python implementation.
 
 ## Result
 

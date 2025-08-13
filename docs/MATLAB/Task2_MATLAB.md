@@ -28,7 +28,7 @@ Body-frame gravity g_body and Earth rate ω_ie_body
 - Save the indices and statistics to `results/triad_init_log.txt`.
 - Optionally scale **only** the mean accelerometer vector so its magnitude equals `9.81`.
 - The rest of the IMU data is left unscaled to preserve dynamic measurements.
-- Plot the detected interval with `plot_zupt_and_variance` and save the PDF.
+- Plot the detected interval with `plot_zupt_and_variance` and save the PNG.
 - When labelling the plot refer to the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms).
 - After detection, the code prints the duration of the static window and
   compares it to the total dataset length. If more than ~90 % of the data is

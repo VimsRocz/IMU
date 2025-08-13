@@ -5,7 +5,7 @@
 Example result files:
 
 ```
-results/run_triad_only/IMU_X001_GNSS_X001_TRIAD_task5_results_TRIAD.pdf
+results/run_triad_only/IMU_X001_GNSS_X001_TRIAD_task5_results_TRIAD.png
 ```
 
 Typical residual root-mean-square errors are below $0.3\,\mathrm{m}$ for position and $0.1\,\mathrm{m/s}$ for velocity.

@@ -1,7 +1,7 @@
 # Python Pipeline – Task 6 State Overlay
 
 Task 6 visualises the Kalman filter output from Task 5 together with the raw
-`STATE_X` trajectory. Only the ``*_overlay_state.pdf`` figures are produced.
+`STATE_X` trajectory. Only the ``*_overlay_state.png`` figures are produced.
 
 ## Overview
 
@@ -30,7 +30,7 @@ Use :func:`assemble_frames` to align IMU, GNSS and truth data in NED, ECEF and b
 Call :func:`plot_overlay` for each frame to produce overlay figures. The ``--show-measurements`` flag adds the raw IMU and GNSS curves.
 
 ### 6.4 Save Overlay Figures
-Overlay PDFs are stored directly in ``results/`` as ``<dataset>_<method>_task6_overlay_state_<frame>.pdf``.
+Overlay PNGs are stored directly in ``results/`` as ``<dataset>_<method>_task6_overlay_state_<frame>.png``.
 
 ## Result
 

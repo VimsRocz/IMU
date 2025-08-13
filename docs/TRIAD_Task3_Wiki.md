@@ -33,11 +33,11 @@ quaternion is appended to `triad_init_log.txt`.
 ### 3.4 Validate Gravity and Earth‑Rate Alignment
 - Rotate the body vectors with `R_tri` and compute the angles to the references.
 - Report the gravity and Earth‑rate errors in degrees.
-- These errors appear in `results/run_triad_only/<tag>_task3_errors_comparison.pdf`.
+- These errors appear in `results/run_triad_only/<tag>_task3_errors_comparison.png`.
 
 ### 3.5 Plot Quaternion Components
 - Plot `qw`, `qx`, `qy`, `qz` alongside the other methods for context.
-- The figure `results/run_triad_only/<tag>_task3_quaternions_comparison.pdf` is created.
+- The figure `results/run_triad_only/<tag>_task3_quaternions_comparison.png` is created.
 - Apply the [standardized legend terms](PlottingChecklist.md#standardized-legend-terms) so the labels match other tasks.
 
 ## Result

@@ -22,15 +22,15 @@ Task 7 timeline matches the Task 6 overlays.
 - Output mean and standard deviation for position and velocity errors.
 
 ### 7.3 Save Residual Plots
-- Store `<tag>_task7_3_residuals_position_velocity.pdf` and `<tag>_task7_3_error_norms.pdf`.
+- Store `<tag>_task7_3_residuals_position_velocity.png` and `<tag>_task7_3_error_norms.png`.
 
 ### 7.4 Plot Attitude Angles
 - Convert quaternions to Euler angles with `quat2eul`.
-- Save `<tag>_task7_4_attitude_angles_euler.pdf`.
+- Save `<tag>_task7_4_attitude_angles_euler.png`.
 
 ### 7.5 Truth – Fused Difference
 - When both trajectories exist, plot their difference over time.
-- Write `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf` for NED, ECEF and Body frames.
+- Write `<tag>_task7_5_diff_truth_fused_over_time_<frame>.png` for NED, ECEF and Body frames.
 
 ## Result
 

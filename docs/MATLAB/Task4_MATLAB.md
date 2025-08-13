@@ -35,14 +35,14 @@ GNSS ECEF → NED → comparison plots
 
 ### 4.13 Validate and Plot
 - Plot GNSS, raw IMU and integrated IMU data in NED, body and ECEF frames.
-- Save the PDFs as `results/<tag>_task4_*.pdf` and list them in `plot_summary.md`.
+- Save the PNGs as `results/<tag>_task4_*.png` and list them in `plot_summary.md`.
 - Use the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) when naming GNSS, IMU and fused series.
 - When the `STATE_X001.txt` reference trajectory is available you can run the Python
   script `src/validate_with_truth.py` or call the MATLAB helper
   `overlay_truth_task4` to overlay the fused output with the ground truth. Before
   running the Python script read the first ECEF row of the state file and supply
   the latitude, longitude and reference point via `--ref-lat`, `--ref-lon` and
-  `--ref-r0`. The resulting PDF files `<method>_<frame>_overlay_truth.pdf` are
+  `--ref-r0`. The resulting PNG files `<method>_<frame>_overlay_truth.png` are
   written to the `results/` directory alongside the Kalman filter results.
 
 ## Result
