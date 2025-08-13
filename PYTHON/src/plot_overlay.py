@@ -5,11 +5,29 @@ from typing import Optional, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Try to import interactive plotting
-try:
-    from plot_overlay_interactive import plot_overlay_interactive, PLOTLY_AVAILABLE
-except ImportError:
-    PLOTLY_AVAILABLE = False
+
+PLOTLY_AVAILABLE = False
+
+
+def plot_overlay_interactive_safe(*args, **kwargs):
+    """Lazy import wrapper for interactive plotting.
+
+    This avoids importing :mod:`plot_overlay_interactive` at module import time
+    so that environments without Plotly or its dependencies do not fail.
+    """
+
+    try:
+        from plot_overlay_interactive import (
+            PLOTLY_AVAILABLE as _PLOTLY_AVAILABLE,
+            plot_overlay_interactive as _plot_overlay_interactive,
+        )
+    except Exception as e:  # pragma: no cover - import may fail in tests
+        raise RuntimeError(f"Interactive plotting not available: {e}")
+
+    if not _PLOTLY_AVAILABLE:
+        raise RuntimeError("Plotly not available.")
+
+    return _plot_overlay_interactive(*args, **kwargs)
 
 
 def _norm(v: np.ndarray) -> np.ndarray:
@@ -68,10 +86,10 @@ def plot_overlay(
         Create interactive Plotly plots when ``True`` (default). Falls back to
         static matplotlib plots if Plotly is not available.
     """
-    # Try interactive plotting first if requested and available
-    if interactive and PLOTLY_AVAILABLE:
+    # Try interactive plotting first if requested
+    if interactive:
         try:
-            plot_overlay_interactive(
+            plot_overlay_interactive_safe(
                 frame=frame,
                 method=method,
                 t_imu=t_imu,
@@ -94,15 +112,41 @@ def plot_overlay(
                 acc_truth=acc_truth,
                 filename=filename,
                 include_measurements=include_measurements,
-                save_static=True,  # Also save static versions
+                save_static=True,
             )
             print(f"✓ Created interactive plot for {method} {frame} frame")
-            return
         except Exception as e:
             print(f"Interactive plotting failed: {e}")
             print("Falling back to static matplotlib plots...")
-    elif interactive and not PLOTLY_AVAILABLE:
-        print("Plotly not available - using static matplotlib plots")
+        else:
+            # Still generate static matplotlib version to satisfy callers expecting
+            # a PDF/PNG even when interactive export succeeds (kaleido may be missing).
+            _plot_overlay_static(
+                frame=frame,
+                method=method,
+                t_imu=t_imu,
+                pos_imu=pos_imu,
+                vel_imu=vel_imu,
+                acc_imu=acc_imu,
+                t_gnss=t_gnss,
+                pos_gnss=pos_gnss,
+                vel_gnss=vel_gnss,
+                acc_gnss=acc_gnss,
+                t_fused=t_fused,
+                pos_fused=pos_fused,
+                vel_fused=vel_fused,
+                acc_fused=acc_fused,
+                out_dir=out_dir,
+                truth=truth,
+                t_truth=t_truth,
+                pos_truth=pos_truth,
+                vel_truth=vel_truth,
+                acc_truth=acc_truth,
+                suffix=suffix,
+                filename=filename,
+                include_measurements=include_measurements,
+            )
+            return
     
     # Original matplotlib plotting code (static plots)
     _plot_overlay_static(
