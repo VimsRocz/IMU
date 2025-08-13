@@ -33,7 +33,9 @@ class GNSSIMUKalman:
         pos_proc_noise: float = 0.0,
         vel_proc_noise: float = 0.0,
         pos_meas_noise: float = 1.0,
-        vel_meas_noise: float = 1.0,
+        # Default GNSS velocity measurement noise standard deviation [m/s]
+        # Increased from 1.0 to 3.0 to down-weight noisy GNSS speed updates
+        vel_meas_noise: float = 3.0,
     ) -> None:
         self.gnss_weight = gnss_weight
         self.accel_noise = accel_noise

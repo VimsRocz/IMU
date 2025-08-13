@@ -78,8 +78,12 @@ def main():
                         help='Additional process noise for velocity states')
     parser.add_argument('--pos_meas_noise', type=float, default=1.0,
                         help='Measurement noise for GNSS position')
-    parser.add_argument('--vel_meas_noise', type=float, default=1.0,
-                        help='Measurement noise for GNSS velocity')
+    parser.add_argument(
+        '--vel_meas_noise',
+        type=float,
+        default=3.0,
+        help='Measurement noise for GNSS velocity (std dev, m/s)',
+    )
     parser.add_argument('--static_window', type=int, default=400)
     parser.add_argument('--smoother', action='store_true')
     args = parser.parse_args()

@@ -14,7 +14,7 @@ Default parameters:
 | `vel_proc_noise`    | `0.0` |
 | `pos_proc_noise`    | `0.0` |
 | `pos_meas_noise`    | `1.0` |
-| `vel_meas_noise`    | `1.0` |
+| `vel_meas_noise`    | `3.0` |
 | `accel_bias_noise`  | `1e-5` |
 | `gyro_bias_noise`   | `1e-5` |
 
