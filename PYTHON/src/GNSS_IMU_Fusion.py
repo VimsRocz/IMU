@@ -559,6 +559,15 @@ def main():
     omega_err_mean = float(np.mean(list(omega_errors.values())))
     omega_err_max = float(np.max(list(omega_errors.values())))
 
+    # Load truth quaternion from STATE file if provided
+    q_truth = None
+    if truth_file:
+        try:
+            truth_arr = np.loadtxt(truth_file, comments="#")
+            q_truth = truth_arr[0, 8:12]
+        except Exception as e:
+            logging.warning(f"Failed to load truth quaternion from {truth_file}: {e}")
+
     # --------------------------------
     # Subtask 3.6: Validate Attitude Determination and Compare Methods
     # --------------------------------
@@ -646,66 +655,25 @@ def main():
 
     logging.info("Subtask 3.7: Plotting validation errors and quaternion components.")
 
-    methods_plot = methods
-
-    gravity_errors = [results[m]["gravity_error"] for m in methods_plot]
-    earth_rate_errors = [results[m]["earth_rate_error"] for m in methods_plot]
-
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    x = np.arange(len(methods_plot))
-    width = 0.35
-
-    axes[0].bar(x, gravity_errors, width)
-    axes[0].set_xticks(x)
-    axes[0].set_xticklabels(methods_plot)
-    axes[0].set_title("Gravity Error")
-    axes[0].set_ylabel("Error (degrees)")
-
-    axes[1].bar(x, earth_rate_errors, width)
-    axes[1].set_xticks(x)
-    axes[1].set_xticklabels(methods_plot)
-    axes[1].set_title("Earth Rate Error")
-    axes[1].set_ylabel("Error (degrees)")
-
-    fig.suptitle("Task 3: Attitude Error Comparison")
-    plt.tight_layout()
-    if not args.no_plots:
-        plt.savefig(f"results/{tag}_task3_errors_comparison.pdf")
-    plt.close()
-    logging.info("Error comparison plot saved")
-
-    # Collect quaternion data for both cases
-    cases = ["Case 1", "Case 2"]
-
-    # Plot quaternion components
-    fig, ax = plt.subplots(figsize=(12, 6))
-    labels = [
-        f"{m} ({c})" for c in cases for m in methods
-    ]  # e.g., 'TRIAD (Case 1)', 'TRIAD (Case 2)', etc.
-    x = np.arange(len(labels))
-    width = 0.15
-    components = ["qw", "qx", "qy", "qz"]
-
-    # Flatten quaternion data for plotting
-    all_quats = [quats_case1[m] for m in methods] + [quats_case2[m] for m in methods]
-
-    # Plot bars for each quaternion component
-    for i, comp in enumerate(components):
-        comp_values = [q[i] for q in all_quats]
-        ax.bar(x + i * width, comp_values, width, label=comp)
-
-    ax.set_xticks(x + 1.5 * width)
-    ax.set_xticklabels(labels, rotation=45, ha="right")
-    ax.set_ylabel("Quaternion Component Value")
-    ax.set_title("Quaternion Components for Each Method and Case")
-    fig.suptitle("Task 3: Quaternion Components by Method")
-    ax.legend(loc="best")
-
-    plt.tight_layout()
-    if not args.no_plots:
-        plt.savefig(f"results/{tag}_task3_quaternions_comparison.pdf")
-    plt.close()
-    logging.info("Quaternion comparison plot saved")
+    if q_truth is not None:
+        fig, ax = plt.subplots(figsize=(8, 5))
+        labels = ["q0", "q1", "q2", "q3"]
+        x = np.arange(len(labels))
+        width = 0.35
+        ax.bar(x - width / 2, q_truth, width, label="Truth")
+        ax.bar(x + width / 2, q_tri, width, label="TRIAD")
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels)
+        ax.set_ylabel("Quaternion Component")
+        ax.set_title("Task 3: Quaternion Comparison")
+        ax.legend(loc="best")
+        plt.tight_layout()
+        if not args.no_plots:
+            plt.savefig(f"results/{tag}_task3_errors_comparison.png")
+        plt.close()
+        logging.info("Quaternion overlay plot saved")
+    else:
+        logging.warning("Truth quaternion not available; skipping quaternion overlay plot")
 
     # --------------------------------
     # Subtask 3.8: Store Rotation Matrices for Later Tasks
