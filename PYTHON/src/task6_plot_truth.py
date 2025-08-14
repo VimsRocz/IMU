@@ -2,6 +2,8 @@
 import argparse, json, os, sys, traceback
 from pathlib import Path
 
+from paths import ensure_results_dir
+
 
 def eprint(*a, **k):
     print(*a, file=sys.stderr, **k)
@@ -32,7 +34,10 @@ def main():
 
     est_path = Path(args.est_file).resolve()
     run_id = args.run_id or derive_run_id(est_path)
-    out_dir = (Path('PYTHON')/ 'results' / run_id / 'task6').resolve()
+
+    # Ensure plots are saved under the repository's ``PYTHON/results`` directory
+    res_dir = ensure_results_dir()
+    out_dir = (res_dir / run_id / 'task6').resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     time_hint = est_path.with_name(f"{run_id}_task5_time.mat")
