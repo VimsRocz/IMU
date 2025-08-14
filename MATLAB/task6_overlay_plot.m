@@ -1,14 +1,14 @@
-function pdf_path = task6_overlay_plot(est_file, truth_file, method, frame, dataset, output_dir, debug, interactive)
+function png_path = task6_overlay_plot(est_file, truth_file, method, frame, dataset, output_dir, debug, interactive)
 %TASK6_OVERLAY_PLOT  Overlay fused estimate with ground truth.
 %
-%   pdf_path = TASK6_OVERLAY_PLOT(est_file, truth_file, method, frame,
+%   png_path = TASK6_OVERLAY_PLOT(est_file, truth_file, method, frame,
 %   dataset, output_dir, debug, interactive) mirrors the functionality of the Python
 %   script ``task6_overlay_plot.py``.  ``est_file`` and ``truth_file`` are
 %   ``.npz`` or ``.txt`` files containing the fused estimator output and
 %   ground truth respectively. ``frame`` is either ``'ECEF'`` or ``'NED'``.
 %   The interpolated truth is overlaid on the estimate for position,
 %   velocity and acceleration and the figure saved under
-%   ``results/<run_id>/`` as ``<run_id>_task6_overlay_state_<frame>.pdf``
+%   ``results/<run_id>/`` as ``<run_id>_task6_overlay_state_<frame>.png``
 %   within the directory returned by ``get_results_dir()``.
 %   ``run_id`` combines the dataset and method, e.g.,
 %   ``IMU_X003_GNSS_X002_TRIAD``.
@@ -29,13 +29,13 @@ if nargin < 7
     debug = false;
 end
 if nargin < 8
-    interactive = true;  % Default to interactive mode
+    interactive = false;  % Default to non-interactive mode
 end
 
 % Use interactive version by default
 if interactive
     try
-        pdf_path = task6_overlay_plot_interactive(est_file, truth_file, method, ...
+        png_path = task6_overlay_plot_interactive(est_file, truth_file, method, ...
                                                  frame, dataset, output_dir, debug);
         return;
     catch ME
@@ -63,7 +63,7 @@ acc_truth_i = interp1(t_truth, acc_truth, t_est, 'linear', 'extrap');
 [t_est, pos_est, vel_est, acc_est, pos_truth_i, vel_truth_i, acc_truth_i] = ...
     ensure_equal_length(t_est, pos_est, vel_est, acc_est, pos_truth_i, vel_truth_i, acc_truth_i);
 
-pdf_path = plot_overlay_legacy(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
+png_path = plot_overlay_legacy(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
     vel_truth_i, acc_truth_i, frame, method, dataset, output_dir);
 
 plot_rmse(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
@@ -188,9 +188,9 @@ assert(size(pos_est,1) == size(pos_truth,1));
 end
 
 % -------------------------------------------------------------------------
-function pdf_path = plot_overlay_legacy(t_est, pos_est, vel_est, acc_est, pos_truth, vel_truth, acc_truth, frame, method, dataset, out_dir)
+function png_path = plot_overlay_legacy(t_est, pos_est, vel_est, acc_est, pos_truth, vel_truth, acc_truth, frame, method, dataset, out_dir)
 %PLOT_OVERLAY_LEGACY Original 4x1 overlay plot for compatibility.
-%   The original 4x1 layout preserved for backward compatibility.
+%   Saves a PNG overlay figure using ``save_png_checked``.
 
 labels = {'X','Y','Z'};
 if strcmpi(frame,'NED')
@@ -233,23 +233,14 @@ sgtitle(sprintf('%s Task 6 Overlay - %s (%s frame)', dataset, method, upper(fram
 set(f,'PaperPositionMode','auto');
 run_id = sprintf('%s_%s', dataset, method);
 if ~exist(out_dir,'dir'); mkdir(out_dir); end
-pdf_path = fullfile(out_dir, sprintf('%s_task6_overlay_state_%s.pdf', run_id, frame));
 png_path = fullfile(out_dir, sprintf('%s_task6_overlay_state_%s.png', run_id, frame));
-print(f, pdf_path, '-dpdf', '-bestfit');
-print(f, png_path, '-dpng', '-bestfit');
+save_png_checked(f, png_path);
 close(f);
-fprintf('Saved overlay figure to %s\n', pdf_path);
-files = dir(fullfile(out_dir, sprintf('%s_task6_*.pdf', run_id)));
-if ~isempty(files)
-    fprintf('Files saved in %s\n', out_dir);
-    for k=1:numel(files)
-        fprintf(' - %s\n', files(k).name);
-    end
-end
+fprintf('Saved overlay figure to %s\n', png_path);
 end
 
 % -------------------------------------------------------------------------
-function pdf_path = plot_rmse(t, pos_est, vel_est, acc_est, pos_truth, vel_truth, acc_truth, frame, method, dataset, out_dir)
+function png_path = plot_rmse(t, pos_est, vel_est, acc_est, pos_truth, vel_truth, acc_truth, frame, method, dataset, out_dir)
 %PLOT_RMSE Plot total error magnitude and annotate RMSE values.
 
 pos_err = vecnorm(pos_est - pos_truth, 2, 2);
@@ -271,18 +262,9 @@ legend('Location','northeast');
 title(sprintf('%s Task 6 RMSE - %s (%s frame)', dataset, method, upper(frame)));
 set(f,'PaperPositionMode','auto');
 if ~exist(out_dir,'dir'); mkdir(out_dir); end
-pdf_path = fullfile(out_dir, sprintf('%s_%s_Task6_%s_RMSE.pdf', dataset, method, upper(frame)));
 png_path = fullfile(out_dir, sprintf('%s_%s_Task6_%s_RMSE.png', dataset, method, upper(frame)));
-print(f, pdf_path, '-dpdf', '-bestfit');
-print(f, png_path, '-dpng', '-bestfit');
+save_png_checked(f, png_path);
 close(f);
-fprintf('Saved RMSE figure to %s\n', pdf_path);
-files = dir(fullfile(out_dir, sprintf('%s_%s_Task6_*_RMSE.pdf', dataset, method)));
-if ~isempty(files)
-    fprintf('Files saved in %s\n', out_dir);
-    for k=1:numel(files)
-        fprintf(' - %s\n', files(k).name);
-    end
-end
+fprintf('Saved RMSE figure to %s\n', png_path);
 end
 

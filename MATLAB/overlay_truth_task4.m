@@ -2,7 +2,7 @@ function overlay_truth_task4(kfFile, stateFile, method)
 %OVERLAY_TRUTH_TASK4 Overlay ground truth on Task 4 figures.
 %   OVERLAY_TRUTH_TASK4(KFFILE, STATEFILE, METHOD) loads the Kalman filter
 %   output MAT file and the matching STATE_X*.txt trajectory and saves
-%   figures with "_overlay_truth.pdf" suffix next to KFFILE.
+%   figures with "_overlay_truth.png" suffix next to KFFILE.
 
 S = load(kfFile);
 truth = load(stateFile);
@@ -28,5 +28,5 @@ plot_overlay('NED', method, t_est, S.pos_ned, S.vel_ned, acc_imu, ...
              S.gnss_time, S.gnss_pos_ned, S.gnss_vel_ned, S.gnss_accel_ned, ...
              t_est, S.pos_ned, S.vel_ned, acc_imu, fileparts(kfFile), ...
              't_truth', t_est, 'pos_truth', pos_truth_i, 'vel_truth', vel_truth_i, ...
-             'acc_truth', acc_truth_i, 'suffix', '_overlay_truth.pdf');
+             'acc_truth', acc_truth_i, 'suffix', '_overlay_truth.png');
 end
