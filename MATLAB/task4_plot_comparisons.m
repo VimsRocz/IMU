@@ -1,14 +1,17 @@
 function task4_plot_comparisons(gnss_data, imu_data, fused_data, time_vec)
-%TASK4_PLOT_COMPARISONS Plot GNSS, IMU-only and fused data in 3x3 grids.
+%TASK4_PLOT_COMPARISONS Plot GNSS and IMU-only data in 3x3 grids.
 %   task4_plot_comparisons(gnss_data, imu_data, fused_data, time_vec)
 %   creates comparison figures for NED, ECEF and Body frames.  Each figure
 %   contains a 3x3 subplot grid with rows corresponding to Position,
 %   Velocity and Acceleration and columns for the first, second and third
-%   axes.  GNSS (blue solid), IMU only (orange dashed) and fused (green
-%   solid) signals are plotted against the provided time vector.  Missing
-%   data are replaced by grey dashed zero lines and annotated with a red
-%   warning symbol.  Figures are written to MATLAB/results as 1800x1200 PNGs
-%   at 200 DPI.
+%   axes.  Missing data are replaced by grey dashed zero lines and
+%   annotated with a red warning symbol.  Figures are written to
+%   MATLAB/results as 1800x1200 PNGs at 200 DPI.
+% Removed redundant individual NED pos/vel/acc plots as they do not make
+% sense in Task 4.
+% Task 4: Removed Fused labels; using measured/derived for GNSS/IMU.
+
+disp('Task 4: Removed nonsensical individual NED plots.');
 
 % Ensure output directory exists
 outDir = fullfile('MATLAB','results');
@@ -17,7 +20,6 @@ if ~exist(outDir,'dir'); mkdir(outDir); end
 % Colours
 colGnss   = [0.000, 0.447, 0.741]; % blue
 colImu    = [0.929, 0.694, 0.125]; % orange
-colFused  = [0.466, 0.674, 0.188]; % green
 colMissing= [0.5   0.5   0.5  ];   % grey
 
 fs = 12;               % font size
@@ -43,7 +45,17 @@ for k = 1:numel(frames)
 
         gFrame = getframefield(gnss_data, frame);
         iFrame = getframefield(imu_data,  frame);
-        fFrame = getframefield(fused_data,frame);
+
+        if strcmp(frame,'ned')
+            gnssLabel = 'GNSS (derived)';
+            imuLabel  = 'IMU only (derived)';
+        elseif strcmp(frame,'ecef')
+            gnssLabel = 'GNSS (measured)';
+            imuLabel  = 'IMU only (derived)';
+        else
+            gnssLabel = 'GNSS (derived)';
+            imuLabel  = 'IMU (measured)';
+        end
 
         for r = 1:3
             qty = quantities{r};
@@ -58,10 +70,10 @@ for k = 1:numel(frames)
                 if has
                     col = interp_to_time(col, t);
                     plot(ax, t, col, '-', 'Color', colGnss, 'LineWidth',1.0, ...
-                        'DisplayName','GNSS');
+                        'DisplayName', gnssLabel);
                 else
                     plot(ax, t, zeros(size(t)), '--', 'Color', colMissing, ...
-                        'DisplayName','GNSS (missing)');
+                        'DisplayName',[gnssLabel ' (missing)']);
                     warn = true;
                 end
 
@@ -70,22 +82,10 @@ for k = 1:numel(frames)
                 if has
                     col = interp_to_time(col, t);
                     plot(ax, t, col, '--', 'Color', colImu, 'LineWidth',1.0, ...
-                        'DisplayName','IMU only');
+                        'DisplayName', imuLabel);
                 else
                     plot(ax, t, zeros(size(t)), '--', 'Color', colMissing, ...
-                        'DisplayName','IMU only (missing)');
-                    warn = true;
-                end
-
-                % Fused
-                [col, has] = getqtycol(fFrame, qty, c);
-                if has
-                    col = interp_to_time(col, t);
-                    plot(ax, t, col, '-', 'Color', colFused, 'LineWidth',1.2, ...
-                        'DisplayName','Fused');
-                else
-                    plot(ax, t, zeros(size(t)), '--', 'Color', colMissing, ...
-                        'DisplayName','Fused (missing)');
+                        'DisplayName',[imuLabel ' (missing)']);
                     warn = true;
                 end
 
@@ -117,6 +117,8 @@ for k = 1:numel(frames)
 end
 
 close all;
+
+disp('Task 4: Updated all_ned plot with measured/derived labels; no fused data.');
 
 end
 
