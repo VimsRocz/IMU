@@ -8,6 +8,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import uuid
 import os
+from utils.plot_save import save_plot, task_summary
 
 
 def save_task2_summary_png(
@@ -74,10 +75,9 @@ def save_task2_summary_png(
     fig.suptitle("Task 2 – Body-frame vector summary")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
 
-    out_png = out_dir / f"{run_id}_task2_summary.png"
-    fig.savefig(out_png, dpi=300)
+    out_png = save_plot(fig, out_dir, run_id, "task2", "static_interval", ext="png", dpi=300)
     plt.close(fig)
-    print(f"[Task2] Summary -> {out_png} bytes={os.path.getsize(out_png)}")
+    task_summary("task2")
     return out_png
 
 
@@ -85,6 +85,7 @@ def task2_measure_body_vectors(
     imu_data,
     static_indices: tuple[int, int],
     output_dir: str | Path,
+    run_id: str,
 ) -> Path:
     """Plot measured gravity and Earth rotation vectors with error bars."""
 
@@ -152,8 +153,7 @@ def task2_measure_body_vectors(
         )
 
     fig.tight_layout()
-    out_png = out_dir / "IMU_X002_GNSS_X002_TRIAD_task2_vectors.png"
-    fig.savefig(out_png, dpi=300)
+    out_png = save_plot(fig, out_dir, run_id, "task2", "vectors", ext="png", dpi=300)
     plt.close(fig)
-    print(f"[Task2] saved plot -> {out_png} bytes={os.path.getsize(out_png)}")
+    task_summary("task2")
     return out_png

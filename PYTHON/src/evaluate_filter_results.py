@@ -13,7 +13,7 @@ from typing import Sequence
 import json
 import logging
 
-from naming import plot_path
+from utils.plot_save import save_plot, task_summary
 
 import numpy as np
 import pandas as pd
@@ -149,9 +149,7 @@ def run_evaluation(
         axes[1, i].grid(True)
     fig.suptitle("Task 7 – GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out_path = plot_path(out_dir, tag or "", 7, "3", "residuals_position_velocity")
-    fig.savefig(out_path)
-    print(f"Saved {out_path}")
+    out_path = save_plot(fig, out_dir, tag or "run", "task7", "3_residuals_position_velocity", ext="pdf")
     try:
         from utils import save_plot_mat, save_plot_fig
         save_plot_mat(fig, str(out_path.with_suffix(".mat")))
@@ -170,9 +168,7 @@ def run_evaluation(
             axes[i].grid(True)
         fig.suptitle(f"Task 7 – Histogram of {name} residuals")
         fig.tight_layout(rect=[0, 0, 1, 0.95])
-        hist_path = plot_path(out_dir, tag or "", 7, f"hist_{name}", "residuals")
-        fig.savefig(hist_path)
-        print(f"Saved {hist_path}")
+        hist_path = save_plot(fig, out_dir, tag or "run", "task7", f"hist_{name}_residuals", ext="pdf")
         try:
             from utils import save_plot_mat, save_plot_fig
             save_plot_mat(fig, str(hist_path.with_suffix(".mat")))
@@ -195,8 +191,7 @@ def run_evaluation(
     axs[2].set_xlabel("Time [s]")
     fig.suptitle("Task 7 – Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    att_out = plot_path(out_dir, tag or "", 7, "4", "attitude_angles_euler")
-    fig.savefig(att_out)
+    att_out = save_plot(fig, out_dir, tag or "run", "task7", "4_attitude_angles_euler", ext="pdf")
     try:
         from utils import save_plot_mat, save_plot_fig
         save_plot_mat(fig, str(att_out.with_suffix(".mat")))
@@ -204,6 +199,7 @@ def run_evaluation(
     except Exception:
         pass
     plt.close(fig)
+    task_summary("task7")
 
 
 def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) -> None:
@@ -307,9 +303,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         axes[1, i].grid(True)
     fig.suptitle("Task 7 – GNSS - Predicted Residuals")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    out_path = plot_path(out_dir, tag or "", 7, "3", "residuals_position_velocity")
-    fig.savefig(out_path)
-    print(f"Saved {out_path}")
+    out_path = save_plot(fig, out_dir, tag or "run", "task7", "3_residuals_position_velocity", ext="pdf")
     plt.close(fig)
 
     rot = R.from_quat(quat[:, [1, 2, 3, 0]])
@@ -324,9 +318,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     axs[2].set_xlabel("Time [s]")
     fig.suptitle("Task 7 – Attitude Angles")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    att_path = plot_path(out_dir, tag or "", 7, "4", "attitude_angles_euler")
-    fig.savefig(att_path)
-    print(f"Saved {att_path}")
+    att_path = save_plot(fig, out_dir, tag or "run", "task7", "4_attitude_angles_euler", ext="pdf")
     plt.close(fig)
 
     # Error norm plots
@@ -344,9 +336,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     ax.legend()
     ax.grid(True)
     fig.tight_layout()
-    norm_path = plot_path(out_dir, tag or "", 7, "3", "error_norms")
-    fig.savefig(norm_path)
-    print(f"Saved {norm_path}")
+    norm_path = save_plot(fig, out_dir, tag or "run", "task7", "3_error_norms", ext="pdf")
     plt.close(fig)
 
     # Subtask 7.5: difference Truth - Fused in multiple frames
@@ -448,13 +438,9 @@ def subtask7_5_diff_plot(
 
         fig.suptitle(f"Truth - Fused Differences ({frame} Frame)")
         fig.tight_layout(rect=[0, 0, 1, 0.95])
-        base = plot_path(out_dir, run_id, 7, "5", "diff_truth_fused_over_time")
-        pdf = base.with_name(base.stem + f"_{frame}.pdf")
-        png = pdf.with_suffix(".png")
-        fig.savefig(pdf)
-        print(f"Saved {pdf}")
-        fig.savefig(png)
-        print(f"Saved {png}")
+        base_label = f"5_diff_truth_fused_over_time_{frame}"
+        pdf = save_plot(fig, out_dir, run_id, "task7", base_label, ext="pdf")
+        png = save_plot(fig, out_dir, run_id, "task7", base_label, ext="png")
         try:
             from utils import save_plot_mat, save_plot_fig
             save_plot_mat(fig, str(pdf.with_suffix(".mat")))
@@ -505,7 +491,7 @@ def subtask7_5_diff_plot(
     diff_pos_body = rot.apply(diff_pos_ned, inverse=True)
     diff_vel_body = rot.apply(diff_vel_ned, inverse=True)
     _plot(diff_pos_body, diff_vel_body, ["X", "Y", "Z"], "Body")
-
+    task_summary("task7")
     print(
         "Saved Task 7.5 diff-truth plots for NED/ECEF/Body frames under: "
         f"{out_dir}/"

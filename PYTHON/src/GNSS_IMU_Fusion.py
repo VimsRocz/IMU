@@ -42,7 +42,8 @@ import pandas as pd
 from filterpy.kalman import KalmanFilter
 import datetime
 
-from .scripts.plot_utils import save_plot, plot_attitude
+from .scripts.plot_utils import save_plot as _legacy_save_plot, plot_attitude
+from utils.plot_save import save_plot, task_summary
 from paths import (
     imu_path as _imu_path_helper,
     gnss_path as _gnss_path_helper,
@@ -100,6 +101,7 @@ except Exception:
     logging.basicConfig(level=logging.INFO)
     log = logging.info
 TAG = "{imu}_{gnss}_{method}".format  # helper
+RESULTS_DIR = Path(os.getenv("PYTHON_RESULTS_DIR", "results"))
 
 # Colour palette for plotting per attitude-initialisation method
 COLORS = {
@@ -140,8 +142,6 @@ def task3_plot_quaternions_and_errors(
         Directory in which plots will be written.
     """
 
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-
     # Quaternion component comparison ------------------------------------
     labels = list(quaternions_dict.keys())
     components = ["q_w", "q_x", "q_y", "q_z"]
@@ -162,9 +162,7 @@ def task3_plot_quaternions_and_errors(
     ax.legend(loc="upper left", bbox_to_anchor=(1, 1))
     fig.tight_layout()
 
-    quat_path = Path(output_dir) / f"{RUN_ID}_task3_quaternions_{timestamp}.png"
-    plt.savefig(quat_path, dpi=200, bbox_inches="tight")
-    print(f"[Task3] Quaternion comparison plot saved: {quat_path} bytes={os.path.getsize(quat_path)}")
+    save_plot(fig, RESULTS_DIR, RUN_ID, "task3", "quaternions", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig)
 
     # Attitude error comparison ------------------------------------------
@@ -188,12 +186,11 @@ def task3_plot_quaternions_and_errors(
     fig.suptitle("Task 3: Attitude Error Comparison")
     plt.tight_layout()
 
-    err_path = Path(output_dir) / f"{RUN_ID}_task3_errors_{timestamp}.png"
     if not grav_vals or not earth_vals or (np.allclose(grav_vals, 0) and np.allclose(earth_vals, 0)):
         raise ValueError("Task3 arrays all zero or empty")
-    plt.savefig(err_path, dpi=200, bbox_inches="tight")
-    print(f"[Task3] Error comparison plot saved: {err_path} bytes={os.path.getsize(err_path)}")
+    save_plot(fig, RESULTS_DIR, RUN_ID, "task3", "errors", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig)
+    task_summary("task3")
 
 
 def check_files(imu_file: str, gnss_file: str) -> tuple[str, str]:
@@ -494,6 +491,7 @@ def main():
                 imu_df,
                 (static_start, static_end),
                 out_dir,
+                run_id,
             )
         except Exception as ex:  # pragma: no cover - plotting is best effort
             print(f"Task 2: summary PNG failed: {ex}")
@@ -1211,8 +1209,8 @@ def main():
     )
     fig_comp.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_comparison_ned.png", dpi=200, bbox_inches="tight")
-    plt.close()
+        save_plot(fig_comp, RESULTS_DIR, tag, "task4", "comparison_ned", ext="png", dpi=200, bbox_inches="tight")
+    plt.close(fig_comp)
     logging.info("Comparison plot in NED frame saved")
 
     # Plot 1: Data in mixed frames (GNSS position/velocity in ECEF, IMU acceleration in body)
@@ -1249,8 +1247,8 @@ def main():
     )
     fig_mixed.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_mixed_frames.png", dpi=200, bbox_inches="tight")
-    plt.close()
+        save_plot(fig_mixed, RESULTS_DIR, tag, "task4", "mixed_frames", ext="png", dpi=200, bbox_inches="tight")
+    plt.close(fig_mixed)
     logging.info("Mixed frames plot saved")
 
     # Plot 2: All data in NED frame
@@ -1296,8 +1294,8 @@ def main():
     )
     fig_ned.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_all_ned.png", dpi=200, bbox_inches="tight")
-    plt.close()
+        save_plot(fig_ned, RESULTS_DIR, tag, "task4", "all_ned", ext="png", dpi=200, bbox_inches="tight")
+    plt.close(fig_ned)
     logging.info("All data in NED frame plot saved")
 
     # Plot 3: All data in ECEF frame
@@ -1356,8 +1354,8 @@ def main():
     fig_ecef.suptitle(f"Task 4 – {method} – ECEF Frame (Derived IMU vs. GNSS)")
     fig_ecef.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_all_ecef.png", dpi=200, bbox_inches="tight")
-    plt.close()
+        save_plot(fig_ecef, RESULTS_DIR, tag, "task4", "all_ecef", ext="png", dpi=200, bbox_inches="tight")
+    plt.close(fig_ecef)
     logging.info("All data in ECEF frame plot saved")
 
     # Plot 4: All data in body frame
@@ -1431,9 +1429,11 @@ def main():
     )
     fig_body.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task4_all_body.png", dpi=200, bbox_inches="tight")
-    plt.close()
+        save_plot(fig_body, RESULTS_DIR, tag, "task4", "all_body", ext="png", dpi=200, bbox_inches="tight")
+    plt.close(fig_body)
     logging.info("All data in body frame plot saved")
+    if not args.no_plots:
+        task_summary("task4")
 
     # ================================
     # Task 5: Sensor Fusion with Kalman Filter
@@ -1879,13 +1879,11 @@ def main():
         )
 
     plt.tight_layout()
-    out_png = f"results/{tag}_task5_results_{method}.png"
     if not args.no_plots:
-        save_plot(fig, out_png, f"Task 5: Kalman Filter Results — {tag}")
-    logging.info(f"Subtask 5.8.2: {method} plot saved as '{out_png}'")
-    logging.debug(
-        f"# Subtask 5.8.2: {method} plotting completed. Saved as '{out_png}'."
-    )
+        save_plot(fig, RESULTS_DIR, tag, "task5", f"results_{method}", ext="png", dpi=200)
+    logging.info(f"Subtask 5.8.2: {method} plot saved")
+    logging.debug(f"# Subtask 5.8.2: {method} plotting completed.")
+    plt.close(fig)
 
     # Plot fused data in mixed reference frames
     logging.info("Plotting fused data in mixed frames.")
@@ -1942,8 +1940,8 @@ def main():
     )
     fig_mixed_fused.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_mixed_frames.png", dpi=200, bbox_inches="tight")
-    plt.close()
+        save_plot(fig_mixed_fused, RESULTS_DIR, tag, "task5", "mixed_frames", ext="png", dpi=200, bbox_inches="tight")
+    plt.close(fig_mixed_fused)
     logging.info("Fused mixed frames plot saved")
 
     # ----- Additional reference frame plots -----
@@ -2011,8 +2009,8 @@ def main():
     )
     fig_ned_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_ned.png", dpi=200, bbox_inches="tight")
-    plt.close()
+        save_plot(fig_ned_all, RESULTS_DIR, tag, "task5", "all_ned", ext="png", dpi=200, bbox_inches="tight")
+    plt.close(fig_ned_all)
     logging.info("All data in NED frame plot saved")
 
     logging.info("Plotting all data in ECEF frame.")
@@ -2090,8 +2088,8 @@ def main():
     )
     fig_ecef_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_ecef.png", dpi=200, bbox_inches="tight")
-    plt.close()
+        save_plot(fig_ecef_all, RESULTS_DIR, tag, "task5", "all_ecef", ext="png", dpi=200, bbox_inches="tight")
+    plt.close(fig_ecef_all)
     logging.info("All data in ECEF frame plot saved")
 
     logging.info("Plotting all data in body frame.")
@@ -2167,9 +2165,11 @@ def main():
     )
     fig_body_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        plt.savefig(f"results/{tag}_task5_all_body.png", dpi=200, bbox_inches="tight")
-    plt.close()
+        save_plot(fig_body_all, RESULTS_DIR, tag, "task5", "all_body", ext="png", dpi=200, bbox_inches="tight")
+    plt.close(fig_body_all)
     logging.info("All data in body frame plot saved")
+    if not args.no_plots:
+        task_summary("task5")
 
     # Plot pre-fit innovations
     fig_innov, ax_innov = plt.subplots(3, 1, sharex=True, figsize=(8, 6))
@@ -2185,18 +2185,20 @@ def main():
     ax_innov[-1].set_xlabel("GNSS update index")
     fig_innov.suptitle("Task 5 – Pre-fit Innovations (Fused vs. Measured GNSS)")
     fig_innov.tight_layout()
-    innov_pdf = f"results/{tag}_{method.lower()}_innovations.png"
     if not args.no_plots:
-        save_plot(fig_innov, innov_pdf, "Pre-fit Innovations")
+        save_plot(fig_innov, RESULTS_DIR, tag, "task5", f"{method.lower()}_innovations")
+    plt.close(fig_innov)
 
     # Plot residuals and attitude using helper functions
     if not args.no_plots:
         res = compute_residuals(gnss_time, gnss_pos_ned, imu_time, fused_pos[method])
-        plot_residuals(gnss_time, res, f"results/residuals_{tag}_{method}.png")
+        plot_residuals(gnss_time, res, RESULTS_DIR, tag, method)
         plot_attitude(
             imu_time,
             attitude_q_all[method],
-            f"results/attitude_angles_{tag}_{method}.png",
+            RESULTS_DIR,
+            tag,
+            method,
         )
 
     # Create plot summary
