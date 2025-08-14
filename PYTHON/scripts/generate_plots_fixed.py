@@ -41,7 +41,7 @@ def main() -> None:
             dataset=DATASET,
             out_dir=OUT_DIR,
             t_fused=t,
-            fused=fused,
+            fused=None,
             t_gnss=t,
             gnss=gnss,
             t_imu=t,
