@@ -567,8 +567,8 @@ for i = 1:num_imu_samples
         vel_exceed_log(end+1,:) = [i, vel_norm];
         if vel_blow_count == 1 || mod(vel_blow_count, 100) == 0
             warning('Velocity state %.1f m/s at k=%d; clamping.', vel_norm, i);
+            fprintf('[WARN-CLAMP] k=%d vel_state_norm=%.1f | Clamping to 500 m/s\n', i, vel_norm);
         end
-        disp(sprintf('[WARN-CLAMP] k=%d vel_state_norm=%.1f | Clamping to 500 m/s', i, vel_norm));
         x(4:6) = x(4:6) / vel_norm * vel_limit;
         P(4:6,4:6) = P(4:6,4:6) + eye(3) * 1e-3;
     end
