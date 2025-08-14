@@ -78,13 +78,14 @@ def plot_overlay_interactive(
     if truth is not None:
         t_truth, pos_truth, vel_truth, acc_truth = truth
 
+    frame_upper = frame.upper()
     # Define axis labels for different coordinate frames
     axis_labels = {
         "NED": ["ΔN [m]", "ΔE [m]", "ΔD [m]"],
         "ECEF": ["X [m]", "Y [m]", "Z [m]"],
-        "Body": ["X [m]", "Y [m]", "Z [m]"],
+        "BODY": ["X [m]", "Y [m]", "Z [m]"],
     }
-    cols = axis_labels.get(frame, ["X [m]", "Y [m]", "Z [m]"])
+    cols = axis_labels.get(frame_upper, ["X [m]", "Y [m]", "Z [m]"])
 
     # Create subplot figure with 3x3 layout
     subplot_titles = [
@@ -136,12 +137,15 @@ def plot_overlay_interactive(
             # Add measured data if requested
             if include_measurements:
                 # GNSS measurements
+                gnss_label = (
+                    'Measured GNSS' if frame_upper == 'ECEF' and row < 2 else 'Derived GNSS'
+                )
                 fig.add_trace(
                     go.Scatter(
                         x=t_gnss,
                         y=gnss[:, col],
                         mode='lines',
-                        name='Measured GNSS',
+                        name=gnss_label,
                         line=dict(color=colors["GNSS"]),
                         hovertemplate=f'<b>GNSS {data_type}</b><br>' +
                                      f'Time: %{{x:.2f}} s<br>' +
@@ -150,14 +154,17 @@ def plot_overlay_interactive(
                     ),
                     row=subplot_row, col=subplot_col
                 )
-                
+
                 # IMU measurements
+                imu_label = (
+                    'Measured IMU' if frame_upper == 'BODY' and row == 2 else 'Derived IMU'
+                )
                 fig.add_trace(
                     go.Scatter(
                         x=t_imu,
                         y=imu[:, col],
                         mode='lines',
-                        name='Measured IMU',
+                        name=imu_label,
                         line=dict(color=colors["IMU"], dash='dash'),
                         hovertemplate=f'<b>IMU {data_type}</b><br>' +
                                      f'Time: %{{x:.2f}} s<br>' +

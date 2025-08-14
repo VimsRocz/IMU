@@ -52,8 +52,9 @@ catch
 end
 
 subplot(4,1,1); hold on;
-plot(t_gnss, vecnorm(pos_gnss,2,2), 'k-', 'DisplayName', 'Measured GNSS');
-plot(t_imu, vecnorm(pos_imu,2,2), 'c--', 'DisplayName', 'Derived IMU');
+[gnssLabel, imuLabel] = get_labels(frame, 'pos');
+plot(t_gnss, vecnorm(pos_gnss,2,2), 'k-', 'DisplayName', gnssLabel);
+plot(t_imu, vecnorm(pos_imu,2,2), 'c--', 'DisplayName', imuLabel);
 if ~isempty(Ttruth) && ~isempty(ptruth)
     plot(Ttruth, vecnorm(ptruth,2,2), 'm-', 'DisplayName', 'Truth');
 end
@@ -62,8 +63,9 @@ ylabel('Position [m]');
 legend('show');
 
 subplot(4,1,2); hold on;
-plot(t_gnss, vecnorm(vel_gnss,2,2), 'k-', 'DisplayName', 'Measured GNSS');
-plot(t_imu, vecnorm(vel_imu,2,2), 'c--', 'DisplayName', 'Derived IMU');
+[gnssLabel, imuLabel] = get_labels(frame, 'vel');
+plot(t_gnss, vecnorm(vel_gnss,2,2), 'k-', 'DisplayName', gnssLabel);
+plot(t_imu, vecnorm(vel_imu,2,2), 'c--', 'DisplayName', imuLabel);
 if ~isempty(Ttruth) && ~isempty(vtruth)
     plot(Ttruth, vecnorm(vtruth,2,2), 'm-', 'DisplayName', 'Truth');
 end
@@ -71,8 +73,9 @@ plot(t_fused, vecnorm(vel_fused,2,2), 'g:', 'DisplayName', ['Fused ' method]);
 ylabel('Velocity [m/s]');
 
 subplot(4,1,3); hold on;
-plot(t_gnss, vecnorm(acc_gnss,2,2), 'k-', 'DisplayName', 'Measured GNSS');
-plot(t_imu, vecnorm(acc_imu,2,2), 'c--', 'DisplayName', 'Derived IMU');
+[gnssLabel, imuLabel] = get_labels(frame, 'acc');
+plot(t_gnss, vecnorm(acc_gnss,2,2), 'k-', 'DisplayName', gnssLabel);
+plot(t_imu, vecnorm(acc_imu,2,2), 'c--', 'DisplayName', imuLabel);
 if ~isempty(Ttruth) && ~isempty(atruth)
     plot(Ttruth, vecnorm(atruth,2,2), 'm-', 'DisplayName', 'Truth');
 end
@@ -80,8 +83,9 @@ plot(t_fused, vecnorm(acc_fused,2,2), 'g:', 'DisplayName', ['Fused ' method]);
 ylabel('Acceleration [m/s^2]');
 
 subplot(4,1,4); hold on;
-plot(pos_gnss(:,1), pos_gnss(:,2), 'k-', 'DisplayName', 'Measured GNSS');
-plot(pos_imu(:,1), pos_imu(:,2), 'c--', 'DisplayName', 'Derived IMU');
+[gnssLabel, imuLabel] = get_labels(frame, 'pos');
+plot(pos_gnss(:,1), pos_gnss(:,2), 'k-', 'DisplayName', gnssLabel);
+plot(pos_imu(:,1), pos_imu(:,2), 'c--', 'DisplayName', imuLabel);
 if ~isempty(ptruth)
     plot(ptruth(:,1), ptruth(:,2), 'm-', 'DisplayName', 'Truth');
 end
@@ -111,5 +115,29 @@ try
 catch
 end
 close(h);
-fprintf('Saved overlay figure to %s\n', png_file);
+    fprintf('Saved overlay figure to %s\n', png_file);
+end
+
+function [gnssLabel, imuLabel] = get_labels(frame, qty)
+%GET_LABELS Return GNSS/IMU legend labels based on frame and quantity.
+frame = lower(frame);
+switch frame
+    case 'ecef'
+        if any(strcmp(qty, {'pos','vel'}))
+            gnssLabel = 'Measured GNSS';
+        else
+            gnssLabel = 'Derived GNSS';
+        end
+        imuLabel = 'Derived IMU';
+    case 'body'
+        gnssLabel = 'Derived GNSS';
+        if strcmp(qty, 'acc')
+            imuLabel = 'Measured IMU';
+        else
+            imuLabel = 'Derived IMU';
+        end
+    otherwise % NED
+        gnssLabel = 'Derived GNSS';
+        imuLabel  = 'Derived IMU';
+end
 end
