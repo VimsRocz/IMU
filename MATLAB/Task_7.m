@@ -53,6 +53,10 @@ Ptru = interp(P_ned); Vtru = interp(V_ned);
 % Now compute residuals (NED)
 pos_residual = E.pos_ned - Ptru;
 vel_residual = E.vel_ned - Vtru;
+disp(sprintf('[DBG-T7] pos_residual size: %dx%d | t_est length=%d', size(pos_residual,1), size(pos_residual,2), length(t_est)));
+if size(pos_residual,2) < 3
+    disp('[ERROR-T7] pos_residual has <3 columns; check fused/truth alignment');
+end
 
 % Guard rails: drop outliers > 1e4 m or > 1e4 m/s to avoid plotting explosions
 pos_residual(abs(pos_residual)>1e4) = NaN;
@@ -80,6 +84,7 @@ f1 = figure('Visible','off','Position',[100 100 1400 500]);
 tiledlayout(1,3,'Padding','compact','TileSpacing','compact');
 lbl = {'N','E','D'};
 for i=1:3
+    disp(sprintf('[DBG-T7] Plotting residual %s: mean=%.2f std=%.2f max=%.2f', lbl{i}, mean(pos_residual(:,i),'omitnan'), std(pos_residual(:,i),'omitnan'), max(abs(pos_residual(:,i)), [], 'omitnan')));
     nexttile; plot(t_est, pos_residual(:,i),'LineWidth',1.0); grid on; title(sprintf('Pos residual %s [m]', lbl{i}));
     xlabel('Time [s]');
 end
@@ -88,6 +93,7 @@ exportgraphics(f1, fullfile(resultsDir, sprintf('%s_task7_pos_residual_NED.png',
 f2 = figure('Visible','off','Position',[100 100 1400 500]);
 tiledlayout(1,3,'Padding','compact','TileSpacing','compact');
 for i=1:3
+    disp(sprintf('[DBG-T7] Plotting velocity residual %s: mean=%.2f std=%.2f max=%.2f', lbl{i}, mean(vel_residual(:,i),'omitnan'), std(vel_residual(:,i),'omitnan'), max(abs(vel_residual(:,i)), [], 'omitnan')));
     nexttile; plot(t_est, vel_residual(:,i),'LineWidth',1.0); grid on; title(sprintf('Vel residual %s [m/s]', lbl{i}));
     xlabel('Time [s]');
 end
