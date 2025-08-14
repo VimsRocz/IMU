@@ -1,155 +1,90 @@
 function task6_overlay_truth(fused_data, truth_data, time_vec)
 %TASK6_OVERLAY_TRUTH Plot fused minus truth differences for Task 6.
-%   task6_overlay_truth(fused_data, truth_data, time_vec) creates three
-%   figures (NED, ECEF, Body).  Each figure is a 3x3 grid with rows for
-%   Position/Velocity/Acceleration differences and columns for axes 1/2/3.
-%   The differences (fused - truth) are plotted in blue with horizontal red
-%   lines at ±1.  The number of samples exceeding the threshold is shown as
-%   text.  Missing inputs produce grey dashed zero lines and a red warning
-%   symbol.  Figures are saved as 1800x1200 PNGs at 200 DPI in
-%   MATLAB/results.
+%   task6_overlay_truth(fused_data, truth_data, time_vec) compares the
+%   fused navigation solution with the truth data.  For each reference
+%   frame (NED, ECEF and Body) a 3x3 figure is generated where rows
+%   correspond to position, velocity and acceleration differences and the
+%   columns correspond to axes 1/2/3.  Plots are saved as interactive
+%   ``.fig`` files under ``MATLAB/results``.
 
-outDir = fullfile('MATLAB','results');
-if ~exist(outDir,'dir'); mkdir(outDir); end
-
-colDiff    = [0.000, 0.447, 0.741]; % blue
-colThresh  = [0.85,  0.10,  0.10];  % red
-colMissing = [0.5   0.5   0.5];     % grey
-
-fs = 12;
-t  = time_vec(:);
+resDir = fullfile('MATLAB','results');
+if ~exist(resDir,'dir'); mkdir(resDir); end
 
 frames = {'ned','ecef','body'};
-axisLabels = {
-    {'North','East','Down'}, ...
-    {'X','Y','Z'}, ...
-    {'BX','BY','BZ'}
-};
-fileNames = {
-    'IMU_X002_GNSS_X002_TRIAD_task6_diff_ned.png', ...
-    'IMU_X002_GNSS_X002_TRIAD_task6_diff_ecef.png', ...
-    'IMU_X002_GNSS_X002_TRIAD_task6_diff_body.png'
-};
+fileNames = { ...
+    'IMU_X002_GNSS_X002_TRIAD_task6_diff_ned.fig', ...
+    'IMU_X002_GNSS_X002_TRIAD_task6_diff_ecef.fig', ...
+    'IMU_X002_GNSS_X002_TRIAD_task6_diff_body.fig'};
+rowLabels = {'Position Diff [m]','Velocity Diff [m/s]','Acceleration Diff [m/s^2]'};
 
-quantities = {'pos','vel','acc'};
-rowLabels  = {'Position Diff [m]','Velocity Diff [m/s]','Acceleration Diff [m/s^2]'};
+t  = time_vec(:);
+N  = numel(t);
+fs = 12;
 
 for k = 1:numel(frames)
     frame = frames{k};
-    try
-        hFig = figure('Units','pixels','Position',[100 100 1800 1200], ...
-            'Color','w','Visible','off');
-        sgtitle(sprintf('Task 6: Fused - Truth Diffs in %s | IMU_X002_GNSS_X002_TRIAD', ...
-            upper(frame)), 'FontSize',fs,'FontWeight','bold');
+    f = fused_data.(frame);
+    tr = truth_data.(frame);
 
-        fFrame = getframefield(fused_data, frame);
-        tFrame = getframefield(truth_data, frame);
+    fused_pos = f.pos;
+    fused_vel = f.vel;
+    fused_acc = f.acc;
 
-        for r = 1:3
-            qty = quantities{r};
-            for c = 1:3
-                ax = subplot(3,3,(r-1)*3 + c); hold(ax,'on'); grid(ax,'on');
-                set(ax,'FontSize',fs);
-                axisName = axisLabels{k}{c};
+    truth_pos = tr.pos;
+    truth_vel = tr.vel;
+    truth_acc = tr.acc;
 
-                warn = false;
-                thr  = 1; % threshold for exceedance
-                nExc = 0;
+    if size(truth_pos,1) ~= N
+        t_truth = linspace(t(1), t(end), size(truth_pos,1));
+        truth_pos = interp1(t_truth, truth_pos, t, 'linear', 'extrap');
+    end
+    if size(truth_vel,1) ~= N
+        t_truth = linspace(t(1), t(end), size(truth_vel,1));
+        truth_vel = interp1(t_truth, truth_vel, t, 'linear', 'extrap');
+    end
+    if size(truth_acc,1) ~= N
+        t_truth = linspace(t(1), t(end), size(truth_acc,1));
+        truth_acc = interp1(t_truth, truth_acc, t, 'linear', 'extrap');
+    end
 
-                [fCol, hasF] = getqtycol(fFrame, qty, c);
-                [tCol, hasT] = getqtycol(tFrame, qty, c);
-                if hasF && hasT
-                    fCol = interp_to_time(fCol, t);
-                    tCol = interp_to_time(tCol, t);
-                    diffCol = fCol - tCol;
-                    plot(ax, t, diffCol, '-', 'Color', colDiff, 'LineWidth',1.2, ...
-                        'DisplayName','Diff');
-                    nExc = sum(abs(diffCol) > thr);
-                else
-                    plot(ax, t, zeros(size(t)), '--', 'Color', colMissing, ...
-                        'DisplayName','Diff (missing)');
-                    warn = true;
-                end
+    diff_pos = fused_pos - truth_pos;
+    diff_vel = fused_vel - truth_vel;
+    diff_acc = fused_acc - truth_acc;
 
-                yline(ax, thr, '-', 'Color', colThresh, 'HandleVisibility','off');
-                yline(ax,-thr, '-', 'Color', colThresh, 'HandleVisibility','off');
-                text(ax,0.02,0.85,sprintf('Exceed >1: %d', nExc), ...
-                    'Units','normalized','Color',colThresh,'FontSize',fs,'FontWeight','bold');
+    hFig = figure('Visible','off','Color','w', ...
+        'Position',[100 100 1800 1200]);
+    sgtitle(sprintf('Task 6: Fused - Truth Diffs in %s Frame | IMU_X002_GNSS_X002_TRIAD', ...
+        upper(frame)), 'FontSize', fs);
 
-                legend(ax,'Location','northwest');
-                ylabel(ax, rowLabels{r});
-                if r == 3, xlabel(ax,'Time [s]'); end
-                axis(ax,'tight');
-
-                if warn
-                    add_warning(ax, fs);
-                end
+    for r = 1:3
+        for c = 1:3
+            ax = subplot(3,3,(r-1)*3 + c); hold(ax,'on'); grid(ax,'on');
+            set(ax,'FontSize',fs);
+            switch r
+                case 1, data = diff_pos(:,c); ylabelTxt = rowLabels{1};
+                case 2, data = diff_vel(:,c); ylabelTxt = rowLabels{2};
+                case 3, data = diff_acc(:,c); ylabelTxt = rowLabels{3};
+            end
+            plot(ax, t, data, 'b-');
+            yline(ax, 1, 'r--');
+            yline(ax,-1, 'r--');
+            nExc = sum(abs(data) > 1);
+            text(ax,0.02,0.9,sprintf('Exceed >1: %d', nExc), ...
+                'Units','normalized','Color','r','FontSize',fs,'FontWeight','bold');
+            axis(ax,'tight');
+            if c == 1
+                ylabel(ax, ylabelTxt);
+            end
+            if r == 3
+                xlabel(ax, 'Time [s]');
             end
         end
-
-        % Save figure
-        set(hFig,'Units','pixels','Position',[100 100 1800 1200]);
-        outPath = fullfile(outDir,fileNames{k});
-        exportgraphics(hFig, outPath, 'Resolution',200);
-        info = dir(outPath);
-        if isempty(info) || info.bytes < 5000
-            error('Save failed: %s', fileNames{k});
-        end
-        fprintf('[SAVE] %s (%d bytes)\n', info.name, info.bytes);
-        close(hFig);
-    catch ME
-        if exist('hFig','var') && isvalid(hFig), close(hFig); end
-        warning('Failed to generate Task 6 figure for %s: %s', upper(frame), ME.message);
     end
+
+    savefig(hFig, fullfile(resDir, fileNames{k}));
+    fprintf('[SAVE] %s saved as interactive .fig\n', fileNames{k});
+    close(hFig);
 end
 
-close all;
-
-end
-
-% ---------------------- Helper Functions ----------------------
-function frameStruct = getframefield(S, frame)
-frameStruct = struct();
-try
-    if isstruct(S) && isfield(S,frame) && isstruct(S.(frame))
-        frameStruct = S.(frame);
-    end
-catch
-end
-end
-
-function [col, has] = getqtycol(frameStruct, qty, idx)
-col = zeros(0,1); has = false;
-try
-    if isstruct(frameStruct) && isfield(frameStruct, qty)
-        arr = frameStruct.(qty);
-        if isnumeric(arr) && ndims(arr)==2 && size(arr,2)>=idx
-            col = arr(:,idx); has = true;
-        end
-    end
-catch
-end
-end
-
-function out = interp_to_time(data, t)
-n = numel(data);
-if n == numel(t)
-    out = data(:);
-elseif n > 1
-    tOrig = linspace(t(1), t(end), n);
-    out = interp1(tOrig(:), data(:), t, 'linear', 'extrap');
-else
-    out = zeros(size(t));
-end
-end
-
-function add_warning(ax, fs)
-try
-    text(ax,0.02,0.9,char(9888),'Units','normalized','Color',[0.85 0.1 0.1], ...
-        'FontSize',fs,'FontWeight','bold');
-catch
-    text(ax,0.02,0.9,'!', 'Units','normalized','Color',[0.85 0.1 0.1], ...
-        'FontSize',fs,'FontWeight','bold');
-end
 end
 
