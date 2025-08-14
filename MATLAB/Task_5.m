@@ -723,6 +723,8 @@ if ~dryrun
     if cfg.plots.save_pdf
         print(fig, [fname '.pdf'], '-dpdf', '-bestfit');
     end
+    % Always save interactive .fig
+    try, savefig(fig, [fname '.fig']); catch, end
     if cfg.plots.save_png
         print(fig, [fname '.png'], '-dpng');
     end
@@ -743,6 +745,7 @@ if ~dryrun
     if cfg.plots.save_pdf
         print(fig_att, [fname '.pdf'], '-dpdf', '-bestfit');
     end
+    try, savefig(fig_att, [fname '.fig']); catch, end
     if cfg.plots.save_png
         print(fig_att, [fname '.png'], '-dpng');
     end
@@ -785,6 +788,12 @@ if ~dryrun
         dprintf('Plotting fused ECEF trajectory with truth overlay.\n');
         plot_task5_ecef_truth(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
             state_file, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
+        dprintf('Plotting fused NED trajectory with truth overlay.\n');
+        plot_task5_ned_truth(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
+            state_file, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
+        dprintf('Plotting fused BODY signals with truth overlay.\n');
+        plot_task5_body_truth(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, euler_log, ...
+            state_file, C_ECEF_to_NED, ref_r0, g_NED, method, run_id, cfg);
     end
 end
 
@@ -1172,7 +1181,8 @@ end % End of main function
         if cfg.plots.save_pdf
             print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
         end
-        % Always save PNG for required deliverable
+        % Always save interactive .fig and PNG for required deliverable
+        try, savefig(gcf, [fname '.fig']); catch, end
         print(gcf, [fname '.png'], '-dpng');
         fprintf('Task 5: saved NED frame plot to %s (.pdf/.png)\n', fname);
         close(gcf);
@@ -1215,7 +1225,8 @@ end % End of main function
         if cfg.plots.save_pdf
             print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
         end
-        % Always save PNG for required deliverable
+        % Always save interactive .fig and PNG for required deliverable
+        try, savefig(gcf, [fname '.fig']); catch, end
         print(gcf, [fname '.png'], '-dpng');
         fprintf('Task 5: saved ECEF frame plot to %s (.pdf/.png)\n', fname);
         close(gcf);
@@ -1273,7 +1284,8 @@ end % End of main function
         if cfg.plots.save_pdf
             print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
         end
-        % Always save PNG for required deliverable
+        % Always save interactive .fig and PNG for required deliverable
+        try, savefig(gcf, [fname '.fig']); catch, end
         print(gcf, [fname '.png'], '-dpng');
         fprintf('Task 5: saved body frame plot to %s (.pdf/.png)\n', fname);
         close(gcf);
@@ -1324,9 +1336,129 @@ end % End of main function
         if cfg.plots.save_pdf
             print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
         end
+        try, savefig(gcf, [fname '.fig']); catch, end
         if cfg.plots.save_png
             print(gcf, [fname '.png'], '-dpng');
         end
         fprintf('Task 5: saved ECEF truth plot to %s (.pdf/.png)\n', fname);
+        close(gcf);
+    end
+
+    function plot_task5_ned_truth(t, pos_ned, vel_ned, acc_ned, state_file, C_E_N, r0, method, run_id, cfg)
+        %PLOT_TASK5_NED_TRUTH Overlay fused NED with truth converted to NED.
+        if ~exist(state_file,'file'); return; end
+        visibleFlag = 'off';
+        try
+            if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
+                visibleFlag = 'on';
+            end
+        catch
+        end
+        truth = readmatrix(state_file);
+        t_truth = truth(:,2);
+        pos_truth_e = truth(:,3:5);
+        vel_truth_e = truth(:,6:8);
+        % Convert to NED using Task 5 reference
+        pos_truth_n = (C_E_N * (pos_truth_e' - r0))';
+        vel_truth_n = (C_E_N * vel_truth_e')';
+        dt_truth = diff(t_truth);
+        acc_truth_n = [zeros(1,3); diff(vel_truth_n) ./ dt_truth];
+
+        figure('Name','Task5 NED with Truth','Position',[100 100 1200 900], ...
+            'Visible', visibleFlag);
+        labels = {'North','East','Down'};
+        for k = 1:3
+            subplot(3,3,k); hold on;
+            plot(t_truth, pos_truth_n(:,k),'m-','DisplayName','Truth');
+            plot(t, pos_ned(k,:),'b-','DisplayName','Fused');
+            hold off; grid on; ylabel('[m]'); title(['Position ' labels{k}]); legend;
+
+            subplot(3,3,3+k); hold on;
+            plot(t_truth, vel_truth_n(:,k),'m-','DisplayName','Truth');
+            plot(t, vel_ned(k,:),'b-','DisplayName','Fused');
+            hold off; grid on; ylabel('[m/s]'); title(['Velocity ' labels{k}]); legend;
+
+            subplot(3,3,6+k); hold on;
+            plot(t_truth, acc_truth_n(:,k),'m-','DisplayName','Truth');
+            plot(t, acc_ned(k,:),'b-','DisplayName','Fused');
+            hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{k}]); legend;
+        end
+        sgtitle([method ' - NED frame with Truth']);
+        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_NED_truth', run_id));
+        % Save as .fig and PNG (PDF optional)
+        try, savefig(gcf, [fname '.fig']); catch, end
+        print(gcf, [fname '.png'], '-dpng');
+        if isfield(cfg,'plots') && isfield(cfg.plots,'save_pdf') && cfg.plots.save_pdf
+            print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
+        end
+        close(gcf);
+    end
+
+    function plot_task5_body_truth(t, pos_ned, vel_ned, acc_ned, eul_log, state_file, C_E_N, r0, g_N, method, run_id, cfg)
+        %PLOT_TASK5_BODY_TRUTH Overlay fused body-frame signals with truth.
+        if ~exist(state_file,'file'); return; end
+        visibleFlag = 'off';
+        try
+            if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
+                visibleFlag = 'on';
+            end
+        catch
+        end
+        truth = readmatrix(state_file);
+        t_truth = truth(:,2);
+        pos_truth_e = truth(:,3:5);
+        vel_truth_e = truth(:,6:8);
+        pos_truth_n = (C_E_N * (pos_truth_e' - r0))';
+        vel_truth_n = (C_E_N * vel_truth_e')';
+        dt_truth = diff(t_truth);
+        acc_truth_n = [zeros(1,3); diff(vel_truth_n) ./ dt_truth];
+
+        % Fused signals in body frame using fused attitude history
+        N = size(pos_ned,2);
+        pos_body_f = zeros(3,N); vel_body_f = zeros(3,N); acc_body_f = zeros(3,N);
+        for k = 1:N
+            C_B_N = euler_to_rot(eul_log(:,k));
+            pos_body_f(:,k) = C_B_N' * pos_ned(:,k);
+            vel_body_f(:,k) = C_B_N' * vel_ned(:,k);
+            acc_body_f(:,k) = C_B_N' * (acc_ned(:,k) - g_N);
+        end
+        % Truth signals rotated to body using fused attitude interpolated to truth timeline
+        eul_truth = interp1(t, eul_log', t_truth, 'linear', 'extrap')';
+        pos_body_t = zeros(size(pos_truth_n'));
+        vel_body_t = zeros(size(vel_truth_n'));
+        acc_body_t = zeros(size(acc_truth_n'));
+        for k = 1:length(t_truth)
+            C_B_N = euler_to_rot(eul_truth(:,k));
+            pos_body_t(:,k) = C_B_N' * pos_truth_n(k,:)';
+            vel_body_t(:,k) = C_B_N' * vel_truth_n(k,:)';
+            acc_body_t(:,k) = C_B_N' * acc_truth_n(k,:)';
+        end
+
+        figure('Name','Task5 BODY with Truth','Position',[100 100 1200 900], ...
+            'Visible', visibleFlag);
+        labels = {'X','Y','Z'};
+        for j = 1:3
+            subplot(3,3,j); hold on;
+            plot(t_truth, pos_body_t(j,:),'m-','DisplayName','Truth');
+            plot(t, pos_body_f(j,:),'b-','DisplayName','Fused');
+            hold off; grid on; ylabel('[m]'); title(['Position ' labels{j}]); legend;
+
+            subplot(3,3,3+j); hold on;
+            plot(t_truth, vel_body_t(j,:),'m-','DisplayName','Truth');
+            plot(t, vel_body_f(j,:),'b-','DisplayName','Fused');
+            hold off; grid on; ylabel('[m/s]'); title(['Velocity ' labels{j}]); legend;
+
+            subplot(3,3,6+j); hold on;
+            plot(t_truth, acc_body_t(j,:),'m-','DisplayName','Truth');
+            plot(t, acc_body_f(j,:),'b-','DisplayName','Fused');
+            hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{j}]); legend;
+        end
+        sgtitle([method ' - Body frame with Truth']);
+        fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_BODY_truth', run_id));
+        try, savefig(gcf, [fname '.fig']); catch, end
+        print(gcf, [fname '.png'], '-dpng');
+        if isfield(cfg,'plots') && isfield(cfg.plots,'save_pdf') && cfg.plots.save_pdf
+            print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
+        end
         close(gcf);
     end

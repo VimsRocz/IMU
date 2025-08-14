@@ -51,6 +51,13 @@ interp = @(X) attitude_tools('interp_to', t_truth, X, t_est);
 Ptru = interp(P_ned); Vtru = interp(V_ned);
 
 % Now compute residuals (NED)
+% Validate shapes before proceeding
+if isempty(E.pos_ned) || size(E.pos_ned,2) < 3 || isempty(Ptru) || size(Ptru,2) < 3
+    warning('[Task7] Insufficient data for residual plots (E.pos_ned=%s, Ptru=%s). Skipping Task 7 plots.', ...
+        mat2str(size(E.pos_ned)), mat2str(size(Ptru)));
+    return;
+end
+
 pos_residual = E.pos_ned - Ptru;
 vel_residual = E.vel_ned - Vtru;
 disp(sprintf('[DBG-T7] pos_residual size: %dx%d | t_est length=%d', size(pos_residual,1), size(pos_residual,2), length(t_est)));
@@ -162,4 +169,3 @@ function nm = findCol(T, cand)
         if ~isempty(idx), nm = T.Properties.VariableNames{idx}; return; end
     end
 end
-

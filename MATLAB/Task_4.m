@@ -908,8 +908,9 @@ function plot_single_method(method, t, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned
             else, plot(NaN,NaN,'-','Color',gnss_col,'DisplayName','GNSS (missing)'); end
             if ~missing_imu, plot(t, p_i(:,idx), '--', 'Color', imu_col, 'DisplayName', 'IMU only');
             else, plot(NaN,NaN,'--','Color',imu_col,'DisplayName','IMU only (missing)'); end
-            if ~missing_fused, plot(t, p_f(:,idx), '-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused');
-            else, plot(NaN,NaN,'-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused (missing)'); end
+            if ~missing_fused
+                plot(t, p_f(:,idx), '-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused');
+            end
             grid on; axis tight; set(gca,'FontSize',12); legend('Location','north');
             title(axis_names{idx}); ylabel(sprintf('%s Position [m]', axis_names{idx})); xlabel('Time [s]');
             hold off;
@@ -920,8 +921,9 @@ function plot_single_method(method, t, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned
             else, plot(NaN,NaN,'-','Color',gnss_col,'DisplayName','GNSS (missing)'); end
             if ~missing_imu, plot(t, v_i(:,idx), '--', 'Color', imu_col, 'DisplayName', 'IMU only');
             else, plot(NaN,NaN,'--','Color',imu_col,'DisplayName','IMU only (missing)'); end
-            if ~missing_fused, plot(t, v_f(:,idx), '-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused');
-            else, plot(NaN,NaN,'-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused (missing)'); end
+            if ~missing_fused
+                plot(t, v_f(:,idx), '-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused');
+            end
             grid on; axis tight; set(gca,'FontSize',12); legend('Location','north');
             ylabel(sprintf('%s Velocity [m/s]', axis_names{idx})); xlabel('Time [s]');
             hold off;
@@ -932,8 +934,9 @@ function plot_single_method(method, t, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned
             else, plot(NaN,NaN,'-','Color',gnss_col,'DisplayName','GNSS (missing)'); end
             if ~missing_imu, plot(t, a_i(:,idx), '--', 'Color', imu_col, 'DisplayName', 'IMU only');
             else, plot(NaN,NaN,'--','Color',imu_col,'DisplayName','IMU only (missing)'); end
-            if ~missing_fused, plot(t, a_f(:,idx), '-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused');
-            else, plot(NaN,NaN,'-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused (missing)'); end
+            if ~missing_fused
+                plot(t, a_f(:,idx), '-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused');
+            end
             grid on; axis tight; set(gca,'FontSize',12); legend('Location','north');
             ylabel(sprintf('%s Acceleration [m/s^2]', axis_names{idx})); xlabel('Time [s]');
             hold off;
@@ -949,13 +952,19 @@ function plot_single_method(method, t, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned
             annotation(fig,'textbox',[0.5,0.02,0,0],'String', ['\color{red}\bf⚠ Missing: ' strjoin(miss, ', ')], 'EdgeColor','none', 'HorizontalAlignment','center', 'FontSize',12);
         end
         filename = fullfile(save_dir, sprintf('%s_task4_all_%s.png', run_id, suffix));
+        figfile  = fullfile(save_dir, sprintf('%s_task4_all_%s.fig', run_id, suffix));
         set(fig,'PaperUnits','inches','PaperPosition',[0 0 9 6]);
+        % Save interactive .fig and PNG
+        try
+            savefig(fig, figfile);
+        catch
+        end
         print(fig, filename, '-dpng', '-r200');
         info = dir(filename);
         if isempty(info) || info.bytes < 5000
             error('Save failed: %s', filename);
         end
-        fprintf('[SAVE] %s (%d bytes)\n', filename, info.bytes);
+        fprintf('[SAVE] %s (%d bytes) | .fig saved\n', filename, info.bytes);
         close(fig);
     end
 end
