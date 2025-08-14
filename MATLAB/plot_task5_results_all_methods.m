@@ -6,9 +6,8 @@ function plot_task5_results_all_methods(imu_time, fused_pos, fused_vel, fused_ac
 %   3x3 subplot figure comparing the fused position, velocity and acceleration
 %   of the TRIAD, Davenport and SVD methods against the interpolated GNSS
 %   measurements.  Each row corresponds to position, velocity and acceleration
-%   while the columns represent the North, East and Down axes.
-%   The figure is saved as 'task5_results_all_methods.png' in the current
-%   directory.
+%   while the columns represent the North, East and Down axes.  Output is
+%   saved as a validated PNG ensuring 1800x1200 pixels at 200 DPI.
 %
 %   The function also prints the first and last value of each plotted series
 %   (GNSS and all methods) for every axis, mimicking the Python logging used in
@@ -33,25 +32,29 @@ labels = {'North','East','Down'};
 methods = {'TRIAD','Davenport','SVD'};
 method_colors = {'r','g','b'};
 
+set(groot, 'defaultAxesFontSize', 12);
+set(groot, 'defaultLineLineWidth', 1.5);
+
 if nargin < 8 || isempty(results_dir)
     results_dir = get_results_dir();
 end
 if ~exist(results_dir,'dir'); mkdir(results_dir); end
-fig = figure('Name','Task5 Results - All Methods', 'Position',[100 100 1200 900]);
+fig = figure('Name','Task5 Results - All Methods', ...
+    'Units','pixels', 'Position',[100 100 1800 1200]);
+t = tiledlayout(fig, 3, 3, 'TileSpacing','compact');
 
 for j = 1:3
     %% Position subplot
-    ax = subplot(3,3,j); hold(ax,'on'); grid(ax,'on');
-    plot(imu_time, gnss_pos_ned_interp(:,j), 'k-', 'LineWidth',2, 'DisplayName','GNSS');
+    ax = nexttile(t, j); hold(ax,'on'); grid(ax,'on');
+    plot(imu_time, gnss_pos_ned_interp(:,j), 'k-', 'DisplayName','GNSS');
     for m = 1:numel(methods)
-        plot(imu_time, fused_pos.(methods{m})(:,j), method_colors{m}, 'LineWidth',2, ...
+        plot(imu_time, fused_pos.(methods{m})(:,j), method_colors{m}, ...
             'DisplayName', methods{m});
     end
     xlabel(ax,'Time [s]');
     ylabel(ax,['Position ' labels{j} ' [m]']);
     title(ax,['Position ' labels{j}]);
     legend(ax,'Location','best');
-    set(ax,'FontSize',14);
 
     fprintf('# GNSS position %s: First = %.4f, Last = %.4f\n', ...
         labels{j}, gnss_pos_ned_interp(1,j), gnss_pos_ned_interp(end,j));
@@ -62,17 +65,16 @@ for j = 1:3
     end
 
     %% Velocity subplot
-    ax = subplot(3,3,3+j); hold(ax,'on'); grid(ax,'on');
-    plot(imu_time, gnss_vel_ned_interp(:,j), 'k-', 'LineWidth',2, 'DisplayName','GNSS');
+    ax = nexttile(t, 3+j); hold(ax,'on'); grid(ax,'on');
+    plot(imu_time, gnss_vel_ned_interp(:,j), 'k-', 'DisplayName','GNSS');
     for m = 1:numel(methods)
-        plot(imu_time, fused_vel.(methods{m})(:,j), method_colors{m}, 'LineWidth',2, ...
+        plot(imu_time, fused_vel.(methods{m})(:,j), method_colors{m}, ...
             'DisplayName', methods{m});
     end
     xlabel(ax,'Time [s]');
     ylabel(ax,['Velocity ' labels{j} ' [m/s]']);
     title(ax,['Velocity ' labels{j}]);
     legend(ax,'Location','best');
-    set(ax,'FontSize',14);
 
     fprintf('# GNSS velocity %s: First = %.4f, Last = %.4f\n', ...
         labels{j}, gnss_vel_ned_interp(1,j), gnss_vel_ned_interp(end,j));
@@ -83,17 +85,16 @@ for j = 1:3
     end
 
     %% Acceleration subplot
-    ax = subplot(3,3,6+j); hold(ax,'on'); grid(ax,'on');
-    plot(imu_time, gnss_acc_ned_interp(:,j), 'k-', 'LineWidth',2, 'DisplayName','GNSS');
+    ax = nexttile(t, 6+j); hold(ax,'on'); grid(ax,'on');
+    plot(imu_time, gnss_acc_ned_interp(:,j), 'k-', 'DisplayName','GNSS');
     for m = 1:numel(methods)
-        plot(imu_time, fused_acc.(methods{m})(:,j), method_colors{m}, 'LineWidth',2, ...
+        plot(imu_time, fused_acc.(methods{m})(:,j), method_colors{m}, ...
             'DisplayName', methods{m});
     end
     xlabel(ax,'Time [s]');
     ylabel(ax,['Acceleration ' labels{j} ' [m/s^2]']);
     title(ax,['Acceleration ' labels{j}]);
     legend(ax,'Location','best');
-    set(ax,'FontSize',14);
 
     fprintf('# GNSS acceleration %s: First = %.4f, Last = %.4f\n', ...
         labels{j}, gnss_acc_ned_interp(1,j), gnss_acc_ned_interp(end,j));
@@ -104,11 +105,8 @@ for j = 1:3
     end
 end
 
-sgtitle('Task 5 Comparison - All Methods','FontSize',14);
-set(fig,'PaperPositionMode','auto');
-pdf_path = fullfile(results_dir, sprintf('%s_task5_results_all_methods.pdf', tag));
-print(fig, pdf_path, '-dpdf', '-bestfit');
-fprintf('Saved plot to %s\n', pdf_path);
-close(fig);
+title(t, 'Task 5 Comparison - All Methods');
+png_path = fullfile(results_dir, sprintf('%s_task5_results_all_methods.png', tag));
+save_validated_png(fig, png_path);
 close(fig);
 end

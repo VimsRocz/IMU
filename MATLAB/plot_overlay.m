@@ -5,7 +5,7 @@ function plot_overlay(frame, method, t_imu, pos_imu, vel_imu, acc_imu, ...
 %   POS_GNSS, VEL_GNSS, ACC_GNSS, T_FUSED, POS_FUSED, VEL_FUSED, ACC_FUSED,
 %   OUT_DIR) creates a 4x1 subplot figure showing the norms of position,
 %   velocity and acceleration as well as the XY trajectory. The figure is
-%   saved as METHOD_FRAME_overlay.pdf in OUT_DIR.
+%   saved as a PNG file in OUT_DIR using ``save_png_checked``.
 %
 %   Optional name-value pairs:
 %     't_truth'   - time vector for ground truth
@@ -15,7 +15,7 @@ function plot_overlay(frame, method, t_imu, pos_imu, vel_imu, acc_imu, ...
 %     'suffix'    - custom file suffix
 %
 %   When ground truth data is provided the default suffix becomes
-%   '_overlay_truth.pdf'.
+%   '_overlay_truth.png'.
 
 p = inputParser;
 addParameter(p, 't_truth', []);
@@ -36,9 +36,9 @@ visible_flag = p.Results.visible;
 
 if isempty(suffix) && isempty(custom_name)
     if ~isempty(Ttruth)
-        suffix = '_overlay_state.pdf';
+        suffix = '_overlay_state.png';
     else
-        suffix = '_overlay.pdf';
+        suffix = '_overlay.png';
     end
 end
 
@@ -89,18 +89,15 @@ set(h,'PaperPositionMode','auto');
 if ~isempty(custom_name)
     [~,~,ext] = fileparts(custom_name);
     if isempty(ext)
-        pdf_file = fullfile(out_dir, [custom_name '.pdf']);
         png_file = fullfile(out_dir, [custom_name '.png']);
     else
-        pdf_file = fullfile(out_dir, custom_name);
-        png_file = strrep(pdf_file, '.pdf', '.png');
+        png_file = fullfile(out_dir, custom_name);
     end
 else
-    pdf_file = fullfile(out_dir, [method '_' frame suffix]);
-    png_file = strrep(pdf_file, '.pdf', '.png');
+    png_file = fullfile(out_dir, [method '_' frame suffix]);
 end
-print(h, pdf_file, '-dpdf', '-bestfit');
-print(h, png_file, '-dpng');
+
+save_png_checked(h, png_file);
 close(h);
-fprintf('Saved overlay figure to %s\n', pdf_file);
+fprintf('Saved overlay figure to %s\n', png_file);
 end
