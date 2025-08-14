@@ -12,13 +12,23 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, List
 
 import numpy as np
 import pandas as pd
 import scipy.io as sio
 import matplotlib.pyplot as plt
 import warnings
+
+TIME_KEYS = [
+    "t",
+    "time",
+    "timestamp",
+    "timestamps",
+    "t_est",
+    "time_s",
+    "posix_time",
+]
 
 
 def quat_normalize(q: np.ndarray) -> np.ndarray:
@@ -99,12 +109,14 @@ def rotate_series_by_quat_series(v_ned: np.ndarray, q_b2n: np.ndarray, to_body: 
 # ---------------------------------------------------------------------------
 
 
-def load_estimates(est_file: str) -> Dict[str, np.ndarray]:
+def load_estimates(est_file: str) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
     """Load estimator output from ``.mat`` or ``.npz`` files.
 
     The loader accepts a range of key names to cope with slightly differing
     conventions.  Returned arrays are converted to :class:`numpy.ndarray`
-    instances.  Time is expected to be one-dimensional.
+    instances.  Time is expected to be one-dimensional.  The raw dictionary is
+    returned alongside the normalized mapping so that callers can inspect all
+    available keys for diagnostics.
     """
 
     p = Path(est_file)
@@ -133,8 +145,18 @@ def load_estimates(est_file: str) -> Dict[str, np.ndarray]:
                 return np.asarray(data[k]), k
         return None, None
 
+    time_names = [
+        "t",
+        "time",
+        "timestamp",
+        "timestamps",
+        "t_est",
+        "time_s",
+        "posix_time",
+    ]
+
     out: Dict[str, np.ndarray] = {
-        "time": pick("time", "t"),
+        "time": pick(*time_names),
         "pos_ned": pick("pos_ned"),
         "vel_ned": pick("vel_ned"),
         "acc_ned": pick("acc_ned"),
@@ -167,7 +189,7 @@ def load_estimates(est_file: str) -> Dict[str, np.ndarray]:
     if t_q is not None:
         out["time_q"] = np.asarray(t_q).ravel()
 
-    return out
+    return out, data
 
 
 def load_truth(truth_file: str) -> Dict[str, np.ndarray]:
@@ -238,6 +260,129 @@ def load_lat_lon_from_gnss(gnss_csv: str | None) -> Tuple[Optional[float], Optio
 
     if not gnss_csv:
         return None, None
+
+    try:
+        df = pd.read_csv(gnss_csv)
+        lat = df["Latitude_deg"].mean() if "Latitude_deg" in df.columns else None
+        lon = df["Longitude_deg"].mean() if "Longitude_deg" in df.columns else None
+        return (
+            float(lat) if lat is not None else None,
+            float(lon) if lon is not None else None,
+        )
+    except Exception:  # pragma: no cover - best effort
+        return None, None
+
+
+def _discover_time_from_keys(data: Dict[str, np.ndarray]) -> Tuple[Optional[np.ndarray], Optional[str]]:
+    """Return first time vector found in *data* using ``TIME_KEYS``."""
+
+    for k, v in data.items():
+        if k.lower() in TIME_KEYS:
+            return np.asarray(v).ravel(), k
+    return None, None
+
+
+def _load_mat_file(path: Path) -> Dict[str, np.ndarray]:
+    return {
+        k: v
+        for k, v in sio.loadmat(path, squeeze_me=True).items()
+        if not k.startswith("__")
+    }
+
+
+def resolve_timebase(
+    est_file: str,
+    est_norm: Dict[str, np.ndarray],
+    est_raw: Dict[str, np.ndarray],
+    time_hint_path: str | None = None,
+) -> Tuple[np.ndarray, str, List[str], List[str]]:
+    """Return a time array for the estimator output.
+
+    The function attempts to pull the time vector from the estimator file
+    itself, falling back to various sibling files or reconstructed defaults.
+    The returned tuple contains ``(time, description, est_keys, time_file_keys)``.
+    """
+
+    est_keys = sorted(est_raw.keys())
+
+    t, key = _discover_time_from_keys(est_raw)
+    time_file_keys: List[str] = []
+    time_file_used = None
+
+    if t is not None:
+        desc = f"estimator:{key}"
+        return np.asarray(t).ravel(), desc, est_keys, time_file_keys
+
+    # Try auxiliary time file
+    p = Path(est_file)
+    candidates = []
+    if time_hint_path:
+        candidates.append(Path(time_hint_path))
+    candidates.append(p.with_name(p.stem + "_task5_time.mat"))
+    run_id = p.stem.replace("_kf_output", "")
+    candidates.append(p.with_name(run_id + "_task5_time.mat"))
+    for c in candidates:
+        if c.is_file():
+            try:
+                raw_time = _load_mat_file(c)
+            except Exception:
+                continue
+            time_file_keys = sorted(raw_time.keys())
+            t2, key2 = _discover_time_from_keys(raw_time)
+            if t2 is not None:
+                time_file_used = str(c)
+                desc = f"time_file:{c.name}:{key2}"
+                print(f"[Task6] Time file: {c} (keys: {time_file_keys})")
+                return np.asarray(t2).ravel(), desc, est_keys, time_file_keys
+
+    # Reconstruct from metadata / defaults
+    dt = None
+    n = None
+    meta_path = p.with_name(run_id + "_runmeta.json")
+    n_source = "runmeta"
+    if meta_path.is_file():
+        try:
+            meta = json.loads(meta_path.read_text())
+            dt = meta.get("dt")
+            if dt is None and meta.get("imu_rate_hint"):
+                rate = meta.get("imu_rate_hint")
+                if rate:
+                    dt = 1.0 / float(rate)
+            n = (
+                meta.get("n")
+                or meta.get("len")
+                or meta.get("samples")
+            )
+        except Exception:
+            pass
+    if n is None:
+        n_source = "estimator_arrays"
+        for name in ["pos_ned", "vel_ned", "acc_ned", "pos_ecef", "vel_ecef", "acc_ecef"]:
+            arr = est_norm.get(name)
+            if arr is not None:
+                n = len(arr)
+                break
+    if dt is None:
+        dt = 0.0025
+        dt_source = "default"
+    else:
+        dt_source = "runmeta"
+    # n_source already set above
+    if n is None:
+        raise ValueError(
+            "Estimator output lacks time array; no length info found. "
+            f"Estimator keys: {est_keys}; time file keys: {time_file_keys}"
+        )
+    t = np.arange(int(n)) * float(dt)
+    print(
+        f"[Task6] Reconstructed timebase using n={n} from {n_source}, dt={dt} ({dt_source})"
+    )
+    desc = (
+        f"reconstructed:{dt_source}"
+        if time_file_used is None
+        else f"reconstructed:{dt_source}:{time_file_used}"
+    )
+    return t, desc, est_keys, time_file_keys
     try:
         df = pd.read_csv(gnss_csv)
         lat = df["Latitude_deg"].mean() if "Latitude_deg" in df.columns else None
@@ -426,8 +571,8 @@ def _build_ned_ecef(
         acc_ecef = ned_to_ecef_vec(acc_ned, lat, lon)
 
     return {
-        "NED": (pos_ned, vel_ned, acc_ned),
-        "ECEF": (pos_ecef, vel_ecef, acc_ecef),
+        "NED": [pos_ned, vel_ned, acc_ned],
+        "ECEF": [pos_ecef, vel_ecef, acc_ecef],
     }
 
 
@@ -439,6 +584,7 @@ def run_task6_overlay_all_frames(
     lon_deg: float | None = None,
     gnss_file: str | None = None,
     q_b2n_const: Tuple[float, float, float, float] | None = None,
+    time_hint_path: str | None = None,
 ) -> None:
     """Generate single-method overlays for all frames."""
 
@@ -450,11 +596,25 @@ def run_task6_overlay_all_frames(
         lat_deg = lat_deg if lat_deg is not None else g_lat
         lon_deg = lon_deg if lon_deg is not None else g_lon
 
-    est = load_estimates(est_file)
+    est, raw = load_estimates(est_file)
     tru = load_truth(truth_file)
-    t = est.get("time")
-    if t is None:
-        raise ValueError("Estimator output lacks time array")
+
+    print(f"[Task6] Estimator: {est_file}")
+    print(f"[Task6] Estimator keys: {sorted(raw.keys())}")
+
+    try:
+        t, time_desc, est_keys, time_file_keys = resolve_timebase(
+            est_file, est, raw, time_hint_path
+        )
+    except ValueError as ex:
+        raise ValueError(
+            f"{ex}. Time file keys: {time_file_keys}" if 'time_file_keys' in locals() else str(ex)
+        )
+
+    dt_med = np.median(np.diff(t)) if len(t) > 1 else 0.0
+    print(
+        f"[Task6] time: len={len(t)}, t0={t[0]:.3f}, t1={t[-1]:.3f}, dt≈{dt_med:.6f}"
+    )
 
     q_hist = est.get("q_b2n")
     if q_hist is not None:
@@ -466,11 +626,27 @@ def run_task6_overlay_all_frames(
     frames_est = _build_ned_ecef(est, lat_deg, lon_deg)
     frames_tru = _build_ned_ecef(tru, lat_deg, lon_deg)
 
+    for frame_name, trip in frames_est.items():
+        for idx in range(3):
+            arr = trip[idx]
+            if arr is not None and len(arr) != len(t):
+                print(
+                    f"[Task6] WARNING: {frame_name} estimate length {len(arr)} != time {len(t)}"
+                )
+                trip[idx] = interp_to(
+                    np.linspace(t[0], t[-1], len(arr)), arr, t
+                )
+
     t_truth = tru.get("time", t)
-    for trip in frames_tru.values():
+    for fname, trip in frames_tru.items():
         for i in range(3):
-            if trip[i] is not None:
-                trip[i] = interp_to(t_truth, trip[i], t)
+            arr = trip[i]
+            if arr is not None:
+                if len(arr) != len(t_truth):
+                    print(
+                        f"[Task6] WARNING: truth {fname} length {len(arr)} != time {len(t_truth)}"
+                    )
+                trip[i] = interp_to(t_truth, arr, t)
 
     q_truth = tru.get("q_b2n_truth")
     if q_truth is not None:
@@ -517,22 +693,59 @@ def run_task6_overlay_all_frames(
     frames_est_all = {"NED": frames_est["NED"], "ECEF": frames_est["ECEF"], "BODY": body_est}
     frames_tru_all = {"NED": frames_tru["NED"], "ECEF": frames_tru["ECEF"], "BODY": body_tru}
 
-    manifest_path = out_dir / "task6_overlay_manifest.json"
-    manifest: Dict[str, str] = {}
+    run_id = Path(output_dir).parent.name
+    manifest_path = Path(output_dir) / "task6_overlay_manifest.json"
+    manifest: Dict[str, object] = {}
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text())
+
+    saved_paths: List[str] = []
+    warnings_list: List[str] = []
 
     for name in ["NED", "ECEF", "BODY"]:
         est_trip = frames_est_all[name]
         tru_trip = frames_tru_all[name]
         if est_trip[0] is None or tru_trip[0] is None:
+            warnings_list.append(f"{name} missing data")
             continue
-        out = out_dir / f"task6_overlay_{name}.png"
-        plot_overlay_3x3(t, est_trip, tru_trip, f"Task 6: Overlay ({name})", out)
-        manifest[f"task6_overlay_{name}"] = str(out.resolve())
+        try:
+            out = Path(output_dir) / f"{run_id}_task6_overlay_{name}.png"
+            plot_overlay_3x3(t, est_trip, tru_trip, f"Task 6: Overlay ({name})", out)
+            saved_paths.append(str(out.resolve()))
+        except Exception as ex:  # pragma: no cover - best effort
+            warnings_list.append(f"{name} failed: {ex}")
 
+    manifest.update(
+        {
+            "estimator_file": est_file,
+            "truth_file": truth_file,
+            "time_source": time_desc,
+            "time_keys": {
+                "estimator": est_keys,
+                "time_file": time_file_keys,
+            },
+            "overlays": saved_paths,
+            "warnings": warnings_list,
+        }
+    )
     with manifest_path.open("w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
+
+    for frame in frames_est_all:
+        est_trip = frames_est_all[frame]
+        tru_trip = frames_tru_all[frame]
+        print(
+            f"[Task6] {frame} shapes est:{[None if x is None else x.shape for x in est_trip]} "
+            f"truth:{[None if x is None else x.shape for x in tru_trip]}"
+        )
+
+    if saved_paths:
+        print(f"[Task6] Saved overlays -> {saved_paths}")
+    if warnings_list:
+        print(
+            "[Task6] WARNING: skipped frames -> "
+            + ", ".join(warnings_list)
+        )
 
 
 def run_task6_compare_methods_all_frames(
@@ -543,6 +756,7 @@ def run_task6_compare_methods_all_frames(
     lon_deg: float | None = None,
     gnss_file: str | None = None,
     q_b2n_const: Tuple[float, float, float, float] | None = None,
+    time_hint_path: str | None = None,
 ) -> None:
     """Overlay multiple methods against truth for all frames."""
 
@@ -561,10 +775,18 @@ def run_task6_compare_methods_all_frames(
 
     # Choose the first method as timebase
     first_path = next(iter(method_files.values()))
-    base = load_estimates(first_path)
-    t_base = base.get("time")
-    if t_base is None:
-        raise ValueError("Estimator output lacks time array")
+    base, base_raw = load_estimates(first_path)
+
+    print(f"[Task6] Estimator: {first_path}")
+    print(f"[Task6] Estimator keys: {sorted(base_raw.keys())}")
+
+    t_base, time_desc, est_keys, time_file_keys = resolve_timebase(
+        first_path, base, base_raw, time_hint_path
+    )
+    dt_med = np.median(np.diff(t_base)) if len(t_base) > 1 else 0.0
+    print(
+        f"[Task6] time: len={len(t_base)}, t0={t_base[0]:.3f}, t1={t_base[-1]:.3f}, dt≈{dt_med:.6f}"
+    )
 
     q_base = base.get("q_b2n")
     if q_base is not None:
@@ -579,10 +801,15 @@ def run_task6_compare_methods_all_frames(
 
     frames_truth = _build_ned_ecef(truth, lat_deg, lon_deg)
     t_truth = truth.get("time", t_base)
-    for trip in frames_truth.values():
+    for fname, trip in frames_truth.items():
         for i in range(3):
-            if trip[i] is not None:
-                trip[i] = interp_to(t_truth, trip[i], t_base)
+            arr = trip[i]
+            if arr is not None:
+                if len(arr) != len(t_truth):
+                    print(
+                        f"[Task6] WARNING: truth {fname} length {len(arr)} != time {len(t_truth)}"
+                    )
+                trip[i] = interp_to(t_truth, arr, t_base)
 
     q_truth = truth.get("q_b2n_truth")
     if q_truth is not None:
@@ -611,10 +838,10 @@ def run_task6_compare_methods_all_frames(
 
     methods_frames: Dict[str, Dict[str, Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]] = {}
     for name, path in method_files.items():
-        est = load_estimates(path)
-        t_est = est.get("time")
-        if t_est is None:
-            continue
+        est, raw_m = load_estimates(path)
+        t_est, _desc_m, _est_keys_m, _time_keys_m = resolve_timebase(
+            path, est, raw_m, time_hint_path
+        )
         q_m = est.get("q_b2n")
         if q_m is not None:
             t_qm = est.get("time_q")
@@ -628,10 +855,15 @@ def run_task6_compare_methods_all_frames(
             q_m_interp = None
 
         frames = _build_ned_ecef(est, lat_deg, lon_deg)
-        for trip in frames.values():
+        for fname, trip in frames.items():
             for i in range(3):
-                if trip[i] is not None:
-                    trip[i] = interp_to(t_est, trip[i], t_base)
+                arr = trip[i]
+                if arr is not None:
+                    if len(arr) != len(t_est):
+                        print(
+                            f"[Task6] WARNING: {name} {fname} length {len(arr)} != time {len(t_est)}"
+                        )
+                    trip[i] = interp_to(t_est, arr, t_base)
         if q_m_interp is not None:
             frames["BODY"] = (
                 rotate_series_by_quat_series(frames["NED"][0], q_m_interp, True) if frames["NED"][0] is not None else None,
@@ -642,25 +874,63 @@ def run_task6_compare_methods_all_frames(
             frames["BODY"] = frames["NED"]
         methods_frames[name] = frames
 
-    manifest_path = out_dir / "task6_overlay_manifest.json"
+    manifest_path = Path(output_dir) / "task6_overlay_manifest.json"
     manifest = {}
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text())
 
-    for frame in ["NED", "ECEF", "BODY"]:
-        methods_triplets = {m: f[frame] for m, f in methods_frames.items() if f[frame][0] is not None}
-        if not methods_triplets:
-            continue
-        out = out_dir / f"task6_methods_overlay_{frame}.png"
-        plot_methods_overlay_3x3(
-            t_base,
-            methods_triplets,
-            frames_truth[frame],
-            f"Task 6: Methods Overlay ({frame})",
-            out,
-        )
-        manifest[f"task6_methods_overlay_{frame}"] = str(out.resolve())
+    run_id = Path(output_dir).parent.name
+    saved_paths: List[str] = []
+    warnings_list: List[str] = []
 
+    for frame in ["NED", "ECEF", "BODY"]:
+        methods_triplets = {
+            m: f[frame] for m, f in methods_frames.items() if f[frame][0] is not None
+        }
+        if not methods_triplets:
+            warnings_list.append(f"{frame} missing data")
+            continue
+        try:
+            out = Path(output_dir) / f"{run_id}_task6_compare_methods_{frame}.png"
+            plot_methods_overlay_3x3(
+                t_base,
+                methods_triplets,
+                frames_truth[frame],
+                f"Task 6: Methods Overlay ({frame})",
+                out,
+            )
+            saved_paths.append(str(out.resolve()))
+        except Exception as ex:  # pragma: no cover - best effort
+            warnings_list.append(f"{frame} failed: {ex}")
+
+    manifest.update(
+        {
+            "compare_methods_inputs": method_files,
+            "compare_methods_outputs": saved_paths,
+            "compare_methods_warnings": warnings_list,
+            "time_source": manifest.get("time_source", time_desc),
+            "time_keys": manifest.get("time_keys", {
+                "estimator": est_keys,
+                "time_file": time_file_keys,
+            }),
+        }
+    )
     with manifest_path.open("w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
+
+    if methods_frames:
+        first = next(iter(methods_frames))
+        for frame in ["NED", "ECEF", "BODY"]:
+            print(
+                f"[Task6] {frame} shapes est:{[None if x is None else x.shape for x in methods_frames[first][frame]]} "
+                f"truth:{[None if x is None else x.shape for x in frames_truth[frame]]}"
+            )
+
+    if saved_paths:
+        print(f"[Task6] Saved compare-methods overlays -> {saved_paths}")
+    if warnings_list:
+        print(
+            "[Task6] WARNING: skipped frames -> "
+            + ", ".join(warnings_list)
+        )
 
