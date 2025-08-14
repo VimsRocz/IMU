@@ -97,30 +97,37 @@ switch lower(action)
         end
 
     case 'plot_overlay_3x3'
-        t = varargin{1}; EST = varargin{2}; TRU = varargin{3}; titleStr = varargin{4}; outPath = varargin{5};
+        t = varargin{1}; EST = varargin{2}; TRU = varargin{3}; titleStr = varargin{4}; outBase = varargin{5};
         % EST/TRU are structs with fields pos, vel, acc (each [N x 3])
+        fprintf('[DBG-OL] EST(pos=%s vel=%s acc=%s) TRU(pos=%s vel=%s acc=%s)\n', ...
+            mat2str(size(EST.pos)), mat2str(size(EST.vel)), mat2str(size(EST.acc)), ...
+            mat2str(size(TRU.pos)), mat2str(size(TRU.vel)), mat2str(size(TRU.acc)));
+
         f = figure('Visible','off','Position',[100 100 1400 900]);
-        names = {'X/N','Y/E','Z/D'};
-        cols = {@(S)S.pos, @(S)S.vel, @(S)S.acc};
-        colTitle = {'Position [m]','Velocity [m/s]','Acceleration [m/s^2]'};
+        rowFun = {@(S)S.pos, @(S)S.vel, @(S)S.acc};
+        rowLbl = {'Position [m]','Velocity [m/s]','Acceleration [m/s^2]'};
+        colTitle = {'X/N','Y/E','Z/D'};
         tiledlayout(3,3,'Padding','compact','TileSpacing','compact');
-        for c=1:3
-            A = cols{c}(EST); B = cols{c}(TRU);
-            for r=1:3
+        for r=1:3
+            A = rowFun{r}(EST); B = rowFun{r}(TRU);
+            for c=1:3
                 nexttile((r-1)*3+c);
-                if ~isempty(A), plot(t, A(:,r), 'LineWidth',1.2); hold on; end
-                if ~isempty(B), plot(t, B(:,r), '--', 'LineWidth',1.0); end
+                if ~isempty(A), plot(t, A(:,c), 'LineWidth',1.2); hold on; else, warning('[Task6] Missing EST data r%d c%d', r, c); end
+                if ~isempty(B), plot(t, B(:,c), '--', 'LineWidth',1.0); else, warning('[Task6] Missing TRU data r%d c%d', r, c); end
                 grid on; box on;
                 if r==1, title(colTitle{c}); end
-                ylabel(names{r});
+                ylabel(rowLbl{r});
                 if r==3, xlabel('Time [s]'); end
             end
         end
-        lgd = legend({'Estimated','Truth'},'NumColumns',2,'Location','northoutside'); %#ok<NASGU>
+        legend({'Estimated','Truth'},'NumColumns',2,'Location','northoutside');
         sgtitle(titleStr);
-        exportgraphics(f, outPath, 'Resolution',150);
+        pngPath = strcat(outBase, '.png');
+        figPath = strcat(outBase, '.fig');
+        exportgraphics(f, pngPath, 'Resolution',150);
+        try, savefig(f, figPath); catch ME, warning('[Task6] savefig failed: %s', ME.message); end
         close(f);
-        out = outPath;
+        out = pngPath;
 
     otherwise
         error('Unknown action: %s', action);

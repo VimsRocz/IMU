@@ -219,13 +219,14 @@ if ~isempty(TRU_NED.pos), TRU_BODY.pos = attitude_tools('ned2body_series', TRU_N
 if ~isempty(TRU_NED.vel), TRU_BODY.vel = attitude_tools('ned2body_series', TRU_NED.vel, q_hist); end
 if ~isempty(TRU_NED.acc), TRU_BODY.acc = attitude_tools('ned2body_series', TRU_NED.acc, q_hist); end
 
-% 3×3 overlays (PNG)
+% 3×3 overlays (PNG+FIG)
 out6 = fullfile(resultsDir, sprintf('%s_task6_', runTag));
-attitude_tools('plot_overlay_3x3', t_est, struct('pos',EST_NED.pos,'vel',EST_NED.vel,'acc',EST_NED.acc), struct('pos',TRU_NED.pos,'vel',TRU_NED.vel,'acc',TRU_NED.acc), 'Task 6: Overlay (NED)', [out6 'overlay_NED.png']);
-attitude_tools('plot_overlay_3x3', t_est, struct('pos',EST.pos_ecef,'vel',EST.vel_ecef,'acc',EST.acc_ecef), struct('pos',TRU_ECEF.pos,'vel',TRU_ECEF.vel,'acc',TRU_ECEF.acc), 'Task 6: Overlay (ECEF)', [out6 'overlay_ECEF.png']);
-attitude_tools('plot_overlay_3x3', t_est, struct('pos',EST_BODY.pos,'vel',EST_BODY.vel,'acc',EST_BODY.acc), struct('pos',TRU_BODY.pos,'vel',TRU_BODY.vel,'acc',TRU_BODY.acc), 'Task 6: Overlay (BODY)', [out6 'overlay_BODY.png']);
+fprintf('[DBG-T6] EST_NED.pos=%s TRU_NED.pos=%s\n', mat2str(size(EST_NED.pos)), mat2str(size(TRU_NED.pos)));
+attitude_tools('plot_overlay_3x3', t_est, struct('pos',EST_NED.pos,'vel',EST_NED.vel,'acc',EST_NED.acc), struct('pos',TRU_NED.pos,'vel',TRU_NED.vel,'acc',TRU_NED.acc), 'Task 6: Overlay (NED)', [out6 'overlay_NED']);
+attitude_tools('plot_overlay_3x3', t_est, struct('pos',EST.pos_ecef,'vel',EST.vel_ecef,'acc',EST.acc_ecef), struct('pos',TRU_ECEF.pos,'vel',TRU_ECEF.vel,'acc',TRU_ECEF.acc), 'Task 6: Overlay (ECEF)', [out6 'overlay_ECEF']);
+attitude_tools('plot_overlay_3x3', t_est, struct('pos',EST_BODY.pos,'vel',EST_BODY.vel,'acc',EST_BODY.acc), struct('pos',TRU_BODY.pos,'vel',TRU_BODY.vel,'acc',TRU_BODY.acc), 'Task 6: Overlay (BODY)', [out6 'overlay_BODY']);
 
-disp('Task 6 overlay PNGs saved.');
+disp('Task 6 overlay plots saved (.png and .fig).');
 
 quatType = 'constant';
 if ~isempty(q_hist) && size(unique(q_hist.', 'rows'),1) > 1
