@@ -950,6 +950,17 @@ ref_lon = deg2rad(lon_deg); %#ok<NASGU>
         pos_ecef_est = (C_N_E * pos_ned_est')' + ref_r0';
         vel_ecef_est = (C_N_E * vel_ned_est')';
         acc_ecef_est = (C_N_E * acc_ned_est')';
+        % Fused state expressed in body frame
+        N_s = size(pos_ned_est,1);
+        pos_body_est = zeros(N_s,3);
+        vel_body_est = zeros(N_s,3);
+        acc_body_est = zeros(N_s,3);
+        for kk = 1:N_s
+            C_B_N = euler_to_rot(euler_log(:,kk));
+            pos_body_est(kk,:) = (C_B_N' * pos_ned_est(kk,:)')';
+            vel_body_est(kk,:) = (C_B_N' * vel_ned_est(kk,:)')';
+            acc_body_est(kk,:) = (C_B_N' * (acc_ned_est(kk,:)' - g_NED))';
+        end
         fprintf('Task 5: Saving estimates | pos_ned_est=%dx%d pos_ecef_est=%dx%d\n', size(pos_ned_est));
         save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
             'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
@@ -957,6 +968,7 @@ ref_lon = deg2rad(lon_deg); %#ok<NASGU>
             'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
             'pos_ned_est', 'vel_ned_est', 'acc_ned_est', ...
             'pos_ecef_est', 'vel_ecef_est', 'acc_ecef_est', ...
+            'pos_body_est', 'vel_body_est', 'acc_body_est', ...
             'states', 't_est', 'dt', 'imu_rate_hz', 'acc_body_raw', 'trace', 'vel_blow_count', ...
             'vel_exceed_log');
     % Provide compatibility with the Python pipeline and downstream tasks
