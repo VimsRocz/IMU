@@ -542,29 +542,6 @@ for i = 1:length(methods)
     pos_body.(m) = C_N_B_ref * pos_ned.(m);
 end
 
-prefix = fullfile(results_dir, sprintf('%s_task4', run_id));
-
-% Assemble datasets in a fixed method order for plotting
-method_order = {'TRIAD','Davenport','SVD'};
-data_sets = {pos_ned_GNSS};
-data_sets_ecef = {pos_ecef_GNSS};
-data_sets_body = {pos_body_GNSS};
-labels = {'GNSS'};
-for i = 1:length(method_order)
-    m = method_order{i};
-    if isfield(pos_ned, m)
-        data_sets{end+1} = pos_ned.(m);
-        data_sets_ecef{end+1} = pos_ecef.(m);
-        data_sets_body{end+1} = pos_body.(m);
-        labels{end+1} = ['IMU-' m];
-    end
-end
-
-plot_frame_comparison(t, data_sets, labels, 'NED',  prefix, cfg);
-plot_frame_comparison(t, data_sets_ecef, labels, 'ECEF', prefix, cfg);
-plot_frame_comparison(t, data_sets_body, labels, 'BODY', prefix, cfg);
-plot_frame_comparison(t, data_sets, labels, 'Mixed', prefix, cfg);
-
 
 %% ========================================================================
 % Subtask 4.12b: Load truth ECEF trajectory if available
@@ -598,13 +575,16 @@ end
 % Subtask 4.13: Validate and Plot Data
 % =========================================================================
 fprintf('\nSubtask 4.13: Validating and plotting data.\n');
+n_gnss_samples  = numel(t_gnss);
+n_truth_samples = numel(truth_time);
 
 for i = 1:length(methods)
     m = methods{i};
-    plot_single_method(m, t_imu, t_imu, C_B_N_methods.(m), ...
+    plot_single_method(m, t_imu, C_B_N_methods.(m), ...
         gnss_pos_ned_imuT, gnss_vel_ned_imuT, gnss_acc_ned_imuT, ...
         pos_integ.(m), vel_integ.(m), acc_integ.(m), ...
-        acc_body_corrected.(m), acc_body_raw, run_id, ref_r0, C_ECEF_to_NED, cfg);
+        [], [], [], acc_body_corrected.(m), run_id, ref_r0, C_ECEF_to_NED, cfg, ...
+        n_gnss_samples, n_truth_samples);
 end
 fprintf('-> All data plots saved for all methods.\n');
 
@@ -838,17 +818,13 @@ function [start_idx, end_idx] = detect_static_interval(accel, gyro, window_size,
         start_idx, end_idx, end_idx-start_idx+1, acc_var_sel, gyro_var_sel);
 end
 
-function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned, p_imu, v_imu, a_imu, acc_body_corr, acc_body_raw, run_id, r0_ecef, C_e2n, cfg)
-    %PLOT_SINGLE_METHOD Helper to produce per-method comparison figures.
-    %   PLOT_SINGLE_METHOD(METHOD, T_GNSS, T_IMU, C_B_N, P_GNSS_NED, V_GNSS_NED,
-    %   A_GNSS_NED, P_IMU, V_IMU, A_IMU, ACC_BODY_CORR, RUN_ID, R0_ECEF, C_E2N, CFG)
-    %   generates plots comparing the IMU integration against GNSS in NED,
-    %   ECEF and body frames. RUN_ID and CFG control output filenames and
-    %   plotting policy.
+function plot_single_method(method, t, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned, p_imu, v_imu, a_imu, p_fused, v_fused, a_fused, acc_body_corr, run_id, r0_ecef, C_e2n, cfg, n_gnss, n_truth)
+    %PLOT_SINGLE_METHOD Generate standardized Task 4 comparison plots.
+    %   PLOT_SINGLE_METHOD(METHOD, T, C_B_N, P_GNSS_NED, V_GNSS_NED, A_GNSS_NED,
+    %   P_IMU, V_IMU, A_IMU, P_FUSED, V_FUSED, A_FUSED, ACC_BODY_CORR, RUN_ID,
+    %   R0_ECEF, C_E2N, CFG, N_GNSS, N_TRUTH) creates three 3x3 figures in
+    %   NED, ECEF and Body frames comparing GNSS, IMU-only and Fused signals.
 
-    dims = {'North','East','Down'};
-    fprintf('Task 4 Subtask 4.13: method %s | GNSS samples=%d | IMU samples=%d\n', ...
-        method, numel(t_gnss), numel(t_imu));
     % Determine figure visibility from cfg
     visibleFlag = 'off';
     try
@@ -857,135 +833,131 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
         end
     catch
     end
-    gnss_col  = [0.8500 0.3250 0.0980];
+
+    gnss_col  = [0 0 0];
+    imu_col   = [0.8500 0.3250 0.0980];
     fused_col = [0 0.4470 0.7410];
-    % ----- NED frame -----
-    base = fullfile(cfg.paths.matlab_results, sprintf('%s_task4', run_id));
-    fig = figure('Visible', visibleFlag, 'Position',[100 100 1200 900]);
-    for i = 1:3
-        subplot(3,3,i); hold on;
-        plot(t_gnss, p_gnss_ned(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
-        plot(t_imu,  p_imu(:,i),'-','Color',fused_col,'DisplayName','Fused');
-        hold off; grid on; legend; title(['Position ' dims{i}]); ylabel('m'); xlabel('Time (s)');
+    n_imu = numel(t);
+    save_dir = cfg.paths.matlab_results;
 
-        subplot(3,3,i+3); hold on;
-        plot(t_gnss, v_gnss_ned(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
-        plot(t_imu,  v_imu(:,i),'-','Color',fused_col,'DisplayName','Fused');
-        hold off; grid on; legend; title(['Velocity ' dims{i}]); ylabel('m/s'); xlabel('Time (s)');
+    % --- NED frame ---
+    plot_frame(p_gnss_ned, v_gnss_ned, a_gnss_ned, ...
+               p_imu, v_imu, a_imu, ...
+               p_fused, v_fused, a_fused, ...
+               {'North','East','Down'}, 'ned');
 
-        subplot(3,3,i+6); hold on;
-        plot(t_gnss, a_gnss_ned(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
-        plot(t_imu,  a_imu(:,i),'-','Color',fused_col,'DisplayName','Fused');
-        hold off; grid on; legend; title(['Acceleration ' dims{i}]); ylabel('m/s^2'); xlabel('Time (s)');
-    end
-    sgtitle([method ' Comparison in NED frame']);
-    fname = [base '_NED_state'];
-    set(fig,'PaperPositionMode','auto');
-    if cfg.plots.save_pdf
-        print(fig,[fname '.pdf'],'-dpdf','-bestfit');
-    end
-    if cfg.plots.save_png
-        print(fig,[fname '.png'],'-dpng');
-    end
-    fprintf('Task 4: saved NED frame plot to %s (.pdf/.png)\n', fname);
-    close(fig);
-
-    % ----- ECEF frame -----
-    fprintf('Plotting all data in ECEF frame.\n');
+    % --- ECEF frame ---
     C_n2e = C_e2n';
-    fig = figure('Visible', visibleFlag, 'Position',[100 100 1200 900]);
-    p_gnss_ecef = (C_n2e*p_gnss_ned' + r0_ecef)';
-    v_gnss_ecef = (C_n2e*v_gnss_ned')';
-    a_gnss_ecef = (C_n2e*a_gnss_ned')';
-    a_imu_ecef  = (C_n2e*a_imu')';
-    p_imu_ecef  = (C_n2e*p_imu')';
-    v_imu_ecef  = (C_n2e*v_imu')';
-    dims_e = {'X','Y','Z'};
-    for i = 1:3
-        subplot(3,3,i); hold on;
-        plot(t_gnss, p_gnss_ecef(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
-        plot(t_imu,  p_imu_ecef(:,i),'-','Color',fused_col,'DisplayName','Fused');
-        hold off; grid on; legend; title(['Position ' dims_e{i}]); ylabel('m'); xlabel('Time (s)');
-
-        subplot(3,3,i+3); hold on;
-        plot(t_gnss, v_gnss_ecef(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
-        plot(t_imu,  v_imu_ecef(:,i),'-','Color',fused_col,'DisplayName','Fused');
-        hold off; grid on; legend; title(['Velocity ' dims_e{i}]); ylabel('m/s'); xlabel('Time (s)');
-
-        subplot(3,3,i+6); hold on;
-        plot(t_gnss, a_gnss_ecef(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
-        plot(t_imu,  a_imu_ecef(:,i),'-','Color',fused_col,'DisplayName','Fused');
-        hold off; grid on; legend; title(['Acceleration ' dims_e{i}]); ylabel('m/s^2'); xlabel('Time (s)');
+    p_gnss_ecef = []; v_gnss_ecef = []; a_gnss_ecef = [];
+    p_imu_ecef = [];  v_imu_ecef = [];  a_imu_ecef  = [];
+    p_fused_ecef = []; v_fused_ecef = []; a_fused_ecef = [];
+    if ~isempty(p_gnss_ned)
+        p_gnss_ecef = (C_n2e*p_gnss_ned' + r0_ecef)';
+        v_gnss_ecef = (C_n2e*v_gnss_ned')';
+        a_gnss_ecef = (C_n2e*a_gnss_ned')';
     end
-    sgtitle([method ' Comparison in ECEF frame']);
-    fname = [base '_ECEF_state'];
-    set(fig,'PaperPositionMode','auto');
-    if cfg.plots.save_pdf
-        print(fig,[fname '.pdf'],'-dpdf','-bestfit');
+    if ~isempty(p_imu)
+        p_imu_ecef = (C_n2e*p_imu')';
+        v_imu_ecef = (C_n2e*v_imu')';
+        a_imu_ecef = (C_n2e*a_imu')';
     end
-    if cfg.plots.save_png
-        print(fig,[fname '.png'],'-dpng');
+    if ~isempty(p_fused)
+        p_fused_ecef = (C_n2e*p_fused')';
+        v_fused_ecef = (C_n2e*v_fused')';
+        a_fused_ecef = (C_n2e*a_fused')';
     end
-    fprintf('Task 4: saved ECEF frame plot to %s (.pdf/.png)\n', fname);
-    close(fig);
+    plot_frame(p_gnss_ecef, v_gnss_ecef, a_gnss_ecef, ...
+               p_imu_ecef, v_imu_ecef, a_imu_ecef, ...
+               p_fused_ecef, v_fused_ecef, a_fused_ecef, ...
+               {'X','Y','Z'}, 'ecef');
 
-    % ----- Body frame -----
-    fprintf('Plotting all data in body frame.\n');
-    fig = figure('Visible', visibleFlag, 'Position',[100 100 1200 900]);
+    % --- Body frame ---
     C_N_B = C_B_N';
-    pos_body = (C_N_B*p_gnss_ned')';
-    vel_body = (C_N_B*v_gnss_ned')';
-    dims_b = {'X','Y','Z'};
-    for i = 1:3
-        subplot(3,3,i); hold on;
-        plot(t_gnss,pos_body(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
-        hold off; grid on; legend; title(['Position b' dims_b{i}]); ylabel('m'); xlabel('Time (s)');
-
-        subplot(3,3,i+3); hold on;
-        plot(t_gnss,vel_body(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
-        hold off; grid on; legend; title(['Velocity b' dims_b{i}]); ylabel('m/s'); xlabel('Time (s)');
-
-        subplot(3,3,i+6); hold on;
-        plot(t_imu, acc_body_corr(:,i),'-','Color',fused_col,'DisplayName','Fused');
-        plot(t_imu, acc_body_raw(:,i),'-','Color',[0.8500 0.3250 0.0980],'DisplayName','IMU raw');
-        hold off; grid on; legend; title(['Acceleration b' dims_b{i}]); ylabel('m/s^2'); xlabel('Time (s)');
+    pos_body_g = []; vel_body_g = []; acc_body_g = [];
+    pos_body_i = []; vel_body_i = []; acc_body_f = [];
+    if ~isempty(p_gnss_ned)
+        pos_body_g = (C_N_B*p_gnss_ned')';
+        vel_body_g = (C_N_B*v_gnss_ned')';
+        acc_body_g = (C_N_B*a_gnss_ned')';
     end
-    sgtitle([method ' Data in Body Frame']);
-    fname = [base '_BODY_state'];
-    set(fig,'PaperPositionMode','auto');
-    if cfg.plots.save_pdf
-        print(fig,[fname '.pdf'],'-dpdf','-bestfit');
+    if ~isempty(p_imu)
+        pos_body_i = (C_N_B*p_imu')';
+        vel_body_i = (C_N_B*v_imu')';
     end
-    if cfg.plots.save_png
-        print(fig,[fname '.png'],'-dpng');
+    if ~isempty(p_fused)
+        pos_body_f = (C_N_B*p_fused')';
+        vel_body_f = (C_N_B*v_fused')';
+        acc_body_f = (C_N_B*a_fused')';
+    else
+        pos_body_f = []; vel_body_f = []; acc_body_f = [];
     end
-    fprintf('Task 4: saved body frame plot to %s (.pdf/.png)\n', fname);
-    close(fig);
+    plot_frame(pos_body_g, vel_body_g, acc_body_g, ...
+               pos_body_i, vel_body_i, acc_body_corr, ...
+               pos_body_f, vel_body_f, acc_body_f, ...
+               {'Body X','Body Y','Body Z'}, 'body');
 
-    % ----- Mixed frame (ECEF position/velocity + body acceleration) -----
-    fprintf('Plotting data in mixed frames.\n');
-    fig = figure('Visible','off','Position',[100 100 1200 900]);
-    for i = 1:3
-        subplot(3,3,i); hold on;
-        plot(t_gnss,p_gnss_ecef(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
-        hold off; grid on; legend; title(['Pos ' dims_e{i} ' ECEF']); ylabel('m'); xlabel('Time (s)');
+    function plot_frame(p_g, v_g, a_g, p_i, v_i, a_i, p_f, v_f, a_f, axis_names, suffix)
+        fig = figure('Visible', visibleFlag, 'Position',[100 100 1800 1200]);
+        missing_gnss  = isempty(p_g);
+        missing_imu   = isempty(p_i);
+        missing_fused = isempty(p_f);
+        for idx = 1:3
+            % Position
+            subplot(3,3,idx); hold on;
+            if ~missing_gnss, plot(t, p_g(:,idx), '-', 'Color', gnss_col, 'DisplayName', 'GNSS');
+            else, plot(NaN,NaN,'-','Color',gnss_col,'DisplayName','GNSS (missing)'); end
+            if ~missing_imu, plot(t, p_i(:,idx), '--', 'Color', imu_col, 'DisplayName', 'IMU only');
+            else, plot(NaN,NaN,'--','Color',imu_col,'DisplayName','IMU only (missing)'); end
+            if ~missing_fused, plot(t, p_f(:,idx), '-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused');
+            else, plot(NaN,NaN,'-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused (missing)'); end
+            grid on; axis tight; set(gca,'FontSize',12); legend('Location','north');
+            title(axis_names{idx}); ylabel(sprintf('%s Position [m]', axis_names{idx})); xlabel('Time [s]');
+            hold off;
 
-        subplot(3,3,i+3); hold on;
-        plot(t_gnss,v_gnss_ecef(:,i),'--','Color',gnss_col,'DisplayName','GNSS (integrated)');
-        hold off; grid on; legend; title(['Vel ' dims_e{i} ' ECEF']); ylabel('m/s'); xlabel('Time (s)');
+            % Velocity
+            subplot(3,3,idx+3); hold on;
+            if ~missing_gnss, plot(t, v_g(:,idx), '-', 'Color', gnss_col, 'DisplayName', 'GNSS');
+            else, plot(NaN,NaN,'-','Color',gnss_col,'DisplayName','GNSS (missing)'); end
+            if ~missing_imu, plot(t, v_i(:,idx), '--', 'Color', imu_col, 'DisplayName', 'IMU only');
+            else, plot(NaN,NaN,'--','Color',imu_col,'DisplayName','IMU only (missing)'); end
+            if ~missing_fused, plot(t, v_f(:,idx), '-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused');
+            else, plot(NaN,NaN,'-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused (missing)'); end
+            grid on; axis tight; set(gca,'FontSize',12); legend('Location','north');
+            ylabel(sprintf('%s Velocity [m/s]', axis_names{idx})); xlabel('Time [s]');
+            hold off;
 
-        subplot(3,3,i+6); hold on;
-        plot(t_imu, acc_body_corr(:,i),'-','Color',fused_col,'DisplayName','Fused');
-        hold off; grid on; legend; title(['Acc ' dims_b{i} ' Body']); ylabel('m/s^2'); xlabel('Time (s)');
+            % Acceleration
+            subplot(3,3,idx+6); hold on;
+            if ~missing_gnss, plot(t, a_g(:,idx), '-', 'Color', gnss_col, 'DisplayName', 'GNSS');
+            else, plot(NaN,NaN,'-','Color',gnss_col,'DisplayName','GNSS (missing)'); end
+            if ~missing_imu, plot(t, a_i(:,idx), '--', 'Color', imu_col, 'DisplayName', 'IMU only');
+            else, plot(NaN,NaN,'--','Color',imu_col,'DisplayName','IMU only (missing)'); end
+            if ~missing_fused, plot(t, a_f(:,idx), '-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused');
+            else, plot(NaN,NaN,'-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused (missing)'); end
+            grid on; axis tight; set(gca,'FontSize',12); legend('Location','north');
+            ylabel(sprintf('%s Acceleration [m/s^2]', axis_names{idx})); xlabel('Time [s]');
+            hold off;
+        end
+        line1 = sprintf('Task 4: All data in %s frame', upper(suffix));
+        line2 = sprintf('%s | IMU n=%d | GNSS n=%d | Truth n=%d', run_id, n_imu, n_gnss, n_truth);
+        sgtitle({line1, line2});
+        if missing_gnss || missing_imu || missing_fused
+            miss = {};
+            if missing_gnss, miss{end+1} = 'GNSS'; end
+            if missing_imu,  miss{end+1} = 'IMU only'; end
+            if missing_fused, miss{end+1} = 'Fused'; end
+            annotation(fig,'textbox',[0.5,0.02,0,0],'String', ['\color{red}\bf⚠ Missing: ' strjoin(miss, ', ')], 'EdgeColor','none', 'HorizontalAlignment','center', 'FontSize',12);
+        end
+        filename = fullfile(save_dir, sprintf('%s_task4_all_%s.png', run_id, suffix));
+        set(fig,'PaperUnits','inches','PaperPosition',[0 0 9 6]);
+        print(fig, filename, '-dpng', '-r200');
+        info = dir(filename);
+        if isempty(info) || info.bytes < 5000
+            error('Save failed: %s', filename);
+        end
+        fprintf('[SAVE] %s (%d bytes)\n', filename, info.bytes);
+        close(fig);
     end
-    sgtitle([method ' Mixed Frame Data']);
-    fname = [base '_Task4_MixedFrame.pdf'];
-    set(fig,'PaperPositionMode','auto');
-    print(fig,fname,'-dpdf','-bestfit');
-    png_name = strrep(fname,'.pdf','.png');
-    print(fig,png_name,'-dpng');
-    fprintf('Task 4: saved mixed frame plot to %s and %s\n', fname, png_name);
-    close(fig);
 end
 
 function q_new = propagate_quaternion(q_old, w, dt)
