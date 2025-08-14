@@ -279,21 +279,54 @@ end
 % =========================================================================
 dprintf('\nSubtask 5.1-5.5: Configuring and Initializing 15-State Kalman Filter.\n');
 results4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-if nargin < 4 || isempty(gnss_pos_ned)
-    if evalin('base','exist(''task4_results'',''var'')')
-        gnss_pos_ned = evalin('base','task4_results.gnss_pos_ned');
-    else
-        if ~isfile(results4)
-            error('Task_5:MissingResults', ...
-                  'Task 4 must run first and save gnss_pos_ned.');
-        end
-        S = load(results4,'gnss_pos_ned');
-        if ~isfield(S,'gnss_pos_ned')
-            error('Task_5:BadMATfile', ...
-                  '''gnss_pos_ned'' not found in %s', results4);
-        end
-        gnss_pos_ned = S.gnss_pos_ned;
+if evalin('base','exist(''task4_results'',''var'')')
+    t4 = evalin('base','task4_results');
+else
+    if ~isfile(results4)
+        error('Task_5:MissingResults', ...
+              'Task 4 must run first and save results.');
     end
+    S = load(results4);
+    if isfield(S,'task4_results')
+        t4 = S.task4_results;
+    else
+        t4 = S;
+    end
+    assignin('base','task4_results', t4);
+end
+if nargin < 4 || isempty(gnss_pos_ned)
+    if isfield(t4,'gnss') && isfield(t4.gnss,'pos_ned')
+        gnss_pos_ned = t4.gnss.pos_ned;
+    elseif isfield(t4,'gnss_pos_ned')
+        gnss_pos_ned = t4.gnss_pos_ned;
+    else
+        error('Task_5:BadMATfile', ...
+              '''gnss_pos_ned'' not found in %s', results4);
+    end
+end
+% Expose additional GNSS/IMU data when available
+if isfield(t4,'gnss')
+    gnss_struct = t4.gnss;
+    if isfield(gnss_struct,'pos_ecef'); gnss_pos_ecef = gnss_struct.pos_ecef; end
+    if isfield(gnss_struct,'vel_ecef'); gnss_vel_ecef = gnss_struct.vel_ecef; end
+    if isfield(gnss_struct,'acc_ecef'); gnss_acc_ecef = gnss_struct.acc_ecef; end
+    if isfield(gnss_struct,'vel_ned'); gnss_vel_ned = gnss_struct.vel_ned; end
+    if isfield(gnss_struct,'acc_ned'); gnss_acc_ned = gnss_struct.acc_ned; end
+    if isfield(gnss_struct,'pos_body'); gnss_pos_body = gnss_struct.pos_body; end
+    if isfield(gnss_struct,'vel_body'); gnss_vel_body = gnss_struct.vel_body; end
+    if isfield(gnss_struct,'acc_body'); gnss_acc_body = gnss_struct.acc_body; end
+end
+if isfield(t4,'imu')
+    imu_struct = t4.imu;
+    if isfield(imu_struct,'pos_ned'); imu_pos_ned = imu_struct.pos_ned; end
+    if isfield(imu_struct,'vel_ned'); imu_vel_ned = imu_struct.vel_ned; end
+    if isfield(imu_struct,'acc_ned'); imu_acc_ned = imu_struct.acc_ned; end
+    if isfield(imu_struct,'pos_ecef'); imu_pos_ecef = imu_struct.pos_ecef; end
+    if isfield(imu_struct,'vel_ecef'); imu_vel_ecef = imu_struct.vel_ecef; end
+    if isfield(imu_struct,'acc_ecef'); imu_acc_ecef = imu_struct.acc_ecef; end
+    if isfield(imu_struct,'pos_body'); imu_pos_body = imu_struct.pos_body; end
+    if isfield(imu_struct,'vel_body'); imu_vel_body = imu_struct.vel_body; end
+    if isfield(imu_struct,'acc_body'); imu_acc_body = imu_struct.acc_body; end
 end
 % State vector x: [pos; vel; euler; accel_bias; gyro_bias] (15x1)
 init_eul = quat_to_euler(rot_to_quaternion(C_B_N));
