@@ -53,7 +53,11 @@ function body_data = Task_2(imu_path, gnss_path, method)
               'Could not find IMU data at:\n  %s', imu_path);
     end
 
-    data = readmatrix(imu_path);
+    if exist('readmatrix','file')
+        data = readmatrix(imu_path);
+    else
+        data = dlmread(imu_path);
+    end
     if size(data,2) < 8
         error('Task_2:BadFormat', ...
               'Expected at least 8 columns in %s', imu_path);
@@ -71,7 +75,9 @@ function body_data = Task_2(imu_path, gnss_path, method)
     acc_filt  = low_pass_filter(accel, 5, fs);
     gyro_filt = low_pass_filter(gyro, 5, fs);
 
-    [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt);
+    accel_var_thresh = 2e-4;
+    gyro_var_thresh = 5e-8;
+    [static_start, static_end] = detect_static_interval(acc_filt, gyro_filt, [], accel_var_thresh, gyro_var_thresh);
     fprintf('Static interval indices: %d to %d (%d samples)\n', ...
             static_start, static_end, static_end-static_start);
 
@@ -181,7 +187,11 @@ function body_data = Task_2(imu_path, gnss_path, method)
 
     task2_file = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', ...
         imu_id, gnss_id, method_tag));
-    save(task2_file, 'body_data', '-v7.3');
+    if exist('OCTAVE_VERSION', 'builtin')
+        save(task2_file, 'body_data');
+    else
+        save(task2_file, 'body_data', '-v7.3');
+    end
 
     assignin('base','task2_results', body_data);
     fprintf('Task 2 results saved to %s\n', task2_file);
