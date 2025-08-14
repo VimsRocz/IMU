@@ -121,6 +121,12 @@ end
     else
         log_tag = [' (' method ')'];
     end
+
+    % Log file for verbose warnings (to avoid command window spam)
+    warn_log = fullfile(results_dir, sprintf('%s_task5_warnings.log', run_id));
+    warn_fid = fopen(warn_log, 'w');
+    log_warn = @(varargin) fprintf(warn_fid, '%s\n', sprintf(varargin{:}));
+
     dprintf('\nTask 5: Sensor Fusion with Kalman Filter\n');
     dprintf('Subtask 5.1: Configuring logging.\n');
 
@@ -510,8 +516,8 @@ for i = 1:num_imu_samples
         delta_v = 0.5 * (a_ned + prev_a_ned) * dt_imu;
         if norm(delta_v) > vel_limit
             vel_blow_count = vel_blow_count + 1;
-            warning('Delta-v %.1f m/s at k=%d (acc=[%.2f %.2f %.2f]) exceeds limit; clamping.', ...
-                    norm(delta_v), i, a_ned(1), a_ned(2), a_ned(3));
+            log_warn('[WARN-DELTA-V] k=%d delta_v=%.1f acc=[%.2f %.2f %.2f] exceeds limit; clamping.', ...
+                     i, norm(delta_v), a_ned(1), a_ned(2), a_ned(3));
             vel_exceed_log(end+1,:) = [i, norm(delta_v)];
             delta_v = delta_v * (vel_limit / norm(delta_v));
         end
@@ -519,10 +525,9 @@ for i = 1:num_imu_samples
         dbg_kf_postpred_msg = sprintf('[DBG-KF] k=%d post-pred velN=%.1f velE=%.1f velD=%.1f norm=%.1f', i, vel_new(1), vel_new(2), vel_new(3), norm(vel_new));
         if norm(vel_new) > vel_limit
             vel_blow_count = vel_blow_count + 1;
-            warning('Velocity prediction %.1f m/s at k=%d; reverting to previous.', ...
-                    norm(vel_new), i);
             vel_exceed_log(end+1,:) = [i, norm(vel_new)];
-            disp(sprintf('[WARN-BLOWUP] k=%d vel_pred_norm=%.1f | Reverting to prev velN=%.1f velE=%.1f velD=%.1f', i, norm(vel_new), prev_vel(1), prev_vel(2), prev_vel(3)));
+            log_warn('[WARN-BLOWUP] k=%d vel_pred_norm=%.1f | Reverting to prev velN=%.1f velE=%.1f velD=%.1f', ...
+                     i, norm(vel_new), prev_vel(1), prev_vel(2), prev_vel(3));
             vel_new = prev_vel;
             pos_new = x(1:3);
             P(4:6,4:6) = P(4:6,4:6) + eye(3) * 1e-3;
@@ -565,10 +570,7 @@ for i = 1:num_imu_samples
     if vel_norm > vel_limit
         vel_blow_count = vel_blow_count + 1;
         vel_exceed_log(end+1,:) = [i, vel_norm];
-        if vel_blow_count == 1 || mod(vel_blow_count, 100) == 0
-            warning('Velocity state %.1f m/s at k=%d; clamping.', vel_norm, i);
-            fprintf('[WARN-CLAMP] k=%d vel_state_norm=%.1f | Clamping to 500 m/s\n', i, vel_norm);
-        end
+        log_warn('[WARN-CLAMP] k=%d vel_state_norm=%.1f | Clamping to %.0f m/s', i, vel_norm, vel_limit);
         x(4:6) = x(4:6) / vel_norm * vel_limit;
         P(4:6,4:6) = P(4:6,4:6) + eye(3) * 1e-3;
     end
@@ -1326,3 +1328,8 @@ end % End of main function
         fprintf('Task 5: saved ECEF truth plot to %s (.pdf/.png)\n', fname);
         close(gcf);
     end
+    % Close warning log file
+    if exist('warn_fid','var') && warn_fid > 0
+        fclose(warn_fid);
+    end
+end
