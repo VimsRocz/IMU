@@ -10,6 +10,9 @@ function task4_plot_comparisons(gnss_data, imu_data, fused_data, time_vec)
 % Removed redundant individual NED pos/vel/acc plots as they do not make
 % sense in Task 4.
 % Task 4: Removed Fused labels; using measured/derived for GNSS/IMU.
+% Task 4 update: label each GNSS/IMU series as "Derived" or "Measured"
+% depending on whether the quantity in that frame is computed or directly
+% from the data files.
 
 disp('Task 4: Removed nonsensical individual NED plots.');
 
@@ -46,19 +49,10 @@ for k = 1:numel(frames)
         gFrame = getframefield(gnss_data, frame);
         iFrame = getframefield(imu_data,  frame);
 
-        if strcmp(frame,'ned')
-            gnssLabel = 'GNSS (derived)';
-            imuLabel  = 'IMU only (derived)';
-        elseif strcmp(frame,'ecef')
-            gnssLabel = 'GNSS (measured)';
-            imuLabel  = 'IMU only (derived)';
-        else
-            gnssLabel = 'GNSS (derived)';
-            imuLabel  = 'IMU (measured)';
-        end
-
         for r = 1:3
             qty = quantities{r};
+            gnssLabel = get_label('gnss', frame, qty);
+            imuLabel  = get_label('imu',  frame, qty);
             for c = 1:3
                 ax = subplot(3,3,(r-1)*3 + c); hold(ax,'on'); grid(ax,'on');
                 set(ax,'FontSize',fs);
@@ -123,6 +117,39 @@ disp('Task 4: Updated all_ned plot with measured/derived labels; no fused data.'
 end
 
 % ---------------------- Helper Functions ----------------------
+function label = get_label(sensor, frame, qty)
+%GET_LABEL  Determine whether a signal is derived or measured.
+sensor = lower(sensor);
+frame = lower(frame);
+qty   = lower(qty);
+
+% Default assumption: measured data from files.
+isDerived = false;
+
+switch sensor
+    case 'gnss'
+        switch frame
+            case 'ecef'
+                isDerived = strcmp(qty,'acc');
+            case {'body','ned'}
+                isDerived = true;
+        end
+    case 'imu'
+        switch frame
+            case 'body'
+                isDerived = ~strcmp(qty,'acc');
+            otherwise % ecef or ned
+                isDerived = true;
+        end
+end
+
+if isDerived
+    label = sprintf('Derived %s', upper(sensor));
+else
+    label = sprintf('Measured %s', upper(sensor));
+end
+end
+
 function frameStruct = getframefield(S, frame)
 frameStruct = struct();
 try
