@@ -34,6 +34,9 @@ def main():
     out_dir = (Path('PYTHON')/ 'results' / run_id / 'task6').resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    time_hint = est_path.with_name(f"{run_id}_task5_time.mat")
+    time_hint_path = str(time_hint) if time_hint.is_file() else None
+
     # Parse qbody
     q_const = None
     if args.qbody:
@@ -64,7 +67,8 @@ def main():
             output_dir=str(out_dir),
             lat_deg=args.lat, lon_deg=args.lon,
             gnss_file=args.gnss_file,
-            q_b2n_const=q_const
+            q_b2n_const=q_const,
+            time_hint_path=time_hint_path,
         )
         saved.update(saved_single if isinstance(saved_single, dict) else {})
     except Exception as ex:
@@ -97,7 +101,8 @@ def main():
                 output_dir=str(out_dir),
                 lat_deg=args.lat, lon_deg=args.lon,
                 gnss_file=args.gnss_file,
-                q_b2n_const=q_const
+                q_b2n_const=q_const,
+                time_hint_path=time_hint_path,
             )
             if isinstance(saved_multi, dict):
                 saved.update(saved_multi)
