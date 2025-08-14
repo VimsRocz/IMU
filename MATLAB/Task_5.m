@@ -944,9 +944,14 @@ end
 assignin('base', ['pos_kf_' method], x_log(1:3,:)');
 assignin('base', 't_kf', imu_time);
 
-% Return results structure and store in base workspace
-result = results;
-assignin('base', 'task5_results', result);
+    % Return results structure and store in base workspace
+    result = results;
+    assignin('base', 'task5_results', result);
+
+    % Close warning log file (if opened)
+    if exist('warn_fid','var') && warn_fid > 0
+        fclose(warn_fid);
+    end
 
 end % End of main function
 
@@ -1263,7 +1268,7 @@ end % End of main function
             plot(t_gnss, acc_gnss_body(j,:),'k:','DisplayName','GNSS');
             plot(t, acc_body(j,:),'b-','DisplayName','Fused');
             plot(t, acc_body_raw(:,j),'r-','DisplayName','IMU raw');
-            hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{j}']); legend;
+            hold off; grid on; ylabel('[m/s^2]'); title(['Acceleration ' labels{j}]); legend;
         end
         sgtitle([method ' - All data in body frame']);
         fname = fullfile(cfg.paths.matlab_results, sprintf('%s_task5_BODY_state', run_id));
@@ -1328,8 +1333,3 @@ end % End of main function
         fprintf('Task 5: saved ECEF truth plot to %s (.pdf/.png)\n', fname);
         close(gcf);
     end
-    % Close warning log file
-    if exist('warn_fid','var') && warn_fid > 0
-        fclose(warn_fid);
-    end
-end

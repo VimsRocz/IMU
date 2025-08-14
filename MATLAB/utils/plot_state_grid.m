@@ -1,49 +1,17 @@
 function plot_state_grid(t, pos, vel, acc, frame, varargin)
-%PLOT_STATE_GRID Plot N/E/D position, velocity and acceleration over time.
-%   PLOT_STATE_GRID(T, POS, VEL, ACC, FRAME) creates three figures showing
-%   the components of POS, VEL and ACC in the specified FRAME. Additional
-%   name-value pairs:
-%       'visible' - 'on' or 'off' (default 'off')
-%       'save_dir' - directory to save plots (optional)
-%       'run_id'   - identifier used in filenames (optional)
-%
-%   Usage:
-%       plot_state_grid(t, pos, vel, acc, 'NED', 'visible','on', ...
-%                       'save_dir','results', 'run_id','IMU_GNSS_TRIAD')
-%
-%   This helper mirrors ``plot_state_grid`` in ``src/utils/plot_state_grid.py``.
+%PLOT_STATE_GRID Deprecated per-quantity Task 4 plots (no-op).
+%   This function previously generated three separate figures for NED/ECEF
+%   position, velocity and acceleration with filenames like
+%   "..._task4_NED_velocity.png". These plots are confusing in Task 4 and
+%   have been removed. Use task4_plot_comparisons instead, which produces a
+%   single 3x3 grid per frame.
 
-p = inputParser;
-addParameter(p,'visible','off',@(s)ischar(s)||isstring(s));
-addParameter(p,'save_dir','',@(s)ischar(s)||isstring(s));
-addParameter(p,'run_id','',@(s)ischar(s)||isstring(s));
-parse(p,varargin{:});
-vis = p.Results.visible; outdir = char(p.Results.save_dir); run_id = char(p.Results.run_id);
+% Preserve signature and options to avoid breaking callers, but do nothing.
+p = inputParser; %#ok<NASGU>
+addParameter(p,'visible','off');
+addParameter(p,'save_dir','');
+addParameter(p,'run_id','');
+try, parse(p,varargin{:}); catch, end
 
-labels = {'North','East','Down'};
-data = {pos, vel, acc};
-names = {'position','velocity','acceleration'};
-for k = 1:3
-    h = figure('Visible',vis); hold on; grid on;
-    plot(t, data{k}(:,1));
-    plot(t, data{k}(:,2));
-    plot(t, data{k}(:,3));
-    legend(labels, 'Location','best'); legend boxoff;
-    xlabel('Time [s]');
-    ylabel(sprintf('%s (%s)', names{k}, frame));
-    title(sprintf('%s vs time (%s)', names{k}, frame));
-    if ~isempty(outdir) && ~isempty(run_id)
-        if ~exist(outdir,'dir'), mkdir(outdir); end
-        set(h, 'PaperPositionMode', 'auto');
-        % PDF best-fit
-        print(h, fullfile(outdir, sprintf('%s_task4_%s_%s.pdf', run_id, frame, names{k})), '-dpdf', '-bestfit');
-        % PNG high-res
-        try
-            exportgraphics(h, fullfile(outdir, sprintf('%s_task4_%s_%s.png', run_id, frame, names{k})), 'Resolution', 300);
-        catch
-            print(h, fullfile(outdir, sprintf('%s_task4_%s_%s.png', run_id, frame, names{k})), '-dpng', '-r300');
-        end
-        close(h);
-    end
-end
+fprintf('plot_state_grid: skipped (deprecated for Task 4; no files saved).\n');
 end
