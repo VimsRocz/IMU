@@ -1,438 +1,184 @@
 """Helpers for Task 6 overlay plots across multiple reference frames.
 
-The functions in this module operate purely on static matplotlib plots to
-avoid importing the heavier interactive plotting stack unless explicitly
-requested elsewhere.  They provide utilities to load estimator outputs and
-truth files, perform basic frame conversions and generate consistent overlay
-figures for NED, ECEF and BODY frames.
+This module focuses on defensive loading of estimator and truth files for the
+Task‑6 overlay plots.  Data is parsed from ``.mat`` or ``.npz`` files using a
+robust key search that tolerates MATLAB struct wrappers and differing
+conventions.  NED, ECEF and BODY frame triplets (position/velocity/
+acceleration) are extracted and, where possible, synthesised from one another.
+
+Only static matplotlib is used so that the module can be imported in headless
+environments.  Extensive debug printing can be enabled via the
+``--debug-task6`` flag in :mod:`task6_plot_truth.py`.
 """
 
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, Iterable, List, Optional, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.io as sio
-import matplotlib.pyplot as plt
-import warnings
 
-TIME_KEYS = [
-    "t",
-    "time",
-    "timestamp",
-    "timestamps",
-    "t_est",
-    "time_s",
-    "posix_time",
-]
+# ---------------------------------------------------------------------------
+# Key definitions
+# ---------------------------------------------------------------------------
 
+TIME_KEYS = ["t", "time", "timestamp", "timestamps", "t_est", "time_s", "posix_time"]
 
-def quat_normalize(q: np.ndarray) -> np.ndarray:
-    """Normalize quaternion array along the last axis."""
-
-    q = np.asarray(q, dtype=float)
-    n = np.linalg.norm(q, axis=-1, keepdims=True)
-    n[n == 0] = 1.0
-    return q / n
-
-
-def quat_make_hemisphere_continuous(q: np.ndarray) -> np.ndarray:
-    """Ensure sign continuity for a quaternion sequence."""
-
-    q = np.asarray(q, dtype=float).copy()
-    for i in range(1, len(q)):
-        if np.dot(q[i], q[i - 1]) < 0.0:
-            q[i] *= -1.0
-    return q
-
-
-def slerp_series(t_src: np.ndarray, q_src: np.ndarray, t_dst: np.ndarray) -> np.ndarray:
-    """Interpolate quaternion series using Slerp with linear fallback."""
-
-    q_src = quat_make_hemisphere_continuous(quat_normalize(np.asarray(q_src)))
-    t_src = np.asarray(t_src, dtype=float)
-    t_dst = np.asarray(t_dst, dtype=float)
-    try:  # pragma: no cover - SciPy optional
-        from scipy.spatial.transform import Rotation, Slerp
-
-        rot = Rotation.from_quat(np.column_stack([q_src[:, 1:], q_src[:, :1]]))
-        slerp = Slerp(t_src, rot)
-        interp = slerp(t_dst).as_quat()
-        q_dst = np.column_stack([interp[:, 3], interp[:, 0], interp[:, 1], interp[:, 2]])
-        return quat_make_hemisphere_continuous(quat_normalize(q_dst))
-    except Exception:  # pragma: no cover - best effort
-        q_lin = np.empty((len(t_dst), 4))
-        for i in range(4):
-            q_lin[:, i] = np.interp(t_dst, t_src, q_src[:, i])
-        return quat_make_hemisphere_continuous(quat_normalize(q_lin))
-
-
-def quat_to_dcm_batch(q: np.ndarray) -> np.ndarray:
-    """Convert quaternions [N,4] to direction cosine matrices [N,3,3]."""
-
-    q = quat_normalize(np.asarray(q))
-    qw, qx, qy, qz = q.T
-    dcm = np.empty((q.shape[0], 3, 3))
-    dcm[:, 0, 0] = 1 - 2 * (qy * qy + qz * qz)
-    dcm[:, 0, 1] = 2 * (qx * qy - qw * qz)
-    dcm[:, 0, 2] = 2 * (qx * qz + qw * qy)
-    dcm[:, 1, 0] = 2 * (qx * qy + qw * qz)
-    dcm[:, 1, 1] = 1 - 2 * (qx * qx + qz * qz)
-    dcm[:, 1, 2] = 2 * (qy * qz - qw * qx)
-    dcm[:, 2, 0] = 2 * (qx * qz - qw * qy)
-    dcm[:, 2, 1] = 2 * (qy * qz + qw * qx)
-    dcm[:, 2, 2] = 1 - 2 * (qx * qx + qy * qy)
-    return dcm
-
-
-def rotate_series_by_quat_series(v_ned: np.ndarray, q_b2n: np.ndarray, to_body: bool = True) -> np.ndarray:
-    """Rotate vector series using per-sample quaternions."""
-
-    if v_ned is None or q_b2n is None:
-        return None
-    v = np.asarray(v_ned)
-    q = np.asarray(q_b2n)
-    if q.ndim == 1:
-        q = np.repeat(q[np.newaxis, :], len(v), axis=0)
-    dcm = quat_to_dcm_batch(q)
-    if to_body:
-        dcm = np.transpose(dcm, (0, 2, 1))
-    return np.einsum("nij,nj->ni", dcm, v)
+# Preferred key sets for the various vector series we might encounter in the
+# estimator output.  The first existing key is used.
+KEYSETS = {
+    "pos_ned": ["pos_ned_m", "fused_pos_ned", "pos_ned", "p_ned"],
+    "vel_ned": ["vel_ned_ms", "fused_vel_ned", "vel_ned", "v_ned"],
+    "acc_ned": ["acc_ned_mps2", "fused_acc_ned", "acc_ned", "a_ned"],
+    "pos_ecef": ["pos_ecef_m", "fused_pos_ecef", "pos_ecef", "p_ecef"],
+    "vel_ecef": ["vel_ecef_ms", "fused_vel_ecef", "vel_ecef", "v_ecef"],
+    "acc_ecef": ["acc_ecef_mps2", "fused_acc_ecef", "acc_ecef", "a_ecef"],
+    "pos_body": ["pos_body_m", "fused_pos_body", "pos_body", "p_body"],
+    "vel_body": ["vel_body_ms", "fused_vel_body", "vel_body", "v_body"],
+    "acc_body": ["acc_body_mps2", "fused_acc_body", "acc_body", "a_body"],
+}
 
 
 # ---------------------------------------------------------------------------
-# Data loading helpers
+# Utility helpers
 # ---------------------------------------------------------------------------
 
+def _dprint(debug: bool, msg: str) -> None:
+    """Print ``msg`` if ``debug`` is true."""
 
-def load_estimates(est_file: str) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
-    """Load estimator output from ``.mat`` or ``.npz`` files.
+    if debug:
+        print(msg)
 
-    The loader accepts a range of key names to cope with slightly differing
-    conventions.  Returned arrays are converted to :class:`numpy.ndarray`
-    instances.  Time is expected to be one-dimensional.  The raw dictionary is
-    returned alongside the normalized mapping so that callers can inspect all
-    available keys for diagnostics.
-    """
 
-    p = Path(est_file)
-    if p.suffix == ".npz":
-        data = dict(np.load(p))
-    else:
-        data = {
-            k: v
-            for k, v in sio.loadmat(p, squeeze_me=True).items()
-            if not k.startswith("__")
-        }
+def _coerce_array(a: np.ndarray | object) -> np.ndarray:
+    """Return a numeric :class:`numpy.ndarray` with MATLAB object wrappers removed."""
 
-    keys = {k.lower(): k for k in data.keys()}
-
-    def pick(*names):
-        for n in names:
-            k = keys.get(n.lower())
-            if k:
-                return np.asarray(data[k])
+    if a is None:
         return None
-
-    def pick_with_key(*names):
-        for n in names:
-            k = keys.get(n.lower())
-            if k:
-                return np.asarray(data[k]), k
-        return None, None
-
-    time_names = [
-        "t",
-        "time",
-        "timestamp",
-        "timestamps",
-        "t_est",
-        "time_s",
-        "posix_time",
-    ]
-
-    out: Dict[str, np.ndarray] = {
-        "time": pick(*time_names),
-        "pos_ned": pick("pos_ned"),
-        "vel_ned": pick("vel_ned"),
-        "acc_ned": pick("acc_ned"),
-        "pos_ecef": pick("pos_ecef"),
-        "vel_ecef": pick("vel_ecef"),
-        "acc_ecef": pick("acc_ecef"),
-        "pos_body": pick("pos_body"),
-        "vel_body": pick("vel_body"),
-        "acc_body": pick("acc_body"),
-    }
-
-    q_raw, q_key = pick_with_key(
-        "q_b2n",
-        "quat_b2n",
-        "qbn",
-        "q_b2ned",
-        "quatbn",
-        "quats",
-        "quat_wxyz",
-    )
-    if q_raw is not None:
-        q_arr = np.atleast_2d(q_raw)
-        if not (q_key and "wxyz" in q_key.lower()):
-            if np.mean(np.abs(q_arr[:, 0])) < np.mean(np.abs(q_arr[:, 3])):
-                q_arr = q_arr[:, [3, 0, 1, 2]]
-        q_arr = quat_make_hemisphere_continuous(quat_normalize(q_arr))
-        out["q_b2n"] = q_arr
-
-    t_q = pick("time_q", "t_q", "time_quat", "t_quat", "time_att", "t_att")
-    if t_q is not None:
-        out["time_q"] = np.asarray(t_q).ravel()
-
-    return out, data
+    if isinstance(a, np.ndarray) and a.dtype == object:
+        a = np.array([_coerce_array(x) for x in a])
+    return np.asarray(a, dtype=float)
 
 
-def load_truth(truth_file: str) -> Dict[str, np.ndarray]:
-    """Parse truth files ``STATE_X*.txt`` (CSV or whitespace separated)."""
+def extract_scalar(store: Dict[str, np.ndarray], keys: Iterable[str]) -> Optional[np.ndarray]:
+    """Return the first scalar/1‑D array present in ``store`` using ``keys``."""
 
-    out: Dict[str, np.ndarray] = {}
-    try:
-        df = pd.read_csv(truth_file, sep=None, engine="python")
-        cols = {c.lower(): c for c in df.columns}
-
-        def trip(prefix: str, keys: Tuple[str, str, str]) -> Optional[np.ndarray]:
-            names = [f"{prefix}_{k}" for k in keys]
-            if all(n in cols for n in names):
-                return df[[cols[n] for n in names]].to_numpy()
-            return None
-
-        def pick_quat(prefixes: Tuple[str, ...]) -> Optional[np.ndarray]:
-            for p in prefixes:
-                names_wxyz = [f"{p}_{c}" for c in ("w", "x", "y", "z")]
-                if all(n in cols for n in names_wxyz):
-                    q = df[[cols[n] for n in names_wxyz]].to_numpy()
-                    return quat_make_hemisphere_continuous(quat_normalize(q))
-                names_xyzw = [f"{p}_{c}" for c in ("x", "y", "z", "w")]
-                if all(n in cols for n in names_xyzw):
-                    q = df[[cols[n] for n in names_xyzw]].to_numpy()
-                    q = q[:, [3, 0, 1, 2]]
-                    return quat_make_hemisphere_continuous(quat_normalize(q))
-            return None
-
-        tcol = cols.get("time") or cols.get("t")
-        out["time"] = df[tcol].to_numpy() if tcol else np.arange(len(df))
-        out["pos_ecef"] = trip("pos_ecef", ("x", "y", "z"))
-        out["vel_ecef"] = trip("vel_ecef", ("x", "y", "z"))
-        out["pos_ned"] = trip("pos_ned", ("n", "e", "d"))
-        out["vel_ned"] = trip("vel_ned", ("n", "e", "d"))
-        q_truth = pick_quat((
-            "q_b2n_truth",
-            "quat_b2n_truth",
-            "q_b2n",
-            "quat_b2n",
-            "qbn",
-            "quatbn",
-            "quats",
-            "quat",
-        ))
-        if q_truth is not None:
-            out["q_b2n_truth"] = q_truth
-        t_qcol = (
-            cols.get("time_q")
-            or cols.get("t_q")
-            or cols.get("time_quat")
-            or cols.get("t_quat")
-        )
-        if t_qcol is not None:
-            out["time_q"] = df[t_qcol].to_numpy()
-        return out
-    except Exception:
-        arr = np.loadtxt(truth_file)
-        out["time"] = arr[:, 0]
-        if arr.shape[1] >= 7:
-            out["pos_ecef"] = arr[:, 1:4]
-            out["vel_ecef"] = arr[:, 4:7]
-        return out
+    for k in keys:
+        if k in store:
+            v = _coerce_array(store[k])
+            v = np.squeeze(v)
+            if v.ndim == 0:
+                return float(v)
+            if v.ndim == 1:
+                return v.astype(float)
+            if v.size >= 1:
+                return v.reshape(-1).astype(float)
+    return None
 
 
-def load_lat_lon_from_gnss(gnss_csv: str | None) -> Tuple[Optional[float], Optional[float]]:
-    """Return average latitude/longitude from a GNSS CSV file."""
+def extract_vec3(
+    store: Dict[str, np.ndarray],
+    prefer_keys: Iterable[str],
+    name: str,
+    time_len: Optional[int],
+) -> Optional[np.ndarray]:
+    """Robustly extract a 3‑vector series from ``store``.
 
-    if not gnss_csv:
-        return None, None
-
-    try:
-        df = pd.read_csv(gnss_csv)
-        lat = df["Latitude_deg"].mean() if "Latitude_deg" in df.columns else None
-        lon = df["Longitude_deg"].mean() if "Longitude_deg" in df.columns else None
-        return (
-            float(lat) if lat is not None else None,
-            float(lon) if lon is not None else None,
-        )
-    except Exception:  # pragma: no cover - best effort
-        return None, None
-
-
-def _discover_time_from_keys(data: Dict[str, np.ndarray]) -> Tuple[Optional[np.ndarray], Optional[str]]:
-    """Return first time vector found in *data* using ``TIME_KEYS``."""
-
-    for k, v in data.items():
-        if k.lower() in TIME_KEYS:
-            return np.asarray(v).ravel(), k
-    return None, None
-
-
-def _load_mat_file(path: Path) -> Dict[str, np.ndarray]:
-    return {
-        k: v
-        for k, v in sio.loadmat(path, squeeze_me=True).items()
-        if not k.startswith("__")
-    }
-
-
-def resolve_timebase(
-    est_file: str,
-    est_norm: Dict[str, np.ndarray],
-    est_raw: Dict[str, np.ndarray],
-    time_hint_path: str | None = None,
-) -> Tuple[np.ndarray, str, List[str], List[str]]:
-    """Return a time array for the estimator output.
-
-    The function attempts to pull the time vector from the estimator file
-    itself, falling back to various sibling files or reconstructed defaults.
-    The returned tuple contains ``(time, description, est_keys, time_file_keys)``.
+    Handles MATLAB struct wrappers and varying shapes.  The returned array is
+    ``float64`` with shape ``(N,3)``.  If ``time_len`` is provided, the array is
+    truncated or zero padded to match this length and a warning is printed if
+    resampling was necessary.
     """
 
-    est_keys = sorted(est_raw.keys())
+    for key in prefer_keys:
+        if key in store:
+            arr = _coerce_array(store[key])
+            arr = np.squeeze(arr)
 
-    t, key = _discover_time_from_keys(est_raw)
-    time_file_keys: List[str] = []
-    time_file_used = None
+            # Normalise to [N,3]
+            if arr.ndim == 1:
+                if arr.size == 3:
+                    arr = np.tile(arr, (time_len if time_len else 1, 1))
+                else:
+                    continue
+            elif arr.ndim == 2:
+                if arr.shape[0] == 3 and arr.shape[1] != 3:
+                    arr = arr.T
+            elif arr.ndim == 3:
+                if arr.shape[1] == 3:
+                    arr = arr.reshape(arr.shape[0], 3)
+                elif arr.shape[0] == 3:
+                    arr = arr.reshape(3, -1).T
 
-    if t is not None:
-        desc = f"estimator:{key}"
-        return np.asarray(t).ravel(), desc, est_keys, time_file_keys
-
-    # Try auxiliary time file
-    p = Path(est_file)
-    candidates = []
-    if time_hint_path:
-        candidates.append(Path(time_hint_path))
-    candidates.append(p.with_name(p.stem + "_task5_time.mat"))
-    run_id = p.stem.replace("_kf_output", "")
-    candidates.append(p.with_name(run_id + "_task5_time.mat"))
-    for c in candidates:
-        if c.is_file():
-            try:
-                raw_time = _load_mat_file(c)
-            except Exception:
+            if arr.ndim != 2 or arr.shape[1] != 3:
                 continue
-            time_file_keys = sorted(raw_time.keys())
-            t2, key2 = _discover_time_from_keys(raw_time)
-            if t2 is not None:
-                time_file_used = str(c)
-                desc = f"time_file:{c.name}:{key2}"
-                print(f"[Task6] Time file: {c} (keys: {time_file_keys})")
-                return np.asarray(t2).ravel(), desc, est_keys, time_file_keys
 
-    # Reconstruct from metadata / defaults
-    dt = None
-    n = None
-    meta_path = p.with_name(run_id + "_runmeta.json")
-    n_source = "runmeta"
-    if meta_path.is_file():
-        try:
-            meta = json.loads(meta_path.read_text())
-            dt = meta.get("dt")
-            if dt is None and meta.get("imu_rate_hint"):
-                rate = meta.get("imu_rate_hint")
-                if rate:
-                    dt = 1.0 / float(rate)
-            n = (
-                meta.get("n")
-                or meta.get("len")
-                or meta.get("samples")
-            )
-        except Exception:
-            pass
-    if n is None:
-        n_source = "estimator_arrays"
-        for name in ["pos_ned", "vel_ned", "acc_ned", "pos_ecef", "vel_ecef", "acc_ecef"]:
-            arr = est_norm.get(name)
-            if arr is not None:
-                n = len(arr)
-                break
-    if dt is None:
-        dt = 0.0025
-        dt_source = "default"
-    else:
-        dt_source = "runmeta"
-    # n_source already set above
-    if n is None:
-        raise ValueError(
-            "Estimator output lacks time array; no length info found. "
-            f"Estimator keys: {est_keys}; time file keys: {time_file_keys}"
-        )
-    t = np.arange(int(n)) * float(dt)
-    print(
-        f"[Task6] Reconstructed timebase using n={n} from {n_source}, dt={dt} ({dt_source})"
-    )
-    desc = (
-        f"reconstructed:{dt_source}"
-        if time_file_used is None
-        else f"reconstructed:{dt_source}:{time_file_used}"
-    )
-    return t, desc, est_keys, time_file_keys
-    try:
-        df = pd.read_csv(gnss_csv)
-        lat = df["Latitude_deg"].mean() if "Latitude_deg" in df.columns else None
-        lon = df["Longitude_deg"].mean() if "Longitude_deg" in df.columns else None
-        return float(lat) if lat is not None else None, float(lon) if lon is not None else None
-    except Exception:  # pragma: no cover - best effort
-        return None, None
+            n = arr.shape[0]
+            if time_len is not None and n != time_len:
+                if n > time_len:
+                    arr = arr[:time_len]
+                    print(
+                        f"[Task6][WARN] Resampled {name} from len={n} to len={time_len} to match time base."
+                    )
+                else:
+                    pad = np.zeros((time_len, 3))
+                    pad[:n] = arr
+                    arr = pad
+                    print(
+                        f"[Task6][WARN] Resampled {name} from len={n} to len={time_len} to match time base."
+                    )
+            return arr.astype(float)
+    return None
 
 
 # ---------------------------------------------------------------------------
-# Frame helpers
+# Frame conversions
 # ---------------------------------------------------------------------------
 
-
-def R_ecef_to_ned(lat_deg: float, lon_deg: float) -> np.ndarray:
-    lat = np.deg2rad(lat_deg)
-    lon = np.deg2rad(lon_deg)
-    sL, cL = np.sin(lat), np.cos(lat)
-    sO, cO = np.sin(lon), np.cos(lon)
+def R_ecef_to_ned(lat_rad: float, lon_rad: float) -> np.ndarray:
+    sl, cl = np.sin(lat_rad), np.cos(lat_rad)
+    so, co = np.sin(lon_rad), np.cos(lon_rad)
     return np.array(
-        [
-            [-sL * cO, -sL * sO, cL],
-            [-sO, cO, 0.0],
-            [-cL * cO, -cL * sO, -sL],
-        ]
+        [[-sl * co, -sl * so, cl], [-so, co, 0.0], [-cl * co, -cl * so, -sl]]
     )
 
 
-def ecef_to_ned_vec(v_ecef: np.ndarray, lat_deg: float, lon_deg: float) -> np.ndarray:
-    R = R_ecef_to_ned(lat_deg, lon_deg)
+def ecef_to_ned(
+    pos_ecef: np.ndarray, lat_rad: float, lon_rad: float, r0: np.ndarray
+) -> np.ndarray:
+    R = R_ecef_to_ned(lat_rad, lon_rad)
+    return (R @ (pos_ecef - r0).T).T
+
+
+def ned_to_ecef(
+    pos_ned: np.ndarray, lat_rad: float, lon_rad: float, r0: np.ndarray
+) -> np.ndarray:
+    R = R_ecef_to_ned(lat_rad, lon_rad)
+    return (R.T @ pos_ned.T).T + r0
+
+
+def ecef_to_ned_vec(v_ecef: np.ndarray, lat_rad: float, lon_rad: float) -> np.ndarray:
+    R = R_ecef_to_ned(lat_rad, lon_rad)
     return (R @ v_ecef.T).T
 
 
-def ned_to_ecef_vec(v_ned: np.ndarray, lat_deg: float, lon_deg: float) -> np.ndarray:
-    R = R_ecef_to_ned(lat_deg, lon_deg)
+def ned_to_ecef_vec(v_ned: np.ndarray, lat_rad: float, lon_rad: float) -> np.ndarray:
+    R = R_ecef_to_ned(lat_rad, lon_rad)
     return (R.T @ v_ned.T).T
 
 
 # ---------------------------------------------------------------------------
-# Misc helpers
+# Interpolation and plotting helpers
 # ---------------------------------------------------------------------------
 
-
-def interp_to(t_src: np.ndarray, X_src: np.ndarray, t_dst: np.ndarray) -> np.ndarray:
-    """Piecewise-linear interpolation column-wise."""
-
-    X_src = np.asarray(X_src)
-    out = np.zeros((len(t_dst), X_src.shape[1]))
-    for i in range(X_src.shape[1]):
-        out[:, i] = np.interp(t_dst, t_src, X_src[:, i])
+def interp_to(t_src: np.ndarray, X: np.ndarray, t_dst: np.ndarray) -> np.ndarray:
+    out = np.zeros((len(t_dst), X.shape[1]))
+    for i in range(X.shape[1]):
+        out[:, i] = np.interp(t_dst, t_src, X[:, i])
     return out
 
 
@@ -441,7 +187,8 @@ def plot_overlay_3x3(
     est_triplet: Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]],
     tru_triplet: Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]],
     title: str,
-    outfile: str | Path,
+    outfile: Path,
+    truth_missing: bool,
 ) -> None:
     """Create a 3x3 overlay figure comparing estimate and truth."""
 
@@ -473,14 +220,14 @@ def plot_overlay_3x3(
             if i == 2:
                 ax.set_xlabel("Time [s]")
             ax.grid(alpha=0.3)
-    axes[0, 0].set_title("Position")
-    axes[0, 1].set_title("Velocity")
-    axes[0, 2].set_title("Acceleration")
+        if tru is None and truth_missing:
+            axes[0, j].plot([], [], linestyle="--", label="Truth (missing)")
     handles, labels = axes[0, 0].get_legend_handles_labels()
     if handles:
         fig.legend(handles, labels, ncol=2, loc="upper center")
     fig.suptitle(title)
     fig.tight_layout(rect=[0, 0, 1, 0.92])
+    outfile.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(outfile, dpi=150)
     plt.close(fig)
 
@@ -490,10 +237,8 @@ def plot_methods_overlay_3x3(
     methods_triplets: Dict[str, Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]],
     tru_triplet: Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]],
     title: str,
-    outfile: str | Path,
+    outfile: Path,
 ) -> None:
-    """Plot multiple methods against truth in a 3x3 grid."""
-
     comps = ["X", "Y", "Z"]
     ylabels = ["Position [m]", "Velocity [m/s]", "Acceleration [m/s²]"]
     fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
@@ -507,7 +252,7 @@ def plot_methods_overlay_3x3(
                     ax.plot(
                         time,
                         est[:, i],
-                        label=(f"Fused {name}" if (i == 0 and j == 0) else None),
+                        label=(f"{name}" if (i == 0 and j == 0) else None),
                         linewidth=1.2,
                     )
             if tru is not None:
@@ -523,58 +268,152 @@ def plot_methods_overlay_3x3(
             if i == 2:
                 ax.set_xlabel("Time [s]")
             ax.grid(alpha=0.3)
-    axes[0, 0].set_title("Position")
-    axes[0, 1].set_title("Velocity")
-    axes[0, 2].set_title("Acceleration")
     handles, labels = axes[0, 0].get_legend_handles_labels()
     if handles:
-        fig.legend(handles, labels, ncol=4, loc="upper center")
+        fig.legend(handles, labels, ncol=2, loc="upper center")
     fig.suptitle(title)
     fig.tight_layout(rect=[0, 0, 1, 0.92])
+    outfile.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(outfile, dpi=150)
     plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
-# High-level runners
+# File loading
 # ---------------------------------------------------------------------------
 
+def _load_any(path: str) -> Dict[str, np.ndarray]:
+    p = Path(path)
+    if p.suffix.lower() == ".npz":
+        return {k: v for k, v in np.load(p).items()}
+    data = sio.loadmat(p, squeeze_me=True)
+    return {k: v for k, v in data.items() if not k.startswith("__")}
 
-def _build_ned_ecef(
-    data: Dict[str, np.ndarray],
-    lat_deg: float | None,
-    lon_deg: float | None,
-) -> Dict[str, Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]:
-    """Construct NED and ECEF triplets from raw data."""
 
-    lat = lat_deg
-    lon = lon_deg
-    pos_ned = data.get("pos_ned")
-    vel_ned = data.get("vel_ned")
-    acc_ned = data.get("acc_ned")
+def load_truth(path: str) -> Dict[str, np.ndarray]:
+    out: Dict[str, np.ndarray] = {}
+    try:
+        df = pd.read_csv(path, sep=None, engine="python")
+        cols = {c.lower(): c for c in df.columns}
 
-    if pos_ned is None and lat is not None and data.get("pos_ecef") is not None:
-        pos_ned = ecef_to_ned_vec(data["pos_ecef"], lat, lon)
-    if vel_ned is None and lat is not None and data.get("vel_ecef") is not None:
-        vel_ned = ecef_to_ned_vec(data["vel_ecef"], lat, lon)
-    if acc_ned is None and lat is not None and data.get("acc_ecef") is not None:
-        acc_ned = ecef_to_ned_vec(data["acc_ecef"], lat, lon)
+        def trip(prefix: str, keys: Tuple[str, str, str]) -> Optional[np.ndarray]:
+            names = [f"{prefix}_{k}" for k in keys]
+            if all(n in cols for n in names):
+                return df[[cols[n] for n in names]].to_numpy()
+            return None
 
-    pos_ecef = data.get("pos_ecef")
-    vel_ecef = data.get("vel_ecef")
-    acc_ecef = data.get("acc_ecef")
-    if pos_ecef is None and lat is not None and pos_ned is not None:
-        pos_ecef = ned_to_ecef_vec(pos_ned, lat, lon)
-    if vel_ecef is None and lat is not None and vel_ned is not None:
-        vel_ecef = ned_to_ecef_vec(vel_ned, lat, lon)
-    if acc_ecef is None and lat is not None and acc_ned is not None:
-        acc_ecef = ned_to_ecef_vec(acc_ned, lat, lon)
+        tcol = cols.get("time") or cols.get("t")
+        out["time"] = df[tcol].to_numpy() if tcol else np.arange(len(df))
+        out["pos_ecef"] = trip("pos_ecef", ("x", "y", "z"))
+        out["vel_ecef"] = trip("vel_ecef", ("x", "y", "z"))
+        out["pos_ned"] = trip("pos_ned", ("n", "e", "d"))
+        out["vel_ned"] = trip("vel_ned", ("n", "e", "d"))
+        return out
+    except Exception:
+        arr = np.loadtxt(path)
+        out["time"] = arr[:, 0]
+        if arr.shape[1] >= 7:
+            out["pos_ecef"] = arr[:, 1:4]
+            out["vel_ecef"] = arr[:, 4:7]
+        return out
 
-    return {
-        "NED": [pos_ned, vel_ned, acc_ned],
-        "ECEF": [pos_ecef, vel_ecef, acc_ecef],
+
+# ---------------------------------------------------------------------------
+# Core helpers
+# ---------------------------------------------------------------------------
+
+def _resolve_time(data: Dict[str, np.ndarray]) -> Tuple[np.ndarray, str]:
+    for k in TIME_KEYS:
+        if k in data:
+            t = np.asarray(data[k]).squeeze()
+            if t.ndim == 1:
+                return t.astype(float), k
+    dt = extract_scalar(data, ["dt", "imu_dt", "delta_t"])
+    n = None
+    for ks in KEYSETS.values():
+        arr = extract_vec3(data, ks, "tmp", None)
+        if arr is not None:
+            n = len(arr)
+            break
+    if n is None:
+        raise ValueError("Estimator output lacks time array; no length info found.")
+    if dt is None:
+        dt = 0.01
+    t = np.arange(n, dtype=float) * float(dt)
+    print(f"[Task6] Reconstructed timebase using n={n}, dt={dt}")
+    return t, "reconstructed"
+
+
+def _derive_acc(debug: bool, vel: Optional[np.ndarray], dt: float) -> Optional[np.ndarray]:
+    if vel is None:
+        return None
+    acc = np.diff(vel, axis=0, prepend=vel[0:1]) / float(dt)
+    _dprint(debug, f"[Task6][DBG] Derived acc via finite difference (N={len(acc)}, dt={dt})")
+    return acc
+
+
+def _build_frames(
+    store: Dict[str, np.ndarray],
+    t: np.ndarray,
+    lat: Optional[float],
+    lon: Optional[float],
+    r0: Optional[np.ndarray],
+    debug: bool,
+) -> Tuple[Dict[str, Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]], List[str]]:
+    n = len(t)
+    out = {name: extract_vec3(store, keys, name, n) for name, keys in KEYSETS.items()}
+    dt = float(np.median(np.diff(t))) if len(t) > 1 else 0.0
+    notes: List[str] = []
+
+    if lat is not None and lon is not None and r0 is not None:
+        if out["pos_ned"] is None and out["pos_ecef"] is not None:
+            out["pos_ned"] = ecef_to_ned(out["pos_ecef"], lat, lon, r0)
+            if out["vel_ned"] is None and out["vel_ecef"] is not None:
+                out["vel_ned"] = ecef_to_ned_vec(out["vel_ecef"], lat, lon)
+            if out["acc_ned"] is None and out["acc_ecef"] is not None:
+                out["acc_ned"] = ecef_to_ned_vec(out["acc_ecef"], lat, lon)
+            _dprint(debug, f"[Task6][DBG] Built NED from ECEF using reference lat={lat} lon={lon} r0={r0}")
+            notes.append("NED built from ECEF")
+        if out["pos_ecef"] is None and out["pos_ned"] is not None:
+            out["pos_ecef"] = ned_to_ecef(out["pos_ned"], lat, lon, r0)
+            if out["vel_ecef"] is None and out["vel_ned"] is not None:
+                out["vel_ecef"] = ned_to_ecef_vec(out["vel_ned"], lat, lon)
+            if out["acc_ecef"] is None and out["acc_ned"] is not None:
+                out["acc_ecef"] = ned_to_ecef_vec(out["acc_ned"], lat, lon)
+            _dprint(debug, f"[Task6][DBG] Built ECEF from NED using reference lat={lat} lon={lon} r0={r0}")
+            notes.append("ECEF built from NED")
+
+    if out["acc_ned"] is None:
+        out["acc_ned"] = _derive_acc(debug, out["vel_ned"], dt)
+        if out["acc_ned"] is not None:
+            notes.append("acc_ned derived")
+    if out["acc_ecef"] is None:
+        out["acc_ecef"] = _derive_acc(debug, out["vel_ecef"], dt)
+        if out["acc_ecef"] is not None:
+            notes.append("acc_ecef derived")
+    if out["acc_body"] is None:
+        out["acc_body"] = _derive_acc(debug, out["vel_body"], dt)
+        if out["acc_body"] is not None:
+            notes.append("acc_body derived")
+
+    if out["pos_body"] is None and out["vel_body"] is None:
+        if out["pos_ned"] is not None or out["vel_ned"] is not None:
+            print("[Task6][WARN] BODY missing; mirroring NED")
+            out["pos_body"] = out["pos_ned"]
+            out["vel_body"] = out["vel_ned"]
+            out["acc_body"] = out["acc_body"] or out["acc_ned"]
+
+    frames = {
+        "NED": (out["pos_ned"], out["vel_ned"], out["acc_ned"]),
+        "ECEF": (out["pos_ecef"], out["vel_ecef"], out["acc_ecef"]),
+        "BODY": (out["pos_body"], out["vel_body"], out["acc_body"]),
     }
+    return frames, notes
 
+
+# ---------------------------------------------------------------------------
+# Main overlay functions
+# ---------------------------------------------------------------------------
 
 def run_task6_overlay_all_frames(
     est_file: str,
@@ -585,167 +424,122 @@ def run_task6_overlay_all_frames(
     gnss_file: str | None = None,
     q_b2n_const: Tuple[float, float, float, float] | None = None,
     time_hint_path: str | None = None,
-) -> None:
-    """Generate single-method overlays for all frames."""
+    debug: bool = False,
+) -> Dict[str, object]:
+    """Generate overlay plots for a single estimator output."""
 
+    raw = _load_any(est_file)
+    _dprint(debug, f"[Task6][DBG] Estimator file: {est_file}")
+    _dprint(debug, f"[Task6][DBG] Estimator available keys: {sorted(raw.keys())}")
+
+    t, time_desc = _resolve_time(raw)
+    dt = float(np.median(np.diff(t))) if len(t) > 1 else 0.0
+    _dprint(
+        debug,
+        f"[Task6][DBG] Time source: {time_desc} len={len(t)} t0={t[0]:.3f} t1={t[-1]:.3f} dt≈{dt:.6f}",
+    )
+
+    lat = lat_deg
+    lon = lon_deg
+    if lat is None:
+        v = extract_scalar(raw, ["ref_lat_rad", "lat_rad", "lat"])
+        if v is not None:
+            lat = float(v if np.isscalar(v) else v[0])
+    if lon is None:
+        v = extract_scalar(raw, ["ref_lon_rad", "lon_rad", "lon"])
+        if v is not None:
+            lon = float(v if np.isscalar(v) else v[0])
+    r0 = extract_scalar(raw, ["ref_r0_m", "r0", "ecef_ref"])
+    if isinstance(r0, float):
+        r0 = np.array([r0, 0.0, 0.0])
+
+    frames_est, notes = _build_frames(raw, t, lat, lon, np.asarray(r0) if r0 is not None else None, debug)
+
+    truth_raw = load_truth(truth_file)
+    t_truth = truth_raw.get("time", t)
+    frames_truth, _ = _build_frames(
+        truth_raw,
+        t_truth,
+        lat,
+        lon,
+        np.asarray(r0) if r0 is not None else None,
+        debug,
+    )
+    for fname, trip in frames_truth.items():
+        trip_list = list(trip)
+        for i in range(3):
+            arr = trip_list[i]
+            if arr is not None:
+                trip_list[i] = interp_to(t_truth, arr, t)
+        frames_truth[fname] = tuple(trip_list)
+
+    ready = {
+        name: bool(frames_est[name][0] is not None or frames_est[name][1] is not None)
+        for name in ["NED", "ECEF", "BODY"]
+    }
+    print(f"[Task6] Ready to plot: NED={ready['NED']} ECEF={ready['ECEF']} BODY={ready['BODY']}")
+
+    run_id = Path(output_dir).parent.name
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    if (lat_deg is None or lon_deg is None) and gnss_file:
-        g_lat, g_lon = load_lat_lon_from_gnss(gnss_file)
-        lat_deg = lat_deg if lat_deg is not None else g_lat
-        lon_deg = lon_deg if lon_deg is not None else g_lon
-
-    est, raw = load_estimates(est_file)
-    tru = load_truth(truth_file)
-
-    print(f"[Task6] Estimator: {est_file}")
-    print(f"[Task6] Estimator keys: {sorted(raw.keys())}")
-
-    try:
-        t, time_desc, est_keys, time_file_keys = resolve_timebase(
-            est_file, est, raw, time_hint_path
-        )
-    except ValueError as ex:
-        raise ValueError(
-            f"{ex}. Time file keys: {time_file_keys}" if 'time_file_keys' in locals() else str(ex)
-        )
-
-    dt_med = np.median(np.diff(t)) if len(t) > 1 else 0.0
-    print(
-        f"[Task6] time: len={len(t)}, t0={t[0]:.3f}, t1={t[-1]:.3f}, dt≈{dt_med:.6f}"
-    )
-
-    q_hist = est.get("q_b2n")
-    if q_hist is not None:
-        t_q = est.get("time_q")
-        if q_hist.shape[0] != len(t):
-            t_src = t_q if t_q is not None else np.linspace(t[0], t[-1], len(q_hist))
-            q_hist = slerp_series(t_src, q_hist, t)
-
-    frames_est = _build_ned_ecef(est, lat_deg, lon_deg)
-    frames_tru = _build_ned_ecef(tru, lat_deg, lon_deg)
-
-    for frame_name, trip in frames_est.items():
-        for idx in range(3):
-            arr = trip[idx]
-            if arr is not None and len(arr) != len(t):
-                print(
-                    f"[Task6] WARNING: {frame_name} estimate length {len(arr)} != time {len(t)}"
-                )
-                trip[idx] = interp_to(
-                    np.linspace(t[0], t[-1], len(arr)), arr, t
-                )
-
-    t_truth = tru.get("time", t)
-    for fname, trip in frames_tru.items():
-        for i in range(3):
-            arr = trip[i]
-            if arr is not None:
-                if len(arr) != len(t_truth):
-                    print(
-                        f"[Task6] WARNING: truth {fname} length {len(arr)} != time {len(t_truth)}"
-                    )
-                trip[i] = interp_to(t_truth, arr, t)
-
-    q_truth = tru.get("q_b2n_truth")
-    if q_truth is not None:
-        t_q_truth = tru.get("time_q")
-        if q_truth.shape[0] != len(t_truth):
-            t_src = t_q_truth if t_q_truth is not None else np.linspace(t_truth[0], t_truth[-1], len(q_truth))
-            q_truth = slerp_series(t_src, q_truth, t_truth)
-        q_truth = slerp_series(t_truth, q_truth, t)
-
-    if q_hist is not None:
-        q_body = q_hist
-    elif q_b2n_const is not None:
-        q_body = np.repeat(np.asarray(q_b2n_const)[None, :], len(t), axis=0)
-    else:
-        q_body = None
-        warnings.warn("No quaternion provided; BODY overlays mirror NED")
-
-    if q_body is not None:
-        body_est = (
-            rotate_series_by_quat_series(frames_est["NED"][0], q_body, True) if frames_est["NED"][0] is not None else None,
-            rotate_series_by_quat_series(frames_est["NED"][1], q_body, True) if frames_est["NED"][1] is not None else None,
-            rotate_series_by_quat_series(frames_est["NED"][2], q_body, True) if frames_est["NED"][2] is not None else None,
-        )
-    else:
-        body_est = frames_est["NED"]
-
-    if q_truth is not None:
-        q_tru_body = q_truth
-    elif q_body is not None:
-        q_tru_body = q_body
-        print("Truth BODY rotated using estimator quaternion")
-    else:
-        q_tru_body = None
-
-    if q_tru_body is not None:
-        body_tru = (
-            rotate_series_by_quat_series(frames_tru["NED"][0], q_tru_body, True) if frames_tru["NED"][0] is not None else None,
-            rotate_series_by_quat_series(frames_tru["NED"][1], q_tru_body, True) if frames_tru["NED"][1] is not None else None,
-            rotate_series_by_quat_series(frames_tru["NED"][2], q_tru_body, True) if frames_tru["NED"][2] is not None else None,
-        )
-    else:
-        body_tru = frames_tru["NED"]
-
-    frames_est_all = {"NED": frames_est["NED"], "ECEF": frames_est["ECEF"], "BODY": body_est}
-    frames_tru_all = {"NED": frames_tru["NED"], "ECEF": frames_tru["ECEF"], "BODY": body_tru}
-
-    run_id = Path(output_dir).parent.name
-    manifest_path = Path(output_dir) / "task6_overlay_manifest.json"
-    manifest: Dict[str, object] = {}
-    if manifest_path.exists():
-        manifest = json.loads(manifest_path.read_text())
+    manifest: Dict[str, object] = {
+        "estimator_file": est_file,
+        "time_source": time_desc,
+        "frames": {"NED": {}, "ECEF": {}, "BODY": {}},
+        "notes": notes,
+    }
 
     saved_paths: List[str] = []
-    warnings_list: List[str] = []
-
     for name in ["NED", "ECEF", "BODY"]:
-        est_trip = frames_est_all[name]
-        tru_trip = frames_tru_all[name]
-        if est_trip[0] is None or tru_trip[0] is None:
-            warnings_list.append(f"{name} missing data")
-            continue
-        try:
-            out = Path(output_dir) / f"{run_id}_task6_overlay_{name}.png"
-            plot_overlay_3x3(t, est_trip, tru_trip, f"Task 6: Overlay ({name})", out)
-            saved_paths.append(str(out.resolve()))
-        except Exception as ex:  # pragma: no cover - best effort
-            warnings_list.append(f"{name} failed: {ex}")
-
-    manifest.update(
-        {
-            "estimator_file": est_file,
-            "truth_file": truth_file,
-            "time_source": time_desc,
-            "time_keys": {
-                "estimator": est_keys,
-                "time_file": time_file_keys,
-            },
-            "overlays": saved_paths,
-            "warnings": warnings_list,
-        }
-    )
-    with manifest_path.open("w", encoding="utf-8") as f:
-        json.dump(manifest, f, indent=2)
-
-    for frame in frames_est_all:
-        est_trip = frames_est_all[frame]
-        tru_trip = frames_tru_all[frame]
-        print(
-            f"[Task6] {frame} shapes est:{[None if x is None else x.shape for x in est_trip]} "
-            f"truth:{[None if x is None else x.shape for x in tru_trip]}"
+        est_trip = frames_est[name]
+        tru_trip = frames_truth.get(name, (None, None, None))
+        est_has = est_trip[0] is not None or est_trip[1] is not None
+        tru_has = tru_trip[0] is not None or tru_trip[1] is not None
+        _dprint(
+            debug,
+            f"[Task6][DBG] {name} est pos shape: {None if est_trip[0] is None else est_trip[0].shape}  "
+            f"vel: {None if est_trip[1] is None else est_trip[1].shape}  "
+            f"acc: {None if est_trip[2] is None else est_trip[2].shape}",
         )
+        _dprint(
+            debug,
+            f"[Task6][DBG] {name} truth pos shape: {None if tru_trip[0] is None else tru_trip[0].shape} "
+            f"vel: {None if tru_trip[1] is None else tru_trip[1].shape} "
+            f"acc: {None if tru_trip[2] is None else tru_trip[2].shape}",
+        )
+        manifest["frames"][name] = {
+            "est": est_has,
+            "truth": tru_has,
+            "png": None,
+        }
+        if not est_has:
+            print(
+                f"[Task6][WARN] Skipped {name} because pos and vel were both missing after fallbacks."
+            )
+            continue
+        outfile = out_dir / f"{run_id}_task6_overlay_{name}.png"
+        plot_overlay_3x3(
+            t,
+            est_trip,
+            tru_trip,
+            f"Task 6: Overlay ({name})",
+            outfile,
+            not tru_has,
+        )
+        manifest["frames"][name]["png"] = str(outfile)
+        saved_paths.append(str(outfile))
+
+    manifest_path = out_dir / "task6_overlay_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2))
 
     if saved_paths:
         print(f"[Task6] Saved overlays -> {saved_paths}")
-    if warnings_list:
-        print(
-            "[Task6] WARNING: skipped frames -> "
-            + ", ".join(warnings_list)
-        )
+
+    return manifest
+
+
+# ---------------------------------------------------------------------------
 
 
 def run_task6_compare_methods_all_frames(
@@ -757,180 +551,72 @@ def run_task6_compare_methods_all_frames(
     gnss_file: str | None = None,
     q_b2n_const: Tuple[float, float, float, float] | None = None,
     time_hint_path: str | None = None,
-) -> None:
-    """Overlay multiple methods against truth for all frames."""
+    debug: bool = False,
+) -> Dict[str, object]:
+    """Overlay multiple methods against truth in all frames."""
 
     if not method_files:
-        return
+        return {}
 
-    out_dir = Path(output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    if (lat_deg is None or lon_deg is None) and gnss_file:
-        g_lat, g_lon = load_lat_lon_from_gnss(gnss_file)
-        lat_deg = lat_deg if lat_deg is not None else g_lat
-        lon_deg = lon_deg if lon_deg is not None else g_lon
-
-    truth = load_truth(truth_file)
-
-    # Choose the first method as timebase
     first_path = next(iter(method_files.values()))
-    base, base_raw = load_estimates(first_path)
+    base_raw = _load_any(first_path)
+    t, time_desc = _resolve_time(base_raw)
+    lat = lat_deg
+    lon = lon_deg
+    r0 = extract_scalar(base_raw, ["ref_r0_m", "r0", "ecef_ref"])
+    if isinstance(r0, float):
+        r0 = np.array([r0, 0.0, 0.0])
 
-    print(f"[Task6] Estimator: {first_path}")
-    print(f"[Task6] Estimator keys: {sorted(base_raw.keys())}")
-
-    t_base, time_desc, est_keys, time_file_keys = resolve_timebase(
-        first_path, base, base_raw, time_hint_path
+    truth_raw = load_truth(truth_file)
+    t_truth = truth_raw.get("time", t)
+    frames_truth, _ = _build_frames(
+        truth_raw, t_truth, lat, lon, np.asarray(r0) if r0 is not None else None, debug
     )
-    dt_med = np.median(np.diff(t_base)) if len(t_base) > 1 else 0.0
-    print(
-        f"[Task6] time: len={len(t_base)}, t0={t_base[0]:.3f}, t1={t_base[-1]:.3f}, dt≈{dt_med:.6f}"
-    )
-
-    q_base = base.get("q_b2n")
-    if q_base is not None:
-        t_q_base = base.get("time_q")
-        if q_base.shape[0] != len(t_base):
-            t_src = t_q_base if t_q_base is not None else np.linspace(t_base[0], t_base[-1], len(q_base))
-            q_base = slerp_series(t_src, q_base, t_base)
-    elif q_b2n_const is not None:
-        q_base = np.repeat(np.asarray(q_b2n_const)[None, :], len(t_base), axis=0)
-    else:
-        q_base = None
-
-    frames_truth = _build_ned_ecef(truth, lat_deg, lon_deg)
-    t_truth = truth.get("time", t_base)
     for fname, trip in frames_truth.items():
+        trip_list = list(trip)
         for i in range(3):
-            arr = trip[i]
+            arr = trip_list[i]
             if arr is not None:
-                if len(arr) != len(t_truth):
-                    print(
-                        f"[Task6] WARNING: truth {fname} length {len(arr)} != time {len(t_truth)}"
-                    )
-                trip[i] = interp_to(t_truth, arr, t_base)
-
-    q_truth = truth.get("q_b2n_truth")
-    if q_truth is not None:
-        t_q_truth = truth.get("time_q")
-        if q_truth.shape[0] != len(t_truth):
-            t_src = t_q_truth if t_q_truth is not None else np.linspace(t_truth[0], t_truth[-1], len(q_truth))
-            q_truth = slerp_series(t_src, q_truth, t_truth)
-        q_truth = slerp_series(t_truth, q_truth, t_base)
-
-    if q_truth is not None:
-        q_tru_body = q_truth
-    elif q_base is not None:
-        q_tru_body = q_base
-        print("Truth BODY rotated using estimator quaternion")
-    else:
-        q_tru_body = None
-
-    if q_tru_body is not None:
-        frames_truth["BODY"] = (
-            rotate_series_by_quat_series(frames_truth["NED"][0], q_tru_body, True) if frames_truth["NED"][0] is not None else None,
-            rotate_series_by_quat_series(frames_truth["NED"][1], q_tru_body, True) if frames_truth["NED"][1] is not None else None,
-            rotate_series_by_quat_series(frames_truth["NED"][2], q_tru_body, True) if frames_truth["NED"][2] is not None else None,
-        )
-    else:
-        frames_truth["BODY"] = frames_truth["NED"]
+                trip_list[i] = interp_to(t_truth, arr, t)
+        frames_truth[fname] = tuple(trip_list)
 
     methods_frames: Dict[str, Dict[str, Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]] = {}
     for name, path in method_files.items():
-        est, raw_m = load_estimates(path)
-        t_est, _desc_m, _est_keys_m, _time_keys_m = resolve_timebase(
-            path, est, raw_m, time_hint_path
+        raw = _load_any(path)
+        frames, _ = _build_frames(
+            raw, t, lat, lon, np.asarray(r0) if r0 is not None else None, debug
         )
-        q_m = est.get("q_b2n")
-        if q_m is not None:
-            t_qm = est.get("time_q")
-            if q_m.shape[0] != len(t_est):
-                t_src = t_qm if t_qm is not None else np.linspace(t_est[0], t_est[-1], len(q_m))
-                q_m = slerp_series(t_src, q_m, t_est)
-            q_m_interp = slerp_series(t_est, q_m, t_base)
-        elif q_b2n_const is not None:
-            q_m_interp = np.repeat(np.asarray(q_b2n_const)[None, :], len(t_base), axis=0)
-        else:
-            q_m_interp = None
-
-        frames = _build_ned_ecef(est, lat_deg, lon_deg)
-        for fname, trip in frames.items():
-            for i in range(3):
-                arr = trip[i]
-                if arr is not None:
-                    if len(arr) != len(t_est):
-                        print(
-                            f"[Task6] WARNING: {name} {fname} length {len(arr)} != time {len(t_est)}"
-                        )
-                    trip[i] = interp_to(t_est, arr, t_base)
-        if q_m_interp is not None:
-            frames["BODY"] = (
-                rotate_series_by_quat_series(frames["NED"][0], q_m_interp, True) if frames["NED"][0] is not None else None,
-                rotate_series_by_quat_series(frames["NED"][1], q_m_interp, True) if frames["NED"][1] is not None else None,
-                rotate_series_by_quat_series(frames["NED"][2], q_m_interp, True) if frames["NED"][2] is not None else None,
-            )
-        else:
-            frames["BODY"] = frames["NED"]
         methods_frames[name] = frames
 
-    manifest_path = Path(output_dir) / "task6_overlay_manifest.json"
-    manifest = {}
-    if manifest_path.exists():
-        manifest = json.loads(manifest_path.read_text())
-
-    run_id = Path(output_dir).parent.name
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    run_id = out_dir.parent.name
     saved_paths: List[str] = []
-    warnings_list: List[str] = []
 
     for frame in ["NED", "ECEF", "BODY"]:
         methods_triplets = {
-            m: f[frame] for m, f in methods_frames.items() if f[frame][0] is not None
+            m: frames[frame]
+            for m, frames in methods_frames.items()
+            if frames[frame][0] is not None or frames[frame][1] is not None
         }
         if not methods_triplets:
-            warnings_list.append(f"{frame} missing data")
-            continue
-        try:
-            out = Path(output_dir) / f"{run_id}_task6_compare_methods_{frame}.png"
-            plot_methods_overlay_3x3(
-                t_base,
-                methods_triplets,
-                frames_truth[frame],
-                f"Task 6: Methods Overlay ({frame})",
-                out,
-            )
-            saved_paths.append(str(out.resolve()))
-        except Exception as ex:  # pragma: no cover - best effort
-            warnings_list.append(f"{frame} failed: {ex}")
-
-    manifest.update(
-        {
-            "compare_methods_inputs": method_files,
-            "compare_methods_outputs": saved_paths,
-            "compare_methods_warnings": warnings_list,
-            "time_source": manifest.get("time_source", time_desc),
-            "time_keys": manifest.get("time_keys", {
-                "estimator": est_keys,
-                "time_file": time_file_keys,
-            }),
-        }
-    )
-    with manifest_path.open("w", encoding="utf-8") as f:
-        json.dump(manifest, f, indent=2)
-
-    if methods_frames:
-        first = next(iter(methods_frames))
-        for frame in ["NED", "ECEF", "BODY"]:
             print(
-                f"[Task6] {frame} shapes est:{[None if x is None else x.shape for x in methods_frames[first][frame]]} "
-                f"truth:{[None if x is None else x.shape for x in frames_truth[frame]]}"
+                f"[Task6][WARN] Skipped {frame} because pos and vel were both missing after fallbacks."
             )
+            continue
+        outfile = out_dir / f"{run_id}_task6_compare_methods_{frame}.png"
+        plot_methods_overlay_3x3(
+            t,
+            methods_triplets,
+            frames_truth.get(frame, (None, None, None)),
+            f"Task 6: Methods Overlay ({frame})",
+            outfile,
+        )
+        saved_paths.append(str(outfile))
 
     if saved_paths:
         print(f"[Task6] Saved compare-methods overlays -> {saved_paths}")
-    if warnings_list:
-        print(
-            "[Task6] WARNING: skipped frames -> "
-            + ", ".join(warnings_list)
-        )
+
+    return {"compare_methods_outputs": saved_paths, "time_source": time_desc}
+
 
