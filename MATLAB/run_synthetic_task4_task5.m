@@ -1,5 +1,5 @@
 % Synthetic demo to validate Task 4 and Task 5 plotting functions.
-% Generates synthetic GNSS, IMU raw, and Fused data across frames and calls:
+% Generates synthetic GNSS, IMU, Fused, and Truth data across frames and calls:
 %  - task4_plot_comparisons
 %  - task5_plot_fusion_results
 
@@ -62,11 +62,21 @@ fused.mixed.pos = [fused.ned.pos(:,1), fused.ecef.pos(:,2), fused.body.pos(:,3)]
 fused.mixed.vel = [fused.ned.vel(:,1), fused.ecef.vel(:,2), fused.body.vel(:,3)];
 fused.mixed.acc = [fused.ned.acc(:,1), fused.ecef.acc(:,2), fused.body.acc(:,3)];
 
-% Raw data for Task 5 comparisons (use IMU as raw, provide mixed too)
-raw = imu;
-raw.mixed.pos = [imu.ned.pos(1:N_fused,1), imu.ecef.pos(1:N_fused,2), imu.body.pos(1:N_fused,3)];
-raw.mixed.vel = [imu.ned.vel(1:N_fused,1), imu.ecef.vel(1:N_fused,2), imu.body.vel(1:N_fused,3)];
-raw.mixed.acc = [imu.ned.acc(1:N_fused,1), imu.ecef.acc(1:N_fused,2), imu.body.acc(1:N_fused,3)];
+% Synthetic truth aligned with fused results
+truth = struct();
+% Position residual stats from console (mean/std per axis)
+mu_pos  = [0.0228, 0.0004, -0.0364];
+sig_pos = [0.2677, 0.0273, 0.4019];
+res_pos = mu_pos + randn(N_fused,3) .* sig_pos; % fused - truth
+truth.ned.pos = fused.ned.pos - res_pos;
+% Velocity/acc residuals (arbitrary smaller noise)
+res_vel = randn(N_fused,3) .* [0.15, 0.12, 0.18];
+res_acc = randn(N_fused,3) .* [0.08, 0.06, 0.07];
+truth.ned.vel = fused.ned.vel - res_vel;
+truth.ned.acc = fused.ned.acc - res_acc;
+% ECEF/Body via transforms for demo
+truth.ecef.pos = truth.ned.pos * R;  truth.ecef.vel = truth.ned.vel * R;  truth.ecef.acc = truth.ned.acc * R;
+truth.body.pos = truth.ned.pos * R'; truth.body.vel = truth.ned.vel * R'; truth.body.acc = truth.ned.acc * R';
 
 % Provide blow-up times for Task 5 (subset for readability; console shows 9662)
 num_blowups = 80; % limit to 80 vertical lines to avoid clutter
@@ -74,7 +84,7 @@ fused.blowups = sort(T*rand(1,num_blowups));
 
 % Time containers for both tasks
 time_task4 = struct('gnss', t_gnss, 'imu', t_imu, 'fused', t_fused);
-time_task5 = struct('raw', t_imu, 'fused', t_fused, 'blowups', fused.blowups);
+time_task5 = struct('truth', t_fused, 'fused', t_fused, 'blowups', fused.blowups);
 
 % Inject IMU velocity spikes near blow-up times to visualize issues
 idxs = unique(max(1, min(N_imu, round(fused.blowups/T*(N_imu-1)) + 1))));
@@ -92,27 +102,13 @@ task4_plot_comparisons(gnss, imu, fused, time_task4);
 
 % Run Task 5 plotting
 fprintf('Running Task 5 synthetic plotting...\n');
-task5_plot_fusion_results(fused, raw, time_task5);
+task5_plot_fusion_results(fused, truth, time_task5.fused, time_task5.blowups);
 
 fprintf('Done. Check PNGs under MATLAB/results.\n');
 
-% Optional: Create synthetic truth and run Task 6 overlay
+% Run Task 6 overlay using the synthetic truth
 try
     fprintf('Running Task 6 synthetic overlay...\n');
-    truth = struct();
-    % Position residual stats from console (mean/std per axis)
-    mu_pos  = [0.0228, 0.0004, -0.0364];
-    sig_pos = [0.2677, 0.0273, 0.4019];
-    res_pos = mu_pos + randn(N_fused,3) .* sig_pos; % fused - truth
-    truth.ned.pos = fused.ned.pos - res_pos;
-    % Velocity/acc residuals (arbitrary smaller noise)
-    res_vel = 0 + randn(N_fused,3) .* [0.15, 0.12, 0.18];
-    res_acc = 0 + randn(N_fused,3) .* [0.08, 0.06, 0.07];
-    truth.ned.vel = fused.ned.vel - res_vel;
-    truth.ned.acc = fused.ned.acc - res_acc;
-    % ECEF/Body via transforms for demo
-    truth.ecef.pos = truth.ned.pos * R;  truth.ecef.vel = truth.ned.vel * R;  truth.ecef.acc = truth.ned.acc * R;
-    truth.body.pos = truth.ned.pos * R'; truth.body.vel = truth.ned.vel * R'; truth.body.acc = truth.ned.acc * R';
     time_task6 = struct('fused', t_fused, 'truth', t_fused);
     task6_overlay_truth(fused, truth, time_task6);
 catch ME
