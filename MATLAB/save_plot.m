@@ -1,12 +1,12 @@
 function save_plot(fig, imu_name, gnss_name, method, task, save_pdf, save_png)
 %SAVE_PLOT  Save figure in the results directory.
 %   SAVE_PLOT(FIG, IMU_NAME, GNSS_NAME, METHOD, TASK, SAVE_PDF, SAVE_PNG)
-%   writes FIG to the repository 'results' folder using the naming
-%   convention IMU_NAME_GNSS_NAME_METHOD_taskTASK_results.*.  When both
-%   SAVE_PDF and SAVE_PNG are false, the figure is saved using
-%   :func:`save_plot_fig` instead.
-%
-%   SAVE_PDF and SAVE_PNG are optional and default to false.
+    %   writes FIG to the repository 'results' folder using the naming
+    %   convention IMU_NAME_GNSS_NAME_METHOD_taskTASK_results.*. A MATLAB
+    %   ``.fig`` file is always created while optional PDF and PNG copies
+    %   can also be generated.
+    %
+    %   SAVE_PDF and SAVE_PNG are optional and default to false.
 %
 %   Example:
 %       save_plot(fig, 'IMU_X002', 'GNSS_X002', 'TRIAD', 5)
@@ -24,28 +24,29 @@ function save_plot(fig, imu_name, gnss_name, method, task, save_pdf, save_png)
     png_path = fullfile(results_dir, [base '.png']);
     fig_path = fullfile(results_dir, [base '.fig']);
 
+    % ensure consistent figure appearance and always save MATLAB .fig
     set(fig, 'PaperPosition', [0 0 8 6]);
+    save_plot_fig(fig, fig_path);
 
-    did_save = false;
+    % optionally save additional formats
+    did_pdf = false;
+    did_png = false;
     if save_pdf
         print(fig, pdf_path, '-dpdf', '-bestfit');
-        did_save = true;
+        did_pdf = true;
     end
     if save_png
         exportgraphics(fig, png_path, 'Resolution', 300);
-        did_save = true;
+        did_png = true;
     end
 
-    if ~did_save
-        save_plot_fig(fig, fig_path);
-        fprintf('Saved plot to %s\n', fig_path);
+    if did_pdf && did_png
+        fprintf('Saved plot to %s, %s and %s\n', fig_path, pdf_path, png_path);
+    elseif did_pdf
+        fprintf('Saved plot to %s and %s\n', fig_path, pdf_path);
+    elseif did_png
+        fprintf('Saved plot to %s and %s\n', fig_path, png_path);
     else
-        if save_pdf && save_png
-            fprintf('Saved plot to %s and %s\n', pdf_path, png_path);
-        elseif save_pdf
-            fprintf('Saved plot to %s\n', pdf_path);
-        else
-            fprintf('Saved plot to %s\n', png_path);
-        end
+        fprintf('Saved plot to %s\n', fig_path);
     end
 end
