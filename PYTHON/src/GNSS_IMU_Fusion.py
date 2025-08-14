@@ -365,6 +365,26 @@ def main():
     global RUN_ID
     RUN_ID = run_id
     out_dir = PY_RES_DIR
+    from matplotlib.figure import Figure
+    _orig_fig_save = Figure.savefig
+    SAVED_PLOTS: list[tuple[str, Path]] = []
+
+    def _sf(self, fname, *a, **k):
+        path = out_dir / Path(fname).name
+        _orig_fig_save(self, path, *a, **k)
+        print(f"[SAVE] {path}")
+        m = re.search(r"_task(\d+)_", path.name)
+        task = f"task{m.group(1)}" if m else "other"
+        SAVED_PLOTS.append((task, path))
+
+    Figure.savefig = _sf
+
+    def _print_task_summary(task_num: int) -> None:
+        task_label = f"task{task_num}"
+        files = [str(p) for t, p in SAVED_PLOTS if t == task_label]
+        if files:
+            print(f"[TASK {task_num}] Plots saved to results/: {files}")
+        SAVED_PLOTS[:] = [item for item in SAVED_PLOTS if item[0] != task_label]
 
     logging.info(f"Running attitude-estimation method: {method}")
 
@@ -432,10 +452,13 @@ def main():
             if "Height_deg" in gnss_df.columns and "Height_m" not in gnss_df.columns:
                 gnss_df = gnss_df.rename(columns={"Height_deg": "Height_m"})
             png_path = task1_reference_vectors(gnss_df, out_dir, run_id)
+            SAVED_PLOTS.append(("task1", png_path))
         except Exception as ex:
             print(f"Task 1: static map generation failed: {ex}")
     else:
         logging.info("Skipping plot generation (--no-plots)")
+
+    _print_task_summary(1)
 
     # ================================
     # TASK 2: Measure the Vectors in the Body Frame
@@ -472,7 +495,7 @@ def main():
                 run_id,
                 out_dir,
             )
-            print(f"Task 2: saved summary PNG -> {png_path}")
+            SAVED_PLOTS.append(("task2", png_path))
 
             columns = [
                 "index",
@@ -487,15 +510,19 @@ def main():
                 "status",
             ][: imu_data.shape[1]]
             imu_df = pd.DataFrame(imu_data, columns=columns)
-            task2_measure_body_vectors(
+            path2 = task2_measure_body_vectors(
                 imu_df,
                 (static_start, static_end),
+                run_id,
                 out_dir,
             )
+            SAVED_PLOTS.append(("task2", path2))
         except Exception as ex:  # pragma: no cover - plotting is best effort
             print(f"Task 2: summary PNG failed: {ex}")
     else:
         logging.info("Skipping Task 2 summary plot (--no-plots)")
+
+    _print_task_summary(2)
 
     # ================================
     # TASK 3: Solve Wahba’s Problem
@@ -837,6 +864,8 @@ def main():
         task3_plot_quaternions_and_errors(
             methods, quat_plot_dict, error_plot_dict, out_dir
         )
+
+    _print_task_summary(3)
 
     # --------------------------------
     # Subtask 3.8: Store Rotation Matrices for Later Tasks
@@ -1431,6 +1460,8 @@ def main():
         plt.savefig(f"results/{tag}_task4_all_body.png", dpi=200, bbox_inches="tight")
     plt.close()
     logging.info("All data in body frame plot saved")
+
+    _print_task_summary(4)
 
     # ================================
     # Task 5: Sensor Fusion with Kalman Filter
@@ -2355,6 +2386,7 @@ def main():
             truth_vel_ned,
             Path("results") / f"{tag}_task6_truth_vs_fused.png",
         )
+    _print_task_summary(5)
 
     # --- Persist for cross-dataset comparison ------------------------------
     import pickle

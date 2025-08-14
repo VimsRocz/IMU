@@ -419,6 +419,7 @@ def run_task6_overlay_all_frames(
     est_file: str,
     truth_file: str,
     output_dir: str,
+    run_id: str,
     lat_deg: float | None = None,
     lon_deg: float | None = None,
     gnss_file: str | None = None,
@@ -479,7 +480,6 @@ def run_task6_overlay_all_frames(
     }
     print(f"[Task6] Ready to plot: NED={ready['NED']} ECEF={ready['ECEF']} BODY={ready['BODY']}")
 
-    run_id = Path(output_dir).parent.name
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -534,7 +534,7 @@ def run_task6_overlay_all_frames(
     manifest_path.write_text(json.dumps(manifest, indent=2))
 
     if saved_paths:
-        print(f"[Task6] Saved overlays -> {saved_paths}")
+        print(f"[TASK 6] Plots saved to results/: {saved_paths}")
 
     return manifest
 
@@ -546,6 +546,7 @@ def run_task6_compare_methods_all_frames(
     method_files: Dict[str, str],
     truth_file: str,
     output_dir: str,
+    run_id: str,
     lat_deg: float | None = None,
     lon_deg: float | None = None,
     gnss_file: str | None = None,
@@ -615,7 +616,7 @@ def run_task6_compare_methods_all_frames(
         saved_paths.append(str(outfile))
 
     if saved_paths:
-        print(f"[Task6] Saved compare-methods overlays -> {saved_paths}")
+        print(f"[TASK 6] Plots saved to results/: {saved_paths}")
 
     return {"compare_methods_outputs": saved_paths, "time_source": time_desc}
 

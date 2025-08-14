@@ -244,14 +244,13 @@ def plot_overlay(
     fig.suptitle(f"{dataset} Task 6 Overlay — {method} ({frame} frame)")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     run_id = f"{dataset}_{method}"
-    run_dir = out_dir / run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
-    pdf_path = run_dir / f"{run_id}_task6_overlay_state_{frame}.pdf"
-    png_path = run_dir / f"{run_id}_task6_overlay_state_{frame}.png"
+    pdf_path = out_dir / f"{run_id}_task6_overlay_state_{frame}.pdf"
+    png_path = out_dir / f"{run_id}_task6_overlay_state_{frame}.png"
     fig.savefig(pdf_path)
     fig.savefig(png_path)
+    print(f"[SAVE] {pdf_path}")
+    print(f"[SAVE] {png_path}")
     plt.close(fig)
-    print(f"Saved overlay figure to {pdf_path}")
     return pdf_path
 
 
@@ -289,14 +288,13 @@ def plot_rmse(
     fig.tight_layout()
 
     run_id = f"{dataset}_{method}"
-    run_dir = out_dir / run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
-    pdf_path = run_dir / f"{run_id}_Task6_{frame}_RMSE.pdf"
-    png_path = run_dir / f"{run_id}_Task6_{frame}_RMSE.png"
+    pdf_path = out_dir / f"{run_id}_Task6_{frame}_RMSE.pdf"
+    png_path = out_dir / f"{run_id}_Task6_{frame}_RMSE.png"
     fig.savefig(pdf_path)
     fig.savefig(png_path)
+    print(f"[SAVE] {pdf_path}")
+    print(f"[SAVE] {png_path}")
     plt.close(fig)
-    print(f"Saved RMSE figure to {pdf_path}")
     return pdf_path
 
 

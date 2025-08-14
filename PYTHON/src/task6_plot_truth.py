@@ -32,8 +32,18 @@ def main():
 
     est_path = Path(args.est_file).resolve()
     run_id = args.run_id or derive_run_id(est_path)
-    out_dir = (Path('PYTHON')/ 'results' / run_id / 'task6').resolve()
+    out_dir = Path(args.output or Path('PYTHON') / 'results').resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    from matplotlib.figure import Figure
+    _orig_savefig = Figure.savefig
+    SAVED_PLOTS = []
+    def _sf(self, fname, *a, **k):
+        path = out_dir / Path(fname).name
+        _orig_savefig(self, path, *a, **k)
+        print(f"[SAVE] {path}")
+        SAVED_PLOTS.append(str(path))
+    Figure.savefig = _sf
 
     time_hint = est_path.with_name(f"{run_id}_task5_time.mat")
     time_hint_path = str(time_hint) if time_hint.is_file() else None
@@ -66,6 +76,7 @@ def main():
             est_file=str(est_path),
             truth_file=args.truth_file,
             output_dir=str(out_dir),
+            run_id=run_id,
             lat_deg=args.lat, lon_deg=args.lon,
             gnss_file=args.gnss_file,
             q_b2n_const=q_const,
@@ -101,6 +112,7 @@ def main():
                 method_files=method_files,
                 truth_file=args.truth_file,
                 output_dir=str(out_dir),
+                run_id=run_id,
                 lat_deg=args.lat, lon_deg=args.lon,
                 gnss_file=args.gnss_file,
                 q_b2n_const=q_const,
@@ -114,13 +126,13 @@ def main():
             traceback.print_exc()
 
     # Print what we created
-    print('[Task6] Output dir:', out_dir)
+    print('[TASK 6] Output dir:', out_dir)
     pngs = sorted([str(p) for p in out_dir.glob('*.png')])
     if pngs:
-        print('[Task6] PNGs:')
+        print('[TASK 6] PNGs:')
         for p in pngs: print('  ', p)
     else:
-        print('[Task6] No PNGs found. Debug manifest follows.')
+        print('[TASK 6] No PNGs found. Debug manifest follows.')
 
     # Dump (or append) manifest
     manifest = out_dir / 'task6_overlay_manifest.json'

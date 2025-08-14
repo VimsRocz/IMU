@@ -26,6 +26,28 @@ from utils import compute_C_ECEF_to_NED, ecef_to_geodetic
 
 logger = logging.getLogger(__name__)
 
+from matplotlib.figure import Figure
+_orig_fig_save = Figure.savefig
+SAVED_PLOTS: list[tuple[str, Path]] = []
+
+def _patch_savefig(out_dir: Path) -> None:
+    def _sf(self, fname, *a, **k):
+        path = out_dir / Path(fname).name
+        _orig_fig_save(self, path, *a, **k)
+        print(f"[SAVE] {path}")
+        import re
+        m = re.search(r"_task(\d+)_", path.name)
+        task = f"task{m.group(1)}" if m else "task7"
+        SAVED_PLOTS.append((task, path))
+    Figure.savefig = _sf
+
+def _print_task_summary(task_num: int) -> None:
+    task_label = f"task{task_num}"
+    files = [str(p) for t, p in SAVED_PLOTS if t == task_label]
+    if files:
+        print(f"[TASK {task_num}] Plots saved to results/: {files}")
+    SAVED_PLOTS[:] = [item for item in SAVED_PLOTS if item[0] != task_label]
+
 
 def _find_cols(df: pd.DataFrame, options: Sequence[Sequence[str]]) -> Sequence[str]:
     """Return the first column set that matches the DataFrame columns."""
@@ -66,6 +88,7 @@ def run_evaluation(
     # All Task 7 plots are written directly into ``results/``
     # unless a different directory is provided.
     out_dir.mkdir(parents=True, exist_ok=True)
+    _patch_savefig(out_dir)
 
     pred = pd.read_csv(prediction_file)
     gnss = pd.read_csv(gnss_file)
@@ -204,6 +227,7 @@ def run_evaluation(
     except Exception:
         pass
     plt.close(fig)
+    _print_task_summary(7)
 
 
 def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) -> None:
@@ -227,6 +251,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     start_time = time.time()
     out_dir = Path(save_path)
     out_dir.mkdir(parents=True, exist_ok=True)
+    _patch_savefig(out_dir)
 
     data = np.load(npz_file)
     res_pos = data.get("residual_pos")
@@ -408,6 +433,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     logger.info(
         "Evaluation complete for %s: rmse_pos=%.3f final_pos=%.3f", npz_file, rmse_pos, final_pos
     )
+    _print_task_summary(7)
 
 
 def subtask7_5_diff_plot(

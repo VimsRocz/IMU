@@ -75,6 +75,7 @@ def save_task2_summary_png(
 
     out_png = out_dir / f"{run_id}_task2_summary.png"
     fig.savefig(out_png, dpi=300)
+    print(f"[SAVE] {out_png}")
     plt.close(fig)
     return out_png
 
@@ -82,6 +83,7 @@ def save_task2_summary_png(
 def task2_measure_body_vectors(
     imu_data,
     static_indices: tuple[int, int],
+    run_id: str,
     output_dir: str | Path,
 ) -> Path:
     """Plot measured gravity and Earth rotation vectors with error bars."""
@@ -150,8 +152,8 @@ def task2_measure_body_vectors(
         )
 
     fig.tight_layout()
-    out_png = out_dir / "IMU_X002_GNSS_X002_TRIAD_task2_vectors.png"
+    out_png = out_dir / f"{run_id}_task2_vectors.png"
     fig.savefig(out_png, dpi=300)
+    print(f"[SAVE] {out_png}")
     plt.close(fig)
-    print(f"Task 2: saved plot -> {out_png}")
     return out_png

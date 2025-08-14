@@ -104,6 +104,7 @@ def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run
 
     png_path = output_dir / f"{run_id}_task1_location_map.png"
     pio.write_image(fig, png_path, width=1200, height=800, scale=2)
+    print(f"[SAVE] {png_path}")
 
     info = {
         "plot_id": uuid.uuid4().hex,
@@ -113,10 +114,5 @@ def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run
     info_path = output_dir / f"{run_id}_task1_location_map_info.json"
     with info_path.open("w", encoding="utf-8") as f:
         json.dump(info, f, indent=2)
-
-    print(
-        "Task 1: saved static map ->"
-        f" {png_path} and info JSON"
-    )
 
     return png_path
