@@ -1,8 +1,8 @@
 from __future__ import annotations
-
 import json
 import uuid
 from pathlib import Path
+import os
 
 import numpy as np
 import pandas as pd
@@ -26,23 +26,6 @@ def ensure_deg_latlon(lat_in, lon_in):
 
 
 def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run_id: str) -> Path:
-    """Save a static world map showing the initial GNSS location.
-
-    Parameters
-    ----------
-    gnss_data : pandas.DataFrame
-        GNSS data containing either ``Latitude_deg``/``Longitude_deg`` or
-        ECEF coordinates ``X_ECEF_m``/``Y_ECEF_m``/``Z_ECEF_m``.
-    output_dir : str or Path
-        Directory where the map and JSON metadata will be saved.
-    run_id : str
-        Identifier used to name the output files.
-
-    Returns
-    -------
-    Path
-        Path to the written PNG image.
-    """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -50,9 +33,6 @@ def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run
         gnss_data = gnss_data.rename(columns={"Height_deg": "Height_m"})
 
     if {"Latitude_deg", "Longitude_deg"}.issubset(gnss_data.columns):
-        # Some of the provided GNSS files contain zero-filled latitude/longitude
-        # columns.  Treat rows where both coordinates are zero as invalid so
-        # that we fall back to the ECEF-derived location instead.
         valid = (
             gnss_data["Latitude_deg"].notna()
             & gnss_data["Longitude_deg"].notna()
@@ -103,7 +83,23 @@ def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run
     )
 
     png_path = output_dir / f"{run_id}_task1_location_map.png"
-    pio.write_image(fig, png_path, width=1200, height=800, scale=2)
+    try:
+        chrome = getattr(pio.kaleido.scope, "chromium", "unknown")
+        print(f"[Task1] Kaleido chromium={chrome}")
+        pio.write_image(fig, png_path, width=1200, height=800, scale=2)
+    except Exception as ex:
+        print(f"[Task1] Kaleido export failed: {ex}; using Matplotlib fallback")
+        import matplotlib.pyplot as plt
+
+        fig2, ax = plt.subplots(figsize=(8, 4))
+        ax.set_xlim(-180, 180)
+        ax.set_ylim(-90, 90)
+        ax.scatter([lon_deg], [lat_deg], color="red")
+        ax.set_xlabel("Lon [deg]")
+        ax.set_ylabel("Lat [deg]")
+        ax.set_title("Task 1 — Initial GNSS location (fallback)")
+        fig2.savefig(png_path, dpi=200, bbox_inches="tight")
+        plt.close(fig2)
 
     info = {
         "plot_id": uuid.uuid4().hex,
@@ -114,9 +110,7 @@ def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run
     with info_path.open("w", encoding="utf-8") as f:
         json.dump(info, f, indent=2)
 
-    print(
-        "Task 1: saved static map ->"
-        f" {png_path} and info JSON"
-    )
+    size = os.path.getsize(png_path) if png_path.exists() else 0
+    print(f"[Task1] lat={lat_deg:.5f} lon={lon_deg:.5f} dataset={run_id} -> {png_path} bytes={size}")
 
     return png_path

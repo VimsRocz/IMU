@@ -164,13 +164,14 @@ def task3_plot_quaternions_and_errors(
 
     quat_path = Path(output_dir) / f"{RUN_ID}_task3_quaternions_{timestamp}.png"
     plt.savefig(quat_path, dpi=200, bbox_inches="tight")
-    print(f"Quaternion comparison plot saved: {quat_path}")
+    print(f"[Task3] Quaternion comparison plot saved: {quat_path} bytes={os.path.getsize(quat_path)}")
     plt.close(fig)
 
     # Attitude error comparison ------------------------------------------
     epsilon = 1e-6
     grav_vals = [max(epsilon, errors_dict[m]["grav"]) for m in methods]
     earth_vals = [max(epsilon, errors_dict[m]["earth"]) for m in methods]
+    print(f"[Task3] grav_err_deg={grav_vals} earth_err_deg={earth_vals}")
     if any(v <= epsilon for v in grav_vals + earth_vals):
         print("Near-zero errors detected; plot may appear empty")
 
@@ -188,8 +189,10 @@ def task3_plot_quaternions_and_errors(
     plt.tight_layout()
 
     err_path = Path(output_dir) / f"{RUN_ID}_task3_errors_{timestamp}.png"
+    if not grav_vals or not earth_vals or (np.allclose(grav_vals, 0) and np.allclose(earth_vals, 0)):
+        raise ValueError("Task3 arrays all zero or empty")
     plt.savefig(err_path, dpi=200, bbox_inches="tight")
-    print(f"Error comparison plot saved: {err_path}")
+    print(f"[Task3] Error comparison plot saved: {err_path} bytes={os.path.getsize(err_path)}")
     plt.close(fig)
 
 

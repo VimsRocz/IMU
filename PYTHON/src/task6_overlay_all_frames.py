@@ -14,6 +14,8 @@ environments.  Extensive debug printing can be enabled via the
 from __future__ import annotations
 
 import json
+import os
+import shutil
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -21,6 +23,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.io as sio
+from utils.read_truth_txt import read_truth_txt
 
 # ---------------------------------------------------------------------------
 # Key definitions
@@ -291,9 +294,20 @@ def _load_any(path: str) -> Dict[str, np.ndarray]:
 
 
 def load_truth(path: str) -> Dict[str, np.ndarray]:
+    p = Path(path)
     out: Dict[str, np.ndarray] = {}
+    if p.suffix.lower() == '.txt':
+        t, pos, vel = read_truth_txt(p)
+        if t.size == 0 or pos.shape[0] == 0:
+            raise ValueError(
+                f"Truth invalid: shapes t:{t.shape} pos:{pos.shape} vel:{vel.shape}"
+            )
+        out["time"] = t
+        out["pos_ecef"] = pos
+        out["vel_ecef"] = vel
+        return out
     try:
-        df = pd.read_csv(path, sep=None, engine="python")
+        df = pd.read_csv(p, sep=None, engine="python")
         cols = {c.lower(): c for c in df.columns}
 
         def trip(prefix: str, keys: Tuple[str, str, str]) -> Optional[np.ndarray]:
@@ -308,14 +322,19 @@ def load_truth(path: str) -> Dict[str, np.ndarray]:
         out["vel_ecef"] = trip("vel_ecef", ("x", "y", "z"))
         out["pos_ned"] = trip("pos_ned", ("n", "e", "d"))
         out["vel_ned"] = trip("vel_ned", ("n", "e", "d"))
-        return out
-    except Exception:
-        arr = np.loadtxt(path)
+    except Exception as ex:
+        arr = np.loadtxt(p)
+        if arr.size == 0:
+            raise ValueError(f"Truth invalid: shapes t:{arr.shape}") from ex
         out["time"] = arr[:, 0]
         if arr.shape[1] >= 7:
             out["pos_ecef"] = arr[:, 1:4]
             out["vel_ecef"] = arr[:, 4:7]
-        return out
+    if out.get("time") is None or out.get("pos_ecef") is None:
+        raise ValueError(
+            f"Truth invalid: shapes t:{out.get('time', np.array([])).shape} pos:{getattr(out.get('pos_ecef'), 'shape', None)} vel:{getattr(out.get('vel_ecef'), 'shape', None)}"
+        )
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -425,6 +444,7 @@ def run_task6_overlay_all_frames(
     q_b2n_const: Tuple[float, float, float, float] | None = None,
     time_hint_path: str | None = None,
     debug: bool = False,
+    flat_output: bool = True,
 ) -> Dict[str, object]:
     """Generate overlay plots for a single estimator output."""
 
@@ -473,6 +493,18 @@ def run_task6_overlay_all_frames(
                 trip_list[i] = interp_to(t_truth, arr, t)
         frames_truth[fname] = tuple(trip_list)
 
+    pos_truth = truth_raw.get("pos_ecef") or truth_raw.get("pos_ned")
+    vel_truth = truth_raw.get("vel_ecef") or truth_raw.get("vel_ned")
+    if (
+        t_truth.size == 0
+        or pos_truth is None
+        or pos_truth.size == 0
+        or np.isnan(pos_truth).all()
+    ):
+        raise ValueError(
+            f"Truth invalid: shapes t:{t_truth.shape} pos:{None if pos_truth is None else pos_truth.shape} vel:{None if vel_truth is None else vel_truth.shape}"
+        )
+
     ready = {
         name: bool(frames_est[name][0] is not None or frames_est[name][1] is not None)
         for name in ["NED", "ECEF", "BODY"]
@@ -494,6 +526,9 @@ def run_task6_overlay_all_frames(
     for name in ["NED", "ECEF", "BODY"]:
         est_trip = frames_est[name]
         tru_trip = frames_truth.get(name, (None, None, None))
+        print(
+            f"[Task6] {name} shapes est:{[None if x is None else x.shape for x in est_trip]} truth:{[None if x is None else x.shape for x in tru_trip]}"
+        )
         est_has = est_trip[0] is not None or est_trip[1] is not None
         tru_has = tru_trip[0] is not None or tru_trip[1] is not None
         _dprint(
@@ -527,6 +562,16 @@ def run_task6_overlay_all_frames(
             outfile,
             not tru_has,
         )
+        size = os.path.getsize(outfile) if outfile.exists() else 0
+        print(f"[SAVE] {outfile} bytes={size}")
+        if flat_output:
+            flat_dir = out_dir.parents[1]
+            flat_dir.mkdir(parents=True, exist_ok=True)
+            dst = flat_dir / outfile.name
+            shutil.copy2(outfile, dst)
+            print(
+                f"[SAVE] Copied {outfile} -> {dst} (exists={dst.exists()} bytes={os.path.getsize(dst) if dst.exists() else 0})"
+            )
         manifest["frames"][name]["png"] = str(outfile)
         saved_paths.append(str(outfile))
 
@@ -552,6 +597,7 @@ def run_task6_compare_methods_all_frames(
     q_b2n_const: Tuple[float, float, float, float] | None = None,
     time_hint_path: str | None = None,
     debug: bool = False,
+    flat_output: bool = True,
 ) -> Dict[str, object]:
     """Overlay multiple methods against truth in all frames."""
 
@@ -604,6 +650,15 @@ def run_task6_compare_methods_all_frames(
                 f"[Task6][WARN] Skipped {frame} because pos and vel were both missing after fallbacks."
             )
             continue
+        est_shapes = [
+            None if fr[frame][0] is None else fr[frame][0].shape
+            for fr in methods_frames.values()
+        ]
+        truth_shapes = [
+            None if x is None else x.shape
+            for x in frames_truth.get(frame, (None, None, None))
+        ]
+        print(f"[Task6] {frame} shapes est:{est_shapes} truth:{truth_shapes}")
         outfile = out_dir / f"{run_id}_task6_compare_methods_{frame}.png"
         plot_methods_overlay_3x3(
             t,
@@ -612,6 +667,16 @@ def run_task6_compare_methods_all_frames(
             f"Task 6: Methods Overlay ({frame})",
             outfile,
         )
+        size = os.path.getsize(outfile) if outfile.exists() else 0
+        print(f"[SAVE] {outfile} bytes={size}")
+        if flat_output:
+            flat_dir = out_dir.parents[1]
+            flat_dir.mkdir(parents=True, exist_ok=True)
+            dst = flat_dir / outfile.name
+            shutil.copy2(outfile, dst)
+            print(
+                f"[SAVE] Copied {outfile} -> {dst} (exists={dst.exists()} bytes={os.path.getsize(dst) if dst.exists() else 0})"
+            )
         saved_paths.append(str(outfile))
 
     if saved_paths:

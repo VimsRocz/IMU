@@ -7,6 +7,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import uuid
+import os
 
 
 def save_task2_summary_png(
@@ -76,6 +77,7 @@ def save_task2_summary_png(
     out_png = out_dir / f"{run_id}_task2_summary.png"
     fig.savefig(out_png, dpi=300)
     plt.close(fig)
+    print(f"[Task2] Summary -> {out_png} bytes={os.path.getsize(out_png)}")
     return out_png
 
 
@@ -153,5 +155,5 @@ def task2_measure_body_vectors(
     out_png = out_dir / "IMU_X002_GNSS_X002_TRIAD_task2_vectors.png"
     fig.savefig(out_png, dpi=300)
     plt.close(fig)
-    print(f"Task 2: saved plot -> {out_png}")
+    print(f"[Task2] saved plot -> {out_png} bytes={os.path.getsize(out_png)}")
     return out_png
