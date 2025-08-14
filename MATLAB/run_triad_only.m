@@ -39,7 +39,7 @@ if ~isfield(cfg.plots,'popup_figures'), cfg.plots.popup_figures = true; end
 if ~isfield(cfg.plots,'save_pdf'),      cfg.plots.save_pdf      = false; end
 if ~isfield(cfg.plots,'save_png'),      cfg.plots.save_png      = false; end
 % KF tuning defaults (safe if default_cfg not reloaded)
-if ~isfield(cfg,'vel_q_scale'), cfg.vel_q_scale = 10.0; end
+if ~isfield(cfg,'vel_q_scale'), cfg.vel_q_scale = 1.0; end
 if ~isfield(cfg,'vel_r'),       cfg.vel_r       = 0.25; end
 % Optional auto-tune flag
 if ~isfield(cfg,'autotune'),    cfg.autotune    = true; end
