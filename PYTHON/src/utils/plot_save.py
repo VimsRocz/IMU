@@ -31,7 +31,10 @@ def save_plot(fig, results_dir: str | Path, run_id: str, task_label: str, plot_l
     results_dir.mkdir(parents=True, exist_ok=True)
     out_path = results_dir / f"{run_id}_{task_label}_{plot_label}.{ext}"
     fig.savefig(out_path, **kwargs)
-    print(f"[SAVE] {out_path}")
+    size = out_path.stat().st_size
+    print(f"[SAVE] {out_path} ({size} bytes)")
+    if size < 5 * 1024:
+        raise RuntimeError(f"Output figure {out_path} is suspiciously small")
     _saved[task_label].append(out_path.name)
     return out_path
 
