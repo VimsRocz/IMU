@@ -24,11 +24,6 @@ fs = 12;               % font size
 t  = time_vec(:);      % ensure column vector for x-axis
 
 frames = {'ned','ecef','body'};
-axisLabels = {
-    {'North','East','Down'}, ...
-    {'X','Y','Z'}, ...
-    {'BX','BY','BZ'}
-};
 fileNames = {
     'IMU_X002_GNSS_X002_TRIAD_task4_ned.png', ...
     'IMU_X002_GNSS_X002_TRIAD_task4_ecef.png', ...
@@ -55,7 +50,6 @@ for k = 1:numel(frames)
             for c = 1:3
                 ax = subplot(3,3,(r-1)*3 + c); hold(ax,'on'); grid(ax,'on');
                 set(ax,'FontSize',fs);
-                axisName = axisLabels{k}{c};
 
                 warn = false;
 
@@ -95,7 +89,7 @@ for k = 1:numel(frames)
                     warn = true;
                 end
 
-                legend(ax,'Location','northwest');
+                legend(ax,'Location','northeast');
                 ylabel(ax, rowLabels{r});
                 if r == 3, xlabel(ax,'Time [s]'); end
                 axis(ax,'tight');
