@@ -1,4 +1,4 @@
-function run_triad_only(cfg)
+ function run_triad_only(cfg)
 % RUN_TRIAD_ONLY  Process dataset using TRIAD (Tasks 1..7) — MATLAB-only, no Python deps.
 %
 % Usage:
