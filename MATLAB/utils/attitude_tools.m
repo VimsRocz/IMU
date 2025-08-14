@@ -126,6 +126,8 @@ switch lower(action)
         error('Unknown action: %s', action);
 end
 
+end
+
 % --- helpers ---
 function [q, isRow] = ensureQuatShape(q)
     isRow = isrow(q) && numel(q)==4;
