@@ -9,7 +9,7 @@ function task4_plot_comparisons(gnss_data, imu_data, fused_data, time_vec)
 %   MATLAB/results as 1800x1200 PNGs at 200 DPI.
 % Removed redundant individual NED pos/vel/acc plots as they do not make
 % sense in Task 4.
-% Task 4: Removed Fused labels; using measured/derived for GNSS/IMU.
+% Task 4: Label results as "Derived GNSS" or "Derived IMU".
 
 disp('Task 4: Removed nonsensical individual NED plots.');
 
@@ -45,17 +45,8 @@ for k = 1:numel(frames)
 
         gFrame = getframefield(gnss_data, frame);
         iFrame = getframefield(imu_data,  frame);
-
-        if strcmp(frame,'ned')
-            gnssLabel = 'GNSS (derived)';
-            imuLabel  = 'IMU only (derived)';
-        elseif strcmp(frame,'ecef')
-            gnssLabel = 'GNSS (measured)';
-            imuLabel  = 'IMU only (derived)';
-        else
-            gnssLabel = 'GNSS (derived)';
-            imuLabel  = 'IMU (measured)';
-        end
+        gnssLabel = 'Derived GNSS';
+        imuLabel  = 'Derived IMU';
 
         for r = 1:3
             qty = quantities{r};
@@ -118,7 +109,7 @@ end
 
 close all;
 
-disp('Task 4: Updated all_ned plot with measured/derived labels; no fused data.');
+disp('Task 4: Updated all_ned plot with Derived GNSS/IMU labels; no fused data.');
 
 end
 
