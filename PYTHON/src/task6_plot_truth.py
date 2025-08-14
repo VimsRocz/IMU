@@ -27,6 +27,7 @@ def main():
     ap.add_argument('--svd-file', default=None)
     ap.add_argument('--no-interactive', action='store_true', help='disable any interactive imports')
     ap.add_argument('--output', default=None, help='(ignored) kept for backward compat')
+    ap.add_argument('--debug-task6', action='store_true', help='enable verbose Task 6 debugging')
     args = ap.parse_args()
 
     est_path = Path(args.est_file).resolve()
@@ -69,6 +70,7 @@ def main():
             gnss_file=args.gnss_file,
             q_b2n_const=q_const,
             time_hint_path=time_hint_path,
+            debug=args.debug_task6,
         )
         saved.update(saved_single if isinstance(saved_single, dict) else {})
     except Exception as ex:
@@ -103,6 +105,7 @@ def main():
                 gnss_file=args.gnss_file,
                 q_b2n_const=q_const,
                 time_hint_path=time_hint_path,
+                debug=args.debug_task6,
             )
             if isinstance(saved_multi, dict):
                 saved.update(saved_multi)
