@@ -187,12 +187,13 @@ def _plot_overlay_static(
     if suffix is None:
         suffix = "_overlay_state.pdf" if t_truth is not None else "_overlay.pdf"
 
+    frame_upper = frame.upper()
     axis_labels = {
         "NED": ["\u0394N [m]", "\u0394E [m]", "\u0394D [m]"],
         "ECEF": ["X", "Y", "Z"],
-        "Body": ["X", "Y", "Z"],
+        "BODY": ["X", "Y", "Z"],
     }
-    cols = axis_labels.get(frame, ["X", "Y", "Z"])
+    cols = axis_labels.get(frame_upper, ["X", "Y", "Z"])
 
     fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
 
@@ -216,18 +217,24 @@ def _plot_overlay_static(
             ax = axes[row, col]
             values = [fused[:, col]]
             if include_measurements:
+                gnss_label = (
+                    "Measured GNSS" if frame_upper == "ECEF" and row < 2 else "Derived GNSS"
+                )
                 ax.plot(
                     t_gnss,
                     gnss[:, col],
                     color=color_map["GNSS"],
-                    label="Measured GNSS",
+                    label=gnss_label,
+                )
+                imu_label = (
+                    "Measured IMU" if frame_upper == "BODY" and row == 2 else "Derived IMU"
                 )
                 ax.plot(
                     t_imu,
                     imu[:, col],
                     linestyle="--",
                     color=color_map["IMU"],
-                    label="Measured IMU",
+                    label=imu_label,
                 )
                 values.append(gnss[:, col])
                 values.append(imu[:, col])
