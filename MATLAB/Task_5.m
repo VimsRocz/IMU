@@ -470,6 +470,7 @@ for i = 1:num_imu_samples
     % Python helper ``interpolate_series`` used in GNSS_IMU_Fusion.py.
     gnss_pos_i = gnss_pos_interp(i,:)';
     gnss_vel_i = gnss_vel_interp(i,:)';
+    disp(sprintf('[DBG-KF] k=%d pre-pred velN=%.1f velE=%.1f velD=%.1f norm=%.1f', i, x(4), x(5), x(6), norm(x(4:6))));
 
     if mod(i, 1e5) == 0
         dprintf('[DBG-KF] k=%d   posN=%.1f  velN=%.2f  accN=%.2f\n', ...
@@ -509,11 +510,13 @@ for i = 1:num_imu_samples
             delta_v = delta_v * (vel_limit / norm(delta_v));
         end
         vel_new = prev_vel + delta_v;
+        disp(sprintf('[DBG-KF] k=%d post-pred velN=%.1f velE=%.1f velD=%.1f norm=%.1f', i, vel_new(1), vel_new(2), vel_new(3), norm(vel_new)));
         if norm(vel_new) > vel_limit
             vel_blow_count = vel_blow_count + 1;
             warning('Velocity prediction %.1f m/s at k=%d; reverting to previous.', ...
                     norm(vel_new), i);
             vel_exceed_log(end+1,:) = [i, norm(vel_new)];
+            disp(sprintf('[WARN-BLOWUP] k=%d vel_pred_norm=%.1f | Reverting to prev velN=%.1f velE=%.1f velD=%.1f', i, norm(vel_new), prev_vel(1), prev_vel(2), prev_vel(3)));
             vel_new = prev_vel;
             pos_new = x(1:3);
             P(4:6,4:6) = P(4:6,4:6) + eye(3) * 1e-3;
@@ -549,6 +552,7 @@ for i = 1:num_imu_samples
         trace.K(:,:,i) = K;
         trace.i(i) = i;
     end
+    disp(sprintf('[DBG-KF] k=%d post-update velN=%.1f velE=%.1f velD=%.1f norm=%.1f', i, x(4), x(5), x(6), norm(x(4:6))));
 
     % --- 4. Velocity magnitude check ---
     vel_norm = norm(x(4:6));
@@ -558,6 +562,7 @@ for i = 1:num_imu_samples
         if vel_blow_count == 1 || mod(vel_blow_count, 100) == 0
             warning('Velocity state %.1f m/s at k=%d; clamping.', vel_norm, i);
         end
+        disp(sprintf('[WARN-CLAMP] k=%d vel_state_norm=%.1f | Clamping to 500 m/s', i, vel_norm));
         x(4:6) = x(4:6) / vel_norm * vel_limit;
         P(4:6,4:6) = P(4:6,4:6) + eye(3) * 1e-3;
     end
@@ -572,6 +577,8 @@ for i = 1:num_imu_samples
     gyro_win = gyro_body_raw(max(1,i-win_size+1):i, :);
     acc_std = max(std(acc_win,0,1));
     gyro_std = max(std(gyro_win,0,1));
+    norm_acc = norm(acc_win(end,:));
+    disp(sprintf('[DBG-ZUPT] k=%d acc_norm=%.4f (threshold=%.4f)', i, norm_acc, accel_std_thresh));
     if acc_std < accel_std_thresh && gyro_std < gyro_std_thresh && norm(x(4:6)) < vel_thresh
         zupt_count = zupt_count + 1;
         zupt_log(i) = 1;
@@ -596,6 +603,7 @@ for i = 1:num_imu_samples
             dprintf('ZUPT clamp failure at k=%d (norm=%.3f)\n', i, zupt_vel_norm(i));
         end
         x(4:6) = 0;
+        disp(sprintf('[ZUPT-APPLIED] k=%d reset vel to 0', i));
     end
     if mod(i,100000) == 0
         dprintf('ZUPT applied %d times so far\n', zupt_count);
@@ -606,6 +614,9 @@ for i = 1:num_imu_samples
     euler_log(:, i) = quat_to_euler(q_b_n);
     if mod(i, 100000) == 0
         dprintf('Task 5: Stored state at sample %d/%d\n', i, num_imu_samples);
+    end
+    if mod(i,10000) == 0
+        disp(sprintf('[SUMMARY-LOOP] k=%d posN=%.1f velN=%.1f accN=%.2f ZUPT_cnt=%d blowups=%d', i, x(1), x(4), a_ned(1), zupt_count, vel_blow_count));
     end
 end
 dprintf('Method %s: IMU data integrated.\n', method);
