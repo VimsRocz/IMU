@@ -380,9 +380,10 @@ save_task_results(results, imu_name, gnss_name, method, 6);
 % =========================================================================
 try
     % NED comparison
-    t_g = S.gnss_time; 
-    pos_g = S.gnss_pos_ned; vel_g = S.gnss_vel_ned; 
+    t_g = S.gnss_time;
+    pos_g = S.gnss_pos_ned; vel_g = S.gnss_vel_ned;
     acc_g = [zeros(1,3); diff(vel_g)./diff(t_g)];
+    fprintf('Task 6: NED comparison plotting | GNSS samples=%d | est samples=%d\n', numel(t_g), numel(t_est));
     fig = figure('Name','Task6 NED Comparison','Position',[100 100 1200 900], 'Visible', visibleFlag);
     labels = {'North','East','Down'};
     for k = 1:3
@@ -391,10 +392,14 @@ try
         subplot(3,3,6+k); hold on; plot(t_g, acc_g(:,k),'k:'); plot(t_est, acc_ned(:,k),'b-'); grid on; title(['Acc ' labels{k}]);
     end
     set(fig,'PaperPositionMode','auto');
-    print(fig, fullfile(out_dir, sprintf('%s_task6_compare_NED.pdf', run_id)), '-dpdf', '-bestfit');
-    print(fig, fullfile(out_dir, sprintf('%s_task6_compare_NED.png', run_id)), '-dpng'); close(fig);
+    ned_base = fullfile(out_dir, sprintf('%s_task6_compare_NED', run_id));
+    print(fig, [ned_base '.pdf'], '-dpdf', '-bestfit');
+    print(fig, [ned_base '.png'], '-dpng');
+    fprintf('Task 6: saved NED comparison plots to %s.[pdf|png]\n', ned_base);
+    close(fig);
 
     % ECEF comparison
+    fprintf('Task 6: ECEF comparison plotting | samples=%d\n', numel(t_est));
     fig = figure('Name','Task6 ECEF Comparison','Position',[100 100 1200 900], 'Visible', visibleFlag);
     labelsE = {'X','Y','Z'};
     pos_f = pos_ecef; vel_f = vel_ecef; acc_f = acc_ecef; % from earlier
@@ -407,10 +412,14 @@ try
         subplot(3,3,6+k); hold on; plot(t_g, acc_ge(:,k),'k:'); plot(t_est, acc_f(:,k),'b-'); grid on; title(['Acc ' labelsE{k}]);
     end
     set(fig,'PaperPositionMode','auto');
-    print(fig, fullfile(out_dir, sprintf('%s_task6_compare_ECEF.pdf', run_id)), '-dpdf', '-bestfit');
-    print(fig, fullfile(out_dir, sprintf('%s_task6_compare_ECEF.png', run_id)), '-dpng'); close(fig);
+    ecef_base = fullfile(out_dir, sprintf('%s_task6_compare_ECEF', run_id));
+    print(fig, [ecef_base '.pdf'], '-dpdf', '-bestfit');
+    print(fig, [ecef_base '.png'], '-dpng');
+    fprintf('Task 6: saved ECEF comparison plots to %s.[pdf|png]\n', ecef_base);
+    close(fig);
 
     % Body comparison (includes raw IMU acceleration if available)
+    fprintf('Task 6: Body comparison plotting | samples=%d\n', numel(t_est));
     fig = figure('Name','Task6 Body Comparison','Position',[100 100 1200 900], 'Visible', visibleFlag);
     labelsB = {'X','Y','Z'};
     % GNSS -> body via euler
@@ -430,8 +439,11 @@ try
         grid on; title(['Acc ' labelsB{j}]);
     end
     set(fig,'PaperPositionMode','auto');
-    print(fig, fullfile(out_dir, sprintf('%s_task6_compare_BODY.pdf', run_id)), '-dpdf', '-bestfit');
-    print(fig, fullfile(out_dir, sprintf('%s_task6_compare_BODY.png', run_id)), '-dpng'); close(fig);
+    body_base = fullfile(out_dir, sprintf('%s_task6_compare_BODY', run_id));
+    print(fig, [body_base '.pdf'], '-dpdf', '-bestfit');
+    print(fig, [body_base '.png'], '-dpng');
+    fprintf('Task 6: saved body comparison plots to %s.[pdf|png]\n', body_base);
+    close(fig);
 catch ME
     warning('Task 6 comparison plots failed: %s', ME.message);
 end

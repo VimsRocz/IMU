@@ -721,6 +721,7 @@ function plot_comparison_in_frame(frame_name, t_gnss, t_imu, methods, C_B_N_meth
     end
     sgtitle(['GNSS vs. IMU Integration Comparison in ' frame_name ' Frame']);
     saveas(fig, filename);
+    fprintf('Task 4: saved %s comparison plot to %s\n', frame_name, filename);
     
     % --- Plot 2: All Data in ECEF Frame ---
     fig_ecef = figure('Name', 'All Data in ECEF Frame', 'Position', [150 150 1200 900], 'Visible', 'off');
@@ -759,7 +760,9 @@ function plot_comparison_in_frame(frame_name, t_gnss, t_imu, methods, C_B_N_meth
         end
         hold off; grid on; legend; title(['Acceleration ' dims_ecef{i}]); ylabel('m/s^2');
     end
-    saveas(fig_ecef, strrep(filename, '_ned.', '_ecef.'));
+    ecef_name = strrep(filename, '_ned.', '_ecef.');
+    saveas(fig_ecef, ecef_name);
+    fprintf('Task 4: saved ECEF comparison plot to %s\n', ecef_name);
     
     close(fig); close(fig_ecef);
 end
@@ -844,6 +847,8 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     %   plotting policy.
 
     dims = {'North','East','Down'};
+    fprintf('Task 4 Subtask 4.13: method %s | GNSS samples=%d | IMU samples=%d\n', ...
+        method, numel(t_gnss), numel(t_imu));
     % Determine figure visibility from cfg
     visibleFlag = 'off';
     try
@@ -882,7 +887,7 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     if cfg.plots.save_png
         print(fig,[fname '.png'],'-dpng');
     end
-    fprintf('Comparison plot in NED frame saved\n');
+    fprintf('Task 4: saved NED frame plot to %s (.pdf/.png)\n', fname);
     close(fig);
 
     % ----- ECEF frame -----
@@ -921,7 +926,7 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     if cfg.plots.save_png
         print(fig,[fname '.png'],'-dpng');
     end
-    fprintf('All data in ECEF frame plot saved\n');
+    fprintf('Task 4: saved ECEF frame plot to %s (.pdf/.png)\n', fname);
     close(fig);
 
     % ----- Body frame -----
@@ -954,7 +959,7 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     if cfg.plots.save_png
         print(fig,[fname '.png'],'-dpng');
     end
-    fprintf('All data in body frame plot saved\n');
+    fprintf('Task 4: saved body frame plot to %s (.pdf/.png)\n', fname);
     close(fig);
 
     % ----- Mixed frame (ECEF position/velocity + body acceleration) -----
@@ -977,8 +982,9 @@ function plot_single_method(method, t_gnss, t_imu, C_B_N, p_gnss_ned, v_gnss_ned
     fname = [base '_Task4_MixedFrame.pdf'];
     set(fig,'PaperPositionMode','auto');
     print(fig,fname,'-dpdf','-bestfit');
-    print(fig,strrep(fname,'.pdf','.png'),'-dpng');
-    fprintf('Mixed frames plot saved\n');
+    png_name = strrep(fname,'.pdf','.png');
+    print(fig,png_name,'-dpng');
+    fprintf('Task 4: saved mixed frame plot to %s and %s\n', fname, png_name);
     close(fig);
 end
 
