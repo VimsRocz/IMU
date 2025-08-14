@@ -50,6 +50,9 @@ end
 
 if debug
     print_debug_info(t_est, vel_est, t_truth, vel_truth);
+    fprintf('[Task6] Shapes before interp: t_est=%dx1 pos_est=%dx%d vel_est=%dx%d, t_truth=%dx1 pos_truth=%dx%d vel_truth=%dx%d\n', ...
+        numel(t_est), size(pos_est,1), size(pos_est,2), size(vel_est,1), size(vel_est,2), ...
+        numel(t_truth), size(pos_truth,1), size(pos_truth,2), size(vel_truth,1), size(vel_truth,2));
     if numel(t_est) ~= numel(t_truth)
         fprintf('WARNING: time vector lengths differ (est %d, truth %d)\n', ...
             numel(t_est), numel(t_truth));
@@ -62,6 +65,12 @@ acc_truth_i = interp1(t_truth, acc_truth, t_est, 'linear', 'extrap');
 
 [t_est, pos_est, vel_est, acc_est, pos_truth_i, vel_truth_i, acc_truth_i] = ...
     ensure_equal_length(t_est, pos_est, vel_est, acc_est, pos_truth_i, vel_truth_i, acc_truth_i);
+
+if debug
+    fprintf('[Task6] Shapes after interp/trunc: pos_est=%dx%d vel_est=%dx%d acc_est=%dx%d | pos_truth=%dx%d vel_truth=%dx%d acc_truth=%dx%d\n', ...
+        size(pos_est,1), size(pos_est,2), size(vel_est,1), size(vel_est,2), size(acc_est,1), size(acc_est,2), ...
+        size(pos_truth_i,1), size(pos_truth_i,2), size(vel_truth_i,1), size(vel_truth_i,2), size(acc_truth_i,1), size(acc_truth_i,2));
+end
 
 png_path = plot_overlay_legacy(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
     vel_truth_i, acc_truth_i, frame, method, dataset, output_dir);
@@ -234,7 +243,12 @@ set(f,'PaperPositionMode','auto');
 run_id = sprintf('%s_%s', dataset, method);
 if ~exist(out_dir,'dir'); mkdir(out_dir); end
 png_path = fullfile(out_dir, sprintf('%s_task6_overlay_state_%s.png', run_id, frame));
+% Save PNG and interactive FIG
 save_png_checked(f, png_path);
+try
+    savefig(f, strrep(png_path, '.png', '.fig'));
+catch
+end
 close(f);
 fprintf('Saved overlay figure to %s\n', png_path);
 end
@@ -267,4 +281,3 @@ save_png_checked(f, png_path);
 close(f);
 fprintf('Saved RMSE figure to %s\n', png_path);
 end
-

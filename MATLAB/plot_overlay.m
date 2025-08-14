@@ -43,6 +43,13 @@ if isempty(suffix) && isempty(custom_name)
 end
 
 h = figure('Visible', visible_flag);
+try
+    fprintf('[Task6/plot_overlay] Data shapes: pos_imu=%dx%d vel_imu=%dx%d acc_imu=%dx%d | pos_gnss=%dx%d vel_gnss=%dx%d acc_gnss=%dx%d | pos_fused=%dx%d vel_fused=%dx%d acc_fused=%dx%d\n', ...
+        size(pos_imu,1), size(pos_imu,2), size(vel_imu,1), size(vel_imu,2), size(acc_imu,1), size(acc_imu,2), ...
+        size(pos_gnss,1), size(pos_gnss,2), size(vel_gnss,1), size(vel_gnss,2), size(acc_gnss,1), size(acc_gnss,2), ...
+        size(pos_fused,1), size(pos_fused,2), size(vel_fused,1), size(vel_fused,2), size(acc_fused,1), size(acc_fused,2));
+catch
+end
 
 subplot(4,1,1); hold on;
 plot(t_gnss, vecnorm(pos_gnss,2,2), 'k-', 'DisplayName', 'Measured GNSS');
@@ -97,7 +104,12 @@ else
     png_file = fullfile(out_dir, [method '_' frame suffix]);
 end
 
+% Save PNG and .fig
 save_png_checked(h, png_file);
+try
+    savefig(h, strrep(png_file, '.png', '.fig'));
+catch
+end
 close(h);
 fprintf('Saved overlay figure to %s\n', png_file);
 end

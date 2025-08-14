@@ -88,6 +88,7 @@ end
 
 % Diagnostic plots
 f1 = figure('Visible','off','Position',[100 100 1400 500]);
+fprintf('[Task7] Plotting residuals: pos_residual=%dx%d vel_residual=%dx%d\n', size(pos_residual,1), size(pos_residual,2), size(vel_residual,1), size(vel_residual,2));
 tiledlayout(1,3,'Padding','compact','TileSpacing','compact');
 lbl = {'N','E','D'};
 for i=1:3
@@ -95,7 +96,10 @@ for i=1:3
     nexttile; plot(t_est, pos_residual(:,i),'LineWidth',1.0); grid on; title(sprintf('Pos residual %s [m]', lbl{i}));
     xlabel('Time [s]');
 end
-exportgraphics(f1, fullfile(resultsDir, sprintf('%s_task7_pos_residual_NED.png', runTag)), 'Resolution',150); close(f1);
+png1 = fullfile(resultsDir, sprintf('%s_task7_pos_residual_NED.png', runTag));
+exportgraphics(f1, png1, 'Resolution',150);
+try, savefig(f1, strrep(png1, '.png', '.fig')); catch, end
+close(f1);
 
 f2 = figure('Visible','off','Position',[100 100 1400 500]);
 tiledlayout(1,3,'Padding','compact','TileSpacing','compact');
@@ -104,7 +108,10 @@ for i=1:3
     nexttile; plot(t_est, vel_residual(:,i),'LineWidth',1.0); grid on; title(sprintf('Vel residual %s [m/s]', lbl{i}));
     xlabel('Time [s]');
 end
-exportgraphics(f2, fullfile(resultsDir, sprintf('%s_task7_vel_residual_NED.png', runTag)), 'Resolution',150); close(f2);
+png2 = fullfile(resultsDir, sprintf('%s_task7_vel_residual_NED.png', runTag));
+exportgraphics(f2, png2, 'Resolution',150);
+try, savefig(f2, strrep(png2, '.png', '.fig')); catch, end
+close(f2);
 
 % Summary metrics
 rmse = @(x) sqrt(mean(x.^2, 'omitnan'));
