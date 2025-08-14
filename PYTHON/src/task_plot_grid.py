@@ -78,9 +78,10 @@ def plot_task_grid(
     print(f"[INFO] Output directory: {out_dir}")
 
     missing = []
-    missing_fused = _series_info("Fused", t_fused, fused)
-    if missing_fused:
-        missing.append("Fused")
+    if task != 4:
+        missing_fused = _series_info("Fused", t_fused, fused)
+        if missing_fused:
+            missing.append("Fused")
     if task == 4:
         if _series_info("GNSS", t_gnss, gnss):
             missing.append("GNSS")
@@ -90,7 +91,10 @@ def plot_task_grid(
         if _series_info("Truth", t_truth, truth):
             missing.append("Truth")
 
-    print("[INFO] using fused time base; interpolation: none")
+    if task == 4:
+        print("[INFO] using provided time base; interpolation: none")
+    else:
+        print("[INFO] using fused time base; interpolation: none")
 
     fig, axes = plt.subplots(3, 3, figsize=(9, 6), sharex=True)
     plt.rcParams.update({"font.size": 12})
@@ -101,14 +105,21 @@ def plot_task_grid(
             # Plot order: GNSS, IMU, Truth, Fused
             if task == 4:
                 if gnss and gnss.get("pos") is not None:
-                    ax.plot(t_gnss, gnss["pos" if row == 0 else "vel" if row == 1 else "acc"][:, col], linewidth=1.5, label="GNSS")
+                    gnss_label = "Measured GNSS" if frame == "ECEF" else "Derived GNSS"
+                    ax.plot(
+                        t_gnss,
+                        gnss["pos" if row == 0 else "vel" if row == 1 else "acc"][:, col],
+                        linewidth=1.5,
+                        label=gnss_label,
+                    )
                 if imu and imu.get("pos") is not None:
+                    imu_label = "Measured IMU" if frame == "BODY" and row == 2 else "Derived IMU"
                     ax.plot(
                         t_imu,
                         imu["pos" if row == 0 else "vel" if row == 1 else "acc"][:, col],
                         linestyle="--",
                         linewidth=1.5,
-                        label="IMU only",
+                        label=imu_label,
                     )
             if task == 6 and truth and truth.get("pos") is not None:
                 ax.plot(
@@ -118,7 +129,7 @@ def plot_task_grid(
                     linewidth=1.5,
                     label="Truth",
                 )
-            if fused and fused.get("pos") is not None:
+            if task != 4 and fused and fused.get("pos") is not None:
                 ax.plot(
                     t_fused,
                     fused["pos" if row == 0 else "vel" if row == 1 else "acc"][:, col],
@@ -146,7 +157,7 @@ def plot_task_grid(
 
     # Titles
     line1 = {
-        4: f"Task 4: Comparison ({frame}) — GNSS vs IMU only vs Fused",
+        4: f"Task 4: Comparison ({frame}) — GNSS vs IMU only",
         5: f"Task 5: Fused ({frame})",
         6: f"Task 6: Overlay ({frame}) — Fused vs Truth",
     }[task]
