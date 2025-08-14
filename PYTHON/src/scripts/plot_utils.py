@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from typing import List
 import numpy as np
+from utils.plot_save import save_plot as save_and_log
 
 
 def save_plot(fig, outpath, title):
@@ -12,7 +13,7 @@ def save_plot(fig, outpath, title):
     plt.close(fig)
 
 
-def plot_attitude(time, quats, outpath):
+def plot_attitude(time, quats, results_dir, run_id, method):
     r = R.from_quat(quats)
     euler = r.as_euler('xyz', degrees=True)
     fig, axs = plt.subplots(3, 1, figsize=(6, 8))
@@ -21,9 +22,9 @@ def plot_attitude(time, quats, outpath):
         axs[i].plot(time, euler[:, i])
         axs[i].set_ylabel(f"{labels[i]} (°)")
     axs[-1].set_xlabel("Time (s)")
-    fig.suptitle("Task 6: Attitude Angles Over Time")
+    fig.suptitle("Task 5: Attitude Angles Over Time")
     fig.tight_layout(rect=[0, 0, 1, 0.96])
-    fig.savefig(outpath)
+    save_and_log(fig, results_dir, run_id, "task5", f"attitude_{method}")
     plt.close(fig)
 
 

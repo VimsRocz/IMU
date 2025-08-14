@@ -11,7 +11,10 @@ def compute_residuals(gnss_times, gnss_pos, filt_times, filt_pos):
     return res
 
 
-def plot_residuals(gnss_times, res, outpath):
+from utils.plot_save import save_plot
+
+
+def plot_residuals(gnss_times, res, results_dir, run_id, method):
     fig, axs = plt.subplots(2, 1, figsize=(8, 6))
     axs[0].plot(gnss_times, res[:, 0], label='North')
     axs[0].plot(gnss_times, res[:, 1], label='East')
@@ -30,5 +33,5 @@ def plot_residuals(gnss_times, res, outpath):
 
     fig.suptitle('Position & Velocity Residuals')
     fig.tight_layout(rect=[0, 0, 1, 0.96])
-    fig.savefig(outpath)
+    save_plot(fig, results_dir, run_id, "task5", f"residuals_{method}")
     plt.close(fig)

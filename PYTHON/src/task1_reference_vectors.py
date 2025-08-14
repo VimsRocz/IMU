@@ -3,6 +3,7 @@ import json
 import uuid
 from pathlib import Path
 import os
+from utils.plot_save import save_plot, task_summary
 
 import numpy as np
 import pandas as pd
@@ -87,6 +88,7 @@ def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run
         chrome = getattr(pio.kaleido.scope, "chromium", "unknown")
         print(f"[Task1] Kaleido chromium={chrome}")
         pio.write_image(fig, png_path, width=1200, height=800, scale=2)
+        print(f"[SAVE] {png_path}")
     except Exception as ex:
         print(f"[Task1] Kaleido export failed: {ex}; using Matplotlib fallback")
         import matplotlib.pyplot as plt
@@ -98,7 +100,7 @@ def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run
         ax.set_xlabel("Lon [deg]")
         ax.set_ylabel("Lat [deg]")
         ax.set_title("Task 1 — Initial GNSS location (fallback)")
-        fig2.savefig(png_path, dpi=200, bbox_inches="tight")
+        save_plot(fig2, output_dir, run_id, "task1", "location_map")
         plt.close(fig2)
 
     info = {
@@ -112,5 +114,5 @@ def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run
 
     size = os.path.getsize(png_path) if png_path.exists() else 0
     print(f"[Task1] lat={lat_deg:.5f} lon={lon_deg:.5f} dataset={run_id} -> {png_path} bytes={size}")
-
+    task_summary("task1")
     return png_path

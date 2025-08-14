@@ -203,6 +203,9 @@ def main(argv: Iterable[str] | None = None) -> None:
         results_dir = _py_results_dir()
         results_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Ensured '%s' directory exists.", results_dir)
+    # Expose the results directory to child processes so that all plotting
+    # helpers can place their outputs directly in ``PYTHON/results``.
+    os.environ["PYTHON_RESULTS_DIR"] = str(results_dir)
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
 
     if args.debug:
@@ -264,6 +267,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         raise FileNotFoundError(f"Truth file not found: {truth_path}")
 
     run_id = build_run_id(str(imu_path), str(gnss_path), method)
+    os.environ["RUN_ID"] = run_id
     log_path = results_dir / f"{run_id}.log"
     print(f"\u25b6 {run_id}")
 
@@ -330,18 +334,6 @@ def main(argv: Iterable[str] | None = None) -> None:
         raise subprocess.CalledProcessError(ret, cmd)
     logger.info("Fusion command completed in %.2fs", runtime)
 
-    # Move generated files when a separate results directory was used in older
-    # versions. With the flat layout ``results_dir`` equals ``base_results`` so
-    # the loop becomes a no-op.
-    base_results = pathlib.Path("results")
-    if results_dir != base_results:
-        for file in base_results.glob(f"{run_id}*"):
-            dest = results_dir / file.name
-            try:
-                file.replace(dest)
-            except Exception:
-                pass
-
     for summary in summaries:
         kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))
         metrics = {
@@ -370,23 +362,8 @@ def main(argv: Iterable[str] | None = None) -> None:
         np.savez(results_dir / f"{run_id}_metrics.npz", **results[0])
         logger.info("Saved metrics to %s and %s", metrics_path, metrics_path.with_suffix('.npz'))
 
-    # Flatten PNG outputs to results root and build manifest
-    run_subdir = results_dir / run_id
-    manifest = []
-    if run_subdir.exists():
-        for png in run_subdir.rglob('*.png'):
-            dest = results_dir / png.name
-            shutil.copy2(png, dest)
-            size = os.path.getsize(dest)
-            print(f"[SAVE] Copied {png} -> {dest} (exists={dest.exists()} bytes={size})")
-            m = re.search(r"_task(\d+)_", png.name)
-            task = m.group(1) if m else ""
-            manifest.append({"task": task, "filename": dest.name, "bytes": size})
-    if manifest:
-        manifest_path = results_dir / f"{run_id}_manifest.json"
-        with open(manifest_path, 'w', encoding='utf-8') as f:
-            json.dump(manifest, f, indent=2)
-        print(f"[Task] Manifest -> {manifest_path}")
+    # PNG outputs are now written directly into ``results_dir`` with unique
+    # filenames, so no post-processing or manifest copying is required.
 
     # ------------------------------------------------------------------
     # Convert NPZ output to a MATLAB file with explicit frame variables

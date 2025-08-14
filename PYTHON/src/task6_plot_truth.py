@@ -202,11 +202,7 @@ def main():
     # Print what we created
     print('[Task6] Output dir:', out_dir)
     pngs = sorted([str(p) for p in out_dir.glob('*.png')])
-    if pngs:
-        print('[Task6] PNGs:')
-        for p in pngs: print('  ', p)
-    else:
-        print('[Task6] No PNGs found. Debug manifest follows.')
+    print(f"[TASK 6] Plots saved to results/: {[Path(p).name for p in pngs]}")
 
     # Dump (or append) manifest
     manifest = out_dir / 'task6_overlay_manifest.json'
