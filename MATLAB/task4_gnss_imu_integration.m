@@ -75,6 +75,39 @@ for i=2:N
     pos_imu_ned(i,:) = pos_imu_ned(i-1,:) + vel_imu_ned(i,:)*dt;
 end
 
+%% Frame transformations
+accel_ecef_gnss = [zeros(1,3); diff(ecef_vel)./diff(gnss_data.Posix_Time)];
+C_n2b = C_b2n';
+
+% GNSS derived quantities
+pos_body_gnss = (C_n2b*pos_ned_gnss.').';
+vel_body_gnss = (C_n2b*vel_ned_gnss.').';
+accel_body_gnss = (C_n2b*accel_ned_gnss.').';
+
+derived_gnss.ecef.acc = accel_ecef_gnss;
+derived_gnss.body.pos = pos_body_gnss;
+derived_gnss.body.vel = vel_body_gnss;
+derived_gnss.body.acc = accel_body_gnss;
+derived_gnss.ned.pos  = pos_ned_gnss;
+derived_gnss.ned.vel  = vel_ned_gnss;
+derived_gnss.ned.acc  = accel_ned_gnss;
+
+% IMU derived quantities
+pos_ecef_imu = (C_n2e*pos_imu_ned.').' + r0.';
+vel_ecef_imu = (C_n2e*vel_imu_ned.').';
+accel_ecef_imu = (C_n2e*accel_ned.').';
+pos_imu_body = (C_n2b*pos_imu_ned.').';
+vel_imu_body = (C_n2b*vel_imu_ned.').';
+
+derived_imu.ecef.pos = pos_ecef_imu;
+derived_imu.ecef.vel = vel_ecef_imu;
+derived_imu.ecef.acc = accel_ecef_imu;
+derived_imu.body.pos = pos_imu_body;
+derived_imu.body.vel = vel_imu_body;
+derived_imu.ned.pos  = pos_imu_ned;
+derived_imu.ned.vel  = vel_imu_ned;
+derived_imu.ned.acc  = accel_ned;
+
 %% Validation information
 rms_acc = sqrt(mean(sum(accel_ned_gnss.^2,2)));
 fprintf('GNSS NED pos first=[%.2f %.2f %.2f], last=[%.2f %.2f %.2f]\n', ...
@@ -97,5 +130,6 @@ save_plot(fig, 'IMU', 'GNSS', 'TRIAD', 4, cfg.plots.save_pdf, cfg.plots.save_png
 %% Save results
 out_file = fullfile(results_dir,'Task4_results_IMU_GNSS.mat');
 save(out_file,'pos_ned_gnss','vel_ned_gnss','accel_ned_gnss', ...
-                 'pos_imu_ned','vel_imu_ned','accel_ned','C_e2n','C_n2e','r0','lat_ref','lon_ref');
+                 'pos_imu_ned','vel_imu_ned','accel_ned','C_e2n','C_n2e','r0','lat_ref','lon_ref', ...
+                 'derived_gnss','derived_imu');
 end
