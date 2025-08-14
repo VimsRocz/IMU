@@ -1172,9 +1172,8 @@ end % End of main function
         if cfg.plots.save_pdf
             print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
         end
-        if cfg.plots.save_png
-            print(gcf, [fname '.png'], '-dpng');
-        end
+        % Always save PNG for required deliverable
+        print(gcf, [fname '.png'], '-dpng');
         fprintf('Task 5: saved NED frame plot to %s (.pdf/.png)\n', fname);
         close(gcf);
     end
@@ -1216,9 +1215,8 @@ end % End of main function
         if cfg.plots.save_pdf
             print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
         end
-        if cfg.plots.save_png
-            print(gcf, [fname '.png'], '-dpng');
-        end
+        % Always save PNG for required deliverable
+        print(gcf, [fname '.png'], '-dpng');
         fprintf('Task 5: saved ECEF frame plot to %s (.pdf/.png)\n', fname);
         close(gcf);
     end
@@ -1275,9 +1273,8 @@ end % End of main function
         if cfg.plots.save_pdf
             print(gcf, [fname '.pdf'], '-dpdf', '-bestfit');
         end
-        if cfg.plots.save_png
-            print(gcf, [fname '.png'], '-dpng');
-        end
+        % Always save PNG for required deliverable
+        print(gcf, [fname '.png'], '-dpng');
         fprintf('Task 5: saved body frame plot to %s (.pdf/.png)\n', fname);
         close(gcf);
     end
