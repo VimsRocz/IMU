@@ -35,6 +35,7 @@ if __package__ is None:
     __package__ = "src"
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -162,7 +163,16 @@ def task3_plot_quaternions_and_errors(
     ax.legend(loc="upper left", bbox_to_anchor=(1, 1))
     fig.tight_layout()
 
-    save_plot(fig, RESULTS_DIR, RUN_ID, "task3", "quaternions", ext="png", dpi=200, bbox_inches="tight")
+    save_plot(
+        fig,
+        RESULTS_DIR,
+        RUN_ID,
+        "task3",
+        "quaternions",
+        ext="png",
+        dpi=200,
+        bbox_inches="tight",
+    )
     plt.close(fig)
 
     # Attitude error comparison ------------------------------------------
@@ -186,9 +196,22 @@ def task3_plot_quaternions_and_errors(
     fig.suptitle("Task 3: Attitude Error Comparison")
     plt.tight_layout()
 
-    if not grav_vals or not earth_vals or (np.allclose(grav_vals, 0) and np.allclose(earth_vals, 0)):
+    if (
+        not grav_vals
+        or not earth_vals
+        or (np.allclose(grav_vals, 0) and np.allclose(earth_vals, 0))
+    ):
         raise ValueError("Task3 arrays all zero or empty")
-    save_plot(fig, RESULTS_DIR, RUN_ID, "task3", "errors", ext="png", dpi=200, bbox_inches="tight")
+    save_plot(
+        fig,
+        RESULTS_DIR,
+        RUN_ID,
+        "task3",
+        "errors",
+        ext="png",
+        dpi=200,
+        bbox_inches="tight",
+    )
     plt.close(fig)
     task_summary("task3")
 
@@ -200,7 +223,9 @@ def check_files(imu_file: str, gnss_file: str) -> tuple[str, str]:
     return str(imu_path), str(gnss_path)
 
 
-def load_truth_as_ned(truth_path: str, ref_lat: float, ref_lon: float, r0_ecef: np.ndarray):
+def load_truth_as_ned(
+    truth_path: str, ref_lat: float, ref_lon: float, r0_ecef: np.ndarray
+):
     """Load STATE_X truth file and convert position/velocity to NED."""
     raw = np.loadtxt(truth_path)
     t_truth = raw[:, 0]
@@ -249,6 +274,7 @@ def plot_task6_truth_overlay(
     Path(out_png).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_png, dpi=150)
     plt.close(fig)
+
 
 def main():
     _ensure_results()
@@ -304,8 +330,7 @@ def main():
         type=float,
         default=1.0,
         help=(
-            "Diagonal variance for GNSS velocity measurements R[3:6,3:6] "
-            "[m^2/s^2]"
+            "Diagonal variance for GNSS velocity measurements R[3:6,3:6] " "[m^2/s^2]"
         ),
     )
     parser.add_argument(
@@ -427,6 +452,7 @@ def main():
 
     if not args.no_plots:
         from task1_reference_vectors import task1_reference_vectors
+
         try:
             gnss_df = pd.read_csv(gnss_file)
             if "Height_deg" in gnss_df.columns and "Height_m" not in gnss_df.columns:
@@ -734,9 +760,7 @@ def main():
         try:
             np.loadtxt(truth_file, comments="#")
         except Exception as e:
-            logging.warning(
-                f"Failed to load truth quaternion from {truth_file}: {e}"
-            )
+            logging.warning(f"Failed to load truth quaternion from {truth_file}: {e}")
 
     # --------------------------------
     # Subtask 3.6: Validate Attitude Determination and Compare Methods
@@ -1204,12 +1228,19 @@ def main():
         ax.set_xlabel("Time (s)")
         ax.set_ylabel("Acceleration (m/s²)")
         ax.legend(loc="best")
-    fig_comp.suptitle(
-        f"Task 4 – {method} – NED Frame (All Data Derived to NED)"
-    )
+    fig_comp.suptitle(f"Task 4 – {method} – NED Frame (All Data Derived to NED)")
     fig_comp.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(fig_comp, RESULTS_DIR, tag, "task4", "comparison_ned", ext="png", dpi=200, bbox_inches="tight")
+        save_plot(
+            fig_comp,
+            RESULTS_DIR,
+            tag,
+            "task4",
+            "comparison_ned",
+            ext="png",
+            dpi=200,
+            bbox_inches="tight",
+        )
     plt.close(fig_comp)
     logging.info("Comparison plot in NED frame saved")
 
@@ -1247,7 +1278,16 @@ def main():
     )
     fig_mixed.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(fig_mixed, RESULTS_DIR, tag, "task4", "mixed_frames", ext="png", dpi=200, bbox_inches="tight")
+        save_plot(
+            fig_mixed,
+            RESULTS_DIR,
+            tag,
+            "task4",
+            "mixed_frames",
+            ext="png",
+            dpi=200,
+            bbox_inches="tight",
+        )
     plt.close(fig_mixed)
     logging.info("Mixed frames plot saved")
 
@@ -1289,12 +1329,19 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_ned.suptitle(
-        f"Task 4 – {method} – NED Frame (All Data Derived to NED)"
-    )
+    fig_ned.suptitle(f"Task 4 – {method} – NED Frame (All Data Derived to NED)")
     fig_ned.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(fig_ned, RESULTS_DIR, tag, "task4", "all_ned", ext="png", dpi=200, bbox_inches="tight")
+        save_plot(
+            fig_ned,
+            RESULTS_DIR,
+            tag,
+            "task4",
+            "all_ned",
+            ext="png",
+            dpi=200,
+            bbox_inches="tight",
+        )
     plt.close(fig_ned)
     logging.info("All data in NED frame plot saved")
 
@@ -1354,7 +1401,16 @@ def main():
     fig_ecef.suptitle(f"Task 4 – {method} – ECEF Frame (Derived IMU vs. GNSS)")
     fig_ecef.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(fig_ecef, RESULTS_DIR, tag, "task4", "all_ecef", ext="png", dpi=200, bbox_inches="tight")
+        save_plot(
+            fig_ecef,
+            RESULTS_DIR,
+            tag,
+            "task4",
+            "all_ecef",
+            ext="png",
+            dpi=200,
+            bbox_inches="tight",
+        )
     plt.close(fig_ecef)
     logging.info("All data in ECEF frame plot saved")
 
@@ -1429,9 +1485,35 @@ def main():
     )
     fig_body.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(fig_body, RESULTS_DIR, tag, "task4", "all_body", ext="png", dpi=200, bbox_inches="tight")
+        save_plot(
+            fig_body,
+            RESULTS_DIR,
+            tag,
+            "task4",
+            "all_body",
+            ext="png",
+            dpi=200,
+            bbox_inches="tight",
+        )
     plt.close(fig_body)
     logging.info("All data in body frame plot saved")
+    np.savez_compressed(
+        RESULTS_DIR / f"{tag}_task4_data.npz",
+        imu_time=imu_time,
+        gnss_time=gnss_time,
+        gnss_pos_ecef=gnss_pos_ecef,
+        gnss_vel_ecef=gnss_vel_ecef,
+        gnss_acc_ecef=gnss_acc_ecef,
+        gnss_pos_ned=gnss_pos_ned,
+        gnss_vel_ned=gnss_vel_ned,
+        gnss_acc_ned=gnss_acc_ned,
+        pos_integ=pos_integ[method],
+        vel_integ=vel_integ[method],
+        acc_integ=acc_integ[method],
+        pos_integ_ecef=pos_integ_ecef[method],
+        vel_integ_ecef=vel_integ_ecef[method],
+    )
+    logging.info("Task 4: saved derived and measured data")
     if not args.no_plots:
         task_summary("task4")
 
@@ -1733,12 +1815,8 @@ def main():
             P_hist.append(kf.P.copy())
             x_log[:, i] = kf.x
 
-        logging.info(
-            f"Method {m}: Kalman Filter completed. ZUPTcnt={zupt_count}"
-        )
-        logging.info(
-            f"Method {m}: velocity blow-up events={vel_blow_count}"
-        )
+        logging.info(f"Method {m}: Kalman Filter completed. ZUPTcnt={zupt_count}")
+        logging.info(f"Method {m}: velocity blow-up events={vel_blow_count}")
         with open("triad_init_log.txt", "a") as logf:
             for s, e in zupt_events:
                 logf.write(f"{imu_file}: ZUPT {s}-{e}\n")
@@ -1880,7 +1958,9 @@ def main():
 
     plt.tight_layout()
     if not args.no_plots:
-        save_plot(fig, RESULTS_DIR, tag, "task5", f"results_{method}", ext="png", dpi=200)
+        save_plot(
+            fig, RESULTS_DIR, tag, "task5", f"results_{method}", ext="png", dpi=200
+        )
     logging.info(f"Subtask 5.8.2: {method} plot saved")
     logging.debug(f"# Subtask 5.8.2: {method} plotting completed.")
     plt.close(fig)
@@ -1940,7 +2020,16 @@ def main():
     )
     fig_mixed_fused.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(fig_mixed_fused, RESULTS_DIR, tag, "task5", "mixed_frames", ext="png", dpi=200, bbox_inches="tight")
+        save_plot(
+            fig_mixed_fused,
+            RESULTS_DIR,
+            tag,
+            "task5",
+            "mixed_frames",
+            ext="png",
+            dpi=200,
+            bbox_inches="tight",
+        )
     plt.close(fig_mixed_fused)
     logging.info("Fused mixed frames plot saved")
 
@@ -2004,12 +2093,19 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_ned_all.suptitle(
-        f"Task 5 – {method} – NED Frame (Fused vs. Derived GNSS)"
-    )
+    fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused vs. Derived GNSS)")
     fig_ned_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(fig_ned_all, RESULTS_DIR, tag, "task5", "all_ned", ext="png", dpi=200, bbox_inches="tight")
+        save_plot(
+            fig_ned_all,
+            RESULTS_DIR,
+            tag,
+            "task5",
+            "all_ned",
+            ext="png",
+            dpi=200,
+            bbox_inches="tight",
+        )
     plt.close(fig_ned_all)
     logging.info("All data in NED frame plot saved")
 
@@ -2088,7 +2184,16 @@ def main():
     )
     fig_ecef_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(fig_ecef_all, RESULTS_DIR, tag, "task5", "all_ecef", ext="png", dpi=200, bbox_inches="tight")
+        save_plot(
+            fig_ecef_all,
+            RESULTS_DIR,
+            tag,
+            "task5",
+            "all_ecef",
+            ext="png",
+            dpi=200,
+            bbox_inches="tight",
+        )
     plt.close(fig_ecef_all)
     logging.info("All data in ECEF frame plot saved")
 
@@ -2160,12 +2265,19 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_body_all.suptitle(
-        f"Task 5 – {method} – Body Frame (Fused vs. Derived GNSS)"
-    )
+    fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused vs. Derived GNSS)")
     fig_body_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(fig_body_all, RESULTS_DIR, tag, "task5", "all_body", ext="png", dpi=200, bbox_inches="tight")
+        save_plot(
+            fig_body_all,
+            RESULTS_DIR,
+            tag,
+            "task5",
+            "all_body",
+            ext="png",
+            dpi=200,
+            bbox_inches="tight",
+        )
     plt.close(fig_body_all)
     logging.info("All data in body frame plot saved")
     if not args.no_plots:
@@ -2331,8 +2443,12 @@ def main():
             "fused_vel": fused_vel[method],
             "pos_ecef": pos_ecef,
             "vel_ecef": vel_ecef,
-            "truth_pos_ecef": pos_truth_ecef if pos_truth_ecef is not None else np.empty((0, 3)),
-            "truth_vel_ecef": vel_truth_ecef if vel_truth_ecef is not None else np.empty((0, 3)),
+            "truth_pos_ecef": (
+                pos_truth_ecef if pos_truth_ecef is not None else np.empty((0, 3))
+            ),
+            "truth_vel_ecef": (
+                vel_truth_ecef if vel_truth_ecef is not None else np.empty((0, 3))
+            ),
             "truth_time": t_truth if t_truth is not None else np.empty(0),
             "pos_body": pos_body,
             "vel_body": vel_body,
