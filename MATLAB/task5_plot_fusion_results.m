@@ -1,14 +1,14 @@
-function task5_plot_fusion_results(fused_data, raw_data, time_vec, blowup_times)
-%TASK5_PLOT_FUSION_RESULTS Plot fused vs raw IMU signals with blow-up lines.
-%   TASK5_PLOT_FUSION_RESULTS(FUSED_DATA, RAW_DATA, TIME_VEC, BLOWUP_TIMES)
+function task5_plot_fusion_results(fused_data, truth_data, time_vec, blowup_times)
+%TASK5_PLOT_FUSION_RESULTS Plot fused estimates against truth with blow-up lines.
+%   TASK5_PLOT_FUSION_RESULTS(FUSED_DATA, TRUTH_DATA, TIME_VEC, BLOWUP_TIMES)
 %   creates three figures (NED, ECEF and Body frames).  Each figure is a 3x3
 %   grid where rows correspond to position, velocity and acceleration and
 %   columns correspond to the three axes in that frame.  Fused estimates are
-%   drawn with a blue solid line and raw IMU integration results with a red
-%   dashed line.  Vertical dashed black lines mark times of blow-up events.
-%   Missing data are rendered as flat zero lines with a "(missing)" legend
-%   entry.  Figures are saved as interactive ``.fig`` files under
-%   ``MATLAB/results`` and closed after saving.
+%   drawn with a blue solid line and truth data with a red dashed line.
+%   Vertical dashed black lines mark times of blow-up events. Missing data
+%   are rendered as flat zero lines with a "(missing)" legend entry.
+%   Figures are saved as interactive ``.fig`` files under ``MATLAB/results``
+%   and closed after saving.
 
 if nargin < 4 || isempty(blowup_times)
     blowup_times = [];
@@ -32,10 +32,10 @@ for k = 1:numel(frames)
     try
         fig = figure('Position',[100 100 1800 1200],'Color','w');
         try
-            suptitle(sprintf('Task 5: Fused vs Raw in %s Frame | IMU_X002_GNSS_X002_TRIAD | Blow-ups=%d', ...
+            suptitle(sprintf('Task 5: Fused vs Truth in %s Frame | IMU_X002_GNSS_X002_TRIAD | Blow-ups=%d', ...
                 frame_name, numel(blowup_times)));
         catch
-            sgtitle(sprintf('Task 5: Fused vs Raw in %s Frame | IMU_X002_GNSS_X002_TRIAD | Blow-ups=%d', ...
+            sgtitle(sprintf('Task 5: Fused vs Truth in %s Frame | IMU_X002_GNSS_X002_TRIAD | Blow-ups=%d', ...
                 frame_name, numel(blowup_times)));
         end
 
@@ -45,13 +45,13 @@ for k = 1:numel(frames)
                 ax = subplot(3,3,(r-1)*3 + c); hold(ax,'on'); grid(ax,'on');
                 set(ax,'FontSize',12);
 
-                [raw_col, raw_missing] = get_column(raw_data, frame, qty, c, numel(time_vec));
+                [truth_col, truth_missing] = get_column(truth_data, frame, qty, c, numel(time_vec));
                 [fus_col, fus_missing] = get_column(fused_data, frame, qty, c, numel(time_vec));
 
-                if raw_missing
-                    plot(ax, time_vec, raw_col, 'r--', 'DisplayName','IMU raw (missing)');
+                if truth_missing
+                    plot(ax, time_vec, truth_col, 'r--', 'DisplayName','Truth (missing)');
                 else
-                    plot(ax, time_vec, raw_col, 'r--', 'DisplayName','IMU raw');
+                    plot(ax, time_vec, truth_col, 'r--', 'DisplayName','Truth');
                 end
 
                 if fus_missing
