@@ -15,9 +15,16 @@ if isempty(files), error('Task7: Task5 results not found.'); end
 [~, runTag] = fileparts(files(1).name);
 runTag = erase(runTag, '_task5_results');
 
-% Load Task-5 state
+% Resolve dataset from runTag (e.g. IMU_X002_GNSS_X002_TRIAD)
+dsTok = regexp(runTag, 'X\d+', 'match');
+if isempty(dsTok), dsTok = {'X001'}; end
+dataset = dsTok{1};
+truthFile = fullfile(dataTruthDir, sprintf('STATE_%s.txt', dataset));
+fprintf('[DBG-T7] Using truth file: %s\n', truthFile);
+
+% Load Task-5 state and truth table
 res5 = load(fullfile(resultsDir, sprintf('%s_task5_results.mat', runTag)));
-Ttruth = readtable(fullfile(dataTruthDir, 'STATE_X001.txt'), detectImportOptions(fullfile(dataTruthDir,'STATE_X001.txt')));
+Ttruth = readtable(truthFile, detectImportOptions(truthFile));
 
 % Time
 if isfield(res5,'t_est'), t_est = res5.t_est; else, error('Task7: t_est missing'); end
@@ -45,6 +52,7 @@ end
 [P_ned,  V_ned ] = extractNED(Ttruth);
 if isempty(P_ned) && ~isempty(P_ecef), P_ned = attitude_tools('ecef2ned_vec', P_ecef, lat, lon); end
 if isempty(V_ned) && ~isempty(V_ecef), V_ned = attitude_tools('ecef2ned_vec', V_ecef, lat, lon); end
+fprintf('[DBG-T7] P_ned=%s V_ned=%s\n', mat2str(size(P_ned)), mat2str(size(V_ned)));
 
 % Interpolate truth to estimator time
 interp = @(X) attitude_tools('interp_to', t_truth, X, t_est);
