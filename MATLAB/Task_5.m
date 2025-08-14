@@ -16,7 +16,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %       'vel_meas_noise'   - GNSS velocity measurement noise            [m/s]    (1.0)
 %       'accel_bias_noise' - accelerometer bias random walk             [m/s^2]  (1e-5)
 %       'gyro_bias_noise'  - gyroscope bias random walk                 [rad/s]  (1e-5)
-%       'vel_q_scale'      - scale for Q(4:6,4:6) velocity process noise [-]      (10.0)
+%       'vel_q_scale'      - scale for Q(4:6,4:6) velocity process noise [-]      (1.0)
 %       'vel_r'            - R(4:6,4:6) velocity measurement variance   [m^2/s^2] (0.25)
 %       'scale_factor'     - accelerometer scale factor                 [-]      (required)
 
@@ -73,7 +73,7 @@ end
     addParameter(p, 'vel_meas_noise', 1.0);    % [m/s]
     addParameter(p, 'accel_bias_noise', 1e-5); % [m/s^2]
     addParameter(p, 'gyro_bias_noise', 1e-5);  % [rad/s]
-    addParameter(p, 'vel_q_scale', 10.0);      % [-]
+    addParameter(p, 'vel_q_scale', 1.0);       % [-]
     addParameter(p, 'vel_r', 0.25);            % [m^2/s^2]
     addParameter(p, 'trace_first_n', 0);       % [steps] capture first N KF steps
     addParameter(p, 'max_steps', inf);         % [steps] limit processing for tuning
@@ -304,7 +304,7 @@ P(10:15,10:15) = eye(6) * 1e-4;      % Bias uncertainty
 
 % Process/measurement noise (aligned with Python defaults)
 Q = eye(15) * 1e-4;
-Q(4:6,4:6) = eye(3) * 0.1;
+Q(4:6,4:6) = eye(3) * 0.01 * vel_q_scale;
 Q(10:12,10:12) = eye(3) * accel_bias_noise;
 Q(13:15,13:15) = eye(3) * gyro_bias_noise;
 R = zeros(6);
@@ -421,6 +421,8 @@ vel_blow_count = 0;             % track number of velocity blow-ups
 accel_std_thresh = 0.05;        % [m/s^2]
 gyro_std_thresh  = 0.005;       % [rad/s]
 vel_thresh       = 0.1;         % [m/s]
+vel_limit        = 500;         % [m/s] hard bound for velocity magnitude
+vel_exceed_log   = zeros(0,2);  % [k,|v|] log for debugging
 dprintf('-> 15-State filter initialized.\n');
 dprintf('Subtask 5.4: Integrating IMU data for each method.\n');
 
@@ -498,12 +500,23 @@ for i = 1:num_imu_samples
     if i > 1
         % Trapezoidal integration mirrors the Python fusion pipeline and
         % improves numerical stability over simple Euler steps.
-        vel_new = prev_vel + 0.5 * (a_ned + prev_a_ned) * dt_imu;
-        if norm(vel_new) > 500
+        delta_v = 0.5 * (a_ned + prev_a_ned) * dt_imu;
+        if norm(delta_v) > vel_limit
+            vel_blow_count = vel_blow_count + 1;
+            warning('Delta-v %.1f m/s at k=%d (acc=[%.2f %.2f %.2f]) exceeds limit; clamping.', ...
+                    norm(delta_v), i, a_ned(1), a_ned(2), a_ned(3));
+            vel_exceed_log(end+1,:) = [i, norm(delta_v)];
+            delta_v = delta_v * (vel_limit / norm(delta_v));
+        end
+        vel_new = prev_vel + delta_v;
+        if norm(vel_new) > vel_limit
+            vel_blow_count = vel_blow_count + 1;
+            warning('Velocity prediction %.1f m/s at k=%d; reverting to previous.', ...
+                    norm(vel_new), i);
+            vel_exceed_log(end+1,:) = [i, norm(vel_new)];
             vel_new = prev_vel;
             pos_new = x(1:3);
-            vel_blow_count = vel_blow_count + 1;
-            dprintf('Velocity blow-up at k=%d; zeroed delta_v\n', i);
+            P(4:6,4:6) = P(4:6,4:6) + eye(3) * 1e-3;
         else
             pos_new = x(1:3) + 0.5 * (vel_new + prev_vel) * dt_imu;
         end
@@ -538,14 +551,17 @@ for i = 1:num_imu_samples
     end
 
     % --- 4. Velocity magnitude check ---
-    if norm(x(4:6)) > 500
+    vel_norm = norm(x(4:6));
+    if vel_norm > vel_limit
         vel_blow_count = vel_blow_count + 1;
+        vel_exceed_log(end+1,:) = [i, vel_norm];
         if vel_blow_count == 1 || mod(vel_blow_count, 100) == 0
-            warning('Velocity blew up (%.1f m/s); zeroing \x0394v and continuing.', ...
-                    norm(x(4:6)));
+            warning('Velocity state %.1f m/s at k=%d; clamping.', vel_norm, i);
         end
-        x(4:6) = 0;
+        x(4:6) = x(4:6) / vel_norm * vel_limit;
+        P(4:6,4:6) = P(4:6,4:6) + eye(3) * 1e-3;
     end
+    assert(norm(x(4:6)) <= vel_limit * 2, 'Velocity runaway at k=%d', i);
     % update integrator history after correction
     prev_vel = x(4:6);
     prev_a_ned = a_ned;
@@ -863,7 +879,8 @@ if ~dryrun
         'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
         'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'zupt_log', 'zupt_vel_norm', ...
         'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
-        'states', 't_est', 'dt', 'imu_rate_hz', 'acc_body_raw', 'trace', 'vel_blow_count');
+        'states', 't_est', 'dt', 'imu_rate_hz', 'acc_body_raw', 'trace', 'vel_blow_count', ...
+        'vel_exceed_log');
     % Provide compatibility with the Python pipeline and downstream tasks
     % by storing the fused position under the generic ``pos`` field as well.
     pos = pos_ned; %#ok<NASGU>
