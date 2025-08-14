@@ -3,6 +3,11 @@ import argparse, json, os, sys, traceback
 from pathlib import Path
 
 from paths import ensure_results_dir
+from utils.read_truth_txt import read_truth_txt
+from task6_overlay_all_frames import ecef_to_ned, ecef_to_ned_vec
+from scipy.interpolate import interp1d
+import numpy as np
+import pandas as pd
 
 
 def eprint(*a, **k):
@@ -30,6 +35,7 @@ def main():
     ap.add_argument('--no-interactive', action='store_true', help='disable any interactive imports')
     ap.add_argument('--output', default=None, help='(ignored) kept for backward compat')
     ap.add_argument('--debug-task6', action='store_true', help='enable verbose Task 6 debugging')
+    ap.add_argument('--flat-output', action='store_true', default=True, help='also copy PNGs to results/ root')
     args = ap.parse_args()
 
     est_path = Path(args.est_file).resolve()
@@ -42,6 +48,79 @@ def main():
 
     time_hint = est_path.with_name(f"{run_id}_task5_time.mat")
     time_hint_path = str(time_hint) if time_hint.is_file() else None
+
+    # ------------------------------------------------------------------
+    # Truth loading and estimator metadata debug
+    # ------------------------------------------------------------------
+    print(f"[Task6] truth_file={args.truth_file} exists={Path(args.truth_file).exists()}")
+    try:
+        t_truth, pos_ecef_truth, vel_ecef_truth = read_truth_txt(args.truth_file)
+        print(
+            f"[Task6][Truth] t:{t_truth.shape} pos_ecef:{pos_ecef_truth.shape} vel_ecef:{vel_ecef_truth.shape}"
+        )
+        if t_truth.size:
+            print(
+                f"[Task6][Truth] t[:3]={t_truth[:3]} ... t[-3:]={t_truth[-3:]}"
+            )
+    except Exception as ex:
+        print(f"[Task6][Truth][ERROR] failed to load truth: {ex}")
+        t_truth = np.array([])
+        pos_ecef_truth = vel_ecef_truth = np.zeros((0, 3))
+
+    # Load estimator file and time vector
+    import scipy.io as sio
+    if est_path.suffix.lower() == '.npz':
+        est = {k: v for k, v in np.load(est_path, allow_pickle=True).items()}
+    else:
+        est = {k: v for k, v in sio.loadmat(est_path, squeeze_me=True).items() if not k.startswith('__')}
+    print(f"[Task6][Est] keys={list(est.keys())}")
+    t_est = est.get('t_est')
+    if t_est is None:
+        t_est = est.get('time_s')
+    if t_est is None:
+        dt = est.get('dt') or est.get('imu_dt') or 0.0
+        n = None
+        for key in ('pos_ned_m','pos_ecef_m','pos_body_m'):
+            if key in est:
+                n = len(est[key])
+                break
+        if n is not None and dt:
+            t_est = np.arange(n) * float(dt)
+    t_est = np.asarray(t_est, float).reshape(-1)
+    if t_est.size:
+        print(
+            f"[Task6][Est] len(t_est)={len(t_est)} t0={t_est[0]:.3f} t1={t_est[-1]:.3f} dt≈{np.median(np.diff(t_est)) if len(t_est)>1 else 0:.6f}"
+        )
+
+    # Reference lat/lon/r0
+    ref_lat_rad = est.get('ref_lat_rad') or est.get('lat_rad') or est.get('lat0_rad')
+    ref_lon_rad = est.get('ref_lon_rad') or est.get('lon_rad') or est.get('lon0_rad')
+    ref_r0_m = est.get('ref_r0_m') or est.get('r0') or est.get('r0_ecef_m')
+    if ref_r0_m is not None:
+        ref_r0_m = np.asarray(ref_r0_m).reshape(3)
+    if ref_lat_rad is None or ref_lon_rad is None or ref_r0_m is None:
+        print("[Task6] ref values missing, deriving from first GNSS sample")
+        if args.gnss_file:
+            df_g = pd.read_csv(args.gnss_file)
+            row = df_g.iloc[0]
+            x,y,z = float(row.get('X_ECEF_m',0)), float(row.get('Y_ECEF_m',0)), float(row.get('Z_ECEF_m',0))
+            from utils import ecef_to_geodetic
+            ref_lat_rad, ref_lon_rad, _ = ecef_to_geodetic(x,y,z)
+            ref_r0_m = np.array([x,y,z],dtype=float)
+    print(f"[Task6] ref_lat={ref_lat_rad} ref_lon={ref_lon_rad} r0={ref_r0_m}")
+
+    # Interpolate truth into estimator timebase
+    if t_truth.size and t_est.size:
+        pos_ned_truth = ecef_to_ned(pos_ecef_truth, ref_lat_rad, ref_lon_rad, ref_r0_m)
+        vel_ned_truth = ecef_to_ned_vec(vel_ecef_truth, ref_lat_rad, ref_lon_rad)
+        interp = lambda X: np.column_stack([
+            interp1d(t_truth, X[:,i], bounds_error=False, fill_value="extrapolate")(t_est) for i in range(3)
+        ])
+        pos_ned_truth_interp = interp(pos_ned_truth)
+        print(
+            f"[Task6] interp truth -> t_est: in={len(t_truth)} out={len(t_est)} NaNs_pos={np.isnan(pos_ned_truth_interp).sum()}"
+        )
+        assert pos_ned_truth_interp.shape[0] == t_est.shape[0], "Truth interp length mismatch"
 
     # Parse qbody
     q_const = None
@@ -76,6 +155,7 @@ def main():
             q_b2n_const=q_const,
             time_hint_path=time_hint_path,
             debug=args.debug_task6,
+            flat_output=args.flat_output,
         )
         saved.update(saved_single if isinstance(saved_single, dict) else {})
     except Exception as ex:
@@ -111,6 +191,7 @@ def main():
                 q_b2n_const=q_const,
                 time_hint_path=time_hint_path,
                 debug=args.debug_task6,
+                flat_output=args.flat_output,
             )
             if isinstance(saved_multi, dict):
                 saved.update(saved_multi)

@@ -33,6 +33,7 @@ import re
 import subprocess
 import sys
 import time
+import shutil
 import io
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -190,6 +191,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     parser.add_argument("--imu-rate", type=float, default=None, help="Hint IMU sample rate [Hz]")
     parser.add_argument("--gnss-rate", type=float, default=None, help="Hint GNSS sample rate [Hz]")
     parser.add_argument("--truth-rate", type=float, default=None, help="Hint truth sample rate [Hz]")
+    parser.add_argument("--tasks", type=str, default=None, help="Comma-separated task numbers to run")
 
     args = parser.parse_args(argv)
 
@@ -267,6 +269,26 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
     print_timeline(run_id, str(imu_path), str(gnss_path), str(truth_path), out_dir=str(results_dir))
+
+    task_set = None
+    if args.tasks:
+        task_set = {int(x) for x in re.split(r"[,\s]+", args.tasks) if x}
+    if task_set == {6}:
+        est_file = results_dir / f"{run_id}_kf_output.npz"
+        cmd = [
+            sys.executable,
+            str(HERE / "task6_plot_truth.py"),
+            "--est-file",
+            str(est_file),
+            "--truth-file",
+            str(truth_path),
+            "--gnss-file",
+            str(gnss_path),
+        ]
+        if args.debug:
+            cmd.append("--debug-task6")
+        subprocess.check_call(cmd)
+        return
 
     if logger.isEnabledFor(logging.DEBUG):
         try:
@@ -347,6 +369,24 @@ def main(argv: Iterable[str] | None = None) -> None:
             json.dump(results[0], f, indent=2, sort_keys=True)
         np.savez(results_dir / f"{run_id}_metrics.npz", **results[0])
         logger.info("Saved metrics to %s and %s", metrics_path, metrics_path.with_suffix('.npz'))
+
+    # Flatten PNG outputs to results root and build manifest
+    run_subdir = results_dir / run_id
+    manifest = []
+    if run_subdir.exists():
+        for png in run_subdir.rglob('*.png'):
+            dest = results_dir / png.name
+            shutil.copy2(png, dest)
+            size = os.path.getsize(dest)
+            print(f"[SAVE] Copied {png} -> {dest} (exists={dest.exists()} bytes={size})")
+            m = re.search(r"_task(\d+)_", png.name)
+            task = m.group(1) if m else ""
+            manifest.append({"task": task, "filename": dest.name, "bytes": size})
+    if manifest:
+        manifest_path = results_dir / f"{run_id}_manifest.json"
+        with open(manifest_path, 'w', encoding='utf-8') as f:
+            json.dump(manifest, f, indent=2)
+        print(f"[Task] Manifest -> {manifest_path}")
 
     # ------------------------------------------------------------------
     # Convert NPZ output to a MATLAB file with explicit frame variables
