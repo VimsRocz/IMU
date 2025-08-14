@@ -1118,6 +1118,7 @@ end % End of main function
             end
         catch
         end
+        fprintf('Task 5: NED frame plotting | samples=%d\n', size(pos_ned,2));
         figure('Name','Task5 NED Frame','Position',[100 100 1200 900], ...
             'Visible', visibleFlag);
         for k = 1:3
@@ -1144,6 +1145,7 @@ end % End of main function
         if cfg.plots.save_png
             print(gcf, [fname '.png'], '-dpng');
         end
+        fprintf('Task 5: saved NED frame plot to %s (.pdf/.png)\n', fname);
         close(gcf);
     end
 
@@ -1160,6 +1162,7 @@ end % End of main function
         pos_fused = (C_E_N' * pos_ned) + r0;
         vel_fused = C_E_N' * vel_ned;
         acc_fused = C_E_N' * acc_ned;
+        fprintf('Task 5: ECEF frame plotting | samples=%d\n', size(pos_ned,2));
         figure('Name','Task5 ECEF Frame','Position',[100 100 1200 900], ...
             'Visible', visibleFlag);
         for k = 1:3
@@ -1186,6 +1189,7 @@ end % End of main function
         if cfg.plots.save_png
             print(gcf, [fname '.png'], '-dpng');
         end
+        fprintf('Task 5: saved ECEF frame plot to %s (.pdf/.png)\n', fname);
         close(gcf);
     end
 
@@ -1200,6 +1204,7 @@ end % End of main function
         catch
         end
         N = size(pos_ned,2);
+        fprintf('Task 5: Body frame plotting | samples=%d\n', N);
         pos_body = zeros(3,N); vel_body = zeros(3,N); acc_body = zeros(3,N);
         for k = 1:N
             C_B_N = euler_to_rot(eul_log(:,k));
@@ -1243,6 +1248,7 @@ end % End of main function
         if cfg.plots.save_png
             print(gcf, [fname '.png'], '-dpng');
         end
+        fprintf('Task 5: saved body frame plot to %s (.pdf/.png)\n', fname);
         close(gcf);
     end
 
@@ -1294,5 +1300,6 @@ end % End of main function
         if cfg.plots.save_png
             print(gcf, [fname '.png'], '-dpng');
         end
+        fprintf('Task 5: saved ECEF truth plot to %s (.pdf/.png)\n', fname);
         close(gcf);
     end
