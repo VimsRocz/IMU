@@ -252,9 +252,21 @@ vel_truth_ned_i = vel_truth_ned_i_raw .* sign_ned;
 acc_truth_ned_i = acc_truth_ned_i_raw .* sign_ned;
 
 % Fused IMU results and derived acceleration
-pos_ned_raw = S.pos_ned;
-vel_ned_raw = S.vel_ned;
-acc_ned_raw = [zeros(1,3); diff(vel_ned_raw)./diff(t_est)];
+if isfield(S,'pos_ned_est')
+    pos_ned_raw = S.pos_ned_est;
+else
+    pos_ned_raw = S.pos_ned;
+end
+if isfield(S,'vel_ned_est')
+    vel_ned_raw = S.vel_ned_est;
+else
+    vel_ned_raw = S.vel_ned;
+end
+if isfield(S,'acc_ned_est')
+    acc_ned_raw = S.acc_ned_est;
+else
+    acc_ned_raw = [zeros(1,3); diff(vel_ned_raw)./diff(t_est)];
+end
 
 pos_ned = centre(pos_ned_raw .* sign_ned);
 vel_ned = vel_ned_raw .* sign_ned;
@@ -283,9 +295,21 @@ catch
 end
 
 C_N_E = C';
-pos_ecef = (C_N_E*pos_ned_raw')' + ref_r0';
-vel_ecef = (C_N_E*vel_ned_raw')';
-acc_ecef = (C_N_E*acc_ned_raw')';
+if isfield(S,'pos_ecef_est')
+    pos_ecef = S.pos_ecef_est;
+else
+    pos_ecef = (C_N_E*pos_ned_raw')' + ref_r0';
+end
+if isfield(S,'vel_ecef_est')
+    vel_ecef = S.vel_ecef_est;
+else
+    vel_ecef = (C_N_E*vel_ned_raw')';
+end
+if isfield(S,'acc_ecef_est')
+    acc_ecef = S.acc_ecef_est;
+else
+    acc_ecef = (C_N_E*acc_ned_raw')';
+end
 
 cn = corrcoef(vel_ned(:,1), vel_truth_ned_i(:,1));  % North
 ce = corrcoef(vel_ned(:,2), vel_truth_ned_i(:,2));  % East
@@ -299,16 +323,29 @@ if ~exist('g_NED','var')
     g_NED = [0;0;constants.GRAVITY];
 end
 N = length(t_est);
-pos_body = zeros(N,3); vel_body = zeros(N,3); acc_body = zeros(N,3);
 pos_truth_body = zeros(N,3); vel_truth_body = zeros(N,3); acc_truth_body = zeros(N,3);
-for k = 1:N
-    C_B_N = euler_to_rot(S.euler_log(:,k));
-    pos_body(k,:) = (C_B_N'*pos_ned_raw(k,:)')';
-    vel_body(k,:) = (C_B_N'*vel_ned_raw(k,:)')';
-    acc_body(k,:) = (C_B_N'*(acc_ned_raw(k,:)' - g_NED))';
-    pos_truth_body(k,:) = (C_B_N'*pos_truth_ned_i_raw(k,:)')';
-    vel_truth_body(k,:) = (C_B_N'*vel_truth_ned_i_raw(k,:)')';
-    acc_truth_body(k,:) = (C_B_N'*(acc_truth_ned_i_raw(k,:)' - g_NED))';
+have_body = isfield(S,'pos_body_est') && isfield(S,'vel_body_est') && isfield(S,'acc_body_est');
+if have_body
+    pos_body = S.pos_body_est;
+    vel_body = S.vel_body_est;
+    acc_body = S.acc_body_est;
+    for k = 1:N
+        C_B_N = euler_to_rot(S.euler_log(:,k));
+        pos_truth_body(k,:) = (C_B_N'*pos_truth_ned_i_raw(k,:)')';
+        vel_truth_body(k,:) = (C_B_N'*vel_truth_ned_i_raw(k,:)')';
+        acc_truth_body(k,:) = (C_B_N'*(acc_truth_ned_i_raw(k,:)' - g_NED))';
+    end
+else
+    pos_body = zeros(N,3); vel_body = zeros(N,3); acc_body = zeros(N,3);
+    for k = 1:N
+        C_B_N = euler_to_rot(S.euler_log(:,k));
+        pos_body(k,:) = (C_B_N'*pos_ned_raw(k,:)')';
+        vel_body(k,:) = (C_B_N'*vel_ned_raw(k,:)')';
+        acc_body(k,:) = (C_B_N'*(acc_ned_raw(k,:)' - g_NED))';
+        pos_truth_body(k,:) = (C_B_N'*pos_truth_ned_i_raw(k,:)')';
+        vel_truth_body(k,:) = (C_B_N'*vel_truth_ned_i_raw(k,:)')';
+        acc_truth_body(k,:) = (C_B_N'*(acc_truth_ned_i_raw(k,:)' - g_NED))';
+    end
 end
 
 save_overlay_state(t_est, pos_ned, vel_ned, pos_truth_ned_i, vel_truth_ned_i, ...
