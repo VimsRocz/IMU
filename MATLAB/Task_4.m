@@ -674,28 +674,28 @@ function plot_comparison_in_frame(frame_name, t_gnss, t_imu, methods, C_B_N_meth
     for i = 1:3
         % Position
         subplot(3, 3, i);
-        hold on; plot(t_gnss, p_gnss(:, i), 'k--', 'LineWidth', 1.5, 'DisplayName', 'GNSS');
+        hold on; plot(t_gnss, p_gnss(:, i), 'k--', 'LineWidth', 1.5, 'DisplayName', 'Measured GNSS');
         for m = 1:length(methods)
             method = methods{m};
-            plot(t_imu, p_imu.(method)(:, i), 'Color', colors.(method), 'DisplayName', ['IMU ' method]);
+            plot(t_imu, p_imu.(method)(:, i), 'Color', colors.(method), 'DisplayName', ['Derived IMU (' method ')']);
         end
         hold off; grid on; legend; title(['Position ' dims_ned{i}]); xlabel('Time (s)'); ylabel('Position (m)');
         
         % Velocity
         subplot(3, 3, i + 3);
-        hold on; plot(t_gnss, v_gnss(:, i), 'k--', 'LineWidth', 1.5, 'DisplayName', 'GNSS');
+        hold on; plot(t_gnss, v_gnss(:, i), 'k--', 'LineWidth', 1.5, 'DisplayName', 'Measured GNSS');
         for m = 1:length(methods)
             method = methods{m};
-            plot(t_imu, v_imu.(method)(:, i), 'Color', colors.(method), 'DisplayName', ['IMU ' method]);
+            plot(t_imu, v_imu.(method)(:, i), 'Color', colors.(method), 'DisplayName', ['Derived IMU (' method ')']);
         end
         hold off; grid on; legend; title(['Velocity ' dims_ned{i}]); xlabel('Time (s)'); ylabel('Velocity (m/s)');
         
         % Acceleration
         subplot(3, 3, i + 6);
-        hold on; plot(t_gnss, a_gnss(:, i), 'k--', 'LineWidth', 1.5, 'DisplayName', 'GNSS (Derived)');
+        hold on; plot(t_gnss, a_gnss(:, i), 'k--', 'LineWidth', 1.5, 'DisplayName', 'Derived GNSS');
         for m = 1:length(methods)
             method = methods{m};
-            plot(t_imu, a_imu.(method)(:, i), 'Color', colors.(method), 'DisplayName', ['IMU ' method]);
+            plot(t_imu, a_imu.(method)(:, i), 'Color', colors.(method), 'DisplayName', ['Derived IMU (' method ')']);
         end
         hold off; grid on; legend; title(['Acceleration ' dims_ned{i}]); xlabel('Time (s)'); ylabel('Acceleration (m/s^2)');
     end
@@ -711,32 +711,32 @@ function plot_comparison_in_frame(frame_name, t_gnss, t_imu, methods, C_B_N_meth
     for i = 1:3
         % Position
         subplot(3,3,i); hold on;
-        plot(t_gnss, p_gnss_ecef(:,i), 'k-', 'DisplayName', 'GNSS Pos');
+        plot(t_gnss, p_gnss_ecef(:,i), 'k-', 'DisplayName', 'Measured GNSS');
         for m = 1:length(methods)
             method = methods{m};
             p_ecef = (C_n2e * p_imu.(method)')';
-            plot(t_imu, p_ecef(:,i), '--', 'Color', colors.(method), 'DisplayName', method);
+            plot(t_imu, p_ecef(:,i), '--', 'Color', colors.(method), 'DisplayName', ['Derived IMU (' method ')']);
         end
         hold off; grid on; legend; title(['Position ' dims_ecef{i}]); ylabel('m');
 
         % Velocity
         subplot(3,3,i+3); hold on;
-        plot(t_gnss, v_gnss_ecef(:,i), 'k-', 'DisplayName', 'GNSS Vel');
+        plot(t_gnss, v_gnss_ecef(:,i), 'k-', 'DisplayName', 'Measured GNSS');
         for m = 1:length(methods)
             method = methods{m};
             v_ecef = (C_n2e * v_imu.(method)')';
-            plot(t_imu, v_ecef(:,i), '--', 'Color', colors.(method), 'DisplayName', method);
+            plot(t_imu, v_ecef(:,i), '--', 'Color', colors.(method), 'DisplayName', ['Derived IMU (' method ')']);
         end
         hold off; grid on; legend; title(['Velocity ' dims_ecef{i}]); ylabel('m/s');
 
         % Acceleration
         subplot(3,3,i+6); hold on;
-        plot(t_gnss, a_gnss_ecef(:,i), 'k-', 'DisplayName', 'GNSS Accel');
+        plot(t_gnss, a_gnss_ecef(:,i), 'k-', 'DisplayName', 'Derived GNSS');
         for m = 1:length(methods)
             method = methods{m};
             f_ned = (C_B_N_methods.(method) * f_b_corr.(method)')';
             f_ecef = (C_n2e * f_ned')';
-            plot(t_imu, f_ecef(:,i), '--', 'Color', colors.(method), 'DisplayName', ['IMU ' method]);
+            plot(t_imu, f_ecef(:,i), '--', 'Color', colors.(method), 'DisplayName', ['Derived IMU (' method ')']);
         end
         hold off; grid on; legend; title(['Acceleration ' dims_ecef{i}]); ylabel('m/s^2');
     end
@@ -904,10 +904,10 @@ function plot_single_method(method, t, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned
         for idx = 1:3
             % Position
             subplot(3,3,idx); hold on;
-            if ~missing_gnss, plot(t, p_g(:,idx), '-', 'Color', gnss_col, 'DisplayName', 'GNSS');
-            else, plot(NaN,NaN,'-','Color',gnss_col,'DisplayName','GNSS (missing)'); end
-            if ~missing_imu, plot(t, p_i(:,idx), '--', 'Color', imu_col, 'DisplayName', 'IMU only');
-            else, plot(NaN,NaN,'--','Color',imu_col,'DisplayName','IMU only (missing)'); end
+            if ~missing_gnss, plot(t, p_g(:,idx), '-', 'Color', gnss_col, 'DisplayName', 'Derived GNSS');
+            else, plot(NaN,NaN,'-','Color',gnss_col,'DisplayName','Derived GNSS (missing)'); end
+            if ~missing_imu, plot(t, p_i(:,idx), '--', 'Color', imu_col, 'DisplayName', 'Derived IMU');
+            else, plot(NaN,NaN,'--','Color',imu_col,'DisplayName','Derived IMU (missing)'); end
             if ~missing_fused
                 plot(t, p_f(:,idx), '-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused');
             end
@@ -917,10 +917,10 @@ function plot_single_method(method, t, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned
 
             % Velocity
             subplot(3,3,idx+3); hold on;
-            if ~missing_gnss, plot(t, v_g(:,idx), '-', 'Color', gnss_col, 'DisplayName', 'GNSS');
-            else, plot(NaN,NaN,'-','Color',gnss_col,'DisplayName','GNSS (missing)'); end
-            if ~missing_imu, plot(t, v_i(:,idx), '--', 'Color', imu_col, 'DisplayName', 'IMU only');
-            else, plot(NaN,NaN,'--','Color',imu_col,'DisplayName','IMU only (missing)'); end
+            if ~missing_gnss, plot(t, v_g(:,idx), '-', 'Color', gnss_col, 'DisplayName', 'Derived GNSS');
+            else, plot(NaN,NaN,'-','Color',gnss_col,'DisplayName','Derived GNSS (missing)'); end
+            if ~missing_imu, plot(t, v_i(:,idx), '--', 'Color', imu_col, 'DisplayName', 'Derived IMU');
+            else, plot(NaN,NaN,'--','Color',imu_col,'DisplayName','Derived IMU (missing)'); end
             if ~missing_fused
                 plot(t, v_f(:,idx), '-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused');
             end
@@ -930,10 +930,10 @@ function plot_single_method(method, t, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned
 
             % Acceleration
             subplot(3,3,idx+6); hold on;
-            if ~missing_gnss, plot(t, a_g(:,idx), '-', 'Color', gnss_col, 'DisplayName', 'GNSS');
-            else, plot(NaN,NaN,'-','Color',gnss_col,'DisplayName','GNSS (missing)'); end
-            if ~missing_imu, plot(t, a_i(:,idx), '--', 'Color', imu_col, 'DisplayName', 'IMU only');
-            else, plot(NaN,NaN,'--','Color',imu_col,'DisplayName','IMU only (missing)'); end
+            if ~missing_gnss, plot(t, a_g(:,idx), '-', 'Color', gnss_col, 'DisplayName', 'Derived GNSS');
+            else, plot(NaN,NaN,'-','Color',gnss_col,'DisplayName','Derived GNSS (missing)'); end
+            if ~missing_imu, plot(t, a_i(:,idx), '--', 'Color', imu_col, 'DisplayName', 'Derived IMU');
+            else, plot(NaN,NaN,'--','Color',imu_col,'DisplayName','Derived IMU (missing)'); end
             if ~missing_fused
                 plot(t, a_f(:,idx), '-', 'Color', fused_col, 'LineWidth',1.5,'DisplayName','Fused');
             end
@@ -946,8 +946,8 @@ function plot_single_method(method, t, C_B_N, p_gnss_ned, v_gnss_ned, a_gnss_ned
         sgtitle({line1, line2});
         if missing_gnss || missing_imu || missing_fused
             miss = {};
-            if missing_gnss, miss{end+1} = 'GNSS'; end
-            if missing_imu,  miss{end+1} = 'IMU only'; end
+            if missing_gnss, miss{end+1} = 'Derived GNSS'; end
+            if missing_imu,  miss{end+1} = 'Derived IMU'; end
             if missing_fused, miss{end+1} = 'Fused'; end
             annotation(fig,'textbox',[0.5,0.02,0,0],'String', ['\color{red}\bf⚠ Missing: ' strjoin(miss, ', ')], 'EdgeColor','none', 'HorizontalAlignment','center', 'FontSize',12);
         end

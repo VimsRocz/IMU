@@ -45,8 +45,6 @@ for k = 1:numel(frames)
 
         gFrame = getframefield(gnss_data, frame);
         iFrame = getframefield(imu_data,  frame);
-        gnssLabel = 'Derived GNSS';
-        imuLabel  = 'Derived IMU';
 
         for r = 1:3
             qty = quantities{r};
@@ -55,6 +53,9 @@ for k = 1:numel(frames)
                 set(ax,'FontSize',fs);
 
                 warn = false;
+
+                % Determine labels based on frame and quantity
+                [gnssLabel, imuLabel] = get_labels(frame, qty);
 
                 % GNSS
                 [col, has] = getqtycol(gFrame, qty, c);
@@ -114,6 +115,28 @@ disp('Task 4: Updated all_ned plot with Derived GNSS/IMU labels; no fused data.'
 end
 
 % ---------------------- Helper Functions ----------------------
+function [gnssLabel, imuLabel] = get_labels(frame, qty)
+switch frame
+    case 'ecef'
+        if strcmp(qty,'acc')
+            gnssLabel = 'Derived GNSS';
+        else
+            gnssLabel = 'Measured GNSS';
+        end
+        imuLabel = 'Derived IMU';
+    case 'body'
+        gnssLabel = 'Derived GNSS';
+        if strcmp(qty,'acc')
+            imuLabel = 'Measured IMU';
+        else
+            imuLabel = 'Derived IMU';
+        end
+    otherwise % 'ned'
+        gnssLabel = 'Derived GNSS';
+        imuLabel  = 'Derived IMU';
+end
+end
+
 function frameStruct = getframefield(S, frame)
 frameStruct = struct();
 try
