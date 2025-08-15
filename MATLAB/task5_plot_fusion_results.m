@@ -17,6 +17,15 @@ end
 out_dir = fullfile('MATLAB','results');
 if ~exist(out_dir,'dir'); mkdir(out_dir); end
 
+% Persist truth data for later validation in all frames
+try
+    truth_path = fullfile(out_dir,'IMU_X002_GNSS_X002_TRIAD_task5_truth.mat');
+    save(truth_path,'truth_data');
+    fprintf('[SAVE] Truth data saved to %s\n', truth_path);
+catch ME
+    warning('Failed to save truth data: %s', ME.message);
+end
+
 frames = {'ned','ecef','body'};
 frame_names = {'NED','ECEF','Body'};
 quantities = {'pos','vel','acc'};
