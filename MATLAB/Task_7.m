@@ -29,6 +29,19 @@ if ~isfile(truthFile)
 end
 fprintf('[DBG-T7] Using truth file: %s\n', truthFile);
 
+% Guard: skip Task 7 gracefully if truth file is missing
+if ~exist(truthFile, 'file')
+    % Try fallback to X001 (matches run_triad_only default)
+    fallback = fullfile(dataTruthDir, 'STATE_X001.txt');
+    if exist(fallback, 'file')
+        warning('Task7: Truth %s missing; falling back to %s', truthFile, fallback);
+        truthFile = fallback;
+    else
+        warning('Task7: Truth file not found: %s. Skipping Task 7.', truthFile);
+        return;
+    end
+end
+
 res5 = load(fullfile(resultsDir, sprintf('%s_task5_results.mat', runTag)));
 Ttruth = readtable(truthFile, detectImportOptions(truthFile));
 
@@ -133,9 +146,20 @@ function t = extractTimeVec(T)
 end
 
 function [P,V] = extractECEF(T)
-    P=[]; V=[]; cx = findCol(T, {'pos_ecef_x','ecef_x','x_ecef','x'}); cy = findCol(T, {'pos_ecef_y','ecef_y','y_ecef','y'}); cz = findCol(T, {'pos_ecef_z','ecef_z','z_ecef','z'});
+    P=[]; V=[];
+    cx = findCol(T, {'pos_ecef_x','ecef_x','x_ecef','x_ecef_m','x'});
+    cy = findCol(T, {'pos_ecef_y','ecef_y','y_ecef','y_ecef_m','y'});
+    cz = findCol(T, {'pos_ecef_z','ecef_z','z_ecef','z_ecef_m','z'});
+    if isempty(cx), cx = findCol(T, {'X_ECEF_m'}); end
+    if isempty(cy), cy = findCol(T, {'Y_ECEF_m'}); end
+    if isempty(cz), cz = findCol(T, {'Z_ECEF_m'}); end
     if ~isempty(cx)&&~isempty(cy)&&~isempty(cz), P = [T.(cx), T.(cy), T.(cz)]; end
-    vx = findCol(T, {'vel_ecef_x','vx_ecef','ecef_vx','vx'}); vy = findCol(T, {'vel_ecef_y','vy_ecef','ecef_vy','vy'}); vz = findCol(T, {'vel_ecef_z','vz_ecef','ecef_vz','vz'});
+    vx = findCol(T, {'vel_ecef_x','vx_ecef','ecef_vx','vx_ecef_mps','vx'});
+    vy = findCol(T, {'vel_ecef_y','vy_ecef','ecef_vy','vy_ecef_mps','vy'});
+    vz = findCol(T, {'vel_ecef_z','vz_ecef','ecef_vz','vz_ecef_mps','vz'});
+    if isempty(vx), vx = findCol(T, {'VX_ECEF_mps'}); end
+    if isempty(vy), vy = findCol(T, {'VY_ECEF_mps'}); end
+    if isempty(vz), vz = findCol(T, {'VZ_ECEF_mps'}); end
     if ~isempty(vx)&&~isempty(vy)&&~isempty(vz), V = [T.(vx), T.(vy), T.(vz)]; end
 end
 
@@ -153,4 +177,3 @@ function nm = findCol(T, cand)
         if ~isempty(idx), nm = T.Properties.VariableNames{idx}; return; end
     end
 end
-
