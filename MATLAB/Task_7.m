@@ -17,6 +17,16 @@ dsTok = regexp(runTag, 'X\d+', 'match');
 if isempty(dsTok), dsTok = {'X001'}; end
 dataset = dsTok{1};
 truthFile = fullfile(dataTruthDir, sprintf('STATE_%s.txt', dataset));
+if ~isfile(truthFile)
+    fallback = fullfile(dataTruthDir, 'STATE_X001.txt');
+    if isfile(fallback)
+        warning('Task7: truth file %s not found; using %s instead.', truthFile, fallback);
+        truthFile = fallback;
+    else
+        warning('Task7: truth file %s not found and no fallback available. Skipping Task 7.', truthFile);
+        return;
+    end
+end
 fprintf('[DBG-T7] Using truth file: %s\n', truthFile);
 
 res5 = load(fullfile(resultsDir, sprintf('%s_task5_results.mat', runTag)));
