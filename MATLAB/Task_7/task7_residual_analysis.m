@@ -92,8 +92,8 @@ end
 sgtitle('Task 7 Residuals (NED)');
 set(f,'PaperPositionMode','auto');
 pdf = fullfile(results_dir, 'task7_residuals_position_velocity.pdf');
-print(f,pdf,'-dpdf','-bestfit');
-print(f,replace(pdf,'.pdf','.png'),'-dpng');
+savefig(gcf); % replaced for interactive
+savefig(gcf); % replaced for interactive,'-dpng');
 close(f);
 
 %% Plot attitude angles
@@ -107,8 +107,8 @@ end
 sgtitle('Task 7 Attitude Angles');
 set(f,'PaperPositionMode','auto');
 pdf = fullfile(results_dir, 'task7_attitude_angles_euler.pdf');
-print(f,pdf,'-dpdf','-bestfit');
-print(f,replace(pdf,'.pdf','.png'),'-dpng');
+savefig(gcf); % replaced for interactive
+savefig(gcf); % replaced for interactive,'-dpng');
 close(f);
 
 %% Plot error norms
@@ -118,8 +118,8 @@ plot(t, vel_error_norm, 'DisplayName','|vel error|');
 xlabel('Time [s]'); ylabel('Error Norm'); legend; grid on;
 set(f,'PaperPositionMode','auto');
 pdf = fullfile(results_dir, 'task7_error_norms.pdf');
-print(f,pdf,'-dpdf','-bestfit');
-print(f,replace(pdf,'.pdf','.png'),'-dpng');
+savefig(gcf); % replaced for interactive
+savefig(gcf); % replaced for interactive,'-dpng');
 close(f);
 
 %% Difference Truth - Fused over time
@@ -188,8 +188,8 @@ function subtask7_5_plot(time, truth_pos_ned, fused_pos_ned, truth_vel_ned, fuse
         sgtitle(['Truth - Fused Differences (' frame ' Frame)']);
         set(f,'PaperPositionMode','auto');
         base = fullfile(out_dir, ['task7_diff_truth_fused_over_time_' frame]);
-        print(f,[base '.pdf'],'-dpdf','-bestfit');
-        print(f,[base '.png'],'-dpng');
+        savefig(gcf); % replaced for interactive
+        savefig(gcf); % replaced for interactive
         close(f);
     end
 end

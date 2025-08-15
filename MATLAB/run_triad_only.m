@@ -17,6 +17,9 @@ truthDir  = fullfile(dataDir, 'Truth');
 
 matResDir = fullfile(matlabDir, 'results');
 if ~exist(matResDir,'dir'); mkdir(matResDir); end
+% Ensure all MATLAB subfolders (Task_1..Task_7, utils, src, etc.) are on path
+addpath(genpath(matlabDir));
+% Keep explicit adds for clarity (redundant but harmless)
 addpath(genpath(fullfile(matlabDir,'src')));   % MATLAB utilities
 addpath(genpath(fullfile(matlabDir,'utils'))); % extra helpers
 
@@ -148,6 +151,12 @@ T = readtable(truthPath, detectImportOptions(truthPath));
 t_truth = extractTimeVec(T);
 [pos_ecef_truth, vel_ecef_truth] = extractECEF(T);
 [pos_ned_truth, vel_ned_truth]   = extractNED(T);
+% Derive truth acceleration in ECEF (if velocity available)
+acc_ecef_truth = [];
+if ~isempty(vel_ecef_truth) && numel(t_truth) >= 2
+    dt_truth = diff(t_truth);
+    acc_ecef_truth = [zeros(1,3); diff(vel_ecef_truth) ./ dt_truth];
+end
 
 % lat/lon from Task-1/4
 if isfield(res5,'ref_lat'), computed_lat_rad = res5.ref_lat; else, computed_lat_rad = 0; end
@@ -161,12 +170,16 @@ end
 if isempty(vel_ned_truth) && ~isempty(vel_ecef_truth)
     vel_ned_truth = attitude_tools('ecef2ned_vec', vel_ecef_truth, lat, lon);
 end
+acc_ned_truth = [];
+if isempty(acc_ned_truth) && ~isempty(acc_ecef_truth)
+    acc_ned_truth = attitude_tools('ecef2ned_vec', acc_ecef_truth, lat, lon);
+end
 
 % Interp truth to estimator time
 interp = @(X) attitude_tools('interp_to', t_truth, X, t_est);
 TRU_NED.pos = interp(pos_ned_truth);
 TRU_NED.vel = interp(vel_ned_truth);
-TRU_NED.acc = [];  % optional in truth
+TRU_NED.acc = interp(acc_ned_truth);
 
 % Build EST NED (convert from ECEF if missing)
 if isempty(EST.pos_ned) && ~isempty(EST.pos_ecef)
@@ -193,7 +206,7 @@ if isempty(EST.acc_ecef) && ~isempty(EST.acc_ned)
 end
 TRU_ECEF.pos = interp(pos_ecef_truth);
 TRU_ECEF.vel = interp(vel_ecef_truth);
-TRU_ECEF.acc = [];
+TRU_ECEF.acc = interp(acc_ecef_truth);
 
 % BODY with time-varying q_b2n[t] if available
 q_hist = [];
@@ -219,6 +232,43 @@ if ~isempty(TRU_NED.pos), TRU_BODY.pos = attitude_tools('ned2body_series', TRU_N
 if ~isempty(TRU_NED.vel), TRU_BODY.vel = attitude_tools('ned2body_series', TRU_NED.vel, q_hist); end
 if ~isempty(TRU_NED.acc), TRU_BODY.acc = attitude_tools('ned2body_series', TRU_NED.acc, q_hist); end
 
+% Derive fused accelerations if missing (from velocities)
+derive_acc = @(V, t) ternary(isempty(V) || isempty(t) || numel(t) < 2, [], ...
+                    [zeros(1,3); diff(V) ./ diff(t)]);
+if isempty(EST.acc_ned) && ~isempty(EST.vel_ned)
+    EST.acc_ned = derive_acc(EST.vel_ned, t_est);
+    EST_NED.acc = EST.acc_ned;
+end
+if isempty(EST.acc_ecef) && ~isempty(EST.vel_ecef)
+    EST.acc_ecef = derive_acc(EST.vel_ecef, t_est);
+end
+if isempty(EST_BODY.acc) && ~isempty(EST_NED.acc)
+    EST_BODY.acc = attitude_tools('ned2body_series', EST_NED.acc, q_hist);
+end
+
+% --- Task 5: Fused vs Truth only (no GNSS) ---
+[~, imu_base]  = fileparts(cfg.imu_path);
+[~, gnss_base] = fileparts(cfg.gnss_path);
+subtitle = sprintf('%s | %s | Truth = %s', imu_base, gnss_base, 'STATE_X001.txt');
+
+% NED figure
+plot_task5_fused_vs_truth(t_est, ...
+    struct('pos',EST_NED.pos, 'vel',EST_NED.vel, 'acc',EST_NED.acc), ...
+    struct('pos',TRU_NED.pos, 'vel',TRU_NED.vel, 'acc',TRU_NED.acc), ...
+    'NED', sprintf('%s_task5_NED_state', runTag), subtitle, resultsDir);
+
+% ECEF figure
+plot_task5_fused_vs_truth(t_est, ...
+    struct('pos',EST.pos_ecef, 'vel',EST.vel_ecef, 'acc',EST.acc_ecef), ...
+    struct('pos',TRU_ECEF.pos, 'vel',TRU_ECEF.vel, 'acc',TRU_ECEF.acc), ...
+    'ECEF', sprintf('%s_task5_ECEF_state', runTag), subtitle, resultsDir);
+
+% BODY figure
+plot_task5_fused_vs_truth(t_est, ...
+    struct('pos',EST_BODY.pos, 'vel',EST_BODY.vel, 'acc',EST_BODY.acc), ...
+    struct('pos',TRU_BODY.pos, 'vel',TRU_BODY.vel, 'acc',TRU_BODY.acc), ...
+    'BODY', sprintf('%s_task5_BODY_state', runTag), subtitle, resultsDir);
+
 % 3×3 overlays (PNG+FIG)
 out6 = fullfile(resultsDir, sprintf('%s_task6_', runTag));
 fprintf('[DBG-T6] EST_NED.pos=%s TRU_NED.pos=%s\n', mat2str(size(EST_NED.pos)), mat2str(size(TRU_NED.pos)));
@@ -240,6 +290,85 @@ if exist('Task_7.m','file')
 end
 
 fprintf('TRIAD processing complete for %s\n', cfg.dataset_id);
+end
+
+function plot_task5_fused_vs_truth(t, F, T, frameName, outStem, subtitle, outDir)
+    % Build a 3x3 grid: rows X/Y/Z or N/E/D per frame; cols: Pos/Vel/Acc
+    % Style: Fused solid blue, Truth dotted black
+    if nargin < 7 || isempty(outDir)
+        outDir = fullfile(fileparts(mfilename('fullpath')), 'results');
+    end
+    if ~exist(outDir,'dir'); mkdir(outDir); end
+    fig = figure('Visible','off');
+    set(fig, 'Units', 'pixels', 'Position', [100 100 1800 1200]);
+    tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
+    if strcmpi(frameName,'NED'); labs = {'North','East','Down'}; else; labs = {'X','Y','Z'}; end
+    % Helpers
+    function [isMissing, y] = getSig(S, field, idx)
+        isMissing = true; y = nan(size(t));
+        if isfield(S, field) && ~isempty(S.(field)) && size(S.(field),2) >= idx
+            y = S.(field)(:,idx);
+            if all(~isfinite(y)) || all(isnan(y))
+                isMissing = true; y(:) = nan;
+            else
+                isMissing = false;
+            end
+        end
+    end
+    warn_msgs = strings(0);
+    for r = 1:3 % rows: axes
+        axLabel = labs{r};
+        for c = 1:3 % cols: pos/vel/acc
+            nexttile; hold on; grid on;
+            switch c
+                case 1
+                    [tMiss, yT] = getSig(T,'pos',r);
+                    [fMiss, yF] = getSig(F,'pos',r);
+                    ylab = sprintf('%s %s', 'Position [m]', axLabel);
+                case 2
+                    [tMiss, yT] = getSig(T,'vel',r);
+                    [fMiss, yF] = getSig(F,'vel',r);
+                    ylab = sprintf('%s %s', 'Velocity [m/s]', axLabel);
+                case 3
+                    [tMiss, yT] = getSig(T,'acc',r);
+                    [fMiss, yF] = getSig(F,'acc',r);
+                    ylab = sprintf('%s %s', 'Acceleration [m/s^2]', axLabel);
+            end
+            % Plot Truth (dotted black) if present
+            if ~tMiss
+                hT = plot(t, yT, 'k:', 'LineWidth', 1.5, 'DisplayName', 'Truth');
+            else
+                hT = plot(nan, nan, 'k:', 'LineWidth', 1.5, 'DisplayName', 'Truth (missing)');
+                text(mean(t(~isnan(t))), 0, sprintf('⚠ Truth missing for %s %s — not shown', ...
+                    strtok(ylab,' '), axLabel), 'Color',[0.8 0 0], 'HorizontalAlignment','center');
+            end
+            % Plot Fused (solid blue) if present
+            if ~fMiss
+                hF = plot(t, yF, 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused');
+            else
+                hF = plot(nan, nan, 'b-', 'LineWidth', 1.5, 'DisplayName', 'Fused (missing)');
+                text(mean(t(~isnan(t))), 0, sprintf('⚠ Fused missing for %s %s — not shown', ...
+                    strtok(ylab,' '), axLabel), 'Color',[0.8 0 0], 'HorizontalAlignment','center');
+            end
+            xlabel('Time [s]'); ylabel(ylab); set(gca,'FontSize',12);
+            if r==1 && c==2
+                legend([hF hT], {'Fused','Truth'}, 'Location','northoutside','Orientation','horizontal');
+            end
+        end
+    end
+    sgtitle(sprintf('Task 5: Fused vs Truth (%s)\n%s', frameName, subtitle));
+    % Save .fig
+    figFile = fullfile(outDir, [outStem '.fig']);
+    try, savefig(fig, figFile); catch, end
+    % Save PNG 1800x1200 @200DPI and validate
+    pngFile = fullfile(outDir, [outStem '.png']);
+    print(fig, pngFile, '-dpng', '-r200');
+    info = dir(pngFile);
+    if isempty(info) || info.bytes < 5000
+        error('Save failed: %s', [outStem '.png']);
+    end
+    fprintf('[SAVE] %s (%d bytes)\n', [outStem '.png'], info.bytes);
+    close(fig);
 end
 
 function t = extractTimeVec(T)
@@ -292,4 +421,3 @@ function nm = findCol(T, cand)
         if ~isempty(idx), nm = T.Properties.VariableNames{idx}; return; end
     end
 end
-

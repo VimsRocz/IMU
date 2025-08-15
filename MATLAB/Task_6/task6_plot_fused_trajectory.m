@@ -93,7 +93,7 @@ for frame_name = {'NED','ECEF'}
     end
     tightfig();
     out_name = sprintf('%s_%s_%s_task6_fused_position_%s', imu_file, gnss_file, method, lower(fr));
-    print(f1, fullfile(res_dir,[out_name '.pdf']), '-dpdf', '-bestfit');
+    savefig(gcf); % replaced for interactive, '-dpdf', '-bestfit');
     close(f1);
 
     f2 = figure('Visible','off','Position',[100 100 600 700]);
@@ -106,7 +106,7 @@ for frame_name = {'NED','ECEF'}
     end
     tightfig();
     out_name = sprintf('%s_%s_%s_task6_fused_velocity_%s', imu_file, gnss_file, method, lower(fr));
-    print(f2, fullfile(res_dir,[out_name '.pdf']), '-dpdf', '-bestfit');
+    savefig(gcf); % replaced for interactive, '-dpdf', '-bestfit');
     close(f2);
 end
 
@@ -120,7 +120,7 @@ for i = 1:3
 end
 tightfig();
 out_name = sprintf('%s_%s_%s_task6_position_error_ned', imu_file, gnss_file, method);
-print(f3, fullfile(res_dir,[out_name '.pdf']), '-dpdf', '-bestfit');
+savefig(gcf); % replaced for interactive, '-dpdf', '-bestfit');
 close(f3);
 
 fprintf('Task 6: %s final position error %.3f m, RMSEpos %.3f m, RMSEvel %.3f m/s\n', ...

@@ -97,7 +97,7 @@ function plot_error_over_time(frame, pos_err, vel_err, t, tag, out_base)
     pdf = [out_base '.pdf'];
     png = [out_base '.png'];
     exportgraphics(f, png,'Resolution',300);
-    saveas(f, pdf);
+    savefig(f);
     close(f);
     warning(warn_state);
 end

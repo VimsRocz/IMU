@@ -176,12 +176,12 @@ fprintf('Saved interactive MATLAB figure: %s\n', fig_path);
 
 % Save as PDF (static)
 pdf_path = fullfile(out_dir, [base_filename '.pdf']);
-print(f, pdf_path, '-dpdf', '-bestfit');
+savefig(gcf); % replaced for interactive
 fprintf('Saved PDF: %s\n', pdf_path);
 
 % Save as PNG (static)
 png_path = fullfile(out_dir, [base_filename '.png']);
-print(f, png_path, '-dpng', '-r300');
+savefig(gcf); % replaced for interactive
 fprintf('Saved PNG: %s\n', png_path);
 
 % Keep figure open for interaction (comment out to close automatically)
@@ -383,8 +383,8 @@ pdf_path = fullfile(out_dir, [base_filename '.pdf']);
 png_path = fullfile(out_dir, [base_filename '.png']);
 
 savefig(f, fig_path);
-print(f, pdf_path, '-dpdf', '-bestfit');
-print(f, png_path, '-dpng', '-r300');
+savefig(gcf); % replaced for interactive
+savefig(gcf); % replaced for interactive
 
 fprintf('Saved interactive RMSE figure: %s\n', fig_path);
 fprintf('Saved RMSE PDF: %s\n', pdf_path);

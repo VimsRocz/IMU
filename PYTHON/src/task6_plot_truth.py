@@ -20,6 +20,37 @@ def derive_run_id(est_file: Path) -> str:
     return stem.replace('_kf_output', '')
 
 
+def _get_ref_scalar(store: dict, keys: list[str]):
+    """Return first available scalar value for any key in ``keys``.
+
+    Handles numpy arrays and MATLAB-style scalars by squeezing and taking the
+    first element. Returns ``None`` if no key is present.
+    """
+    for k in keys:
+        if k in store and store[k] is not None:
+            v = np.asarray(store[k]).squeeze()
+            if v.size >= 1:
+                try:
+                    return float(v.flat[0])
+                except Exception:
+                    continue
+    return None
+
+
+def _get_ref_vec3(store: dict, keys: list[str]):
+    """Return first available 3-vector for any key in ``keys``.
+
+    Coerces to ``float64`` and returns shape ``(3,)`` when possible.
+    Returns ``None`` if not found.
+    """
+    for k in keys:
+        if k in store and store[k] is not None:
+            v = np.asarray(store[k], dtype=float).reshape(-1)
+            if v.size >= 3:
+                return v[:3]
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--est-file', required=True)
@@ -78,7 +109,7 @@ def main():
     if t_est is None:
         t_est = est.get('time_s')
     if t_est is None:
-        dt = est.get('dt') or est.get('imu_dt') or 0.0
+        dt = _get_ref_scalar(est, ['dt', 'imu_dt']) or 0.0
         n = None
         for key in ('pos_ned_m','pos_ecef_m','pos_body_m'):
             if key in est:
@@ -93,11 +124,9 @@ def main():
         )
 
     # Reference lat/lon/r0
-    ref_lat_rad = est.get('ref_lat_rad') or est.get('lat_rad') or est.get('lat0_rad')
-    ref_lon_rad = est.get('ref_lon_rad') or est.get('lon_rad') or est.get('lon0_rad')
-    ref_r0_m = est.get('ref_r0_m') or est.get('r0') or est.get('r0_ecef_m')
-    if ref_r0_m is not None:
-        ref_r0_m = np.asarray(ref_r0_m).reshape(3)
+    ref_lat_rad = _get_ref_scalar(est, ['ref_lat_rad', 'lat_rad', 'lat0_rad', 'lat'])
+    ref_lon_rad = _get_ref_scalar(est, ['ref_lon_rad', 'lon_rad', 'lon0_rad', 'lon'])
+    ref_r0_m = _get_ref_vec3(est, ['ref_r0_m', 'r0', 'r0_ecef_m', 'ecef_ref'])
     if ref_lat_rad is None or ref_lon_rad is None or ref_r0_m is None:
         print("[Task6] ref values missing, deriving from first GNSS sample")
         if args.gnss_file:
@@ -221,4 +250,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

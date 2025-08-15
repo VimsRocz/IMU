@@ -1,43 +1,37 @@
-function run_all_methods()
-%RUN_ALL_METHODS Execute Tasks 1--7 for the X002 dataset using TRIAD.
-%   This helper mirrors ``src/run_triad_only.py`` but uses the MATLAB
-%   implementation exclusively.  All intermediate files are generated
-%   and consumed by MATLAB so the pipeline runs independently of any
-%   Python results. Dataset files are referenced directly from the
-%   repository root and outputs are stored under ``results/`` using the
-%   standard naming convention.
+% Run all methods for Tasks 1–7
+% Author: Auto-generated
+% Date: 2025-08-15 09:48:55
+% Description: Minimal orchestrator to run all methods and task scripts.
 
-    dataset.imu  = 'IMU_X002.dat';
-    dataset.gnss = 'GNSS_X002.csv';
-    method = 'TRIAD';
+clear; clc;
 
-    root_dir  = fileparts(fileparts(mfilename('fullpath')));
-    imu_path  = fullfile(root_dir, dataset.imu);
-    gnss_path = fullfile(root_dir, dataset.gnss);
+% Resolve MATLAB directory for robust relative paths
+this_file = mfilename('fullpath');
+matlab_dir = fileparts(this_file);
+orig_dir = pwd; cd(matlab_dir);
+cleanupObj = onCleanup(@() cd(orig_dir));
 
-    if ~isfile(imu_path) || ~isfile(gnss_path)
-        error('File not found: %s or %s', imu_path, gnss_path);
-    end
+% Environment
+addpath(genpath(matlab_dir));
+format long;
+set(0, 'DefaultFigureVisible', 'on');
 
-    Task_1(imu_path, gnss_path, method);
+% Task 1–3: method-only runners
+run('run_triad_only.m');
+run('run_svd_only.m');
+run('run_davenport_only.m');
 
-    Task_2(imu_path, gnss_path, method);
-    Task_3(imu_path, gnss_path, method);
-    Task_4(imu_path, gnss_path, method);
-    Task_5(imu_path, gnss_path, method);
-
-    res_file = fullfile(get_results_dir(), sprintf('IMU_X002_GNSS_X002_%s_task5_results.mat', method));
-    truth_file = fullfile(root_dir, 'STATE_X001.txt');
-    if isfile(res_file) && isfile(truth_file)
-        [~, imu_name, ~]  = fileparts(dataset.imu);
-        [~, gnss_name, ~] = fileparts(dataset.gnss);
-        run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
-        disp('--- Running Task 6: Truth Overlay/Validation ---');
-        Task_6(res_file, truth_file, run_id);
-        disp('--- Running Task 7: Residuals & Summary ---');
-        Task_7(run_id);
-        disp('Task 6 and Task 7 complete. See results directory for plots and PDF summaries.');
+% Task 4–7: main task scripts (if present)
+task_dirs = {'Task_4','Task_5','Task_6','Task_7'};
+task_scripts = {'Task_4.m','Task_5.m','Task_6.m','Task_7.m'};
+for k = 1:numel(task_dirs)
+    td = fullfile(matlab_dir, task_dirs{k});
+    ts = fullfile(td, task_scripts{k});
+    if exist(ts, 'file')
+        cd(td);
+        run(task_scripts{k});
+        cd(matlab_dir);
     else
-        warning('Task 6 or Task 7 skipped: Missing Task 5 results or truth file.');
+        fprintf('Skipping %s (missing %s)\n', task_dirs{k}, task_scripts{k});
     end
 end

@@ -49,14 +49,14 @@ fname = fullfile(results_dir, sprintf('%s_task5_gnss_interp_ned', run_id));
 % Use best-fit printing to avoid page cut-off warnings
 set(fig, 'PaperPositionMode', 'auto');
 if cfg.plots.save_pdf
-    print(fig, [fname '.pdf'], '-dpdf', '-bestfit');
+    savefig(gcf); % replaced for interactive
 end
 if cfg.plots.save_png
     try
         exportgraphics(fig, [fname '.png'], 'Resolution', 300);
     catch
         % Fallback for older MATLAB versions
-        print(fig, [fname '.png'], '-dpng', '-r300');
+        savefig(gcf); % replaced for interactive
     end
 end
 close(fig);

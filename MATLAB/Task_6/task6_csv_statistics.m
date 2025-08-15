@@ -99,8 +99,8 @@ ylabel('Frequency');
 grid on;
 
 base = fullfile(output_dir, 'task6_histogram');
-print(fig, [base '.pdf'], '-dpdf', '-bestfit');
-saveas(fig, [base '.png']);
+savefig(gcf); % replaced for interactive
+savefig(fig);
 close(fig);
 
 fprintf('Histogram saved as %s.[pdf,png]\n', base);

@@ -111,8 +111,8 @@ set(f_ned,'PaperPositionMode','auto');
 
 pdf_ned = fullfile(results_dir, sprintf('%s_task6_overlay_state_NED.pdf', run_id));
 png_ned = strrep(pdf_ned,'.pdf','.png');
-print(f_ned, pdf_ned, '-dpdf', '-bestfit');
-print(f_ned, png_ned, '-dpng', '-bestfit');
+savefig(gcf); % replaced for interactive
+savefig(gcf); % replaced for interactive
 close(f_ned);
 
 f_ecef = figure('Visible','off');
@@ -128,8 +128,8 @@ set(f_ecef,'PaperPositionMode','auto');
 
 pdf_ecef = fullfile(results_dir, sprintf('%s_task6_overlay_state_ECEF.pdf', run_id));
 png_ecef = strrep(pdf_ecef,'.pdf','.png');
-print(f_ecef, pdf_ecef, '-dpdf', '-bestfit');
-print(f_ecef, png_ecef, '-dpng', '-bestfit');
+savefig(gcf); % replaced for interactive
+savefig(gcf); % replaced for interactive
 close(f_ecef);
 
 f_body = figure('Visible','off');
@@ -144,8 +144,8 @@ set(f_body,'PaperPositionMode','auto');
 
 pdf_body = fullfile(results_dir, sprintf('%s_task6_overlay_state_Body.pdf', run_id));
 png_body = strrep(pdf_body,'.pdf','.png');
-print(f_body, pdf_body, '-dpdf', '-bestfit');
-print(f_body, png_body, '-dpng', '-bestfit');
+savefig(gcf); % replaced for interactive
+savefig(gcf); % replaced for interactive
 close(f_body);
 
 f_att = figure('Visible','off');
@@ -156,8 +156,8 @@ set(f_att,'PaperPositionMode','auto');
 
 pdf_att = fullfile(results_dir, sprintf('%s_task6_attitude_angles.pdf', run_id));
 png_att = strrep(pdf_att,'.pdf','.png');
-print(f_att, pdf_att, '-dpdf', '-bestfit');
-print(f_att, png_att, '-dpng', '-bestfit');
+savefig(gcf); % replaced for interactive
+savefig(gcf); % replaced for interactive
 close(f_att);
 
 % Summary table

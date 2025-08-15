@@ -70,8 +70,8 @@ xlabel('Sample'); ylabel('Residual (m/s)');
 title('Velocity Residuals (NED)');
 
 base = fullfile(out_dir, sprintf('%s_task7_3_residuals_position_velocity', run_id));
-print(fig, [base '.pdf'], '-dpdf', '-bestfit');
-print(fig, [base '.png'], '-dpng', '-bestfit');
+savefig(gcf); % replaced for interactive
+savefig(gcf); % replaced for interactive
 close(fig);
 fprintf('Saved %s.pdf\n', base);
 

@@ -1305,6 +1305,16 @@ def main():
                     "k-",
                     label="Derived GNSS (ECEF→NED)",
                 )
+                # Also overlay IMU-derived position (Body→NED) for each method
+                for m in methods:
+                    c = colors.get(m, None)
+                    ax.plot(
+                        t_rel_ilu,
+                        pos_integ[m][:, j],
+                        color=c,
+                        alpha=0.7,
+                        label=f"Derived IMU (Body→NED) ({m})",
+                    )
                 ax.set_title(f"Position {directions_ned[j]}")
             elif i == 1:  # Velocity
                 ax.plot(
@@ -1313,6 +1323,16 @@ def main():
                     "k-",
                     label="Derived GNSS (ECEF→NED)",
                 )
+                # Also overlay IMU-derived velocity (Body→NED) for each method
+                for m in methods:
+                    c = colors.get(m, None)
+                    ax.plot(
+                        t_rel_ilu,
+                        vel_integ[m][:, j],
+                        color=c,
+                        alpha=0.7,
+                        label=f"Derived IMU (Body→NED) ({m})",
+                    )
                 ax.set_title(f"Velocity V{directions_ned[j]}")
             else:  # Acceleration
                 for m in methods:
@@ -2038,16 +2058,25 @@ def main():
     fig_ned_all, ax_ned_all = plt.subplots(3, 3, figsize=(15, 10))
     dirs_ned = ["N", "E", "D"]
     c = colors.get(method, None)
+    use_truth_ned = (truth_pos_ned_i is not None) and (truth_vel_ned_i is not None)
     for i in range(3):
         for j in range(3):
             ax = ax_ned_all[i, j]
             if i == 0:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_pos_ned[:, j],
-                    "k-",
-                    label="Derived GNSS (ECEF→NED)",
-                )
+                if use_truth_ned:
+                    ax.plot(
+                        t_rel_ilu,
+                        truth_pos_ned_i[:, j],
+                        "k-",
+                        label="Truth",
+                    )
+                else:
+                    ax.plot(
+                        t_rel_gnss,
+                        gnss_pos_ned[:, j],
+                        "k-",
+                        label="Derived GNSS (ECEF→NED)",
+                    )
                 ax.plot(
                     t_rel_ilu,
                     fused_pos[method][:, j],
@@ -2055,16 +2084,22 @@ def main():
                     alpha=0.7,
                     label=f"Fused (GNSS+IMU, {method})",
                 )
-                if truth_pos_ned_i is not None:
-                    ax.plot(t_rel_ilu, truth_pos_ned_i[:, j], "m-", label="Truth")
                 ax.set_title(f"Position {dirs_ned[j]}")
             elif i == 1:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_vel_ned[:, j],
-                    "k-",
-                    label="Derived GNSS (ECEF→NED)",
-                )
+                if use_truth_ned:
+                    ax.plot(
+                        t_rel_ilu,
+                        truth_vel_ned_i[:, j],
+                        "k-",
+                        label="Truth",
+                    )
+                else:
+                    ax.plot(
+                        t_rel_gnss,
+                        gnss_vel_ned[:, j],
+                        "k-",
+                        label="Derived GNSS (ECEF→NED)",
+                    )
                 ax.plot(
                     t_rel_ilu,
                     fused_vel[method][:, j],
@@ -2072,8 +2107,6 @@ def main():
                     alpha=0.7,
                     label=f"Fused (GNSS+IMU, {method})",
                 )
-                if truth_vel_ned_i is not None:
-                    ax.plot(t_rel_ilu, truth_vel_ned_i[:, j], "m-", label="Truth")
                 ax.set_title(f"Velocity V{dirs_ned[j]}")
             else:
                 ax.plot(
@@ -2093,7 +2126,10 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused vs. Derived GNSS)")
+    if use_truth_ned:
+        fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused vs. TRUTH)")
+    else:
+        fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused vs. Derived GNSS)")
     fig_ned_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         save_plot(
@@ -2115,6 +2151,7 @@ def main():
     pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
     vel_ecef = (C_NED_to_ECEF @ fused_vel[method].T).T
     acc_ecef = (C_NED_to_ECEF @ fused_acc[method].T).T
+    use_truth_ecef = (truth_pos_ecef_i is not None) and (truth_vel_ecef_i is not None)
 
     for name, arr in (
         ("pos_ecef", pos_ecef),
@@ -2128,12 +2165,20 @@ def main():
         for j in range(3):
             ax = ax_ecef_all[i, j]
             if i == 0:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_pos_ecef[:, j],
-                    "k-",
-                    label="Measured GNSS Position",
-                )
+                if use_truth_ecef:
+                    ax.plot(
+                        t_rel_ilu,
+                        truth_pos_ecef_i[:, j],
+                        "k-",
+                        label="Truth",
+                    )
+                else:
+                    ax.plot(
+                        t_rel_gnss,
+                        gnss_pos_ecef[:, j],
+                        "k-",
+                        label="Measured GNSS Position",
+                    )
                 ax.plot(
                     t_rel_ilu,
                     pos_ecef[:, j],
@@ -2141,16 +2186,22 @@ def main():
                     alpha=0.7,
                     label=f"Fused (GNSS+IMU, {method})",
                 )
-                if truth_pos_ecef_i is not None:
-                    ax.plot(t_rel_ilu, truth_pos_ecef_i[:, j], "m-", label="Truth")
                 ax.set_title(f"Position {dirs_ecef[j]}_ECEF")
             elif i == 1:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_vel_ecef[:, j],
-                    "k-",
-                    label="Measured GNSS Velocity",
-                )
+                if use_truth_ecef:
+                    ax.plot(
+                        t_rel_ilu,
+                        truth_vel_ecef_i[:, j],
+                        "k-",
+                        label="Truth",
+                    )
+                else:
+                    ax.plot(
+                        t_rel_gnss,
+                        gnss_vel_ecef[:, j],
+                        "k-",
+                        label="Measured GNSS Velocity",
+                    )
                 ax.plot(
                     t_rel_ilu,
                     vel_ecef[:, j],
@@ -2158,8 +2209,6 @@ def main():
                     alpha=0.7,
                     label=f"Fused (GNSS+IMU, {method})",
                 )
-                if truth_vel_ecef_i is not None:
-                    ax.plot(t_rel_ilu, truth_vel_ecef_i[:, j], "m-", label="Truth")
                 ax.set_title(f"Velocity V{dirs_ecef[j]}_ECEF")
             else:
                 ax.plot(
@@ -2179,9 +2228,14 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_ecef_all.suptitle(
-        f"Task 5 – {method} – ECEF Frame (Fused vs. Measured GNSS; Acc Derived)"
-    )
+    if use_truth_ecef:
+        fig_ecef_all.suptitle(
+            f"Task 5 – {method} – ECEF Frame (Fused vs. TRUTH; Acc Derived)"
+        )
+    else:
+        fig_ecef_all.suptitle(
+            f"Task 5 – {method} – ECEF Frame (Fused vs. Measured GNSS; Acc Derived)"
+        )
     fig_ecef_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         save_plot(
@@ -2210,16 +2264,25 @@ def main():
     gnss_pos_body = (C_N_B @ gnss_pos_ned.T).T
     gnss_vel_body = (C_N_B @ gnss_vel_ned.T).T
     gnss_acc_body = (C_N_B @ gnss_acc_ned.T).T
+    use_truth_body = (truth_pos_ned_i is not None) and (truth_vel_ned_i is not None)
     for i in range(3):
         for j in range(3):
             ax = ax_body_all[i, j]
             if i == 0:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_pos_body[:, j],
-                    "k-",
-                    label="Derived GNSS",
-                )
+                if use_truth_body:
+                    ax.plot(
+                        t_rel_ilu,
+                        truth_pos_body[:, j],
+                        "k-",
+                        label="Truth",
+                    )
+                else:
+                    ax.plot(
+                        t_rel_gnss,
+                        gnss_pos_body[:, j],
+                        "k-",
+                        label="Derived GNSS",
+                    )
                 ax.plot(
                     t_rel_ilu,
                     pos_body[:, j],
@@ -2227,16 +2290,22 @@ def main():
                     alpha=0.7,
                     label=f"Fused (GNSS+IMU, {method})",
                 )
-                if truth_pos_ned_i is not None:
-                    ax.plot(t_rel_ilu, truth_pos_body[:, j], "m-", label="Truth")
                 ax.set_title(f"Position r{dirs_body[j]}_body")
             elif i == 1:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_vel_body[:, j],
-                    "k-",
-                    label="Derived GNSS",
-                )
+                if use_truth_body:
+                    ax.plot(
+                        t_rel_ilu,
+                        truth_vel_body[:, j],
+                        "k-",
+                        label="Truth",
+                    )
+                else:
+                    ax.plot(
+                        t_rel_gnss,
+                        gnss_vel_body[:, j],
+                        "k-",
+                        label="Derived GNSS",
+                    )
                 ax.plot(
                     t_rel_ilu,
                     vel_body[:, j],
@@ -2244,8 +2313,6 @@ def main():
                     alpha=0.7,
                     label=f"Fused (GNSS+IMU, {method})",
                 )
-                if truth_vel_ned_i is not None:
-                    ax.plot(t_rel_ilu, truth_vel_body[:, j], "m-", label="Truth")
                 ax.set_title(f"Velocity v{dirs_body[j]}_body")
             else:
                 ax.plot(
@@ -2265,7 +2332,10 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused vs. Derived GNSS)")
+    if use_truth_body:
+        fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused vs. TRUTH)")
+    else:
+        fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused vs. Derived GNSS)")
     fig_body_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         save_plot(

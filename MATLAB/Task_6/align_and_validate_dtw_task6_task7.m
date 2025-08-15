@@ -124,7 +124,7 @@ end
 sgtitle(sprintf('%s Task 6 Results (NED)', method));
 set(fig,'PaperPositionMode','auto');
 pdf = fullfile(out_dir, sprintf('%s_task6_results_ned.pdf', method));
-print(fig, pdf, '-dpdf');
+savefig(gcf); % replaced for interactive
 close(fig);
 end
 
