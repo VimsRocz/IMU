@@ -72,6 +72,22 @@ def _ned_to_ecef(pos_ned, ref_lat, ref_lon, ref_ecef, vel_ned=None, debug=False)
     return pos_ecef, vel_ecef
 
 
+def _enforce_continuity(q):
+    """
+    Enforce temporal continuity on quaternion series (prevent sign flips).
+    Matches MATLAB's att_utils('enforce_continuity', q) functionality.
+    """
+    q = np.asarray(q, float)
+    if q.ndim == 1:
+        return q
+    
+    q_cont = q.copy()
+    for k in range(1, len(q)):
+        if np.dot(q_cont[k], q_cont[k-1]) < 0:
+            q_cont[k] = -q_cont[k]
+    return q_cont
+
+
 def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=False, debug=False):
     """Compute error metrics between an estimate and ground truth.
 
@@ -1174,20 +1190,31 @@ def main():
                         qe_wxyz_full = as_wxyz_from_xyzw(np.asarray(qraw, float))
                     qe_wxyz = qe_wxyz_full[mask_est]
 
-                    # Normalize and hemisphere fix
+                    # FIX 1: Normalize quaternions first
                     qt = qt_wxyz / np.linalg.norm(qt_wxyz, axis=1, keepdims=True)
                     qe = qe_wxyz / np.linalg.norm(qe_wxyz, axis=1, keepdims=True)
+                    
+                    # FIX 2: Enforce temporal continuity first (like MATLAB's enforce_continuity)
+                    qt = _enforce_continuity(qt)
+                    qe = _enforce_continuity(qe)
+                    
+                    # FIX 3: Then do hemisphere alignment between truth and estimate
                     d = np.sum(qt * qe, axis=1)
                     s = np.sign(d)
                     s[s == 0] = 1.0
                     qe = qe * s[:, None]
-                    dot_abs = np.clip(np.abs(np.sum(qt * qe, axis=1)), 0.0, 1.0)
-                    ang = 2.0 * np.degrees(np.arccos(dot_abs))
+                    
+                    # FIX 4: Compute angle error after proper alignment
+                    dot_product = np.sum(qt * qe, axis=1)
+                    dot_product = np.clip(dot_product, -1.0, 1.0)  # Handle numerical precision
+                    ang = 2.0 * np.degrees(np.arccos(np.abs(dot_product)))
+                    
                     # short-window score to prefer the correct layout
                     wmask = te_win <= (t0 + min(30.0, (t1 - t0)))
                     score = float(np.median(ang[wmask])) if np.any(wmask) else float(np.median(ang))
-                    # Euler for plotting (Z-Y-X yaw,pitch,roll)
-                    eul_truth = R.from_quat(qt_xyzw).as_euler("zyx", degrees=True)
+                    
+                    # FIX 5: Ensure consistent Euler conversion (both use same format)
+                    eul_truth = R.from_quat(as_xyzw_from_wxyz(qt)).as_euler("zyx", degrees=True)
                     eul_est = R.from_quat(as_xyzw_from_wxyz(qe)).as_euler("zyx", degrees=True)
                     cand.append({
                         "score": score,
