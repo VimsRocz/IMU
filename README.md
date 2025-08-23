@@ -24,6 +24,7 @@ This repository hosts parallel Python and MATLAB implementations for IMU/GNSS in
 - [Sample Processing Report](#sample-processing-report)
 - [Task 6: State Overlay](#task-6-state-overlay)
 - [Task 7: Evaluation of Filter Results](#task-7-evaluation-of-filter-results)
+- [Task 8: IMU Vibration Analysis and Compensation](#task-8-imu-vibration-analysis-and-compensation)
 - [Verifying Earth Rotation Rate](#verifying-earth-rotation-rate)
 - [Automated figure generation](#automated-figure-generation)
 - [Summary CSV format](#summary-csv-format)
@@ -183,6 +184,7 @@ The pipeline tasks correspond to steps in the MATLAB implementation. Each task p
 | Task 5 – Kalman Fusion | IMU-only trajectory and GNSS updates | Fused trajectory from a simple Kalman filter | [docs/TRIAD_Task5_Wiki.md](docs/TRIAD_Task5_Wiki.md) |
 | Task 6 – Truth Overlay | Task 5 results and recorded reference trajectory | Figures with truth overlaid on fused trajectory | [docs/TRIAD_Task6_Wiki.md](docs/TRIAD_Task6_Wiki.md) |
 | Task 7 – Evaluation | Data and results from previous tasks | Analysis of filter residuals and attitude stability | [docs/Python/Task7_Python.md](docs/Python/Task7_Python.md), [docs/MATLAB/Task7_MATLAB.md](docs/MATLAB/Task7_MATLAB.md) |
+| Task 8 – Vibration Analysis | IMU data with potential vibration effects | Vibration detection, compensation, and analysis reports | [Task 8 Documentation](#task-8-imu-vibration-analysis-and-compensation) |
 
 ### Datasets
 
@@ -536,6 +538,126 @@ IMU/
     ├── config/           # configs (if any)
     └── docs/             # MATLAB-specific docs (see top-level docs/MATLAB)
 ```
+
+### Task 8: IMU Vibration Analysis and Compensation
+
+Task 8 provides comprehensive vibration analysis and compensation for IMU data. This task addresses the challenge of vibration effects on accelerometer and gyroscope measurements, which is particularly important for UAVs, micro aerial vehicles (MAVs), and other platforms subject to motor, rotor, or structural vibrations.
+
+#### Features
+
+**Vibration Simulation:**
+- Multiple vibration types: sinusoidal, random, motor, and quadrotor patterns
+- Realistic vibration models based on rotor dynamics and motor harmonics
+- Integration with waypoint trajectory simulation
+- Configurable amplitude, frequency, and harmonic content
+
+**Vibration Detection:**
+- Statistical methods using variance analysis
+- Frequency-domain detection with configurable frequency ranges
+- Spectral entropy analysis for vibration characterization
+- Adaptive thresholding and robust detection algorithms
+
+**Vibration Compensation:**
+- Butterworth low-pass filtering
+- Notch filtering for specific frequency removal
+- Adaptive filtering using LMS algorithms
+- Wavelet denoising techniques
+- Kalman filtering approaches
+
+#### Usage Examples
+
+**Python:**
+```python
+# Import vibration modules
+from vibration_model import VibrationModel, create_quadrotor_vibration_model
+from vibration_compensation import VibrationAnalyzer
+from task8_vibration_analysis import task8_vibration_analysis
+
+# Create vibration model
+vibration_model = create_quadrotor_vibration_model(fs=400.0, rotor_frequency=120.0)
+
+# Generate vibration signals
+vibration_signals = vibration_model.generate_vibration(10.0, 'rotor', 
+                                                      rotor_frequency=120.0,
+                                                      amplitude_acc=2.5)
+
+# Analyze and compensate vibration in IMU data  
+analyzer = VibrationAnalyzer(fs=400.0)
+results = analyzer.analyze_and_compensate(imu_data, 
+                                        detection_method='frequency',
+                                        compensation_method='butterworth')
+
+# Run complete Task 8 analysis
+task8_results = task8_vibration_analysis(imu_data, 'results/', fs=400.0)
+```
+
+**MATLAB:**
+```matlab
+% Generate vibration signals
+vibration = generate_vibration_model(10, 400, 'Type', 'rotor', ...
+                                    'Frequency', 120, 'NumBlades', 4, ...
+                                    'AmplitudeAcc', 2.5, 'AmplitudeGyro', 0.25);
+
+% Detect vibration
+detection_result = detect_vibration(imu_data, 400, 'Method', 'frequency', ...
+                                   'FreqRange', [50, 200]);
+
+% Compensate vibration  
+compensation_result = compensate_vibration(imu_data, 400, 'Method', 'butterworth', ...
+                                         'CutoffFreq', 20);
+
+% Run complete examples
+run_vibration_examples();
+```
+
+#### Integration with Existing Pipeline
+
+Task 8 integrates seamlessly with the existing IMU processing pipeline:
+
+```python
+# Run Task 8 as part of the processing chain
+python PYTHON/src/task8_vibration_analysis.py
+
+# Or integrate with existing tasks
+from task8_vibration_analysis import task8_vibration_analysis
+
+# After Tasks 1-7, add vibration analysis
+task8_results = task8_vibration_analysis(imu_data, results_dir)
+compensated_imu = task8_results['compensated_imu']
+```
+
+#### Output Files
+
+Task 8 generates several output files:
+
+- `task8_vibration_analysis.png` – Comprehensive analysis plots
+- `task8_vibration_analysis.npz` – Analysis results and compensated data  
+- Vibration detection and compensation metrics
+- Power spectral density comparisons
+- Vibration intensity plots over time
+
+#### Vibration Model Types
+
+1. **Sinusoidal**: Pure sinusoidal vibrations at specified frequencies
+2. **Random**: Band-limited white noise with specified spectral characteristics
+3. **Motor**: Harmonic vibrations typical of electric motors with multiple harmonics
+4. **Rotor**: Quadrotor-style vibrations with blade passing frequencies
+
+#### Detection Methods
+
+1. **Statistical**: Variance-based detection using sliding window analysis
+2. **Frequency**: FFT-based detection in specified frequency ranges
+3. **Entropy**: Spectral entropy analysis for vibration characterization
+
+#### Compensation Methods
+
+1. **Butterworth**: Low-pass filtering with configurable cutoff frequency
+2. **Notch**: Removes specific frequencies with adjustable Q-factor
+3. **Adaptive**: LMS adaptive filtering for dynamic compensation
+4. **Wavelet**: Multi-resolution wavelet denoising
+5. **Kalman**: Model-based Kalman filtering approach
+
+The vibration analysis capabilities enable robust IMU processing in high-vibration environments and provide insights into the spectral characteristics of measured vibrations.
 
 ## Troubleshooting
 
