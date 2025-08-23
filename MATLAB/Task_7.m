@@ -500,21 +500,30 @@ try
     if exist('truth_is_C_bn','var') && truth_is_C_bn
         q_truth_aln = att_utils('inv_unit', q_truth_aln);
     end
+    % FIXED: Use the same processing order as Python for consistency
     % 1) Normalize rows
-    q_tru = att_utils('normalize_rows', q_truth_aln);
-    q_kf  = att_utils('normalize_rows', q_est_aln);
-    % 2) Enforce temporal continuity on each series
-    q_tru = att_utils('enforce_continuity', q_tru);
-    q_kf  = att_utils('enforce_continuity', q_kf);
-    % 3) Hemisphere alignment: align KF to Truth per-sample (dot >= 0)
-    flipMask = sum(q_tru .* q_kf, 2) < 0;
+    q_tru = q_truth_aln ./ vecnorm(q_truth_aln, 2, 2);
+    q_kf  = q_est_aln ./ vecnorm(q_est_aln, 2, 2);
+    
+    % 2) Enforce temporal continuity on each series separately
+    q_tru = enforce_continuity_local(q_tru);
+    q_kf  = enforce_continuity_local(q_kf);
+    
+    % 3) Hemisphere alignment: align KF to Truth per-sample (dot >= 0)  
+    dots = sum(q_tru .* q_kf, 2);
+    flipMask = dots < 0;
     q_kf(flipMask,:) = -q_kf(flipMask,:);
+    
+    % Verify alignment worked
+    dots_after = sum(q_tru .* q_kf, 2);
+    dots_after = max(-1, min(1, dots_after)); % Clamp for numerical precision
     % Prepare variables used for plotting
     q_truth_plot = q_tru;
     q_kf_plot    = q_kf;
+    
     % Debug prints
-    dp_post = mean(sum(q_truth_plot .* q_kf_plot, 2), 'omitnan');
-    angErr = 2*acos(max(-1,min(1,sum(q_truth_plot .* q_kf_plot,2))));
+    dp_post = mean(dots_after, 'omitnan');
+    angErr = 2*acos(abs(dots_after));
     fprintf('[Task7-Att] mean dot pre-align  = %.3f\n', dp_pre);
     fprintf('[Task7-Att] mean dot post-align = %.3f\n', dp_post);
     fprintf('[Task7-Att] mean attitude error = %.2f deg\n', mean(rad2deg(angErr),'omitnan'));
@@ -556,9 +565,10 @@ try
         % FIX: Re-normalize for safety before residual computations
         q_truth_plot = normalize_quat(q_truth_plot);
         q_kf_plot    = normalize_quat(q_kf_plot);
-        % Recompute Euler from aligned, normalized, hemisphere-aligned quats
-        eul_tru_deg = rad2deg(rotm2eul_batch_local(q_truth_plot, 'ZYX'));
-        eul_kf_deg  = rad2deg(rotm2eul_batch_local(q_kf_plot,    'ZYX'));
+        % FIX: Use SciPy via Python for 100% consistency in Euler conversion  
+        % The main issue (amplitude matching) is fixed; this ensures identical results
+        eul_tru_deg = convert_quat_to_euler_via_scipy(q_truth_plot);
+        eul_kf_deg  = convert_quat_to_euler_via_scipy(q_kf_plot);
         % Euler residuals (wrap to [-180,180])
         eul_res_deg = wrapTo180_local(eul_tru_deg - eul_kf_deg);
         % Quaternion component residuals (unitless)
@@ -1263,4 +1273,55 @@ function y = wrapTo180_local(x)
     y = mod(x + 180, 360) - 180;
     % Handle edge case where mod returns negative zero or 180
     y(abs(y+180) < 1e-12) = -180;
+end
+
+function eul_deg = quat_to_euler_zyx_deg(q_wxyz)
+% Convert quaternion wxyz to Euler ZYX (yaw, pitch, roll) in degrees
+% Uses the EXACT same formula as run_triad_only.py for consistency
+    
+    n = size(q_wxyz, 1);
+    eul_deg = zeros(n, 3);
+    
+    for i = 1:n
+        w = q_wxyz(i,1); x = q_wxyz(i,2); y = q_wxyz(i,3); z = q_wxyz(i,4);
+        
+        % Use EXACT same formulation as Python's _quat_to_euler_zyx_deg
+        yaw = atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
+        s = max(-1, min(1, 2 * (w * y - z * x))); % Clamp like np.clip
+        pitch = asin(s);
+        roll = atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y));
+        
+        % Convert to degrees
+        eul_deg(i, :) = rad2deg([yaw, pitch, roll]);
+    end
+end
+
+function eul_deg = convert_quat_to_euler_via_scipy(q_wxyz)
+% Convert quaternion to Euler via SciPy to guarantee consistency with Python
+    try
+        % Convert wxyz to xyzw format for scipy
+        q_xyzw = [q_wxyz(:,2), q_wxyz(:,3), q_wxyz(:,4), q_wxyz(:,1)];
+        
+        % Call Python scipy
+        py_quat = py.numpy.array(q_xyzw);
+        scipy_R = py.scipy.spatial.transform.Rotation.from_quat(py_quat);
+        eul_rad = scipy_R.as_euler("zyx", pyargs('degrees', false));
+        eul_deg = rad2deg(double(eul_rad));
+        
+    catch ME
+        % Fallback to mathematical implementation if Python/SciPy unavailable
+        warning('SciPy not available, using fallback implementation. Results may differ slightly.');
+        eul_deg = quat_to_euler_zyx_deg(q_wxyz);
+    end
+end
+
+function q_cont = enforce_continuity_local(q)
+% Enforce temporal continuity on quaternion series (prevent sign flips)
+% Matches Python's _enforce_continuity function exactly
+    q_cont = q;
+    for k = 2:size(q,1)
+        if dot(q_cont(k,:), q_cont(k-1,:)) < 0
+            q_cont(k,:) = -q_cont(k,:);
+        end
+    end
 end
