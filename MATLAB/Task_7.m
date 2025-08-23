@@ -565,10 +565,10 @@ try
         % FIX: Re-normalize for safety before residual computations
         q_truth_plot = normalize_quat(q_truth_plot);
         q_kf_plot    = normalize_quat(q_kf_plot);
-        % FIX: Use consistent quaternion processing order for amplitude matching
-        % This ensures quaternions are processed in the same way as Python
-        eul_tru_deg = quat_to_euler_zyx_deg(q_truth_plot);
-        eul_kf_deg  = quat_to_euler_zyx_deg(q_kf_plot);
+        % FIX: Use SciPy via Python for 100% consistency in Euler conversion  
+        % The main issue (amplitude matching) is fixed; this ensures identical results
+        eul_tru_deg = convert_quat_to_euler_via_scipy(q_truth_plot);
+        eul_kf_deg  = convert_quat_to_euler_via_scipy(q_kf_plot);
         % Euler residuals (wrap to [-180,180])
         eul_res_deg = wrapTo180_local(eul_tru_deg - eul_kf_deg);
         % Quaternion component residuals (unitless)
@@ -1277,8 +1277,7 @@ end
 
 function eul_deg = quat_to_euler_zyx_deg(q_wxyz)
 % Convert quaternion wxyz to Euler ZYX (yaw, pitch, roll) in degrees
-% Uses the same mathematical formulation as SciPy for consistency
-% This replaces the rotation-matrix based conversion for better accuracy
+% Uses the EXACT same formula as run_triad_only.py for consistency
     
     n = size(q_wxyz, 1);
     eul_deg = zeros(n, 3);
@@ -1286,49 +1285,33 @@ function eul_deg = quat_to_euler_zyx_deg(q_wxyz)
     for i = 1:n
         w = q_wxyz(i,1); x = q_wxyz(i,2); y = q_wxyz(i,3); z = q_wxyz(i,4);
         
-        % Compute Euler angles directly from quaternion components
-        % This matches SciPy's from_quat().as_euler('zyx') implementation
-        
-        % Yaw (rotation around Z-axis)
-        yaw = atan2(2*(w*z + x*y), 1 - 2*(y*y + z*z));
-        
-        % Pitch (rotation around Y-axis) 
-        sin_pitch = 2*(w*y - z*x);
-        sin_pitch = max(-1, min(1, sin_pitch)); % Clamp to avoid numerical issues
-        pitch = asin(sin_pitch);
-        
-        % Roll (rotation around X-axis)
-        roll = atan2(2*(w*x + y*z), 1 - 2*(x*x + y*y));
+        % Use EXACT same formulation as Python's _quat_to_euler_zyx_deg
+        yaw = atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
+        s = max(-1, min(1, 2 * (w * y - z * x))); % Clamp like np.clip
+        pitch = asin(s);
+        roll = atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y));
         
         % Convert to degrees
         eul_deg(i, :) = rad2deg([yaw, pitch, roll]);
     end
 end
 
-function eul_deg = call_scipy_euler_conversion(q_wxyz)
-% Call Python/SciPy to ensure 100% consistency
-% This is the most reliable way to ensure MATLAB matches Python exactly
-    
-    % Convert to Python format and call SciPy
-    n = size(q_wxyz, 1);
-    eul_deg = zeros(n, 3);
-    
-    % Use Python's SciPy for the conversion to guarantee consistency
+function eul_deg = convert_quat_to_euler_via_scipy(q_wxyz)
+% Convert quaternion to Euler via SciPy to guarantee consistency with Python
     try
         % Convert wxyz to xyzw format for scipy
         q_xyzw = [q_wxyz(:,2), q_wxyz(:,3), q_wxyz(:,4), q_wxyz(:,1)];
         
-        % Call Python scipy (if available)
-        py_result = py.numpy.array(q_xyzw);
-        scipy_R = py.scipy.spatial.transform.Rotation.from_quat(py_result);
+        % Call Python scipy
+        py_quat = py.numpy.array(q_xyzw);
+        scipy_R = py.scipy.spatial.transform.Rotation.from_quat(py_quat);
         eul_rad = scipy_R.as_euler("zyx", pyargs('degrees', false));
         eul_deg = rad2deg(double(eul_rad));
         
-        fprintf('[Task7] Using SciPy for Euler conversion (guaranteed consistency)\n');
-    catch
-        % Fallback to our mathematical implementation if Python/SciPy not available
+    catch ME
+        % Fallback to mathematical implementation if Python/SciPy unavailable
+        warning('SciPy not available, using fallback implementation. Results may differ slightly.');
         eul_deg = quat_to_euler_zyx_deg(q_wxyz);
-        fprintf('[Task7] Using MATLAB implementation for Euler conversion\n');
     end
 end
 

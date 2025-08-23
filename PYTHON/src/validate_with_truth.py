@@ -88,6 +88,24 @@ def _enforce_continuity(q):
     return q_cont
 
 
+def _quat_to_euler_zyx_deg_wxyz(q):
+    """
+    Convert quaternion wxyz to Euler ZYX (yaw, pitch, roll) in degrees.
+    Uses the proven working formula from run_triad_only.py.
+    This avoids SciPy coordinate frame issues.
+    """
+    q = np.asarray(q, float)
+    if q.ndim == 1:
+        q = q.reshape(1, -1)
+    
+    w, x, y, z = q.T
+    yaw = np.degrees(np.arctan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)))
+    s = np.clip(2 * (w * y - z * x), -1.0, 1.0)
+    pitch = np.degrees(np.arcsin(s))
+    roll = np.degrees(np.arctan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y)))
+    return np.vstack([yaw, pitch, roll]).T
+
+
 def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=False, debug=False):
     """Compute error metrics between an estimate and ground truth.
 
@@ -1213,7 +1231,8 @@ def main():
                     wmask = te_win <= (t0 + min(30.0, (t1 - t0)))
                     score = float(np.median(ang[wmask])) if np.any(wmask) else float(np.median(ang))
                     
-                    # FIX 5: Ensure consistent Euler conversion (both use same format)
+                    # FIX 5: Use SciPy for both to guarantee identical results
+                    # The amplitude matching is the main issue, which is now fixed
                     eul_truth = R.from_quat(as_xyzw_from_wxyz(qt)).as_euler("zyx", degrees=True)
                     eul_est = R.from_quat(as_xyzw_from_wxyz(qe)).as_euler("zyx", degrees=True)
                     cand.append({
