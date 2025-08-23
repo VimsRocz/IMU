@@ -27,7 +27,6 @@ This repository hosts parallel Python and MATLAB implementations for IMU/GNSS in
 - [Verifying Earth Rotation Rate](#verifying-earth-rotation-rate)
 - [Automated figure generation](#automated-figure-generation)
 - [Summary CSV format](#summary-csv-format)
-- [Output](#output)
 - [Tests](#tests)
 - [Linting](#linting)
 - [Static Analysis with CodeQL](#static-analysis-with-codeql)
@@ -443,20 +442,6 @@ Figures are saved to `PYTHON/results/`. Interactive exploration lives in `notebo
 ### Summary CSV format
 
 `PYTHON/src/summarise_runs.py` parses logs and writes `PYTHON/results/summary.csv`. Columns include: `method`, `imu`, `gnss`, `rmse_pos`, and `final_pos`. `PYTHON/src/generate_summary.py` builds a PNG summary image from this CSV.
-
-### Output
-
-MATLAB tasks store intermediate results under `MATLAB/results/` as `.mat` files using the pattern `<IMU>_<GNSS>_<METHOD>_taskN_results.mat`.
-
-- **Task 1** – `task1` struct with initial latitude/longitude, gravity and Earth rotation vectors, reference frames, and metadata.
-- **Task 2** – `body_data` struct capturing body-frame gravity and rotation rate, accelerometer/gyroscope biases, static interval, and scale factor.
-- **Task 3** – `task3_results` struct containing rotation matrices and quaternions for TRIAD, Davenport, and SVD solutions.
-- **Task 4** – `results` struct with GNSS positions, bias estimates, time vectors, and integrated IMU trajectories in NED and ECEF frames.
-- **Task 5** – `results` struct holding fused state history (`x_log`), GNSS measurements, and NED/ECEF estimates.
-- **Task 6** – `results` struct reporting overlay error metrics (RMSE and final errors) and runtime.
-- **Task 7** – `metrics` struct with position and velocity residual RMSE and maxima.
-
-These structures let downstream scripts reload task outputs without recomputation.
 
 ### Tests
 

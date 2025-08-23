@@ -145,8 +145,8 @@ def plot_residuals(
     out_dir.mkdir(parents=True, exist_ok=True)
     pdf = out_dir / f"{dataset}_task7_ned_residuals.pdf"
     png = out_dir / f"{dataset}_task7_ned_residuals.png"
-    fig.savefig(pdf)
-    fig.savefig(png)
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(Path(pdf).with_suffix("")))
     try:
         from utils import save_plot_mat
         save_plot_mat(fig, str(out_dir / f"{dataset}_task7_ned_residuals.mat"))
@@ -166,8 +166,8 @@ def plot_residuals(
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     norm_pdf = out_dir / f"{dataset}_task7_ned_residual_norms.pdf"
     norm_png = out_dir / f"{dataset}_task7_ned_residual_norms.png"
-    fig.savefig(norm_pdf)
-    fig.savefig(norm_png)
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(Path(norm_pdf).with_suffix("")))
     try:
         from utils import save_plot_mat
         save_plot_mat(fig, str(out_dir / f"{dataset}_task7_ned_residual_norms.mat"))

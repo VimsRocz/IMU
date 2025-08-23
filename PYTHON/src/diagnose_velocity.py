@@ -118,7 +118,8 @@ def main() -> None:
     axes[0].legend()
     axes[-1].set_xlabel("Time [s]")
     fig.tight_layout()
-    fig.savefig(out_dir / "velocity_axes.png")
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(out_dir / "velocity_axes"))
     plt.close(fig)
 
     fig, ax = plt.subplots()
@@ -129,7 +130,7 @@ def main() -> None:
     ax.legend()
     ax.grid(True)
     fig.tight_layout()
-    fig.savefig(out_dir / "velocity_norm.png")
+    save_matlab_fig(fig, str(out_dir / "velocity_norm"))
     plt.close(fig)
 
     fig, ax = plt.subplots()
@@ -138,7 +139,7 @@ def main() -> None:
     ax.set_ylabel("Velocity error [m/s]")
     ax.grid(True)
     fig.tight_layout()
-    fig.savefig(out_dir / "velocity_error.png")
+    save_matlab_fig(fig, str(out_dir / "velocity_error"))
     plt.close(fig)
 
     # Attitude diagnostics
@@ -160,7 +161,7 @@ def main() -> None:
         axs[0].legend()
         axs[-1].set_xlabel("Time [s]")
         fig.tight_layout()
-        fig.savefig(out_dir / "attitude_euler.png")
+        save_matlab_fig(fig, str(out_dir / "attitude_euler"))
         plt.close(fig)
 
     # IMU diagnostics
@@ -209,7 +210,7 @@ def main() -> None:
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(out_dir / "time_alignment.png")
+    save_matlab_fig(fig, str(out_dir / "time_alignment"))
     plt.close()
 
 

@@ -42,13 +42,8 @@ def plot_error(time: np.ndarray, err: np.ndarray, out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     pdf = out_dir / "task7_fused_vs_truth_error.pdf"
     png = out_dir / "task7_fused_vs_truth_error.png"
-    plt.savefig(pdf)
-    plt.savefig(png)
-    try:
-        from utils import save_plot_mat
-        save_plot_mat(plt.gcf(), str(out_dir / "task7_fused_vs_truth_error.mat"))
-    except Exception:
-        pass
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(plt.gcf(), str(Path(pdf).with_suffix("")))
     plt.close()
 
 

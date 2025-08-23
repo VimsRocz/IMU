@@ -26,7 +26,15 @@ function txt = print_timeline_matlab(rid, imu_path, gnss_path, truth_path, resul
 
     % --- TRUTH (optional; handle # comments & headers) ---
     if exist('read_truth_state','file') && ~isempty(truth_path) && isfile(truth_path)
-        tT = read_truth_state(truth_path);   % returns time vector in seconds
+        tT = read_truth_state(truth_path);   % returns time vector (may be 0.1s ticks)
+        % Normalize to seconds if needed (expect ~10 Hz)
+        if ~isempty(tT)
+            dtm = median(diff(tT));
+            if isfinite(dtm) && dtm > 0.5 && dtm < 1.5
+                tT = tT / 10;
+            end
+            tT = tT - tT(1);
+        end
         dT = diff(tT);
         hzT = 1/max(eps,median(dT));
         lines{end+1} = sprintf(['TRUTH | n=%d    hz=%.6f  dt_med=%.6f  min/max dt=(%.6f,%.6f)  ' ...
@@ -51,4 +59,3 @@ function s = logical2str(tf)
     s = lower(string(tf));
     s = char(s);
 end
-

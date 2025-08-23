@@ -231,58 +231,8 @@ def plot_overlay_3x3(
     fig.suptitle(title)
     fig.tight_layout(rect=[0, 0, 1, 0.92])
     outfile.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(outfile, dpi=150)
-    plt.close(fig)
-
-
-def plot_overlay_3x3_dual_time(
-    time_est: np.ndarray,
-    est_triplet: Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]],
-    time_tru: np.ndarray,
-    tru_triplet: Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]],
-    title: str,
-    outfile: Path,
-) -> None:
-    """Overlay with different time bases: plot fused on ``time_est`` and truth on ``time_tru``.
-
-    This allows the full truth timeline (e.g., 20087 samples) to be displayed
-    even when the fused estimate spans a shorter window (e.g., 1250s).
-    """
-    comps = ["X", "Y", "Z"]
-    ylabels = ["Position [m]", "Velocity [m/s]", "Acceleration [m/s²]"]
-    fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=False)
-    for j in range(3):  # columns: pos/vel/acc
-        est = est_triplet[j]
-        tru = tru_triplet[j]
-        for i in range(3):  # rows: components
-            ax = axes[i, j]
-            if tru is not None:
-                ax.plot(
-                    time_tru,
-                    tru[:, i],
-                    linestyle="--",
-                    color="k",
-                    label="Truth" if (i == 0 and j == 0) else None,
-                    linewidth=1.0,
-                )
-            if est is not None:
-                ax.plot(
-                    time_est,
-                    est[:, i],
-                    color="#d62728",
-                    label="Fused" if (i == 0 and j == 0) else None,
-                    linewidth=1.2,
-                )
-            if j == 0:
-                ax.set_ylabel(f"{comps[i]} {ylabels[j]}")
-            ax.grid(alpha=0.3)
-    handles, labels = axes[0, 0].get_legend_handles_labels()
-    if handles:
-        fig.legend(handles, labels, ncol=2, loc="upper center")
-    fig.suptitle(title)
-    fig.tight_layout(rect=[0, 0, 1, 0.92])
-    outfile.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(outfile, dpi=150)
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(Path(outfile).with_suffix('')))
     plt.close(fig)
 
 
@@ -328,7 +278,8 @@ def plot_methods_overlay_3x3(
     fig.suptitle(title)
     fig.tight_layout(rect=[0, 0, 1, 0.92])
     outfile.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(outfile, dpi=150)
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(Path(outfile).with_suffix('')))
     plt.close(fig)
 
 
@@ -471,7 +422,8 @@ def _build_frames(
             print("[Task6][WARN] BODY missing; mirroring NED")
             out["pos_body"] = out["pos_ned"]
             out["vel_body"] = out["vel_ned"]
-            out["acc_body"] = out["acc_body"] or out["acc_ned"]
+            # Avoid NumPy array truth evaluation; prefer explicit None check
+            out["acc_body"] = out["acc_body"] if out["acc_body"] is not None else out["acc_ned"]
 
     frames = {
         "NED": (out["pos_ned"], out["vel_ned"], out["acc_ned"]),
@@ -528,7 +480,7 @@ def run_task6_overlay_all_frames(
 
     truth_raw = load_truth(truth_file)
     t_truth = truth_raw.get("time", t)
-    frames_truth_full, _ = _build_frames(
+    frames_truth, _ = _build_frames(
         truth_raw,
         t_truth,
         lat,
@@ -536,9 +488,7 @@ def run_task6_overlay_all_frames(
         np.asarray(r0) if r0 is not None else None,
         debug,
     )
-    # Interpolated truth aligned to estimator time (for classic overlay)
-    frames_truth = {}
-    for fname, trip in frames_truth_full.items():
+    for fname, trip in frames_truth.items():
         trip_list = list(trip)
         for i in range(3):
             arr = trip_list[i]
@@ -546,12 +496,13 @@ def run_task6_overlay_all_frames(
                 trip_list[i] = interp_to(t_truth, arr, t)
         frames_truth[fname] = tuple(trip_list)
 
-    pos_truth = truth_raw.get("pos_ecef")
-    if pos_truth is None or (hasattr(pos_truth, "size") and pos_truth.size == 0):
-        pos_truth = truth_raw.get("pos_ned")
-    vel_truth = truth_raw.get("vel_ecef")
-    if vel_truth is None or (hasattr(vel_truth, "size") and vel_truth.size == 0):
-        vel_truth = truth_raw.get("vel_ned")
+    # Avoid ambiguous truthiness with NumPy arrays; select based on key presence
+    pos_truth = (
+        truth_raw.get("pos_ecef") if "pos_ecef" in truth_raw else truth_raw.get("pos_ned")
+    )
+    vel_truth = (
+        truth_raw.get("vel_ecef") if "vel_ecef" in truth_raw else truth_raw.get("vel_ned")
+    )
     if (
         t_truth.size == 0
         or pos_truth is None
@@ -621,35 +572,6 @@ def run_task6_overlay_all_frames(
         )
         size = os.path.getsize(outfile) if outfile.exists() else 0
         print(f"[SAVE] {outfile} bytes={size}")
-        # Also save an alias that mirrors Task 5 naming scheme
-        alias_out = out_dir / f"{run_id}_task6_all_{name}.png"
-        try:
-            shutil.copy2(outfile, alias_out)
-            print(
-                f"[SAVE] Aliased {outfile.name} -> {alias_out.name} (bytes={os.path.getsize(alias_out) if alias_out.exists() else 0})"
-            )
-        except Exception as _ex:
-            print(f"[Task6][WARN] Could not write alias file {alias_out}: {_ex}")
-        # Additionally, produce a full-truth timeline overlay where truth spans its entire timebase
-        outfile_full = out_dir / f"{run_id}_task6_overlay_fulltruth_{name}.png"
-        plot_overlay_3x3_dual_time(
-            t,
-            est_trip,
-            t_truth,
-            frames_truth_full.get(name, (None, None, None)),
-            f"Task 6: Full Truth Overlay ({name})",
-            outfile_full,
-        )
-        print(f"[SAVE] {outfile_full} bytes={os.path.getsize(outfile_full) if outfile_full.exists() else 0}")
-        # Alias for full truth
-        alias_full = out_dir / f"{run_id}_task6_truth_full_{name}.png"
-        try:
-            shutil.copy2(outfile_full, alias_full)
-            print(
-                f"[SAVE] Aliased {outfile_full.name} -> {alias_full.name} (bytes={os.path.getsize(alias_full) if alias_full.exists() else 0})"
-            )
-        except Exception as _ex:
-            print(f"[Task6][WARN] Could not write alias file {alias_full}: {_ex}")
         if flat_output:
             flat_dir = out_dir.parents[1]
             flat_dir.mkdir(parents=True, exist_ok=True)
@@ -658,29 +580,6 @@ def run_task6_overlay_all_frames(
             print(
                 f"[SAVE] Copied {outfile} -> {dst} (exists={dst.exists()} bytes={os.path.getsize(dst) if dst.exists() else 0})"
             )
-            # Flat alias with Task 5-like name
-            dst_alias = flat_dir / alias_out.name
-            try:
-                shutil.copy2(outfile, dst_alias)
-                print(
-                    f"[SAVE] Copied {outfile} -> {dst_alias} (exists={dst_alias.exists()} bytes={os.path.getsize(dst_alias) if dst_alias.exists() else 0})"
-                )
-            except Exception as _ex:
-                print(f"[Task6][WARN] Could not write flat alias {dst_alias}: {_ex}")
-            # Flat copies for full truth outputs
-            dst_full = flat_dir / outfile_full.name
-            shutil.copy2(outfile_full, dst_full)
-            print(
-                f"[SAVE] Copied {outfile_full} -> {dst_full} (exists={dst_full.exists()} bytes={os.path.getsize(dst_full) if dst_full.exists() else 0})"
-            )
-            dst_full_alias = flat_dir / alias_full.name
-            try:
-                shutil.copy2(outfile_full, dst_full_alias)
-                print(
-                    f"[SAVE] Copied {outfile_full} -> {dst_full_alias} (exists={dst_full_alias.exists()} bytes={os.path.getsize(dst_full_alias) if dst_full_alias.exists() else 0})"
-                )
-            except Exception as _ex:
-                print(f"[Task6][WARN] Could not write flat alias {dst_full_alias}: {_ex}")
         manifest["frames"][name]["png"] = str(outfile)
         saved_paths.append(str(outfile))
 
@@ -718,14 +617,6 @@ def run_task6_compare_methods_all_frames(
     t, time_desc = _resolve_time(base_raw)
     lat = lat_deg
     lon = lon_deg
-    if lat is None:
-        v = extract_scalar(base_raw, ["ref_lat_rad", "lat_rad", "lat"])
-        if v is not None:
-            lat = float(v if np.isscalar(v) else v[0])
-    if lon is None:
-        v = extract_scalar(base_raw, ["ref_lon_rad", "lon_rad", "lon"])
-        if v is not None:
-            lon = float(v if np.isscalar(v) else v[0])
     r0 = extract_scalar(base_raw, ["ref_r0_m", "r0", "ecef_ref"])
     if isinstance(r0, float):
         r0 = np.array([r0, 0.0, 0.0])

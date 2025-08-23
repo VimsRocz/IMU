@@ -2,14 +2,15 @@ import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from typing import List
 import numpy as np
-from utils.plot_save import save_plot as save_and_log
+from ..utils.plot_save import save_plot as save_and_log
+from ..utils.matlab_fig_export import save_matlab_fig
 
 
 def save_plot(fig, outpath, title):
     ax = fig.axes[0] if fig.axes else fig.add_subplot(111)
     ax.set_title(title, fontsize=14)
     fig.tight_layout()
-    fig.savefig(outpath)
+    save_matlab_fig(fig, str(outpath))
     plt.close(fig)
 
 

@@ -88,10 +88,10 @@ def plot_one(method, packs):
     fig.suptitle(f"All datasets – Method: {method}", fontsize=16)
     fig.tight_layout()
     out = RESULTS_DIR / f"all_datasets_{method}_comparison.pdf"
-    fig.savefig(out)
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(out.with_suffix('')))
     print(f"  ➜ wrote {out}")
 
 # ---------- 4. Generate the figures ------------------------------------------
 for meth, packs in by_method.items():
     plot_one(meth, packs)
-

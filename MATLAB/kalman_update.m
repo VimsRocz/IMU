@@ -51,6 +51,30 @@ function [x, P] = kalman_update(x, P, z, H, R, Q)
         S = S + eps*eye(size(S));
     end
 
+    %--- Innovation gating (99% chi-square) -------------------------------
+    M = size(S,1);
+    do_update = true;
+    try
+        d2 = y' * (S \ y);
+    catch
+        d2 = y' * pinv(S) * y;
+    end
+    try
+        gate = chi2inv(0.99, M);
+    catch
+        % Fallback common values (approximate)
+        if M >= 6
+            gate = 16.812;  % 6-DoF @99%
+        elseif M >= 3
+            gate = 11.345;  % 3-DoF @99%
+        else
+            gate = 6.635;   % 1-2 DoF conservative fallback
+        end
+    end
+    if isfinite(d2) && d2 > gate
+        do_update = false;
+    end
+
     %--- Cholesky-based gain computation ---------------------------------
     [L,p] = chol(S,'lower');
     if p > 0
@@ -62,10 +86,14 @@ function [x, P] = kalman_update(x, P, z, H, R, Q)
     end
 
     %--- state update -----------------------------------------------------
-    x = x + K*y;
+    if do_update
+        x = x + K*y;
+    end
 
     %--- Joseph-form covariance update -----------------------------------
     I_KH = eye(size(P)) - K*H;
-    P = I_KH*P*I_KH' + K*R*K';
+    if do_update
+        P = I_KH*P*I_KH' + K*R*K';
+    end
     P = (P+P')/2;   % enforce symmetry
 end

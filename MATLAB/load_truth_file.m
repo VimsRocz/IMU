@@ -38,14 +38,21 @@ function T = load_truth_file(truth_path)
     % Build time vector starting at zero
     time_col = [];
     if any(strcmpi(vn,'Posix_Time'))
-        t = T{:,strcmpi(vn,'Posix_Time')};
+        t_raw = T{:,strcmpi(vn,'Posix_Time')};
     elseif any(strcmpi(vn,'time'))
-        t = T{:,strcmpi(vn,'time')};
+        t_raw = T{:,strcmpi(vn,'time')};
     else
-        t = T{:,1};
+        t_raw = T{:,1};
     end
-    t = t(:);
-    t = t - t(1);
+    t_raw = t_raw(:);
+    % Normalize units: some STATE files store 0.1s ticks in column 2
+    dt_med = median(diff(t_raw));
+    if isfinite(dt_med) && dt_med > 0.5 && dt_med < 1.5
+        t_truth = t_raw / 10;   % convert 0.1s ticks to seconds (~10 Hz)
+    else
+        t_truth = t_raw;        % already seconds
+    end
+    t = t_truth - t_truth(1);
     T.time_s = t;
 
     % Print a timeline summary line mirroring Python
@@ -62,4 +69,3 @@ function T = load_truth_file(truth_path)
     fprintf('TRUTH | n=%d hz=%0.6f dt_med=%0.6f dur=%0.3f t0=%0.6f t1=%0.6f monotonic=%s\n', ...
             height(T), hz, dt_med, dur, T.time_s(1), T.time_s(end), string(mono));
 end
-

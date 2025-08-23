@@ -109,8 +109,8 @@ def main() -> None:
     plt.grid(True)
     pdf = out_dir / "velocity_z_overlay.pdf"
     png = out_dir / "velocity_z_overlay.png"
-    plt.savefig(pdf)
-    plt.savefig(png)
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(plt.gcf(), str(Path(pdf).with_suffix("")))
     plt.close()
 
 

@@ -130,7 +130,8 @@ def plot_residuals(res_df: pd.DataFrame, out_dir: str) -> None:
 
     fig.suptitle('Filter Residuals')
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(os.path.join(out_dir, 'residuals.pdf'))
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, os.path.join(out_dir, 'residuals'))
     plt.close(fig)
 
 
@@ -174,7 +175,7 @@ def plot_residuals_new(
     os.makedirs(out_dir, exist_ok=True)
     logging.info("Ensured '%s' directory exists.", out_dir)
     out = os.path.join(out_dir, f"{dataset}_{method}_residuals.pdf")
-    fig.savefig(out)
+    save_matlab_fig(fig, str(out.with_suffix('')))
     plt.close(fig)
 
 
@@ -197,7 +198,7 @@ def plot_attitude(
     logging.info("Ensured '%s' directory exists.", out_dir)
     fig.suptitle(f'Attitude Angles: {dataset} - {method}')
     fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, f"{dataset}_{method}_attitude.pdf"))
+    save_matlab_fig(fig, os.path.join(out_dir, f"{dataset}_{method}_attitude"))
     plt.close(fig)
 
 

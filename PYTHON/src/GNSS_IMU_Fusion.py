@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Run the GNSS/IMU fusion pipeline for a single dataset pair.
 
 This script mirrors the MATLAB ``GNSS_IMU_Fusion.m`` workflow and provides
@@ -35,7 +37,6 @@ if __package__ is None:
     __package__ = "src"
 
 import matplotlib
-
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -73,6 +74,8 @@ from .gnss_imu_fusion.init_vectors import (
     butter_lowpass_filter,
     compute_wahba_errors,
 )
+from .gnss_imu_fusion.axis_map import sanity_check_tilt
+from .gnss_imu_fusion.axis_map_auto import choose_C_bs_from_static
 from .gnss_imu_fusion.plots import (
     save_zupt_variance,
     save_euler_angles,
@@ -163,16 +166,7 @@ def task3_plot_quaternions_and_errors(
     ax.legend(loc="upper left", bbox_to_anchor=(1, 1))
     fig.tight_layout()
 
-    save_plot(
-        fig,
-        RESULTS_DIR,
-        RUN_ID,
-        "task3",
-        "quaternions",
-        ext="png",
-        dpi=200,
-        bbox_inches="tight",
-    )
+    save_plot(fig, RESULTS_DIR, RUN_ID, "task3", "quaternions", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig)
 
     # Attitude error comparison ------------------------------------------
@@ -196,22 +190,9 @@ def task3_plot_quaternions_and_errors(
     fig.suptitle("Task 3: Attitude Error Comparison")
     plt.tight_layout()
 
-    if (
-        not grav_vals
-        or not earth_vals
-        or (np.allclose(grav_vals, 0) and np.allclose(earth_vals, 0))
-    ):
+    if not grav_vals or not earth_vals or (np.allclose(grav_vals, 0) and np.allclose(earth_vals, 0)):
         raise ValueError("Task3 arrays all zero or empty")
-    save_plot(
-        fig,
-        RESULTS_DIR,
-        RUN_ID,
-        "task3",
-        "errors",
-        ext="png",
-        dpi=200,
-        bbox_inches="tight",
-    )
+    save_plot(fig, RESULTS_DIR, RUN_ID, "task3", "errors", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig)
     task_summary("task3")
 
@@ -223,9 +204,7 @@ def check_files(imu_file: str, gnss_file: str) -> tuple[str, str]:
     return str(imu_path), str(gnss_path)
 
 
-def load_truth_as_ned(
-    truth_path: str, ref_lat: float, ref_lon: float, r0_ecef: np.ndarray
-):
+def load_truth_as_ned(truth_path: str, ref_lat: float, ref_lon: float, r0_ecef: np.ndarray):
     """Load STATE_X truth file and convert position/velocity to NED."""
     raw = np.loadtxt(truth_path)
     t_truth = raw[:, 0]
@@ -272,9 +251,9 @@ def plot_task6_truth_overlay(
     axes[0, 0].legend(loc="upper right")
     fig.tight_layout()
     Path(out_png).parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_png, dpi=150)
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(out_png.with_suffix('')))
     plt.close(fig)
-
 
 def main():
     _ensure_results()
@@ -303,6 +282,14 @@ def main():
         help="Path to STATE_X001.txt (truth) for Task 6",
     )
     parser.add_argument(
+        "--init-att-with-truth",
+        action="store_true",
+        help=(
+            "Initialise the Kalman filter attitude with the true quaternion "
+            "from --truth-file at IMU t0. Helps isolate init issues."
+        ),
+    )
+    parser.add_argument(
         "--tag",
         type=str,
         default="",
@@ -312,6 +299,44 @@ def main():
         "--use-gnss-heading",
         action="store_true",
         help="Use initial GNSS velocity for yaw if no magnetometer",
+    )
+    parser.add_argument(
+        "--fuse-yaw",
+        action="store_true",
+        help=(
+            "Fuse GNSS-derived yaw as a correction to the propagated quaternion. "
+            "Applies a small rotation about NED z when speed exceeds a threshold."
+        ),
+    )
+    parser.add_argument(
+        "--yaw-gain",
+        type=float,
+        default=0.2,
+        help="Gain [0..1] for GNSS yaw correction per update (default 0.2)",
+    )
+    parser.add_argument(
+        "--yaw-speed-min",
+        type=float,
+        default=2.0,
+        help="Minimum horizontal speed [m/s] to trust GNSS yaw (default 2 m/s)",
+    )
+    parser.add_argument(
+        "--truth-quat-frame",
+        choices=["NED", "ECEF"],
+        default="NED",
+        help=(
+            "Frame of truth quaternion when using --init-att-with-truth. "
+            "If 'ECEF', converts body->ECEF truth to body->NED using ref lat/lon."
+        ),
+    )
+    parser.add_argument(
+        "--kf-init",
+        choices=["TRIAD", "Davenport", "SVD", "TRUTH"],
+        default="SVD",
+        help=(
+            "Quaternion to seed the KF attitude: pick from computed initial "
+            "attitudes (TRIAD/Davenport/SVD) or use TRUTH at t0 if provided."
+        ),
     )
     parser.add_argument("--accel-noise", type=float, default=0.1)
     parser.add_argument("--accel-bias-noise", type=float, default=1e-5)
@@ -330,7 +355,8 @@ def main():
         type=float,
         default=1.0,
         help=(
-            "Diagonal variance for GNSS velocity measurements R[3:6,3:6] " "[m^2/s^2]"
+            "Diagonal variance for GNSS velocity measurements R[3:6,3:6] "
+            "[m^2/s^2]"
         ),
     )
     parser.add_argument(
@@ -452,7 +478,6 @@ def main():
 
     if not args.no_plots:
         from task1_reference_vectors import task1_reference_vectors
-
         try:
             gnss_df = pd.read_csv(gnss_file)
             if "Height_deg" in gnss_df.columns and "Height_m" not in gnss_df.columns:
@@ -755,12 +780,14 @@ def main():
     omega_err_mean = float(np.mean(list(omega_errors.values())))
     omega_err_max = float(np.max(list(omega_errors.values())))
 
-    # Load truth quaternion from STATE file if provided
+    # Load truth quaternion from STATE file if provided (basic validation)
     if truth_file:
         try:
-            np.loadtxt(truth_file, comments="#")
+            _ = np.loadtxt(truth_file, comments="#")
         except Exception as e:
-            logging.warning(f"Failed to load truth quaternion from {truth_file}: {e}")
+            logging.warning(
+                f"Failed to load truth file {truth_file}: {e}"
+            )
 
     # --------------------------------
     # Subtask 3.6: Validate Attitude Determination and Compare Methods
@@ -981,14 +1008,11 @@ def main():
         lat_interp = interpolate_series(imu_time, gnss_time, lat_series)
         lon_interp = interpolate_series(imu_time, gnss_time, lon_series)
 
-        # Convert velocity increments to acceleration (m/s²)
-        # Columns 5,6,7 are velocity increments (m/s) over dt_imu
-        acc_body = imu_data[[5, 6, 7]].values / dt_imu  # acc_body = delta_v / dt_imu
-        gyro_body = (
-            imu_data[[2, 3, 4]].values / dt_imu
-        )  # gyro_body = delta_theta / dt_imu
-        acc_body = butter_lowpass_filter(acc_body)
-        gyro_body = butter_lowpass_filter(gyro_body)
+        # Convert increments to rates (sensor frame) and filter
+        acc_s = imu_data[[5, 6, 7]].values / dt_imu  # delta_v / dt_imu
+        gyro_s = imu_data[[2, 3, 4]].values / dt_imu  # delta_theta / dt_imu
+        acc_s = butter_lowpass_filter(acc_s)
+        gyro_s = butter_lowpass_filter(gyro_s)
 
         start_idx = args.static_start
         end_idx = args.static_end
@@ -998,15 +1022,15 @@ def main():
                 "IMU_X002.dat": (296, 479907),
                 "IMU_X003.dat": (296, 479907),
             }.get(Path(imu_file).name)
-            if dataset_window and len(acc_body) >= dataset_window[1]:
+            if dataset_window and len(acc_s) >= dataset_window[1]:
                 start_idx, end_idx = dataset_window
-                end_idx = min(end_idx, len(acc_body))
+                end_idx = min(end_idx, len(acc_s))
 
         if start_idx is not None:
             if end_idx is None:
-                end_idx = len(acc_body)
+                end_idx = len(acc_s)
             start_idx = max(0, start_idx)
-            end_idx = min(end_idx, len(acc_body))
+            end_idx = min(end_idx, len(acc_s))
             N_static = end_idx - start_idx
         else:
             N_static = min(4000, len(imu_data))
@@ -1017,6 +1041,21 @@ def main():
             raise ValueError(
                 f"Insufficient static samples for bias estimation; require at least {MIN_STATIC_SAMPLES}."
             )
+
+        # Choose sensor→body axis map from static window so gravity aligns to +Z (NED down)
+        try:
+            a_mean_s = np.mean(acc_s[start_idx:end_idx], axis=0)
+        except Exception:
+            a_mean_s = np.mean(acc_s[:N_static], axis=0)
+        C_bs, map_err = choose_C_bs_from_static(a_mean_s)
+        acc_body = (C_bs @ acc_s.T).T
+        gyro_body = (C_bs @ gyro_s.T).T
+        # Axis-map sanity check after mapping
+        try:
+            g_mean = np.mean(acc_body[start_idx:end_idx], axis=0)
+            print("[AxisMap]", sanity_check_tilt(g_mean))
+        except Exception:
+            pass
 
         static_acc, static_gyro = compute_biases(
             acc_body,
@@ -1063,6 +1102,15 @@ def main():
             logging.debug(f"Method {m}: Gyroscope bias: {gyro_bias}")
 
         logging.info("IMU data corrected for bias for each method.")
+        # Axis-map sanity check on the presumed static window
+        try:
+            g_mean = np.mean(acc_body[start_idx:end_idx], axis=0)
+            print("[AxisMap] C_bs =\n", C_bs)
+            print("[AxisMap] static mean accel (sensor):", a_mean_s)
+            print("[AxisMap] static mean accel (body)  :", g_mean, " err_to_[0,0,+g]=", map_err)
+            print(f"[AxisMap] Tilt from body Z: {float(np.degrees(np.arccos(np.clip(g_mean[2]/(np.linalg.norm(g_mean)+1e-12),-1,1)))):.2f}° (want small at rest, +Z=down)")
+        except Exception:
+            pass
         if methods:
             logging.info(
                 "Accelerometer scale factor applied: %.4f",
@@ -1228,19 +1276,12 @@ def main():
         ax.set_xlabel("Time (s)")
         ax.set_ylabel("Acceleration (m/s²)")
         ax.legend(loc="best")
-    fig_comp.suptitle(f"Task 4 – {method} – NED Frame (All Data Derived to NED)")
+    fig_comp.suptitle(
+        f"Task 4 – {method} – NED Frame (All Data Derived to NED)"
+    )
     fig_comp.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(
-            fig_comp,
-            RESULTS_DIR,
-            tag,
-            "task4",
-            "comparison_ned",
-            ext="png",
-            dpi=200,
-            bbox_inches="tight",
-        )
+        save_plot(fig_comp, RESULTS_DIR, tag, "task4", "comparison_ned", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig_comp)
     logging.info("Comparison plot in NED frame saved")
 
@@ -1278,16 +1319,7 @@ def main():
     )
     fig_mixed.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(
-            fig_mixed,
-            RESULTS_DIR,
-            tag,
-            "task4",
-            "mixed_frames",
-            ext="png",
-            dpi=200,
-            bbox_inches="tight",
-        )
+        save_plot(fig_mixed, RESULTS_DIR, tag, "task4", "mixed_frames", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig_mixed)
     logging.info("Mixed frames plot saved")
 
@@ -1305,16 +1337,6 @@ def main():
                     "k-",
                     label="Derived GNSS (ECEF→NED)",
                 )
-                # Also overlay IMU-derived position (Body→NED) for each method
-                for m in methods:
-                    c = colors.get(m, None)
-                    ax.plot(
-                        t_rel_ilu,
-                        pos_integ[m][:, j],
-                        color=c,
-                        alpha=0.7,
-                        label=f"Derived IMU (Body→NED) ({m})",
-                    )
                 ax.set_title(f"Position {directions_ned[j]}")
             elif i == 1:  # Velocity
                 ax.plot(
@@ -1323,16 +1345,6 @@ def main():
                     "k-",
                     label="Derived GNSS (ECEF→NED)",
                 )
-                # Also overlay IMU-derived velocity (Body→NED) for each method
-                for m in methods:
-                    c = colors.get(m, None)
-                    ax.plot(
-                        t_rel_ilu,
-                        vel_integ[m][:, j],
-                        color=c,
-                        alpha=0.7,
-                        label=f"Derived IMU (Body→NED) ({m})",
-                    )
                 ax.set_title(f"Velocity V{directions_ned[j]}")
             else:  # Acceleration
                 for m in methods:
@@ -1349,19 +1361,12 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_ned.suptitle(f"Task 4 – {method} – NED Frame (All Data Derived to NED)")
+    fig_ned.suptitle(
+        f"Task 4 – {method} – NED Frame (All Data Derived to NED)"
+    )
     fig_ned.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(
-            fig_ned,
-            RESULTS_DIR,
-            tag,
-            "task4",
-            "all_ned",
-            ext="png",
-            dpi=200,
-            bbox_inches="tight",
-        )
+        save_plot(fig_ned, RESULTS_DIR, tag, "task4", "all_ned", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig_ned)
     logging.info("All data in NED frame plot saved")
 
@@ -1421,16 +1426,7 @@ def main():
     fig_ecef.suptitle(f"Task 4 – {method} – ECEF Frame (Derived IMU vs. GNSS)")
     fig_ecef.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(
-            fig_ecef,
-            RESULTS_DIR,
-            tag,
-            "task4",
-            "all_ecef",
-            ext="png",
-            dpi=200,
-            bbox_inches="tight",
-        )
+        save_plot(fig_ecef, RESULTS_DIR, tag, "task4", "all_ecef", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig_ecef)
     logging.info("All data in ECEF frame plot saved")
 
@@ -1505,35 +1501,9 @@ def main():
     )
     fig_body.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(
-            fig_body,
-            RESULTS_DIR,
-            tag,
-            "task4",
-            "all_body",
-            ext="png",
-            dpi=200,
-            bbox_inches="tight",
-        )
+        save_plot(fig_body, RESULTS_DIR, tag, "task4", "all_body", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig_body)
     logging.info("All data in body frame plot saved")
-    np.savez_compressed(
-        RESULTS_DIR / f"{tag}_task4_data.npz",
-        imu_time=imu_time,
-        gnss_time=gnss_time,
-        gnss_pos_ecef=gnss_pos_ecef,
-        gnss_vel_ecef=gnss_vel_ecef,
-        gnss_acc_ecef=gnss_acc_ecef,
-        gnss_pos_ned=gnss_pos_ned,
-        gnss_vel_ned=gnss_vel_ned,
-        gnss_acc_ned=gnss_acc_ned,
-        pos_integ=pos_integ[method],
-        vel_integ=vel_integ[method],
-        acc_integ=acc_integ[method],
-        pos_integ_ecef=pos_integ_ecef[method],
-        vel_integ_ecef=vel_integ_ecef[method],
-    )
-    logging.info("Task 4: saved derived and measured data")
     if not args.no_plots:
         task_summary("task4")
 
@@ -1616,8 +1586,7 @@ def main():
 
     # Load IMU data
     imu_time = np.arange(len(imu_data)) * dt_imu
-    acc_body = imu_data[[5, 6, 7]].values / dt_imu
-    acc_body = butter_lowpass_filter(acc_body)
+    acc_body = acc_body  # from auto axis-map above
     # Use at most 4000 samples but allow shorter sequences when running the
     # trimmed datasets used in unit tests.
     N_static = min(4000, len(imu_data))
@@ -1709,9 +1678,64 @@ def main():
     for m in methods:
         kf = KalmanFilter(dim_x=13, dim_z=6)
         initial_quats = {"TRIAD": q_tri, "Davenport": q_dav, "SVD": q_svd}
-        kf.x = np.hstack(
-            (imu_pos[m][0], imu_vel[m][0], imu_acc[m][0], initial_quats[m])
-        )
+        chosen_init = None
+        # Optionally override initial attitude with truth quaternion at IMU start
+        if (args.init_att_with_truth or args.kf_init == "TRUTH") and truth_file:
+            try:
+                truth_arr = np.loadtxt(truth_file)
+                # Heuristic: first time-like column in [0..2], quats are last 4 cols
+                t_cols = []
+                for c in range(min(3, truth_arr.shape[1])):
+                    col = truth_arr[:, c].astype(float)
+                    if np.all(np.isfinite(col)) and (np.nanmax(col) - np.nanmin(col)) > 0:
+                        t_cols.append((c, float(np.nanmax(col) - np.nanmin(col)), col))
+                if not t_cols:
+                    raise ValueError("No valid time column found in truth file")
+                t_cols.sort(key=lambda x: x[1])
+                t_truth = t_cols[0][2]
+                # Use last 4 numeric cols as [qw,qx,qy,qz]
+                quat_truth = truth_arr[:, -4:]
+                # IMU time base
+                t_imu0 = float(imu_time[0])
+                idx0 = int(np.argmin(np.abs(t_truth - t_imu0)))
+                q_truth0 = quat_truth[idx0].astype(float)
+                # Convert body->ECEF truth to body->NED if requested
+                if args.truth_quat_frame == "ECEF":
+                    try:
+                        r_be = R.from_quat(q_truth0[[1, 2, 3, 0]])
+                        C_e2n = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+                        R_bn = C_e2n @ r_be.as_matrix()
+                        r_bn = R.from_matrix(R_bn)
+                        q_xyzw = r_bn.as_quat()
+                        q_truth0 = np.array([q_xyzw[3], q_xyzw[0], q_xyzw[1], q_xyzw[2]])
+                    except Exception as exc2:
+                        logging.warning("Truth quaternion frame conversion failed: %s", exc2)
+                # Normalise to be safe and ensure positive scalar part convention
+                q_truth0 = q_truth0 / (np.linalg.norm(q_truth0) + 1e-12)
+                if q_truth0[0] < 0:
+                    q_truth0 = -q_truth0
+                chosen_init = q_truth0.copy()
+                logging.info(
+                    "Initial attitude overridden with truth quaternion at t=%.3f s: %s",
+                    t_imu0,
+                    np.array2string(q_truth0, precision=6),
+                )
+            except Exception as exc:
+                logging.warning(
+                    "--init-att-with-truth set, but failed to parse truth quaternion: %s",
+                    exc,
+                )
+        # If not using TRUTH, choose the requested KF init among computed attitudes
+        if chosen_init is None:
+            try:
+                chosen_init = initial_quats.get(args.kf_init, initial_quats.get(m))
+            except Exception:
+                chosen_init = initial_quats.get(m)
+        # Normalise and enforce w>=0
+        chosen_init = chosen_init / (np.linalg.norm(chosen_init) + 1e-12)
+        if chosen_init[0] < 0:
+            chosen_init = -chosen_init
+        kf.x = np.hstack((imu_pos[m][0], imu_vel[m][0], imu_acc[m][0], chosen_init))
         kf.F = np.eye(13)
         kf.H = np.hstack((np.eye(6), np.zeros((6, 7))))
         kf.P *= 1.0
@@ -1744,7 +1768,7 @@ def main():
 
         # attitude initialisation for logging
         orientations = np.zeros((len(imu_time), 4))
-        orientations[0] = initial_quats[m]
+        orientations[0] = chosen_init
         attitude_q.append(orientations[0])
         q_cur = orientations[0]
         roll, pitch, yaw = quat2euler(q_cur)
@@ -1758,8 +1782,41 @@ def main():
         for i in range(1, len(imu_time)):
             dt = imu_time[i] - imu_time[i - 1]
 
-            # propagate quaternion using gyro measurement
-            dq = quat_from_rate(gyro_body_corrected[m][i], dt)
+            # propagate quaternion using gyro measurement with Earth+transport rate correction
+            # Effective body rate relative to NED: omega_bn^b = omega_ib^b - C_n^b * (omega_ie^n + omega_en^n)
+            try:
+                lat_i = float(lat_interp[i]) if 'lat_interp' in locals() else float(ref_lat)
+            except Exception:
+                lat_i = float(ref_lat)
+            # Earth rate in NED
+            omega_ie_n = np.array([
+                EARTH_RATE * np.cos(lat_i),
+                0.0,
+                -EARTH_RATE * np.sin(lat_i),
+            ])
+            # Transport rate in NED from current nav velocity and latitude
+            vN, vE, vD = kf.x[3:6]
+            # WGS-84 radii of curvature
+            a_wgs = 6378137.0
+            e2 = 6.6943799901413165e-3
+            sin_lat = np.sin(lat_i)
+            denom = np.sqrt(1.0 - e2 * sin_lat * sin_lat)
+            R_E = a_wgs / denom                    # prime-vertical radius
+            R_N = a_wgs * (1 - e2) / (denom**3)    # meridian radius
+            h_i = float(alt) if ('alt' in locals() and alt is not None) else 0.0
+            # Standard transport rate expression in NED
+            omega_en_n = np.array([
+                vE / (R_E + h_i),
+                -vN / (R_N + h_i),
+                -vE * np.tan(lat_i) / (R_E + h_i),
+            ])
+            omega_in_n = omega_ie_n + omega_en_n
+            # C_b^n from current quaternion
+            C_b_n = R.from_quat([q_cur[1], q_cur[2], q_cur[3], q_cur[0]]).as_matrix()
+            C_n_b = C_b_n.T
+            omega_in_b = C_n_b @ omega_in_n
+            omega_eff_b = gyro_body_corrected[m][i] - omega_in_b
+            dq = quat_from_rate(omega_eff_b, dt)
             q_cur = quat_multiply(q_cur, dq)
             q_cur /= np.linalg.norm(q_cur)
             orientations[i] = q_cur
@@ -1800,6 +1857,31 @@ def main():
             z = np.hstack((gnss_pos_ned_interp[i], gnss_vel_ned_interp[i]))
             kf.update(z)
 
+            # Optional: fuse GNSS-derived yaw to correct quaternion drift
+            if args.fuse_yaw:
+                v_ned = gnss_vel_ned_interp[i]
+                v_h = np.hypot(v_ned[0], v_ned[1])
+                if v_h >= args.yaw_speed_min:
+                    # Measured yaw from GNSS velocity (atan2(E, N)) in NED
+                    yaw_meas = float(np.arctan2(v_ned[1], v_ned[0]))
+                    roll, pitch, yaw_est = quat2euler(q_cur)
+                    # Wrap error to [-pi,pi]
+                    err = np.arctan2(np.sin(yaw_meas - yaw_est), np.cos(yaw_meas - yaw_est))
+                    delta = args.yaw_gain * err
+                    # Rotation about NED z-axis; apply on the left (world-frame correction)
+                    half = 0.5 * delta
+                    dqz = np.array([np.cos(half), 0.0, 0.0, np.sin(half)])
+                    q_cur = quat_multiply(dqz, q_cur)
+                    q_cur /= np.linalg.norm(q_cur) + 1e-12
+                    orientations[i] = q_cur
+                    kf.x[9:13] = q_cur
+                    # Overwrite last logged attitude and Euler with corrected values
+                    if attitude_q:
+                        attitude_q[-1] = q_cur
+                    roll, pitch, yaw = quat2euler(q_cur)
+                    if euler_list:
+                        euler_list[-1] = [roll, pitch, yaw]
+
             # --- ZUPT check with rolling variance ---
             acc_win.append(acc_body_corrected[m][i])
             gyro_win.append(gyro_body_corrected[m][i])
@@ -1835,8 +1917,12 @@ def main():
             P_hist.append(kf.P.copy())
             x_log[:, i] = kf.x
 
-        logging.info(f"Method {m}: Kalman Filter completed. ZUPTcnt={zupt_count}")
-        logging.info(f"Method {m}: velocity blow-up events={vel_blow_count}")
+        logging.info(
+            f"Method {m}: Kalman Filter completed. ZUPTcnt={zupt_count}"
+        )
+        logging.info(
+            f"Method {m}: velocity blow-up events={vel_blow_count}"
+        )
         with open("triad_init_log.txt", "a") as logf:
             for s, e in zupt_events:
                 logf.write(f"{imu_file}: ZUPT {s}-{e}\n")
@@ -1978,9 +2064,7 @@ def main():
 
     plt.tight_layout()
     if not args.no_plots:
-        save_plot(
-            fig, RESULTS_DIR, tag, "task5", f"results_{method}", ext="png", dpi=200
-        )
+        save_plot(fig, RESULTS_DIR, tag, "task5", f"results_{method}", ext="png", dpi=200)
     logging.info(f"Subtask 5.8.2: {method} plot saved")
     logging.debug(f"# Subtask 5.8.2: {method} plotting completed.")
     plt.close(fig)
@@ -2040,16 +2124,7 @@ def main():
     )
     fig_mixed_fused.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(
-            fig_mixed_fused,
-            RESULTS_DIR,
-            tag,
-            "task5",
-            "mixed_frames",
-            ext="png",
-            dpi=200,
-            bbox_inches="tight",
-        )
+        save_plot(fig_mixed_fused, RESULTS_DIR, tag, "task5", "mixed_frames", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig_mixed_fused)
     logging.info("Fused mixed frames plot saved")
 
@@ -2058,25 +2133,16 @@ def main():
     fig_ned_all, ax_ned_all = plt.subplots(3, 3, figsize=(15, 10))
     dirs_ned = ["N", "E", "D"]
     c = colors.get(method, None)
-    use_truth_ned = (truth_pos_ned_i is not None) and (truth_vel_ned_i is not None)
     for i in range(3):
         for j in range(3):
             ax = ax_ned_all[i, j]
             if i == 0:
-                if use_truth_ned:
-                    ax.plot(
-                        t_rel_ilu,
-                        truth_pos_ned_i[:, j],
-                        "k-",
-                        label="Truth",
-                    )
-                else:
-                    ax.plot(
-                        t_rel_gnss,
-                        gnss_pos_ned[:, j],
-                        "k-",
-                        label="Derived GNSS (ECEF→NED)",
-                    )
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_pos_ned[:, j],
+                    "k-",
+                    label="Derived GNSS (ECEF→NED)",
+                )
                 ax.plot(
                     t_rel_ilu,
                     fused_pos[method][:, j],
@@ -2084,22 +2150,16 @@ def main():
                     alpha=0.7,
                     label=f"Fused (GNSS+IMU, {method})",
                 )
+                if truth_pos_ned_i is not None:
+                    ax.plot(t_rel_ilu, truth_pos_ned_i[:, j], "m-", label="Truth")
                 ax.set_title(f"Position {dirs_ned[j]}")
             elif i == 1:
-                if use_truth_ned:
-                    ax.plot(
-                        t_rel_ilu,
-                        truth_vel_ned_i[:, j],
-                        "k-",
-                        label="Truth",
-                    )
-                else:
-                    ax.plot(
-                        t_rel_gnss,
-                        gnss_vel_ned[:, j],
-                        "k-",
-                        label="Derived GNSS (ECEF→NED)",
-                    )
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_vel_ned[:, j],
+                    "k-",
+                    label="Derived GNSS (ECEF→NED)",
+                )
                 ax.plot(
                     t_rel_ilu,
                     fused_vel[method][:, j],
@@ -2107,6 +2167,8 @@ def main():
                     alpha=0.7,
                     label=f"Fused (GNSS+IMU, {method})",
                 )
+                if truth_vel_ned_i is not None:
+                    ax.plot(t_rel_ilu, truth_vel_ned_i[:, j], "m-", label="Truth")
                 ax.set_title(f"Velocity V{dirs_ned[j]}")
             else:
                 ax.plot(
@@ -2126,22 +2188,12 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    if use_truth_ned:
-        fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused vs. TRUTH)")
-    else:
-        fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused vs. Derived GNSS)")
+    fig_ned_all.suptitle(
+        f"Task 5 – {method} – NED Frame (Fused vs. Derived GNSS)"
+    )
     fig_ned_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(
-            fig_ned_all,
-            RESULTS_DIR,
-            tag,
-            "task5",
-            "all_ned",
-            ext="png",
-            dpi=200,
-            bbox_inches="tight",
-        )
+        save_plot(fig_ned_all, RESULTS_DIR, tag, "task5", "all_ned", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig_ned_all)
     logging.info("All data in NED frame plot saved")
 
@@ -2151,7 +2203,6 @@ def main():
     pos_ecef = np.array([C_NED_to_ECEF @ p + ref_r0 for p in fused_pos[method]])
     vel_ecef = (C_NED_to_ECEF @ fused_vel[method].T).T
     acc_ecef = (C_NED_to_ECEF @ fused_acc[method].T).T
-    use_truth_ecef = (truth_pos_ecef_i is not None) and (truth_vel_ecef_i is not None)
 
     for name, arr in (
         ("pos_ecef", pos_ecef),
@@ -2165,20 +2216,12 @@ def main():
         for j in range(3):
             ax = ax_ecef_all[i, j]
             if i == 0:
-                if use_truth_ecef:
-                    ax.plot(
-                        t_rel_ilu,
-                        truth_pos_ecef_i[:, j],
-                        "k-",
-                        label="Truth",
-                    )
-                else:
-                    ax.plot(
-                        t_rel_gnss,
-                        gnss_pos_ecef[:, j],
-                        "k-",
-                        label="Measured GNSS Position",
-                    )
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_pos_ecef[:, j],
+                    "k-",
+                    label="Measured GNSS Position",
+                )
                 ax.plot(
                     t_rel_ilu,
                     pos_ecef[:, j],
@@ -2186,22 +2229,16 @@ def main():
                     alpha=0.7,
                     label=f"Fused (GNSS+IMU, {method})",
                 )
+                if truth_pos_ecef_i is not None:
+                    ax.plot(t_rel_ilu, truth_pos_ecef_i[:, j], "m-", label="Truth")
                 ax.set_title(f"Position {dirs_ecef[j]}_ECEF")
             elif i == 1:
-                if use_truth_ecef:
-                    ax.plot(
-                        t_rel_ilu,
-                        truth_vel_ecef_i[:, j],
-                        "k-",
-                        label="Truth",
-                    )
-                else:
-                    ax.plot(
-                        t_rel_gnss,
-                        gnss_vel_ecef[:, j],
-                        "k-",
-                        label="Measured GNSS Velocity",
-                    )
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_vel_ecef[:, j],
+                    "k-",
+                    label="Measured GNSS Velocity",
+                )
                 ax.plot(
                     t_rel_ilu,
                     vel_ecef[:, j],
@@ -2209,6 +2246,8 @@ def main():
                     alpha=0.7,
                     label=f"Fused (GNSS+IMU, {method})",
                 )
+                if truth_vel_ecef_i is not None:
+                    ax.plot(t_rel_ilu, truth_vel_ecef_i[:, j], "m-", label="Truth")
                 ax.set_title(f"Velocity V{dirs_ecef[j]}_ECEF")
             else:
                 ax.plot(
@@ -2228,26 +2267,12 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    if use_truth_ecef:
-        fig_ecef_all.suptitle(
-            f"Task 5 – {method} – ECEF Frame (Fused vs. TRUTH; Acc Derived)"
-        )
-    else:
-        fig_ecef_all.suptitle(
-            f"Task 5 – {method} – ECEF Frame (Fused vs. Measured GNSS; Acc Derived)"
-        )
+    fig_ecef_all.suptitle(
+        f"Task 5 – {method} – ECEF Frame (Fused vs. Measured GNSS; Acc Derived)"
+    )
     fig_ecef_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(
-            fig_ecef_all,
-            RESULTS_DIR,
-            tag,
-            "task5",
-            "all_ecef",
-            ext="png",
-            dpi=200,
-            bbox_inches="tight",
-        )
+        save_plot(fig_ecef_all, RESULTS_DIR, tag, "task5", "all_ecef", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig_ecef_all)
     logging.info("All data in ECEF frame plot saved")
 
@@ -2264,25 +2289,16 @@ def main():
     gnss_pos_body = (C_N_B @ gnss_pos_ned.T).T
     gnss_vel_body = (C_N_B @ gnss_vel_ned.T).T
     gnss_acc_body = (C_N_B @ gnss_acc_ned.T).T
-    use_truth_body = (truth_pos_ned_i is not None) and (truth_vel_ned_i is not None)
     for i in range(3):
         for j in range(3):
             ax = ax_body_all[i, j]
             if i == 0:
-                if use_truth_body:
-                    ax.plot(
-                        t_rel_ilu,
-                        truth_pos_body[:, j],
-                        "k-",
-                        label="Truth",
-                    )
-                else:
-                    ax.plot(
-                        t_rel_gnss,
-                        gnss_pos_body[:, j],
-                        "k-",
-                        label="Derived GNSS",
-                    )
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_pos_body[:, j],
+                    "k-",
+                    label="Derived GNSS",
+                )
                 ax.plot(
                     t_rel_ilu,
                     pos_body[:, j],
@@ -2290,22 +2306,16 @@ def main():
                     alpha=0.7,
                     label=f"Fused (GNSS+IMU, {method})",
                 )
+                if truth_pos_ned_i is not None:
+                    ax.plot(t_rel_ilu, truth_pos_body[:, j], "m-", label="Truth")
                 ax.set_title(f"Position r{dirs_body[j]}_body")
             elif i == 1:
-                if use_truth_body:
-                    ax.plot(
-                        t_rel_ilu,
-                        truth_vel_body[:, j],
-                        "k-",
-                        label="Truth",
-                    )
-                else:
-                    ax.plot(
-                        t_rel_gnss,
-                        gnss_vel_body[:, j],
-                        "k-",
-                        label="Derived GNSS",
-                    )
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_vel_body[:, j],
+                    "k-",
+                    label="Derived GNSS",
+                )
                 ax.plot(
                     t_rel_ilu,
                     vel_body[:, j],
@@ -2313,6 +2323,8 @@ def main():
                     alpha=0.7,
                     label=f"Fused (GNSS+IMU, {method})",
                 )
+                if truth_vel_ned_i is not None:
+                    ax.plot(t_rel_ilu, truth_vel_body[:, j], "m-", label="Truth")
                 ax.set_title(f"Velocity v{dirs_body[j]}_body")
             else:
                 ax.plot(
@@ -2332,22 +2344,12 @@ def main():
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    if use_truth_body:
-        fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused vs. TRUTH)")
-    else:
-        fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused vs. Derived GNSS)")
+    fig_body_all.suptitle(
+        f"Task 5 – {method} – Body Frame (Fused vs. Derived GNSS)"
+    )
     fig_body_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
-        save_plot(
-            fig_body_all,
-            RESULTS_DIR,
-            tag,
-            "task5",
-            "all_body",
-            ext="png",
-            dpi=200,
-            bbox_inches="tight",
-        )
+        save_plot(fig_body_all, RESULTS_DIR, tag, "task5", "all_body", ext="png", dpi=200, bbox_inches="tight")
     plt.close(fig_body_all)
     logging.info("All data in body frame plot saved")
     if not args.no_plots:
@@ -2444,7 +2446,8 @@ def main():
         plt.legend(loc="best")
         plt.title(f"Task 6: {tag} Attitude Angles")
         png = Path("results") / f"{tag}_task6_attitude_angles.png"
-        plt.savefig(png, dpi=200, bbox_inches="tight")
+        from utils.matlab_fig_export import save_matlab_fig
+        save_matlab_fig(fig, str(Path(png).with_suffix('')))
         plt.close()
 
     C_NED_to_ECEF = C_ECEF_to_NED.T
@@ -2513,12 +2516,8 @@ def main():
             "fused_vel": fused_vel[method],
             "pos_ecef": pos_ecef,
             "vel_ecef": vel_ecef,
-            "truth_pos_ecef": (
-                pos_truth_ecef if pos_truth_ecef is not None else np.empty((0, 3))
-            ),
-            "truth_vel_ecef": (
-                vel_truth_ecef if vel_truth_ecef is not None else np.empty((0, 3))
-            ),
+            "truth_pos_ecef": pos_truth_ecef if pos_truth_ecef is not None else np.empty((0, 3)),
+            "truth_vel_ecef": vel_truth_ecef if vel_truth_ecef is not None else np.empty((0, 3)),
             "truth_time": t_truth if t_truth is not None else np.empty(0),
             "pos_body": pos_body,
             "vel_body": vel_body,
@@ -2607,6 +2606,82 @@ def main():
             fused_vel,
             fused_acc,
         )
+
+        # Task 7: Attitude comparison — quaternion components (Truth vs Estimated)
+        # Saves under the Task 7 naming convention if truth data is available.
+        if args.init_att_with_truth and truth_file:
+            try:
+                import numpy as _np
+                from scipy.spatial.transform import Rotation as _R
+                from naming import plot_path as _plot_path
+                from utils.matlab_fig_export import save_matlab_fig as _save_fig
+
+                # Load truth times and quaternions
+                truth_arr = _np.loadtxt(truth_file)
+                # Heuristic: find a time-like column among first 3 columns
+                t_cols = []
+                for c in range(min(3, truth_arr.shape[1])):
+                    col = truth_arr[:, c].astype(float)
+                    if _np.all(_np.isfinite(col)) and (_np.nanmax(col) - _np.nanmin(col)) > 0:
+                        t_cols.append((c, float(_np.nanmax(col) - _np.nanmin(col)), col))
+                if not t_cols:
+                    raise ValueError("No valid time column found in truth file for attitude plot")
+                t_cols.sort(key=lambda x: x[1])
+                t_truth = t_cols[0][2]
+                q_truth = truth_arr[:, -4:]
+
+                # Convert body->ECEF truth quats to body->NED if requested
+                if args.truth_quat_frame == "ECEF":
+                    C_e2n = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+                    qn_list = []
+                    for q in q_truth:
+                        # Input q is [qw,qx,qy,qz]; scipy expects [x,y,z,w]
+                        r_be = _R.from_quat([q[1], q[2], q[3], q[0]])
+                        R_bn = C_e2n @ r_be.as_matrix()
+                        r_bn = _R.from_matrix(R_bn)
+                        q_xyzw = r_bn.as_quat()
+                        qn_list.append([q_xyzw[3], q_xyzw[0], q_xyzw[1], q_xyzw[2]])
+                    q_truth = _np.asarray(qn_list)
+
+                # Normalise and enforce positive scalar part
+                q_truth = q_truth / (_np.linalg.norm(q_truth, axis=1, keepdims=True) + 1e-12)
+                _truth_sign_mask = (q_truth[:, 0] < 0)
+                q_truth[_truth_sign_mask, :] *= -1.0
+
+                # Align truth to IMU sampling by nearest neighbour
+                idx_nn = _np.searchsorted(t_truth, imu_time.clip(t_truth[0], t_truth[-1]))
+                idx_nn = _np.clip(idx_nn, 0, len(t_truth) - 1)
+                q_truth_i = q_truth[idx_nn]
+
+                # Quaternions (w,x,y,z) time series
+                q_est = attitude_q_all[method]
+                # Align quaternion signs per-sample (q and -q are equivalent)
+                dots = _np.sum(q_truth_i * q_est, axis=1)
+                signs = _np.where(dots >= 0.0, 1.0, -1.0)[:, None]
+                q_est = q_est * signs
+                import matplotlib.pyplot as _plt
+                fig_q, axs_q = _plt.subplots(4, 1, figsize=(10, 8), sharex=True)
+                comps = ["q_w", "q_x", "q_y", "q_z"]
+                for i, lab in enumerate(comps):
+                    axs_q[i].plot(imu_time, q_truth_i[:, i], "k-", label="Truth")
+                    axs_q[i].plot(imu_time, q_est[:, i], "r--", label="Estimated")
+                    axs_q[i].set_ylabel(lab)
+                    axs_q[i].grid(True)
+                    if i == 0:
+                        axs_q[i].legend(loc="best")
+                axs_q[-1].set_xlabel("Time [s]")
+                fig_q.suptitle("Task 7: Body→NED Attitude Quaternions — Truth vs Estimate")
+                fig_q.tight_layout(rect=[0, 0, 1, 0.95])
+
+                # Save with the requested filename pattern
+                imu_tag = Path(imu_file).stem
+                gnss_tag = Path(gnss_file).stem
+                out_name = f"{imu_tag}_{gnss_tag}_{method}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion.png"
+                out_path = Path("results") / out_name
+                fig_q.savefig(out_path, dpi=200, bbox_inches="tight")
+                _plt.close(fig_q)
+            except Exception as ex:
+                logging.warning("Failed to save Task 7 attitude comparison: %s", ex)
 
     logging.info(
         f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file)} gnss={os.path.basename(gnss_file)} "

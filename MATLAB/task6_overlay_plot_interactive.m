@@ -44,19 +44,19 @@ acc_truth_i = interp1(t_truth, acc_truth, t_est, 'linear', 'extrap');
 [t_est, pos_est, vel_est, acc_est, pos_truth_i, vel_truth_i, acc_truth_i] = ...
     ensure_equal_length(t_est, pos_est, vel_est, acc_est, pos_truth_i, vel_truth_i, acc_truth_i);
 
-% Create interactive overlay plot with 3x3 layout
+% Create interactive overlay plot (position, velocity only; no acceleration)
 pdf_path = plot_overlay_interactive_3x3(t_est, pos_est, vel_est, acc_est, ...
     pos_truth_i, vel_truth_i, acc_truth_i, frame, method, dataset, output_dir);
 
-% Generate RMSE plot as well
+% Generate RMSE plot (position, velocity only; omit acceleration)
 plot_rmse_interactive(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
     vel_truth_i, acc_truth_i, frame, method, dataset, output_dir);
 
 end
 
 % -------------------------------------------------------------------------
-function pdf_path = plot_overlay_interactive_3x3(t_est, pos_est, vel_est, acc_est, ...
-    pos_truth, vel_truth, acc_truth, frame, method, dataset, out_dir)
+function pdf_path = plot_overlay_interactive_3x3(t_est, pos_est, vel_est, ~, ...
+    pos_truth, vel_truth, ~, frame, method, dataset, out_dir)
 %PLOT_OVERLAY_INTERACTIVE_3X3 Create interactive 3x3 overlay plot.
 %   Creates a 3x3 subplot layout matching the Python implementation with
 %   interactive features enabled for better data exploration.
@@ -81,11 +81,11 @@ f = figure('Name', sprintf('%s Task 6 Interactive - %s (%s)', dataset, method, f
           'MenuBar', 'figure', ...
           'ToolBar', 'figure');
 
-% Define data types and units for subplots
-data_types = {'Position', 'Velocity', 'Acceleration'};
-units = {'[m]', '[m/s]', '[m/s²]'};
-data_arrays = {pos_est, vel_est, acc_est};
-truth_arrays = {pos_truth, vel_truth, acc_truth};
+% Define data types and units for subplots (no acceleration)
+data_types = {'Position', 'Velocity'};
+units = {'[m]', '[m/s]'};
+data_arrays = {pos_est, vel_est};
+truth_arrays = {pos_truth, vel_truth};
 
 % Color scheme matching Python version
 colors.truth = [0, 0, 0];           % black
@@ -93,7 +93,7 @@ colors.fused = [0.1216, 0.4667, 0.7059];  % tab:blue
 colors.measurements = [0.1725, 0.6275, 0.1725]; % tab:green (for consistency)
 
 % Create 3x3 subplot layout
-for row = 1:3
+for row = 1:2
     for col = 1:3
         subplot(3, 3, (row-1)*3 + col);
         hold on; grid on;
@@ -123,7 +123,7 @@ for row = 1:3
         end
         
         % Add axis labels
-        if row == 3  % Bottom row
+        if row == 2  % Bottom row
             xlabel('Time [s]');
         end
         if col == 1  % Left column
@@ -331,18 +331,16 @@ icon_data(:, 4:4:16, :) = 0.2;  % Vertical lines
 end
 
 % -------------------------------------------------------------------------
-function pdf_path = plot_rmse_interactive(t, pos_est, vel_est, acc_est, pos_truth, vel_truth, acc_truth, frame, method, dataset, out_dir)
-%PLOT_RMSE_INTERACTIVE Plot interactive RMSE with enhanced features.
+function pdf_path = plot_rmse_interactive(t, pos_est, vel_est, ~, pos_truth, vel_truth, ~, frame, method, dataset, out_dir)
+%PLOT_RMSE_INTERACTIVE Plot interactive RMSE (pos, vel only).
 
 % Calculate error magnitudes
 pos_err = vecnorm(pos_est - pos_truth, 2, 2);
 vel_err = vecnorm(vel_est - vel_truth, 2, 2);
-acc_err = vecnorm(acc_est - acc_truth, 2, 2);
 
 % Calculate RMSE values
 rmse_pos = sqrt(mean(pos_err.^2));
 rmse_vel = sqrt(mean(vel_err.^2));
-rmse_acc = sqrt(mean(acc_err.^2));
 
 % Create interactive figure
 f = figure('Name', sprintf('%s RMSE Analysis - %s (%s)', dataset, method, frame), ...
@@ -357,8 +355,7 @@ h1 = plot(t, pos_err, 'LineWidth', 2, 'DisplayName', ...
          sprintf('Position RMSE: %.3f m', rmse_pos));
 h2 = plot(t, vel_err, 'LineWidth', 2, 'DisplayName', ...
          sprintf('Velocity RMSE: %.3f m/s', rmse_vel));
-h3 = plot(t, acc_err, 'LineWidth', 2, 'DisplayName', ...
-         sprintf('Acceleration RMSE: %.3f m/s²', rmse_acc));
+% No acceleration RMSE in truth; omit third series
 
 xlabel('Time [s]', 'FontSize', 12);
 ylabel('Error Magnitude', 'FontSize', 12);

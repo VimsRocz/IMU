@@ -185,7 +185,8 @@ def save_task1_worldmap_png(gnss_file: str, run_id: str, out_dir="PYTHON/results
 
     # 3) Save single PNG
     fig.tight_layout()
-    fig.savefig(out_png, dpi=200, bbox_inches="tight")
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(out_png.with_suffix('')))
     plt.close(fig)
     print(f"[Task1] Saved location map -> {out_png}")
     return str(out_png)

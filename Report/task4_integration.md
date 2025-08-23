@@ -12,9 +12,3 @@ results/run_triad_only/<tag>_task4_all_ned.pdf
 results/run_triad_only/<tag>_task4_all_ecef.pdf
 results/run_triad_only/<tag>_task4_all_body.pdf
 ```
-
-The results file `Task4_results_IMU_GNSS.mat` now groups the outputs into
-`derived_imu` and `derived_gnss` structures. Each structure contains
-position, velocity and, where available, acceleration in the ECEF, body and
-NED frames. This labelling distinguishes quantities derived from the IMU
-integration from those derived from GNSS measurements.

@@ -129,6 +129,18 @@ res5 = load(res5_file);
 %  pos_ecef_est/vel_ecef_est/acc_ecef_est [N x 3] (if stored)
 %  q_b2n_hist [N x 4] (wxyz)  <-- optional but preferred
 
+% Require estimator attitude for Task-6 overlays that include attitude/Euler
+if ~isfield(res5, 'att_quat')
+    error('Task6: att_quat missing from Task5 results; cannot plot attitude overlays.');
+else
+    q_est = res5.att_quat; % [N x 4], wxyz, Body->NED
+    fprintf('[Task6] Using estimator attitude from att_quat (Nx4, wxyz, Body->NED). Size=%dx%d\n', size(q_est,1), size(q_est,2));
+    if size(q_est,1) >= 2
+        fprintf('[Task6] att_quat first=[% .4f % .4f % .4f % .4f], last=[% .4f % .4f % .4f % .4f]\n', ...
+            q_est(1,1), q_est(1,2), q_est(1,3), q_est(1,4), q_est(end,1), q_est(end,2), q_est(end,3), q_est(end,4));
+    end
+end
+
 % Time base
 if isfield(res5,'t_est'), t_est = res5.t_est; else, error('Task6: t_est missing'); end
 N = numel(t_est);
@@ -181,7 +193,12 @@ fprintf('[Task6] Reference lat/lon (deg): %.6f / %.6f\n', rad2deg(lat), rad2deg(
 % Ensure NED truth (convert from ECEF if needed)
 if isempty(pos_ned_truth) && ~isempty(pos_ecef_truth)
     fprintf('[Task6] Converting TRUTH position ECEF->NED...\n');
-    pos_ned_truth = attitude_tools('ecef2ned_vec', pos_ecef_truth, lat, lon);
+    % Subtract reference ECEF origin so NED positions are relative to r0
+    r0 = zeros(1,3);
+    if isfield(res5,'ref_r0') && ~isempty(res5.ref_r0)
+        r0 = res5.ref_r0(:)';
+    end
+    pos_ned_truth = attitude_tools('ecef2ned_vec', pos_ecef_truth - r0, lat, lon);
 end
 if isempty(vel_ned_truth) && ~isempty(vel_ecef_truth)
     fprintf('[Task6] Converting TRUTH velocity ECEF->NED...\n');
@@ -198,7 +215,11 @@ fprintf('[Task6] Interpolated TRUTH to estimator time | NED pos=%dx%d vel=%dx%d\
 % Build EST NED (convert from ECEF if missing)
 if isempty(EST.pos_ned) && ~isempty(EST.pos_ecef)
     fprintf('[Task6] Converting EST position ECEF->NED...\n');
-    EST.pos_ned = attitude_tools('ecef2ned_vec', EST.pos_ecef, lat, lon);
+    r0 = zeros(1,3);
+    if isfield(res5,'ref_r0') && ~isempty(res5.ref_r0)
+        r0 = res5.ref_r0(:)';
+    end
+    EST.pos_ned = attitude_tools('ecef2ned_vec', EST.pos_ecef - r0, lat, lon);
 end
 if isempty(EST.vel_ned) && ~isempty(EST.vel_ecef)
     fprintf('[Task6] Converting EST velocity ECEF->NED...\n');

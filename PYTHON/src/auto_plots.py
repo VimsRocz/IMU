@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from utils import compute_C_ECEF_to_NED
+from utils.matlab_fig_export import save_matlab_fig
 
 # ---------------------------------------------------------------------------
 # Where figures and tables should be written
@@ -50,20 +51,14 @@ def save_task3_plots(method_name: str, dataset_name: str, quat_df: pd.DataFrame,
     fig, ax = plt.subplots()
     quat_df.pivot(index="component", columns="case", values="value").plot.bar(ax=ax)
     ax.set_title(f"{method_name} quaternion components ({dataset_name})")
-    fig.savefig(
-        f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task3_quat.pdf",
-        dpi=200,
-    )
+    save_matlab_fig(fig, f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task3_quat")
     plt.close(fig)
 
     fig, ax = plt.subplots()
     angle_errors.pivot(index="error_type", values="deg_error").plot.bar(ax=ax)
     ax.set_ylabel("Angle error [deg]")
     ax.set_title(f"{method_name} attitude error ({dataset_name})")
-    fig.savefig(
-        f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task3_error.pdf",
-        dpi=200,
-    )
+    save_matlab_fig(fig, f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task3_error")
     plt.close(fig)
 
 
@@ -83,10 +78,7 @@ def save_task4_plots(method_name: str, dataset_name: str, gnss_ned: pd.DataFrame
             f"{method_name} {comp}-pos (Derived IMU vs. Derived GNSS, {dataset_name})"
         )
         ax.legend(loc="best")
-        fig.savefig(
-            f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task4_{comp}_pos.pdf",
-            dpi=200,
-        )
+        save_matlab_fig(fig, f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task4_{comp}_pos")
         plt.close(fig)
 
 
@@ -106,10 +98,7 @@ def save_task5_plots(method_name: str, dataset_name: str, fused: pd.DataFrame,
             f"{method_name} {comp}-pos KF (Fused vs. Measured GNSS, {dataset_name})"
         )
         ax.legend(loc="best")
-        fig.savefig(
-            f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task5_{comp}_pos.pdf",
-            dpi=200,
-        )
+        save_matlab_fig(fig, f"{OUTPUT_DIR}/{dataset_name}_{method_name}_task5_{comp}_pos")
         plt.close(fig)
 
 
@@ -124,10 +113,7 @@ def save_validation_plots(method_name: str, dataset_name: str,
             f"{method_name} {name} (Fused vs. Measured GNSS, {dataset_name})"
         )
         ax.legend(loc="best")
-        fig.savefig(
-            f"{OUTPUT_DIR}/{dataset_name}_{method_name}_{name}.pdf",
-            dpi=200,
-        )
+        save_matlab_fig(fig, f"{OUTPUT_DIR}/{dataset_name}_{method_name}_{name}")
         plt.close(fig)
 
 

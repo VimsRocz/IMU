@@ -44,7 +44,8 @@ def plot_fractal(num_points: int = 50000, outfile: Optional[str] = None) -> None
     plt.tight_layout()
 
     if outfile:
-        plt.savefig(outfile, dpi=300)
+        from utils.matlab_fig_export import save_matlab_fig
+        save_matlab_fig(fig, str(Path(outfile).with_suffix('')))
         plt.close()
     else:
         plt.show()

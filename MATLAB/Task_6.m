@@ -63,6 +63,13 @@ if ~isfield(S, 'x_log')
 end
 fprintf('Task 6: Loaded x_log, size: %dx%d\n', size(S.x_log));
 
+% Echo estimator attitude convention for clarity in logs
+if isfield(S,'att_quat')
+    fprintf('Estimator attitude convention: C_nb (Body->NED), quaternion [w x y z] from att_quat (Nx4)\n');
+else
+    warning('Task6: att_quat missing in Task 5 results; attitude overlays will be skipped if required.');
+end
+
 % Determine method from filename or structure.  The Task 5 results are
 % named either ``<IMU>_<GNSS>_<METHOD>_task5_results.mat`` or
 % ``<tag>_task5_results_<METHOD>.mat``.  Extract the method name without
@@ -193,6 +200,17 @@ if ~isfield(S, 'gnss_time')
     S.gnss_time = linspace(t_est(1), t_est(end), size(S.gnss_pos_ned,1))';
 end
 
+% Require and load estimator attitude quaternion from Task 5
+if ~isfield(S,'att_quat') || size(S.att_quat,2) ~= 4
+    error('Task6: att_quat (Nx4, wxyz) missing from Task 5 results; cannot plot attitude overlays.');
+end
+q_est = S.att_quat; % [N x 4], wxyz, Body->NED
+fprintf('[Task6] Using estimator attitude from att_quat (Nx4, wxyz). Size=%dx4\n', size(q_est,1));
+if size(q_est,1) >= 2
+    fprintf('[Task6] att_quat first=[% .4f % .4f % .4f % .4f], last=[% .4f % .4f % .4f % .4f]\n', ...
+        q_est(1,1), q_est(1,2), q_est(1,3), q_est(1,4), q_est(end,1), q_est(end,2), q_est(end,3), q_est(end,4));
+end
+
 if ~isfield(S,'pos_ned')
     if isfield(S,'fused_pos')
         S.pos_ned = S.fused_pos;
@@ -229,13 +247,32 @@ else
     end
     n = min(numel(est_idx), numel(truth_idx));
     est_idx = est_idx(1:n);
-    truth_idx = truth_idx(1:n);
-    t_est = t_est(est_idx);
-    S.pos_ned = S.pos_ned(est_idx,:);
-    S.vel_ned = S.vel_ned(est_idx,:);
-    pos_truth_ecef_i = truth_pos_ecef(truth_idx,:);
-    vel_truth_ecef_i = truth_vel_ecef(truth_idx,:);
-    acc_truth_ecef_i = [zeros(1,3); diff(vel_truth_ecef_i)./dt_est];
+truth_idx = truth_idx(1:n);
+t_est = t_est(est_idx);
+S.pos_ned = S.pos_ned(est_idx,:);
+S.vel_ned = S.vel_ned(est_idx,:);
+pos_truth_ecef_i = truth_pos_ecef(truth_idx,:);
+vel_truth_ecef_i = truth_vel_ecef(truth_idx,:);
+acc_truth_ecef_i = [zeros(1,3); diff(vel_truth_ecef_i)./dt_est];
+end
+
+% Debug: prove Task-6 uses att_quat by plotting last 60s of q_est components
+try
+    t_rel = t_est - t_est(1);
+    win = 60; mask = t_rel >= max(0, t_rel(end) - win);
+    if any(mask)
+        fdbg = figure('Visible','off','Position',[100 100 700 300]);
+        plot(t_rel(mask), q_est(mask,1), 'LineWidth',1.1); hold on;
+        plot(t_rel(mask), q_est(mask,2:4), 'LineWidth',1.1);
+        grid on; xlabel('Time [s]'); ylabel('q components');
+        title('Task-6 q\_est (from att\_quat), Body\rightarrowNED');
+        legend('q0','q1','q2','q3','Location','best');
+        print(fdbg, fullfile(out_dir, sprintf('%s_task6_q_est_from_att_quat_last60s_NED.png', run_id)), '-dpng','-r200');
+        close(fdbg);
+        fprintf('Task 6: saved q\_est debug plot (last 60s).\n');
+    end
+catch ME
+    warning('Task 6: failed to save q\_est debug plot: %s', ME.message);
 end
 
 pos_truth_ned_i_raw  = (C * (pos_truth_ecef_i' - ref_r0)).';

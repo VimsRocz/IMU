@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from datetime import datetime
 import matplotlib.pyplot as plt
+from utils import save_png_and_mat
+from utils.matlab_fig_export import save_matlab_fig
 
 
 def ensure_output_dirs(run_name: str, task_name: str) -> Path:
@@ -47,8 +49,21 @@ def save_plot(fig: plt.Figure, out_dir: Path, stem: str, ext: str = "png") -> Pa
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    timestamped = out_dir / f"{stem}_{ts}.{ext}"
-    latest = out_dir / f"{stem}_latest.{ext}"
-    fig.savefig(timestamped)
-    fig.savefig(latest)
-    return timestamped
+    # Prefer native MATLAB .fig; else fall back to PNG+MAT
+    timestamped = out_dir / f"{stem}_{ts}"
+    latest = out_dir / f"{stem}_latest"
+    if save_matlab_fig(fig, str(timestamped)) is None:
+        save_png_and_mat(fig, str(timestamped))
+    else:
+        try:
+            fig.savefig(str(timestamped) + ".png", dpi=200, bbox_inches='tight')
+        except Exception:
+            pass
+    if save_matlab_fig(fig, str(latest)) is None:
+        save_png_and_mat(fig, str(latest))
+    else:
+        try:
+            fig.savefig(str(latest) + ".png", dpi=200, bbox_inches='tight')
+        except Exception:
+            pass
+    return Path(str(timestamped) + ".fig")

@@ -152,7 +152,8 @@ def plot_task6_fused_trajectory(
             f"{imu_file}_{gnss_file}_{method}_task6_fused_position_{frame_name.lower()}"
         )
         pdf_path = Path("results") / f"{out_name}.pdf"
-        fig.savefig(pdf_path)
+        from utils.matlab_fig_export import save_matlab_fig
+        save_matlab_fig(fig, str(pdf_path.with_suffix('')))
         try:
             from utils import save_plot_mat
             save_plot_mat(fig, str(Path("results") / f"{out_name}.mat"))
@@ -182,7 +183,8 @@ def plot_task6_fused_trajectory(
             f"{imu_file}_{gnss_file}_{method}_task6_fused_velocity_{frame_name.lower()}"
         )
         pdf_path = Path("results") / f"{out_name}.pdf"
-        fig.savefig(pdf_path)
+        from utils.matlab_fig_export import save_matlab_fig
+        save_matlab_fig(fig, str(pdf_path.with_suffix('')))
         try:
             from utils import save_plot_mat
             save_plot_mat(fig, str(Path("results") / f"{out_name}.mat"))
@@ -203,7 +205,8 @@ def plot_task6_fused_trajectory(
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     out_name = f"{imu_file}_{gnss_file}_{method}_task6_position_error_ned"
     pdf_path = Path("results") / f"{out_name}.pdf"
-    fig.savefig(pdf_path)
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(pdf_path.with_suffix('')))
     try:
         from utils import save_plot_mat
         save_plot_mat(fig, str(Path("results") / f"{out_name}.mat"))
@@ -245,7 +248,8 @@ def plot_quaternion_comparison(
     out_path = (
         Path("results") / f"{imu_file}_{gnss_file}_task6_quaternion_comparison.pdf"
     )
-    fig.savefig(out_path)
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(out_path.with_suffix('')))
     try:
         from utils import save_plot_mat
         save_plot_mat(fig, str(out_path.with_suffix(".mat")))

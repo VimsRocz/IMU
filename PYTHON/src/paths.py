@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 
@@ -26,9 +28,15 @@ def imu_path(name_or_dataset: str) -> Path:
     ``X002`` and builds the correct path under ``DATA/IMU``.
     """
     n = name_or_dataset
-    if n.endswith('.dat') or n.startswith('IMU_') or '/' in n or '\\' in n:
-        return IMU_DIR / n
-    return IMU_DIR / f"IMU_{n}.dat"
+    p = Path(n)
+    # Absolute path: use as-is
+    if p.is_absolute():
+        return p
+    # Path-like input: if it exists, use as-is; else treat as under IMU_DIR
+    if '/' in n or '\\' in n:
+        return p if p.exists() else (IMU_DIR / n)
+    # Dataset id or bare filename: normalise under IMU_DIR
+    return IMU_DIR / (n if n.endswith('.dat') or n.startswith('IMU_') else f"IMU_{n}.dat")
 
 def gnss_path(name_or_dataset: str) -> Path:
     """Return GNSS data path.
@@ -37,9 +45,12 @@ def gnss_path(name_or_dataset: str) -> Path:
     ``X002`` and builds the correct path under ``DATA/GNSS``.
     """
     n = name_or_dataset
-    if n.endswith('.csv') or n.startswith('GNSS_') or '/' in n or '\\' in n:
-        return GNSS_DIR / n
-    return GNSS_DIR / f"GNSS_{n}.csv"
+    p = Path(n)
+    if p.is_absolute():
+        return p
+    if '/' in n or '\\' in n:
+        return p if p.exists() else (GNSS_DIR / n)
+    return GNSS_DIR / (n if n.endswith('.csv') or n.startswith('GNSS_') else f"GNSS_{n}.csv")
 
 def truth_path(name: str = "STATE_X001.txt") -> Path:
     return TRUTH_DIR / name

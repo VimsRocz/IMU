@@ -203,12 +203,6 @@ def main(argv=None):
             m_val = re.search(r"RMSE velocity error:\s*([0-9.eE+-]+)", line)
             if m_val:
                 metrics["rmse_vel"] = float(m_val.group(1))
-            m_val = re.search(r"Final acceleration error:\s*([0-9.eE+-]+)", line)
-            if m_val:
-                metrics["final_acc"] = float(m_val.group(1))
-            m_val = re.search(r"RMSE acceleration error:\s*([0-9.eE+-]+)", line)
-            if m_val:
-                metrics["rmse_acc"] = float(m_val.group(1))
             m_val = re.search(r"Final attitude error:\s*([0-9.eE+-]+)", line)
             if m_val:
                 metrics["final_att"] = float(m_val.group(1))
@@ -235,9 +229,7 @@ def main(argv=None):
             trimmed_time,
         )
         logger.debug("%s - interp RMSEpos=%.3f m, final=%.3f m", dataset, rmse_pos, final_pos)
-        metrics["rmse_acc"] = rmse_acc
-        metrics["final_acc"] = final_acc
-        metrics["max_acc"] = max_acc
+        # Acceleration metrics intentionally omitted from final report
         try:
             t_truth = trimmed_time
             est = load_estimate(str(mat), times=t_truth)
@@ -302,7 +294,7 @@ def main(argv=None):
     if summary:
         rows = [
             [s.get('dataset'), s.get('rmse_pos'), s.get('final_pos'), s.get('rmse_vel'),
-             s.get('final_vel'), s.get('rmse_acc'), s.get('final_acc'), s.get('max_acc'),
+             s.get('final_vel'),
              s.get('rmse_att'), s.get('final_att'),
              s.get('q0_w'), s.get('q0_x'), s.get('q0_y'), s.get('q0_z'),
              s.get('Pxx'), s.get('Pyy'), s.get('Pzz')]
@@ -310,7 +302,6 @@ def main(argv=None):
         ]
         headers = [
             'Dataset', 'RMSEpos[m]', 'FinalPos[m]', 'RMSEvel[m/s]', 'FinalVel[m/s]',
-            'RMSEacc[m/s^2]', 'FinalAcc[m/s^2]', 'MaxAcc[m/s^2]',
             'RMSEatt[deg]', 'FinalAtt[deg]', 'q0_w', 'q0_x', 'q0_y', 'q0_z',
             'Pxx', 'Pyy', 'Pzz'
         ]

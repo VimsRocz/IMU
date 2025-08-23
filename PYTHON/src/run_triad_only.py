@@ -44,6 +44,8 @@ import pandas as pd
 from scipy.spatial.transform import Rotation as R
 import scipy.io as sio
 from tabulate import tabulate
+import matplotlib.pyplot as plt
+from scipy.io import loadmat, savemat
 
 from evaluate_filter_results import run_evaluation_npz
 from run_all_methods import run_case, compute_C_NED_to_ECEF
@@ -152,6 +154,810 @@ def _write_run_meta(outdir, run_id, **kv):
     logger.info("Saved run meta -> %s", meta_path)
 
 
+# ----------------------------
+# Inline validation helpers
+# ----------------------------
+def _norm_quat(q):
+    q = np.asarray(q, float)
+    n = np.linalg.norm(q, axis=-1, keepdims=True)
+    n[n == 0] = 1.0
+    return q / n
+
+
+def _fix_hemisphere(qt, qe):
+    dot = np.sum(qt * qe, axis=1)
+    s = np.sign(dot)
+    s[s == 0] = 1.0
+    return qe * s[:, None]
+
+
+def _quat_angle_deg(qt, qe):
+    d = np.clip(np.abs(np.sum(qt * qe, axis=1)), 0.0, 1.0)
+    return 2.0 * np.degrees(np.arccos(d))
+
+
+def _quat_to_euler_zyx_deg(q):  # yaw, pitch, roll from [w,x,y,z]
+    w, x, y, z = q.T
+    yaw = np.degrees(np.arctan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)))
+    s = np.clip(2 * (w * y - z * x), -1.0, 1.0)
+    pitch = np.degrees(np.arcsin(s))
+    roll = np.degrees(np.arctan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y)))
+    return np.vstack([yaw, pitch, roll]).T
+
+
+def _overlap(t1, t2):
+    t0 = max(t1[0], t2[0])
+    t1e = min(t1[-1], t2[-1])
+    if t1e <= t0:
+        raise RuntimeError("No overlapping time between truth and estimate.")
+    return t0, t1e
+
+
+def _interp_columns_to(t_src, Y_src, t_dst):
+    Y_src = np.asarray(Y_src)
+    out = np.empty((t_dst.size, Y_src.shape[1]), float)
+    for j in range(Y_src.shape[1]):
+        out[:, j] = np.interp(t_dst, t_src, Y_src[:, j])
+    return out
+
+
+# Robust overlap and interpolation helpers for inline validation
+def _uniq_sorted_time(t, *arrays):
+    """Sort by time, drop duplicates, and apply the same indexing to companions."""
+    t = np.asarray(t, dtype=float)
+    order = np.argsort(t, kind="mergesort")
+    t_sorted = t[order]
+    uniq_mask = np.ones_like(t_sorted, dtype=bool)
+    uniq_mask[1:] = np.diff(t_sorted) > 0
+    keep = order[uniq_mask]
+    out = [t[keep]]
+    for arr in arrays:
+        out.append(np.asarray(arr)[keep])
+    return out if len(out) > 1 else out[0]
+
+
+def _compute_overlap(t_est, t_truth, *truth_arrays):
+    """Return overlapped (t_truth_sub, *truth_arrays_sub) aligned to [t_est.min, t_est.max]."""
+    if t_est.size == 0 or t_truth.size == 0:
+        raise RuntimeError("Empty time arrays passed to _compute_overlap.")
+    t0, t1 = float(np.nanmin(t_est)), float(np.nanmax(t_est))
+    # clean & sort truth; drop duplicate times
+    t_truth_clean, *truth_arrays_clean = _uniq_sorted_time(t_truth, *truth_arrays)
+    finite_mask = np.isfinite(t_truth_clean)
+    for arr in truth_arrays_clean:
+        finite_mask &= np.all(np.isfinite(arr), axis=1) if arr.ndim == 2 else np.isfinite(arr)
+    t_truth_clean = t_truth_clean[finite_mask]
+    truth_arrays_clean = [arr[finite_mask] for arr in truth_arrays_clean]
+    # window to est range
+    if t_truth_clean.size == 0:
+        return (np.array([]),) + tuple(np.array([]) for _ in truth_arrays_clean)
+    mask = (t_truth_clean >= t0) & (t_truth_clean <= t1)
+    t_sub = t_truth_clean[mask]
+    arrays_sub = [arr[mask] for arr in truth_arrays_clean]
+    return (t_sub,) + tuple(arrays_sub)
+
+
+def _interp_quat_components(t_src, q_src, t_query):
+    """
+    Component-wise linear interp of quaternions w/o SLERP (OK for diagnostics).
+    Returns (N,4) or raises with a clear message if inputs are unusable.
+    """
+    if t_src.size < 2:
+        raise ValueError(
+            f"Not enough truth samples to interpolate: len(t_src)={t_src.size}. "
+            "Check overlap window and NaNs."
+        )
+    # ensure strictly increasing
+    order = np.argsort(t_src, kind="mergesort")
+    t_src = t_src[order]
+    q_src = q_src[order]
+    # clamp query to src bounds to avoid extrapolation errors
+    tq = np.clip(t_query, t_src[0], t_src[-1])
+    from scipy.interpolate import interp1d
+    q_interp = np.empty((tq.size, 4), dtype=float)
+    for k in range(4):
+        f = interp1d(
+            t_src,
+            q_src[:, k],
+            kind="linear",
+            bounds_error=False,
+            fill_value=(q_src[0, k], q_src[-1, k]),
+            assume_sorted=True,
+        )
+        q_interp[:, k] = f(tq)
+    # renormalize
+    norm = np.linalg.norm(q_interp, axis=1, keepdims=True)
+    norm[norm == 0] = 1.0
+    return q_interp / norm
+
+
+def _divergence_time(t, err_deg, thr_deg, persist_s):
+    above = err_deg > thr_deg
+    if not np.any(above):
+        return np.nan
+    dt = np.median(np.diff(t))
+    need = max(1, int(round(persist_s / dt)))
+    i = 0
+    N = above.size
+    while i < N:
+        if above[i]:
+            j = i
+            while j < N and above[j]:
+                j += 1
+            if (j - i) >= need:
+                return t[i]
+            i = j
+        else:
+            i += 1
+    return np.nan
+
+
+def _read_state_x001(truth_file):
+    """
+    Read STATE_X001-like truth with flexible column handling.
+
+    Expected columns include (typical order):
+      [idx?] time_s  x_ecef  y_ecef  z_ecef  vx_ecef  vy_ecef  vz_ecef  qw  qx  qy  qz
+
+    This function:
+      - loads all numeric columns
+      - auto-selects the best time column
+      - zero-bases time if it looks offset (e.g., starts at ~10000 s)
+      - returns (t, pos_ecef, vel_ecef, quat) with shapes:
+          t:(N,), pos:(N,3), vel:(N,3), quat:(N,4) (qw,qx,qy,qz)
+    """
+    import numpy as np
+
+    M = np.loadtxt(truth_file, dtype=float)
+    if M.ndim != 2 or M.shape[1] < 10:
+        raise ValueError(f"Unexpected truth shape {M.shape} for {truth_file}")
+
+    # Heuristics to find quaternion columns: last 4 numeric columns
+    quat = M[:, -4:]  # assume (qw,qx,qy,qz)
+
+    # Candidate time columns: prefer one whose range overlaps small window (seconds)
+    # Common layouts: time at col 0 or col 1
+    candidates = []
+    for c in range(min(3, M.shape[1])):  # probe first up to 3 cols
+        t_try = M[:, c].astype(float)
+        if np.all(np.isfinite(t_try)):
+            span = float(np.nanmax(t_try) - np.nanmin(t_try))
+            candidates.append((c, span, t_try))
+    if not candidates:
+        raise ValueError("No finite time-like column found in truth file.")
+
+    # Choose the candidate with the smallest positive span >= 1.0 sec (prefers [0..~2000] over [10000..20086])
+    candidates = [(c, s, tcol) for (c, s, tcol) in candidates if s > 0]
+    candidates.sort(key=lambda x: x[1])
+    c_best, span_best, t_raw = candidates[0]
+
+    # Zero-base time if it appears offset (e.g., starts >> 0 and span looks reasonable)
+    t0 = float(np.nanmin(t_raw))
+    t = t_raw - t0 if t0 > 1.0 else t_raw
+
+    # Now pick positions/velocities assuming standard layout: find 6 columns before quats
+    # If your format differs, adjust here.
+    six_before_quat = M.shape[1] - 4 - 6
+    if six_before_quat < 0:
+        raise ValueError("Not enough columns to extract pos/vel before quaternions.")
+    pv = M[:, six_before_quat:six_before_quat+6]
+    pos_ecef = pv[:, :3]
+    vel_ecef = pv[:, 3:6]
+
+    # Clean NaNs and enforce shapes
+    m = np.isfinite(t) & np.all(np.isfinite(pos_ecef), axis=1) & np.all(np.isfinite(vel_ecef), axis=1) & np.all(np.isfinite(quat), axis=1)
+    t = t[m]
+    pos_ecef = pos_ecef[m]
+    vel_ecef = vel_ecef[m]
+    quat = quat[m]
+
+    return t, pos_ecef, vel_ecef, quat
+
+
+def _save_png_and_mat(path_png, arrays):
+    """Save PNG, MATLAB .mat arrays, and MATLAB-native .fig for current figure.
+
+    - PNG at ``path_png``
+    - MAT at ``<path_png base>.mat`` containing provided arrays
+    - FIG at ``<path_png base>.fig`` via MATLAB engine (best-effort)
+    """
+    # Derive base (without extension)
+    base, _ = os.path.splitext(path_png)
+
+    # 1) Save PNG
+    try:
+        plt.gcf().savefig(path_png, dpi=200, bbox_inches='tight')
+        print(f"[PNG] {path_png}")
+    except Exception as e:
+        print(f"[WARN] Failed to save PNG {path_png}: {e}")
+
+    # 2) Save MATLAB .mat with arrays for reproducibility
+    try:
+        savemat(base + '.mat', arrays)
+        print(f"[MAT] {base + '.mat'}")
+    except Exception as e:
+        print(f"[WARN] Failed to save MAT {base + '.mat'}: {e}")
+
+    # 3) Save MATLAB-native .fig and optionally validate
+    try:
+        from utils.matlab_fig_export import save_matlab_fig, validate_fig_openable
+        fig_path = save_matlab_fig(plt.gcf(), base)
+        if fig_path:
+            # Best-effort validation (prints status)
+            validate_fig_openable(str(fig_path))
+        else:
+            # Fallback to MAT-based .fig (convertible) if MATLAB engine missing
+            try:
+                from utils_legacy import save_plot_fig
+                save_plot_fig(plt.gcf(), base + '.fig')
+                print(f"[FIG-alt] Saved MAT-based .fig (convert with MATLAB/tools/convert_custom_figs): {base + '.fig'}")
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[WARN] .fig export/validation skipped: {e}")
+
+    # Close the figure to free memory
+    plt.close()
+
+
+def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args):
+    print("Starting inline validation (truth vs KF)…")
+    est = loadmat(kf_mat_path, squeeze_me=True)
+    # time
+    t_est = None
+    for k in ['t_est', 'time_s', 'time', 't']:
+        if k in est:
+            t_est = np.ravel(est[k]).astype(float)
+            break
+    if t_est is None:
+        raise RuntimeError("Estimator time not found in kf_output.mat")
+    # quaternion (prefer att_quat; else quat_log)
+    q_est = None
+    for k in ['att_quat', 'attitude_q', 'quat_log', 'q_est', 'quaternion']:
+        if k in est:
+            q_est = np.atleast_2d(est[k]).astype(float)
+            if q_est.shape[0] == 4 and q_est.shape[1] != 4:
+                q_est = q_est.T
+            if q_est.shape[1] != 4 and q_est.shape[0] == 4:
+                q_est = q_est.T
+            break
+    if q_est is None or q_est.shape[1] != 4:
+        raise RuntimeError("Bad estimator quaternion shape")
+    q_est = _norm_quat(q_est)
+
+    # truth
+    t_tru, pos_ecef_tru, vel_ecef_tru, q_tru = _read_state_x001(truth_file)
+    
+    # Sanity prints to the log
+    print(f"[InlineValid] t_est:[{t_est[0]:.3f},{t_est[-1]:.3f}] N={t_est.size}")
+    print(f"[InlineValid] t_truth(raw):[{np.nanmin(t_tru):.3f},{np.nanmax(t_tru):.3f}] N={t_tru.size}")
+
+    # Compute robust overlap (drops dupes/NaNs, windows to [min(t_est), max(t_est)])
+    t_truth_sub, q_truth_sub = _compute_overlap(t_est, t_tru, q_tru)
+
+    if t_truth_sub.size < 2:
+        msg = (
+            f"No truth samples in overlap window.\n"
+            f"  est range   = [{t_est[0]:.3f},{t_est[-1]:.3f}] (N={t_est.size})\n"
+            f"  truth range = [{np.nanmin(t_tru):.3f},{np.nanmax(t_tru):.3f}] (N={t_tru.size})\n"
+            f"  overlap N   = {t_truth_sub.size} (need ≥2). "
+            f"Check truth parsing (time in 2nd col, quats in last 4) and NaNs."
+        )
+        print("[WARN] Inline validation skipped:", msg)
+        return
+
+    # Resample truth quaternions onto estimator time using SLERP (handles 1Hz vs 400Hz)
+    def _q_normalize(q):
+        q = np.asarray(q, float)
+        n = np.linalg.norm(q, axis=1, keepdims=True)
+        n[n == 0] = 1.0
+        return q / n
+
+    def _q_conj(q):
+        q = np.asarray(q, float)
+        return np.column_stack([q[:, 0], -q[:, 1], -q[:, 2], -q[:, 3]])
+
+    def _hemi_fix(q):
+        q = _q_normalize(q)
+        s = np.ones(q.shape[0])
+        if q.shape[0] > 1:
+            s[1:] = np.sign(np.sum(q[1:] * q[:-1], axis=1))
+            s = np.cumprod(s)
+        return q * s[:, None]
+
+    def _slerp(q1, q2, u):
+        d = float(np.dot(q1, q2))
+        if d < 0.0:
+            q2 = -q2
+            d = -d
+        if d > 0.9995:
+            q = (1.0 - u) * q1 + u * q2
+            return q / (np.linalg.norm(q) + 1e-12)
+        theta0 = np.arccos(np.clip(d, -1.0, 1.0))
+        s0 = np.sin((1.0 - u) * theta0) / np.sin(theta0)
+        s1 = np.sin(u * theta0) / np.sin(theta0)
+        return s0 * q1 + s1 * q2
+
+    def _resample_quat_to(t_src, q_src, t_dst):
+        t_src = np.asarray(t_src, float)
+        q_src = _hemi_fix(np.asarray(q_src, float))
+        t_dst = np.asarray(t_dst, float)
+        if t_src.size < 2:
+            raise ValueError("Need at least two truth samples for SLERP resampling")
+        idx = np.searchsorted(t_src, t_dst, side='right') - 1
+        idx = np.clip(idx, 0, t_src.size - 2)
+        u = (t_dst - t_src[idx]) / (t_src[idx + 1] - t_src[idx] + 1e-12)
+        out = np.empty((t_dst.size, 4), float)
+        for k in range(t_dst.size):
+            out[k] = _slerp(q_src[idx[k]], q_src[idx[k] + 1], float(u[k]))
+        return _q_normalize(out)
+
+    try:
+        q_truth_on_est_raw = _resample_quat_to(t_truth_sub, q_truth_sub, t_est)
+    except Exception as e:
+        print("[WARN] Inline validation skipped during quaternion SLERP resampling:", e)
+        return
+
+    # Decide if truth quaternions are body->NED or body->ECEF by comparing
+    # angle error after interpreting truth in both frames and choosing the smaller.
+    # If ECEF, convert to NED using reference lat/lon from truth ECEF position.
+    detected_frame = "NED"
+    q_truth_ned = q_truth_on_est_raw.copy()
+    try:
+        # Compute reference lat/lon from the first valid ECEF truth position
+        from utils import ecef_to_geodetic, compute_C_ECEF_to_NED
+        # Use first row (already masked for NaNs earlier) as reference
+        lat_deg, lon_deg, _ = ecef_to_geodetic(*pos_ecef_tru[0])
+        C_e2n = compute_C_ECEF_to_NED(np.deg2rad(lat_deg), np.deg2rad(lon_deg))
+        # Convert sequence: q_be (body->ECEF) -> q_bn (body->NED)
+        R_bn_list = []
+        from scipy.spatial.transform import Rotation as _R
+        for q in q_truth_on_est_raw:
+            r_be = _R.from_quat([q[1], q[2], q[3], q[0]])  # [x,y,z,w]
+            R_bn = C_e2n @ r_be.as_matrix()
+            R_bn_list.append(_R.from_matrix(R_bn).as_quat())  # [x,y,z,w]
+        q_truth_from_ecef = np.array([[q_xyzw[3], q_xyzw[0], q_xyzw[1], q_xyzw[2]] for q_xyzw in R_bn_list])
+        # Normalise both interpretations
+        q_truth_from_ecef = _norm_quat(q_truth_from_ecef)
+        q_truth_ned = _norm_quat(q_truth_ned)
+        # Hemisphere-fix vs estimate and compute angle errors
+        q_est_aligned_for_ned = _fix_hemisphere(q_truth_ned, q_est)
+        q_est_aligned_for_ecef = _fix_hemisphere(q_truth_from_ecef, q_est)
+        ang_ned = _quat_angle_deg(q_truth_ned, q_est_aligned_for_ned)
+        ang_ecef = _quat_angle_deg(q_truth_from_ecef, q_est_aligned_for_ecef)
+        # Compare robust statistics (median over overlap)
+        med_ned = float(np.nanmedian(ang_ned))
+        med_ecef = float(np.nanmedian(ang_ecef))
+        if np.isfinite(med_ecef) and (med_ecef + 1e-3) < med_ned:
+            detected_frame = "ECEF"
+            q_truth_ned = q_truth_from_ecef
+            qE = q_est_aligned_for_ecef
+            ang = ang_ecef
+        else:
+            detected_frame = "NED"
+            qE = q_est_aligned_for_ned
+            ang = ang_ned
+        print(f"[Task7] Detected truth quaternion frame: {detected_frame}")
+        # Save detection result for reference
+        det_path = os.path.join(results_dir, f"{tag}_Task7_truth_quaternion_frame.txt")
+        with open(det_path, "w", encoding="utf-8") as fdet:
+            fdet.write(detected_frame + "\n")
+    except Exception as ex:
+        # Fall back to assuming provided truth is already Body->NED
+        print(f"[WARN] Truth frame detection failed ({ex}); assuming NED.")
+        q_truth_ned = _norm_quat(q_truth_ned)
+        qE = _fix_hemisphere(q_truth_ned, q_est)
+        ang = _quat_angle_deg(q_truth_ned, qE)
+
+    # Truth direction detection: Body->NED vs NED->Body (conjugate)
+    try:
+        q_truth_ned = _norm_quat(q_truth_ned)
+        def _err0(qt):
+            qe = _fix_hemisphere(qt, q_est)
+            ang0 = _quat_angle_deg(qt, qe)
+            return float(ang0[0]) if ang0.size else float('nan')
+        e0_dir = _err0(q_truth_ned)
+        e0_con = _err0(_q_conj(q_truth_ned))
+        if np.isfinite(e0_con) and e0_con + 1e-3 < e0_dir:
+            q_truth_ned = _q_conj(q_truth_ned)
+            print(f"[Task7] Truth appears NED→Body; using conjugate. (err0 direct={e0_dir:.2f}°, conj={e0_con:.2f}°)")
+        else:
+            print(f"[Task7] Truth matches Body→NED. (err0 direct={e0_dir:.2f}°)")
+    except Exception:
+        pass
+
+    # Auto-align truth frame and remove fixed body-side registration before comparison
+    # Helpers
+    def q_norm(q):
+        q = np.asarray(q, float)
+        n = np.linalg.norm(q, axis=1, keepdims=True)
+        n[n == 0] = 1.0
+        return q / n
+
+    def q_conj(q):
+        q = np.asarray(q, float)
+        return np.column_stack([q[:, 0], -q[:, 1], -q[:, 2], -q[:, 3]])
+
+    def q_mul(a, b):
+        a = np.asarray(a, float)
+        b = np.asarray(b, float)
+        w1, x1, y1, z1 = a.T
+        w2, x2, y2, z2 = b.T
+        return np.column_stack([
+            w1*w2 - x1*x2 - y1*y2 - z1*z2,
+            w1*x2 + x1*w2 + y1*z2 - z1*y2,
+            w1*y2 - x1*z2 + y1*w2 + z1*x2,
+            w1*z2 + x1*y2 - y1*x2 + z1*w2,
+        ])
+
+    def dcm_to_quat(C):
+        C = np.asarray(C, float)
+        t = np.trace(C)
+        if t <= 0:
+            i = int(np.argmax(np.diag(C)))
+            if i == 0:
+                s = 2.0 * np.sqrt(max(1e-12, 1 + C[0, 0] - C[1, 1] - C[2, 2]))
+                w = (C[2, 1] - C[1, 2]) / s
+                x = 0.25 * s
+                y = (C[0, 1] + C[1, 0]) / s
+                z = (C[0, 2] + C[2, 0]) / s
+            elif i == 1:
+                s = 2.0 * np.sqrt(max(1e-12, 1 + C[1, 1] - C[0, 0] - C[2, 2]))
+                w = (C[0, 2] - C[2, 0]) / s
+                x = (C[0, 1] + C[1, 0]) / s
+                y = 0.25 * s
+                z = (C[1, 2] + C[2, 1]) / s
+            else:
+                s = 2.0 * np.sqrt(max(1e-12, 1 + C[2, 2] - C[0, 0] - C[1, 1]))
+                w = (C[1, 0] - C[0, 1]) / s
+                x = (C[0, 2] + C[2, 0]) / s
+                y = (C[1, 2] + C[2, 1]) / s
+                z = 0.25 * s
+        else:
+            s = 0.5 / np.sqrt(max(1e-12, t + 1.0))
+            w = 0.25 / s
+            x = (C[2, 1] - C[1, 2]) * s
+            y = (C[0, 2] - C[2, 0]) * s
+            z = (C[1, 0] - C[0, 1]) * s
+        q = np.array([w, x, y, z], float)
+        q = q / (np.linalg.norm(q) + 1e-12)
+        if q[0] < 0:
+            q = -q
+        return q
+
+    def quat_err_angle_deg(q_est_b2n, q_truth_b2n):
+        q_err = q_mul(q_est_b2n, q_conj(q_truth_b2n))
+        q_err = q_norm(q_err)
+        ang = 2*np.arccos(np.clip(np.abs(q_err[:, 0]), 0.0, 1.0)) * 180.0 / np.pi
+        return ang
+
+    def ned_to_enu_quat():
+        C_ne = np.array([[0.0, 1.0, 0.0],
+                         [1.0, 0.0, 0.0],
+                         [0.0, 0.0, -1.0]])
+        return dcm_to_quat(C_ne)
+
+    def ecef_to_ned_quat(lat_rad, lon_rad):
+        sL, cL = np.sin(lat_rad), np.cos(lat_rad)
+        sO, cO = np.sin(lon_rad), np.cos(lon_rad)
+        C_ne = np.array([[-sL*cO, -sL*sO,  cL],
+                         [    -sO,     cO,  0.],
+                         [-cL*cO, -cL*sO, -sL]])
+        C_en = C_ne.T
+        return dcm_to_quat(C_en)
+
+    def wrap_world(q_b2W, q_W2N, q_N2W):
+        return q_mul(np.tile(q_W2N, (q_b2W.shape[0], 1)), q_mul(q_b2W, np.tile(q_N2W, (q_b2W.shape[0], 1))))
+
+    def average_quat(q):
+        M = (q[:, :, None] @ q[:, None, :]).sum(axis=0)
+        w, v = np.linalg.eigh(M)
+        q_mean = v[:, np.argmax(w)]
+        if q_mean[0] < 0:
+            q_mean = -q_mean
+        return q_mean
+
+    # Build estimate and truth candidates (both currently Body->NED, wxyz)
+    tE = t_est
+    qE_est = q_est  # already normalized and in Body->NED
+    qT_raw = q_truth_ned  # Body->NED from earlier conversion
+
+    # World transforms
+    try:
+        from utils import ecef_to_geodetic
+        lat_deg, lon_deg, _ = ecef_to_geodetic(*pos_ecef_tru[0])
+        ref_lat_rad = np.deg2rad(lat_deg)
+        ref_lon_rad = np.deg2rad(lon_deg)
+    except Exception:
+        ref_lat_rad = 0.0
+        ref_lon_rad = 0.0
+    q_ne = ned_to_enu_quat()
+    q_en = q_conj(np.atleast_2d(q_ne))[0]
+    q_en_ecef = ecef_to_ned_quat(ref_lat_rad, ref_lon_rad)
+    q_ne_ecef = q_conj(np.atleast_2d(q_en_ecef))[0]
+
+    # Candidate interpretations of truth
+    cands = []
+    cands.append(("truth b2NED", qT_raw))
+    cands.append(("truth NED2b (conj)", q_conj(qT_raw)))
+    cands.append(("truth b2ENU → b2NED", wrap_world(qT_raw, q_en, q_ne)))
+    cands.append(("truth ENU2b → b2NED", wrap_world(q_conj(qT_raw), q_en, q_ne)))
+    cands.append(("truth b2ECEF → b2NED", wrap_world(qT_raw, q_en_ecef, q_ne_ecef)))
+    cands.append(("truth ECEF2b → b2NED", wrap_world(q_conj(qT_raw), q_en_ecef, q_ne_ecef)))
+
+    # Score on early/static window
+    t0, t1 = 0.0, 60.0
+    idx = np.where((tE >= t0) & (tE <= t1))[0]
+    if idx.size < 100:
+        idx = np.arange(min(1000, tE.size))
+    scores = []
+    for name, qT in cands:
+        ang = quat_err_angle_deg(qE_est[idx], qT[idx])
+        scores.append((float(np.nanmean(ang)), name))
+    best_i = int(np.argmin([s[0] for s in scores]))
+    best_name, best_mean = scores[best_i][1], scores[best_i][0]
+    qT_best = cands[best_i][1]
+    print(f"[AutoAlign] best world/frame hypothesis: {best_name} (mean {best_mean:.3f}° over [{t0},{t1}]s)")
+
+    # Estimate constant body-side delta over the window and apply to truth
+    q_err_static = q_mul(qE_est[idx], q_conj(qT_best[idx]))
+    q_delta = average_quat(q_err_static)
+    if q_delta[0] < 0:
+        q_delta = -q_delta
+    q_delta_tiled = np.tile(q_delta, (qT_best.shape[0], 1))
+    qT_aligned = q_mul(q_delta_tiled, qT_best)
+    print(f"[AutoAlign] applied fixed body-side Δ: {np.array2string(q_delta, precision=4)}")
+
+    # Use aligned truth and sign-align estimate for plotting
+    qT = q_norm(qT_aligned)
+    qE = _fix_hemisphere(qT, qE_est)
+
+    # plots (NO acceleration)
+    # 1) quaternion components (Body->NED frame)
+    plt.figure(figsize=(10, 6))
+    for i, lab in enumerate(['w', 'x', 'y', 'z']):
+        ax = plt.subplot(2, 2, i + 1)
+        ax.plot(tE, qT[:, i], '-', label='Truth')
+        ax.plot(tE, qE[:, i], '--', label='KF')
+        ax.set_title(f'q_{lab}')
+        ax.grid(True)
+    plt.legend(loc='upper right')
+    plt.suptitle(f'{tag} Task7 (Body→NED): Quaternion Truth vs KF')
+    _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion.png'),
+                      {'t': tE, 'q_truth': qT, 'q_kf': qE})
+
+    # 1b) quaternion component residuals (est - truth), sign-aligned already
+    dq = qE - qT
+    plt.figure(figsize=(10, 6))
+    for i, lab in enumerate(['w', 'x', 'y', 'z']):
+        ax = plt.subplot(2, 2, i + 1)
+        ax.plot(tE, dq[:, i], '-', label='Δq = est − truth')
+        ax.set_title(f'Δq_{lab}')
+        ax.grid(True)
+        if i == 0:
+            ax.legend(loc='upper right')
+    plt.suptitle(f'{tag} Task7.6 (Body→NED): Quaternion Component Error')
+    _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_6_BodyToNED_attitude_quaternion_error_components.png'),
+                      {'t': tE, 'dq_wxyz': dq})
+
+    # 2) Euler ZYX (yaw,pitch,roll)
+    eT = _quat_to_euler_zyx_deg(qT)
+    eE = _quat_to_euler_zyx_deg(qE)
+    plt.figure(figsize=(10, 6))
+    for i, lab in enumerate(['Yaw(Z)', 'Pitch(Y)', 'Roll(X)']):
+        ax = plt.subplot(3, 1, i + 1)
+        ax.plot(tE, eT[:, i], '-', label='Truth')
+        ax.plot(tE, eE[:, i], '--', label='KF')
+        ax.set_ylabel(lab + ' [deg]')
+        ax.grid(True)
+        if i == 0:
+            ax.legend()
+    plt.xlabel('Time [s]')
+    plt.suptitle(f'{tag} Task7 (Body→NED): Euler (ZYX) Truth vs KF')
+    _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_euler.png'),
+                      {'t': tE, 'e_truth_zyx_deg': eT, 'e_kf_zyx_deg': eE})
+
+    # 2b) Euler error (difference, wrapped to [-180, 180])
+    def _wrap_deg(x):
+        x = (x + 180.0) % 360.0 - 180.0
+        # Promote -180 to +180 consistently for readability
+        x[x == -180.0] = 180.0
+        return x
+    e_err = _wrap_deg(eE - eT)
+    plt.figure(figsize=(10, 6))
+    for i, lab in enumerate(['Yaw(Z)', 'Pitch(Y)', 'Roll(X)']):
+        ax = plt.subplot(3, 1, i + 1)
+        ax.plot(tE, e_err[:, i], '-', label='Estimate − Truth')
+        ax.set_ylabel(lab + ' err [deg]')
+        ax.grid(True)
+        if i == 0:
+            ax.legend(loc='upper right')
+    plt.xlabel('Time [s]')
+    plt.suptitle(f'{tag} Task7.6 (Body→NED): Euler Error (ZYX) vs Time')
+    _save_png_and_mat(os.path.join(results_dir, f"{tag}_Task7_6_BodyToNED_attitude_euler_error_over_time.png"),
+                      {'t': tE, 'e_error_zyx_deg': e_err})
+
+    # 3) attitude angle error (ensure time and error are same length; decimate both if plotting heavy)
+    t_plot = tE
+    ang_plot = ang
+    try:
+        if t_plot.size > 200000:
+            step = max(2, int(round(t_plot.size / 50000)))  # target ~50k points
+            t_plot = t_plot[::step]
+            ang_plot = ang_plot[::step]
+    except Exception:
+        pass
+    plt.figure(figsize=(10, 3))
+    plt.plot(t_plot, ang_plot, '-')
+    plt.grid(True)
+    plt.xlabel('Time [s]')
+    plt.ylabel('Angle Error [deg]')
+    plt.title(f'{tag} Task7.6: Quaternion Error (angle) vs Time')
+    _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_6_attitude_error_angle_over_time.png'),
+                      {'t': t_plot, 'att_err_deg': ang_plot})
+    # Back-compat save under previous Task7 filename
+    _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_attitude_error_angle_over_time.png'),
+                      {'t': t_plot, 'att_err_deg': ang_plot})
+
+    # 4) Console summary tables for residuals (printed to stdout)
+    def _metrics(vec):
+        vec = np.asarray(vec).ravel()
+        mean = float(np.mean(vec))
+        rmse = float(np.sqrt(np.mean(vec**2)))
+        p95 = float(np.percentile(np.abs(vec), 95))
+        p99 = float(np.percentile(np.abs(vec), 99))
+        vmax = float(np.max(np.abs(vec)))
+        final = float(vec[-1]) if vec.size else float('nan')
+        return mean, rmse, p95, p99, vmax, final
+
+    # Quaternion component residuals metrics
+    headers = ["metric", "w", "x", "y", "z"]
+    rows = []
+    stats_q = {k: _metrics(dq[:, i]) for i, k in enumerate(['w', 'x', 'y', 'z'])}
+    for label, idx in [("mean", 0), ("rmse", 1), ("p95_abs", 2), ("p99_abs", 3), ("max_abs", 4), ("final", 5)]:
+        rows.append([label] + [f"{stats_q[k][idx]:.6f}" for k in ['w','x','y','z']])
+    print("\n===== Task7.6 Quaternion Component Error Summary (est − truth) =====")
+    print(" ".join(f"{h:>12s}" for h in headers))
+    for r in rows:
+        print(" ".join(f"{c:>12s}" for c in r))
+
+    # Euler residuals metrics (ZYX order: yaw, pitch, roll)
+    headers_e = ["metric", "yaw", "pitch", "roll"]
+    rows_e = []
+    stats_e = {k: _metrics(e_err[:, i]) for i, k in enumerate(['yaw', 'pitch', 'roll'])}
+    for label, idx in [("mean", 0), ("rmse", 1), ("p95_abs", 2), ("p99_abs", 3), ("max_abs", 4), ("final", 5)]:
+        rows_e.append([label] + [f"{stats_e[k][idx]:.6f}" for k in ['yaw','pitch','roll']])
+    print("\n===== Task7.6 Euler Error Summary (est − truth) [deg] =====")
+    print(" ".join(f"{h:>12s}" for h in headers_e))
+    for r in rows_e:
+        print(" ".join(f"{c:>12s}" for c in r))
+
+    # divergence time + length dependence
+    div_t = _divergence_time(tE, ang, args.div_threshold_deg, args.div_persist_sec)
+    if np.isnan(div_t):
+        print("Estimated divergence start time (attitude): none")
+    else:
+        print(f"Estimated divergence start time (attitude): {div_t:.3f} s")
+
+    with open(os.path.join(results_dir, f'{tag}_Task7_divergence_summary.csv'), 'w') as f:
+        f.write('threshold_deg,persist_s,divergence_s\n')
+        f.write(f"{args.div_threshold_deg},{args.div_persist_sec},{'' if np.isnan(div_t) else f'{div_t:.6f}'}\n")
+
+    # length scan
+    Ls = [float(x) for x in str(args.length_scan).split(',') if x.strip()]
+    rows = []
+    for L in Ls:
+        tend = min(tE[0] + L, tE[-1])
+        m = tE <= tend
+        dv = _divergence_time(tE[m], ang[m], args.div_threshold_deg, args.div_persist_sec)
+        rows.append((L, np.nan if (dv != dv) else dv))
+    with open(os.path.join(results_dir, f'{tag}_Task7_divergence_vs_length.csv'), 'w') as f:
+        f.write('tmax_s,divergence_s\n')
+        for L, dv in rows:
+            f.write(f"{L},{'' if (dv != dv) else dv}\n")
+
+    plt.figure(figsize=(6, 4))
+    plt.plot([r[0] for r in rows], [np.nan if (r[1] != r[1]) else r[1] for r in rows], '-o')
+    plt.grid(True)
+    plt.xlabel('Dataset length used [s]')
+    plt.ylabel('Divergence time [s]')
+    plt.title(f'{tag} Task7: Divergence vs Length')
+    _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_divergence_vs_length.png'),
+                      {'tmax_s': np.array([r[0] for r in rows], float),
+                       'divergence_s': np.array([np.nan if (r[1] != r[1]) else r[1] for r in rows], float)})
+    print("Inline validation done.")
+
+
+def _task5_plot_quat_cases(results_dir: str, run_id: str, truth_file: str) -> None:
+    """Compare TRIAD-init KF vs TRUE-init KF quaternion components vs truth."""
+    base_npz = Path(results_dir) / f"{run_id}_kf_output.npz"
+    true_npz = Path(results_dir) / f"{run_id}_TRUEINIT_kf_output.npz"
+    if not base_npz.exists() or not true_npz.exists():
+        print("[Task5] Skipping TRIAD vs TRUE-init comparison (missing outputs).")
+        return
+    dA = np.load(base_npz, allow_pickle=True)
+    dB = np.load(true_npz, allow_pickle=True)
+    t = np.ravel(dA.get("time_s") if dA.get("time_s") is not None else dA.get("time"))
+    qA = dA.get("att_quat")
+    if qA is None:
+        qA = dA.get("attitude_q") or dA.get("quat_log")
+    qB = dB.get("att_quat")
+    if qB is None:
+        qB = dB.get("attitude_q") or dB.get("quat_log")
+    if qA is None or qB is None or t is None:
+        print("[Task5] Missing quaternion/time in outputs.")
+        return
+    qA = _norm_quat(np.asarray(qA))
+    qB = _norm_quat(np.asarray(qB))
+
+    # Load truth and prepare Body→NED truth quaternions on estimator time
+    t_tru, pos_ecef_tru, vel_ecef_tru, q_tru = _read_state_x001(truth_file)
+    # reference lat/lon from truth
+    try:
+        from utils import ecef_to_geodetic, compute_C_ECEF_to_NED
+        lat_deg, lon_deg, _ = ecef_to_geodetic(*pos_ecef_tru[0])
+        C_e2n = compute_C_ECEF_to_NED(np.deg2rad(lat_deg), np.deg2rad(lon_deg))
+    except Exception:
+        C_e2n = None
+
+    # Interp truth to estimator time
+    q_truth_on_t = _interp_quat_components(t_tru, q_tru, t)
+    # Consider ECEF->NED conversion
+    if C_e2n is not None:
+        from scipy.spatial.transform import Rotation as _R
+        qlist = []
+        for q in q_truth_on_t:
+            r_be = _R.from_quat([q[1], q[2], q[3], q[0]])
+            R_bn = C_e2n @ r_be.as_matrix()
+            q_xyzw = _R.from_matrix(R_bn).as_quat()
+            qlist.append([q_xyzw[3], q_xyzw[0], q_xyzw[1], q_xyzw[2]])
+        q_truth_e2n = _norm_quat(np.asarray(qlist))
+    else:
+        q_truth_e2n = _norm_quat(q_truth_on_t)
+
+    # Pick direct vs converted by median error against TRIAD-init
+    def _median_err(qt):
+        qe = _fix_hemisphere(qt, qA)
+        return float(np.nanmedian(_quat_angle_deg(qt, qe)))
+    q_truth_direct = _norm_quat(q_truth_on_t)
+    qT = q_truth_e2n if _median_err(q_truth_e2n) + 1e-3 < _median_err(q_truth_direct) else q_truth_direct
+
+    # Direction detection via t0 error
+    err0_dir = float(_quat_angle_deg(qT, _fix_hemisphere(qT, qA))[0])
+    err0_con = float(_quat_angle_deg(_q_conj(qT), _fix_hemisphere(_q_conj(qT), qA))[0])
+    if err0_con + 1e-3 < err0_dir:
+        qT = _q_conj(qT)
+        print(f"[Task5] Truth appears NED→Body; using conjugate. (err0 direct={err0_dir:.2f}°, conj={err0_con:.2f}°)")
+
+    # Align per-sample signs
+    qA = _fix_hemisphere(qT, qA)
+    qB = _fix_hemisphere(qT, qB)
+
+    # Plot
+    plt.figure(figsize=(10, 8))
+    labs = ["qw", "qx", "qy", "qz"]
+    for i in range(4):
+        ax = plt.subplot(4, 1, i + 1)
+        ax.plot(t, qT[:, i], 'k-', label='Truth')
+        ax.plot(t, qA[:, i], 'b--', label='KF (TRIAD-init)')
+        ax.plot(t, qB[:, i], 'r-.', label='KF (TRUE-init)')
+        ax.set_ylabel(labs[i])
+        ax.grid(True)
+        if i == 0:
+            ax.legend(loc='best')
+    plt.xlabel('Time [s]')
+    plt.suptitle('Task 5: Quaternions — Truth vs KF (TRIAD-init vs TRUE-init)')
+    out = Path(results_dir) / f"{run_id}_Task5_quat_cases_TRIADinit_vs_TRUEinit.png"
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    try:
+        plt.gcf().savefig(out, dpi=200, bbox_inches='tight')
+        print(f"[Task5] Saved TRIAD vs TRUE-init quaternion comparison -> {out}")
+    except Exception as e:
+        print(f"[Task5] Failed to save comparison plot: {e}")
+    finally:
+        plt.close()
+
+
 def main(argv: Iterable[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Run TRIAD (Task-1) on a selected dataset",
@@ -192,6 +998,25 @@ def main(argv: Iterable[str] | None = None) -> None:
     parser.add_argument("--gnss-rate", type=float, default=None, help="Hint GNSS sample rate [Hz]")
     parser.add_argument("--truth-rate", type=float, default=None, help="Hint truth sample rate [Hz]")
     parser.add_argument("--tasks", type=str, default=None, help="Comma-separated task numbers to run")
+    parser.add_argument('--div-threshold-deg', type=float, default=30.0,
+                        help='Attitude error threshold in degrees for divergence.')
+    parser.add_argument('--div-persist-sec', type=float, default=10.0,
+                        help='Seconds above threshold required to declare divergence.')
+    parser.add_argument('--length-scan', type=str, default="60,120,300,600,900,1200",
+                        help='Comma-separated end-times (s) for divergence-vs-length study.')
+    # Attitude initialisation and yaw-fusion controls (passed to GNSS_IMU_Fusion)
+    parser.add_argument('--init-att-with-truth', action='store_true',
+                        help='Initialise the KF attitude with the truth quaternion at IMU t0')
+    parser.add_argument('--truth-quat-frame', choices=['NED', 'ECEF'], default='NED',
+                        help='Frame of the truth quaternion when initialising from truth')
+    parser.add_argument('--fuse-yaw', action='store_true',
+                        help='Fuse GNSS-derived yaw to correct quaternion drift')
+    parser.add_argument('--yaw-gain', type=float, default=0.2,
+                        help='Gain [0..1] per update for GNSS yaw fusion')
+    parser.add_argument('--yaw-speed-min', type=float, default=2.0,
+                        help='Min horizontal speed [m/s] to trust GNSS yaw')
+    parser.add_argument('--true-init-second-pass', action='store_true',
+                        help='Run a second KF pass with true attitude init and compare quaternions (Task 5).')
 
     args = parser.parse_args(argv)
 
@@ -274,6 +1099,13 @@ def main(argv: Iterable[str] | None = None) -> None:
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
     print_timeline(run_id, str(imu_path), str(gnss_path), str(truth_path), out_dir=str(results_dir))
 
+    # Force STATE_X001 truth file fallback and compare only overlapping window
+    base_dir = str(REPO_ROOT)
+    truth_fallback = os.path.join(base_dir, 'DATA', 'Truth', 'STATE_X001.txt')
+    if ('STATE_X001' not in os.path.basename(str(truth_path))) or (not os.path.isfile(str(truth_path))):
+        print(f"[INFO] Using fallback truth file: {truth_fallback}")
+        truth_path = Path(truth_fallback)
+
     task_set = None
     if args.tasks:
         task_set = {int(x) for x in re.split(r"[,\s]+", args.tasks) if x}
@@ -323,6 +1155,15 @@ def main(argv: Iterable[str] | None = None) -> None:
         "--method",
         method,
     ]
+    # Pass through attitude/truth/yaw options to the fusion step
+    if truth_path and Path(truth_path).exists():
+        cmd += ["--truth-file", str(truth_path)]
+        if args.init_att_with_truth:
+            cmd.append("--init-att-with-truth")
+            cmd += ["--truth-quat-frame", str(args.truth_quat_frame)]
+    if args.fuse_yaw:
+        cmd.append("--fuse-yaw")
+        cmd += ["--yaw-gain", str(args.yaw_gain), "--yaw-speed-min", str(args.yaw_speed_min)]
     if args.no_plots:
         cmd.append("--no-plots")
     logger.info("Running fusion command: %s", cmd)
@@ -364,6 +1205,29 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     # PNG outputs are now written directly into ``results_dir`` with unique
     # filenames, so no post-processing or manifest copying is required.
+
+    # ------------------------------------------------------------------
+    # Attitude comparison plots: KF vs Truth and Gyro DR vs Truth
+    # ------------------------------------------------------------------
+    try:
+        est_npz = results_dir / f"{run_id}_kf_output.npz"
+        if est_npz.exists() and truth_path and Path(truth_path).exists():
+            plot_cmd = [
+                sys.executable,
+                str(HERE / "../scripts/plot_attitude_kf_vs_no_kf.py"),
+                "--imu-file", str(imu_path),
+                "--est-file", str(est_npz),
+                "--truth-file", str(truth_path),
+                "--out-dir", str(results_dir),
+                "--true-init",
+            ]
+            logger.info("Running attitude comparison plots: %s", plot_cmd)
+            subprocess.check_call(plot_cmd)
+            print("Generated attitude comparison plots (KF vs truth, DR vs truth).")
+        else:
+            print("[INFO] Skipping attitude comparison plots (missing estimate or truth file).")
+    except Exception as e:
+        print(f"[WARN] Attitude comparison plotting failed: {e}")
 
     # ------------------------------------------------------------------
     # Convert NPZ output to a MATLAB file with explicit frame variables
@@ -608,6 +1472,56 @@ def main(argv: Iterable[str] | None = None) -> None:
             f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{run_id}/"
         )
         logger.info("Task 7 evaluation complete; results in %s", task7_dir)
+
+    # ----------------------------
+    # Task 7.x: Inline truth validation (no external script)
+    # ----------------------------
+    try:
+        # Some generators preserve original IMU/GNSS stem case (e.g., 'small'). Try both run_id and alt.
+        kf_mat = os.path.join(str(results_dir), f"{run_id}_kf_output.mat")
+        if not os.path.isfile(kf_mat):
+            run_id_alt = f"{Path(imu_path).stem}_{Path(gnss_path).stem}_{method}"
+            kf_mat_alt = os.path.join(str(results_dir), f"{run_id_alt}_kf_output.mat")
+            if os.path.isfile(kf_mat_alt):
+                kf_mat = kf_mat_alt
+        _run_inline_truth_validation(str(results_dir), run_id, kf_mat, str(truth_path), args)
+    except Exception as e:
+        print(f"[WARN] Inline validation failed: {e}")
+
+    # Optional: run a second KF pass with true attitude initialisation and compare
+    try:
+        if args.true_init_second_pass and truth_path and Path(truth_path).exists():
+            # Load detected truth quaternion frame (if available)
+            det_file = Path(results_dir) / f"{run_id}_Task7_truth_quaternion_frame.txt"
+            truth_frame = 'NED'
+            if det_file.exists():
+                try:
+                    truth_frame = det_file.read_text().strip().upper()
+                except Exception:
+                    pass
+            cmd_true = [
+                sys.executable,
+                str(HERE / "GNSS_IMU_Fusion.py"),
+                "--imu-file", str(imu_path),
+                "--gnss-file", str(gnss_path),
+                "--method", method,
+                "--truth-file", str(truth_path),
+                "--init-att-with-truth",
+                "--truth-quat-frame", truth_frame,
+                "--tag", "TRUEINIT",
+            ]
+            if args.no_plots:
+                cmd_true.append("--no-plots")
+            logger.info("Running TRUE-init KF pass: %s", cmd_true)
+            ret2, _ = run_case(cmd_true, results_dir / f"{run_id}_TRUEINIT.log")
+            if ret2 != 0:
+                print("[WARN] TRUE-init KF pass failed; skipping comparison plot.")
+            else:
+                # Try both canonical and alternate case run-ids for output matching
+                _task5_plot_quat_cases(str(results_dir), run_id, str(truth_path))
+                _task5_plot_quat_cases(str(results_dir), f"{Path(imu_path).stem}_{Path(gnss_path).stem}_{method}", str(truth_path))
+    except Exception as e:
+        print(f"[WARN] TRUE-init comparison step failed: {e}")
 
     # --- nicely formatted summary table --------------------------------------
     if results:

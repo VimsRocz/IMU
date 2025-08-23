@@ -85,5 +85,6 @@ def plot_fused_vs_truth(
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path)
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(output_path.with_suffix('')))
     plt.close(fig)

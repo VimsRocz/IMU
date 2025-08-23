@@ -79,11 +79,13 @@ class GNSSIMUKalman:
         self.kf.Q = Q
         self.kf.predict()
         # manual integration of position/velocity
+        # acc_meas is specific force in body frame (f^b). Subtract estimated
+        # accelerometer bias, rotate to navigation, then ADD gravity to obtain
+        # translational acceleration in navigation frame:
+        # a^n = C^n_b (f^b - b_a) + g^n
         acc_body = acc_meas - self.kf.x[6:9]
         acc_n = R_bn @ acc_body
-
-        # Compensate gravity once in navigation frame
-        acc_n -= g_n
+        acc_n += g_n
         self.kf.x[3:6] += acc_n * dt
         self.kf.x[0:3] += self.kf.x[3:6] * dt
 

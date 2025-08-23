@@ -139,13 +139,10 @@ print(f, pdf_att, '-dpdf', '-bestfit'); close(f); fprintf('Saved %s\n', pdf_att)
 
 norm_pos = vecnorm(res_pos,2,2);
 norm_vel = vecnorm(res_vel,2,2);
-res_acc = gradient(res_vel, t_rel);
-norm_acc = vecnorm(res_acc,2,2);
 
 f = figure('Visible','off','Position',[100 100 600 400]);
 plot(t_rel, norm_pos, 'DisplayName','|pos error|'); hold on;
 plot(t_rel, norm_vel, 'DisplayName','|vel error|');
-plot(t_rel, norm_acc, 'DisplayName','|acc error|');
 xlabel('Time [s]'); ylabel('Error Norm'); legend; grid on;
 set(f,'PaperPositionMode','auto');
 pdf_norm = fullfile(output_dir, sprintf('%stask7_3_error_norms.pdf', prefix));
@@ -165,10 +162,8 @@ end
 
 rmse_pos = sqrt(mean(norm_pos.^2));
 rmse_vel = sqrt(mean(norm_vel.^2));
-rmse_acc = sqrt(mean(norm_acc.^2));
 final_pos = norm_pos(end);
 final_vel = norm_vel(end);
-final_acc = norm_acc(end);
 
 fprintf('[SUMMARY] rmse_pos=%.3f m final_pos=%.3f m rmse_vel=%.3f m/s final_vel=%.3f m/s\n', ...
     rmse_pos, final_pos, rmse_vel, final_vel);

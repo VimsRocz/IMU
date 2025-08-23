@@ -75,8 +75,8 @@ end
 png_path = plot_overlay_legacy(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
     vel_truth_i, acc_truth_i, frame, method, dataset, output_dir);
 
-plot_rmse(t_est, pos_est, vel_est, acc_est, pos_truth_i, ...
-    vel_truth_i, acc_truth_i, frame, method, dataset, output_dir);
+% Note: Acceleration is not compared against truth as truth lacks it
+plot_rmse(t_est, pos_est, vel_est, pos_truth_i, vel_truth_i, frame, method, dataset, output_dir);
 
 end
 
@@ -98,7 +98,13 @@ if endsWith(ppath, '.npz')
 else
     % Text truth files may include a comment header
     raw = read_state_file(ppath);
-    t = raw(:,2);
+    t_raw = raw(:,2);
+    dtm = median(diff(t_raw));
+    if isfinite(dtm) && dtm > 0.5 && dtm < 1.5
+        t = t_raw / 10;  % convert 0.1s ticks to seconds (10 Hz)
+    else
+        t = t_raw;
+    end
     if strcmpi(frame,'ECEF')
         pos = raw(:,3:5);
         vel = raw(:,5:8);
@@ -254,21 +260,18 @@ fprintf('Saved overlay figure to %s\n', png_path);
 end
 
 % -------------------------------------------------------------------------
-function png_path = plot_rmse(t, pos_est, vel_est, acc_est, pos_truth, vel_truth, acc_truth, frame, method, dataset, out_dir)
-%PLOT_RMSE Plot total error magnitude and annotate RMSE values.
+function png_path = plot_rmse(t, pos_est, vel_est, pos_truth, vel_truth, frame, method, dataset, out_dir)
+%PLOT_RMSE Plot total error magnitude (pos, vel) and annotate RMSE values.
 
 pos_err = vecnorm(pos_est - pos_truth, 2, 2);
 vel_err = vecnorm(vel_est - vel_truth, 2, 2);
-acc_err = vecnorm(acc_est - acc_truth, 2, 2);
 
 rmse_pos = sqrt(mean(pos_err.^2));
 rmse_vel = sqrt(mean(vel_err.^2));
-rmse_acc = sqrt(mean(acc_err.^2));
 
 f = figure('Visible','off','Position',[100 100 600 400]);
 plot(t, pos_err, 'DisplayName', sprintf('Pos RMSE %.3f m', rmse_pos)); hold on;
 plot(t, vel_err, 'DisplayName', sprintf('Vel RMSE %.3f m/s', rmse_vel));
-plot(t, acc_err, 'DisplayName', sprintf('Acc RMSE %.3f m/s^2', rmse_acc));
 xlabel('Time [s]');
 ylabel('Error magnitude');
 grid on;

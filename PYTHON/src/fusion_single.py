@@ -239,7 +239,8 @@ def main():
         ax[-1].set_xlabel('Time (s)')
         fig.suptitle('Attitude Angles Over Time')
         plt.tight_layout()
-        plt.savefig('results/attitude_angles.pdf')
+        from utils.matlab_fig_export import save_matlab_fig
+        save_matlab_fig(fig, 'results/attitude_angles')
         plt.close()
 
     if len(pos_res) > 0:
@@ -255,7 +256,7 @@ def main():
         ax[1].legend()
         fig.suptitle('Position & Velocity Residuals')
         plt.tight_layout()
-        plt.savefig('results/residual_timeseries.pdf')
+        save_matlab_fig(fig2, 'results/residual_timeseries')
         plt.close()
 
         fig, axs = plt.subplots(2,3, figsize=(12,6))
@@ -266,7 +267,7 @@ def main():
             axs[1,i].set_title(f'Vel {labels[i]}')
         fig.suptitle('Residual Distributions')
         plt.tight_layout()
-        plt.savefig('results/residual_hist.pdf')
+        save_matlab_fig(fig3, 'results/residual_hist')
         plt.close()
 
         for name, data in [('Pos N', pos_res[:,0]),('Pos E', pos_res[:,1]),('Pos D', pos_res[:,2]),

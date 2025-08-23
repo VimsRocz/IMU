@@ -43,10 +43,15 @@ ref_r0 = double(npz{'ref_r0_m'});
 % Load truth trajectory
 % -------------------------------------------------------------------------
 % Truth logs contain a comment header. Columns are:
-%   1-count, 2-time [s], 3:5-ECEF position [m]
+%   1-count, 2-time [s], 3:5-ECEF position [m], 6:8-ECEF velocity [m/s],
+%   9:12-attitude quaternion [q0 q1 q2 q3] (scalar-first)
 truth_raw = read_state_file(truth_file);
 truth_time = truth_raw(:,2);
 truth_pos_ecef = truth_raw(:,3:5);
+truth_quat = [];
+if size(truth_raw,2) >= 12
+    truth_quat = truth_raw(:,9:12);
+end
 
 % Convert truth ECEF to NED relative to estimator reference
 C_e2n = compute_C_ECEF_to_NED(ref_lat, ref_lon);
@@ -78,15 +83,39 @@ common_time = linspace(0, duration, numel(ix)).';
 aligned_est_file = fullfile(output_dir, ['aligned_' ename '.mat']);
 aligned_truth_file = fullfile(output_dir, ['aligned_' tname ext]);
 
+% Align attitude quaternions if truth is available
+aligned_quat_truth = [];
+if ~isempty(truth_quat)
+    aligned_quat_truth = truth_quat(iy,:);
+end
+
 save(aligned_est_file, 'common_time', 'aligned_pos_est', 'aligned_vel_est', ...
-    'aligned_quat', 'ref_lat', 'ref_lon', 'ref_r0');
+    'aligned_quat', 'aligned_quat_truth', 'ref_lat', 'ref_lon', 'ref_r0');
 writematrix([common_time aligned_pos_truth], aligned_truth_file);
 
 % -------------------------------------------------------------------------
 % Generate plots similar to plot_task6_results.py
 % -------------------------------------------------------------------------
 plot_task6_results(aligned_pos_est, aligned_vel_est, aligned_quat, common_time, ...
-    aligned_pos_truth, common_time, ref_lat, ref_lon, ref_r0, output_dir, ename);
+    aligned_pos_truth, common_time, ref_lat, ref_lon, ref_r0, output_dir, ename, aligned_quat_truth);
+
+% If true attitude is available, also plot quaternion error angle over time
+if ~isempty(aligned_quat_truth)
+    q_est = attitude_tools('quat_hemi', aligned_quat');      % [4 x N]
+    q_tru = attitude_tools('quat_hemi', aligned_quat_truth');
+    % Ensure both are [N x 4] for dot product computation
+    q_est = q_est'; q_tru = q_tru';
+    d = sum(q_est .* q_tru, 2);           % dot products
+    d = min(1, max(-1, abs(d)));          % hemisphere + clamp
+    ang_deg = 2 * acosd(d);
+    f = figure('Visible','off','Position',[100 100 700 300]);
+    plot(common_time, ang_deg, 'LineWidth', 1.2); grid on;
+    xlabel('Time [s]'); ylabel('Attitude Error [deg]');
+    title(sprintf('%s Attitude Quaternion Error', ename));
+    set(f,'PaperPositionMode','auto');
+    pdf_qerr = fullfile(output_dir, sprintf('%s_task6_attitude_quat_error_deg.pdf', ename));
+    print(f, pdf_qerr, '-dpdf', '-bestfit'); close(f);
+end
 
 % -------------------------------------------------------------------------
 % Basic Task 7 error metrics
@@ -98,7 +127,7 @@ end
 
 % -------------------------------------------------------------------------
 function plot_task6_results(est_pos, est_vel, est_quat, est_time, ...
-    truth_pos, truth_time, ref_lat, ref_lon, ref_r0, out_dir, method)
+    truth_pos, truth_time, ref_lat, ref_lon, ref_r0, out_dir, method, truth_quat)
 %PLOT_TASK6_RESULTS  Simplified Task 6 plots in NED frame.
 %
 %   PLOT_TASK6_RESULTS(EST_POS, EST_VEL, EST_QUAT, EST_TIME, TRUTH_POS,
@@ -109,8 +138,17 @@ function plot_task6_results(est_pos, est_vel, est_quat, est_time, ...
 %   ``IMU_X001_GNSS_X001_Davenport``. This mirrors ``plot_task6_results.py``.
 
 truth_pos_i = interp1(truth_time, truth_pos, est_time, 'linear', 'extrap');
-dt = mean(diff(est_time));
-est_acc = gradient(est_vel, dt);
+% Prepare Euler attitude comparison if truth quaternion provided
+has_truth_att = (nargin >= 12) && ~isempty(truth_quat);
+if has_truth_att
+    % Truth quaternion is already aligned to est_time
+    eul_est = zeros(numel(est_time),3);
+    eul_truth = zeros(numel(est_time),3);
+    for k = 1:numel(est_time)
+        eul_est(k,:) = quat_to_euler_deg(est_quat(k,:));
+        eul_truth(k,:) = quat_to_euler_deg(truth_quat(k,:));
+    end
+end
 
 labels = {'North','East','Down'};
 fig = figure('Visible','off','Position',[100 100 900 800]);
@@ -118,7 +156,13 @@ for i=1:3
     subplot(3,3,i); plot(est_time, est_pos(:,i), 'b', est_time, truth_pos_i(:,i), '--r');
     title(['Position ' labels{i}]); ylabel('[m]'); grid on;
     subplot(3,3,3+i); plot(est_time, est_vel(:,i), 'b'); title(['Velocity ' labels{i}]); ylabel('[m/s]'); grid on;
-    subplot(3,3,6+i); plot(est_time, est_acc(:,i), 'b'); title(['Acceleration ' labels{i}]); ylabel('[m/s^2]'); grid on;
+    if has_truth_att
+        names = {'Roll','Pitch','Yaw'};
+        subplot(3,3,6+i); plot(est_time, eul_est(:,i), 'b', est_time, eul_truth(:,i), '--r');
+        title(['Attitude ' names{i}]); ylabel('[deg]'); grid on;
+    else
+        subplot(3,3,6+i); axis off; text(0.5,0.5,'No truth attitude available','HorizontalAlignment','center');
+    end
     if i==3; xlabel('Time [s]'); end
 end
 sgtitle(sprintf('%s Task 6 Results (NED)', method));
@@ -142,6 +186,18 @@ function summarize_timebase(label, t)
 if numel(t) < 2
     fprintf('%s time vector too short for statistics\n', label);
     return;
+end
+
+function eul_deg = quat_to_euler_deg(q)
+%QUAT_TO_EULER_DEG Convert [q0 q1 q2 q3] to XYZ Euler [deg].
+    q0=q(1); q1=q(2); q2=q(3); q3=q(4);
+    R=[1-2*(q2^2+q3^2) 2*(q1*q2-q0*q3) 2*(q1*q3+q0*q2);...
+       2*(q1*q2+q0*q3) 1-2*(q1^2+q3^2) 2*(q2*q3-q0*q1);...
+       2*(q1*q3-q0*q2) 2*(q2*q3+q0*q1) 1-2*(q1^2+q2^2)];
+    roll  = atan2(R(3,2), R(3,3));
+    pitch = -asin(R(3,1));
+    yaw   = atan2(R(2,1), R(1,1));
+    eul_deg = rad2deg([roll, pitch, yaw]);
 end
 dt = diff(t);
 mean_dt = mean(dt);

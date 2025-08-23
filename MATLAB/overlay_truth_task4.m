@@ -11,9 +11,16 @@ if isfield(S,'ref_lon'); ref_lon = S.ref_lon; else; ref_lon = deg2rad(133.455801
 if isfield(S,'ref_r0');  ref_r0 = S.ref_r0;  else;  ref_r0 = [-3729051 3935676 -3348394]; end
 C = compute_C_ECEF_to_NED(ref_lat, ref_lon);
 
+% Normalize truth time to seconds (~10 Hz) if stored as 0.1s ticks
+t_raw = truth(:,2);
+dtm = median(diff(t_raw));
+if isfinite(dtm) && dtm > 0.5 && dtm < 1.5
+    t_truth = t_raw / 10;
+else
+    t_truth = t_raw;
+end
 pos_truth = (C*(truth(:,3:5)'-ref_r0(:)))';
 vel_truth = (C*truth(:,6:8)')';
-t_truth   = truth(:,2);
 acc_truth = [zeros(1,3); diff(vel_truth)./diff(t_truth)];
 
 t_est = S.time_residuals;

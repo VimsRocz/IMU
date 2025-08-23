@@ -66,7 +66,8 @@ def main():
             )
 
     fig.tight_layout()
-    fig.savefig("results/project_summary.png", dpi=150)
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, "results/project_summary")
 
 
 if __name__ == '__main__':

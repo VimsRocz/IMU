@@ -35,7 +35,10 @@ opts = detectImportOptions(gnss_path,'Delimiter',',');
 Tg = readtable(gnss_path, opts);
 nG = height(Tg);
 if any(strcmpi(Tg.Properties.VariableNames,'Posix_Time'))
-    tg = ensure_time_vec(Tg.Posix_Time);  notes = [notes; "GNSS: used Posix_Time"];
+    % Use Posix_Time but normalize to start at zero to mirror Python
+    tg_abs = ensure_time_vec(Tg.Posix_Time);
+    tg = tg_abs - tg_abs(1);
+    notes = [notes; "GNSS: used Posix_Time (zero-based)"];
 else
     need = {'UTC_yyyy','UTC_MM','UTC_dd','UTC_HH','UTC_mm','UTC_ss'};
     if all(ismember(need, Tg.Properties.VariableNames))
@@ -49,11 +52,37 @@ lines = [lines; format_line('GNSS', tg, nG)];
 
 % ---------- TRUTH ----------
 if ~isempty(truth_path) && isfile(truth_path)
-    to = detectImportOptions(truth_path, 'Delimiter',' ', 'CommentStyle','#', 'ConsecutiveDelimitersRule','join');
-    Ts = readtable(truth_path, to);
-    ts = ensure_time_vec(Ts{:,1});
-    nS = numel(ts);
-    lines = [lines; format_line('TRUTH', ts, nS)];
+    try
+        raw = read_state_file(truth_path);
+        % STATE files: col1=count, col2=time [s] (or 0.1s ticks)
+        t_raw = raw(:,2);
+        dtm = median(diff(t_raw));
+        if isfinite(dtm) && dtm > 0.5 && dtm < 1.5
+            ts = t_raw / 10;  % convert 0.1s ticks to seconds (10 Hz)
+        else
+            ts = t_raw;
+        end
+        ts = ts - ts(1);  % zero-based like Python
+        nS = numel(ts);
+        lines = [lines; format_line('TRUTH', ts, nS)];
+        notes = [notes; "TRUTH: loaded via read_state_file (col2 time)"];
+    catch
+        to = detectImportOptions(truth_path, 'Delimiter',' ', 'CommentStyle','#', 'ConsecutiveDelimitersRule','join');
+        Ts = readtable(truth_path, to);
+        % Fallback: try column named 'time' or use first numeric column
+        if any(strcmpi(Ts.Properties.VariableNames,'time'))
+            ts = ensure_time_vec(Ts{:,strcmpi(Ts.Properties.VariableNames,'time')});
+        else
+            ts = ensure_time_vec(Ts{:,1});
+        end
+        % Normalize to zero-based
+        if ~isempty(ts) && isnumeric(ts)
+            ts = ts - ts(1);
+        end
+        nS = numel(ts);
+        lines = [lines; format_line('TRUTH', ts, nS)];
+        notes = [notes; "TRUTH: fallback parser used (zero-based)"];
+    end
 else
     lines = [lines; "TRUTH | present but unreadable (see Notes)."];
 end
@@ -76,12 +105,14 @@ if isdatetime(t), t = seconds(t - t(1)); end
 if isduration(t), t = seconds(t); end
 if iscell(t) || isstring(t), t = str2double(t); end
 dt = diff(t);
-if isempty(dt) || ~all(isfinite(dt)), hz = NaN; med = NaN; mn = NaN; mx = NaN; mono = false;
-else, hz = 1/median(dt); med = median(dt); mn = min(dt); mx = max(dt); mono = all(dt > 0);
+if isempty(dt) || any(~isfinite(dt))
+    hz = NaN; med = NaN; mn = NaN; mx = NaN; mono = false;
+else
+    med = median(dt); hz = 1/med; mn = min(dt); mx = max(dt); mono = all(dt > 0);
 end
 dur = t(end) - t(1);
 s = sprintf('%-5s | n=%-7d hz=%0.6f  dt_med=%0.6f  min/max dt=(%0.6f,%0.6f)  dur=%0.3fs  t0=%0.6f  t1=%0.6f  monotonic=%s',...
-    tag, n, hz, med, mn, mx, dur, t(1), t(end), lower(string(mono)));
+    tag, n, hz, med, mn, mx, dur, t(1), t(end), pybool(mono));
 end
 
 function t = ensure_time_vec(x)
@@ -109,4 +140,9 @@ function t = ensure_time_vec(x)
         end
     end
     t = x(:);
+end
+
+function s = pybool(tf)
+% Format boolean like Python True/False
+    if tf, s = 'True'; else, s = 'False'; end
 end

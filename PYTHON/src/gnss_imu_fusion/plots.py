@@ -1,9 +1,11 @@
 """Plotting helpers extracted from the original script."""
 
 import matplotlib.pyplot as plt
+from utils.matlab_fig_export import save_matlab_fig
 import numpy as np
 from typing import Optional, List, Dict
 from naming import plot_path
+from pathlib import Path
 
 
 def save_zupt_variance(
@@ -38,7 +40,7 @@ def save_zupt_variance(
     plt.tight_layout()
     plt.title("ZUPT Detection and Accelerometer Variance")
     filename = f"results/IMU_{dataset_id}_ZUPT_variance.pdf"
-    plt.savefig(filename)
+    save_matlab_fig(plt.gcf(), str(Path(filename).with_suffix('')))
     plt.close()
 
 
@@ -71,7 +73,7 @@ def save_euler_angles(
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) vs. Time")
     filename = f"results/{dataset_id}_{method}_attitude_angles_over_time.pdf"
-    plt.savefig(filename)
+    save_matlab_fig(plt.gcf(), str(Path(filename).with_suffix('')))
     plt.close()
 
 
@@ -113,7 +115,7 @@ def save_residual_plots(
     plt.legend(loc="best")
     plt.tight_layout()
     filename = plot_path("results", tag, 5, "residuals", "position_residuals")
-    plt.savefig(filename)
+    save_matlab_fig(plt.gcf(), str(Path(filename).with_suffix('')))
     plt.close()
 
     plt.figure(figsize=(10, 5))
@@ -125,7 +127,7 @@ def save_residual_plots(
     plt.legend(loc="best")
     plt.tight_layout()
     filename = plot_path("results", tag, 5, "residuals", "velocity_residuals")
-    plt.savefig(filename)
+    save_matlab_fig(plt.gcf(), str(Path(filename).with_suffix('')))
     plt.close()
 
 
@@ -158,7 +160,7 @@ def save_attitude_over_time(
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) Over Time")
     filename = f"results/{dataset_id}_{method}_attitude_angles_over_time.pdf"
-    plt.savefig(filename)
+    save_matlab_fig(plt.gcf(), str(Path(filename).with_suffix('')))
     plt.close()
 
 
@@ -174,7 +176,7 @@ def save_velocity_profile(t: np.ndarray, vel_filter: np.ndarray, vel_gnss: np.nd
     plt.title("Velocity Profile")
     plt.legend(loc="best")
     plt.tight_layout()
-    plt.savefig("results/velocity_profile.pdf")
+    save_matlab_fig(plt.gcf(), "results/velocity_profile")
     plt.close()
 
 
@@ -224,6 +226,5 @@ def plot_all_methods(
                 ax.legend()
 
     plt.tight_layout()
-    plt.savefig(savefile, dpi=200)
+    save_matlab_fig(plt.gcf(), str(Path(savefile).with_suffix('')))
     plt.close(fig)
-

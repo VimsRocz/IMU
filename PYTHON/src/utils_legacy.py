@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import numpy as np
 from typing import Tuple, Optional
 from matplotlib.figure import Figure
+from pathlib import Path
 
 try:
     from pyproj import Transformer
@@ -148,11 +151,30 @@ def detect_static_interval(
 
 
 def is_static(accel_win, gyro_win, accel_var_thresh=0.01, gyro_var_thresh=1e-6):
-    """Check if the current IMU window is static."""
-    return (
-        np.max(np.var(accel_win, axis=0)) < accel_var_thresh
-        and np.max(np.var(gyro_win, axis=0)) < gyro_var_thresh
-    )
+    """Check if the current IMU window is static.
+
+    Stricter gating to reduce false ZUPTs:
+    - low variance in accel/gyro (existing checks)
+    - accel magnitude close to 9.81 m/s² on average
+    - small per-axis standard deviations
+    """
+    try:
+        var_a_ok = np.max(np.var(accel_win, axis=0)) < accel_var_thresh
+        var_g_ok = np.max(np.var(gyro_win, axis=0)) < gyro_var_thresh
+        # Magnitude closeness
+        a_norm = np.linalg.norm(accel_win, axis=1)
+        mag_err = np.mean(np.abs(a_norm - 9.81))
+        mag_ok = mag_err < 0.03
+        # Small per-axis std
+        std_a_ok = np.max(np.std(accel_win, axis=0)) < 0.02
+        std_g_ok = np.max(np.std(gyro_win, axis=0)) < (np.deg2rad(0.05))
+        return var_a_ok and var_g_ok and mag_ok and std_a_ok and std_g_ok
+    except Exception:
+        # Fallback to legacy behaviour if anything goes wrong
+        return (
+            np.max(np.var(accel_win, axis=0)) < accel_var_thresh
+            and np.max(np.var(gyro_win, axis=0)) < gyro_var_thresh
+        )
 
 # Additional utilities for logging and thresholding
 
@@ -264,6 +286,43 @@ def save_plot_fig(fig: Figure, filename: str) -> None:
     """
 
     save_plot_mat(fig, filename)
+
+
+def save_png_and_mat(fig: Figure, filename: str, **savefig_kwargs) -> tuple[Path, Path]:
+    """Save figure as PNG and MATLAB MAT side-by-side.
+
+    Parameters
+    ----------
+    fig : Figure
+        Matplotlib figure to save.
+    filename : str
+        Target path; extension is ignored. Both ``.png`` and ``.mat`` are written
+        next to each other using the same stem.
+    savefig_kwargs : dict
+        Extra kwargs passed to ``fig.savefig`` for the PNG (e.g., dpi, bbox_inches).
+
+    Returns
+    -------
+    tuple of Path
+        ``(png_path, mat_path)`` of the saved files.
+    """
+    base = Path(filename)
+    stem = base.with_suffix("")
+    png_path = stem.with_suffix(".png")
+    mat_path = stem.with_suffix(".mat")
+    png_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(png_path, **savefig_kwargs)
+    save_plot_mat(fig, str(mat_path))
+    # Additionally try to save a MATLAB-native .fig via engine; else fallback
+    try:
+        from utils.matlab_fig_export import save_matlab_fig
+        save_matlab_fig(fig, str(stem))
+    except Exception:
+        try:
+            save_plot_fig(fig, str(stem.with_suffix('.fig')))
+        except Exception:
+            pass
+    return png_path, mat_path
 
 
 def compute_C_ECEF_to_NED(lat: float, lon: float) -> np.ndarray:
@@ -445,4 +504,3 @@ def interpolate_series(
 
     out = np.vstack([np.interp(t_ref, t_data, series[:, i]) for i in range(series.shape[1])]).T
     return out
-

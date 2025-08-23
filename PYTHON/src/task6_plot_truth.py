@@ -4,10 +4,39 @@ from pathlib import Path
 
 from paths import ensure_results_dir
 from utils.read_truth_txt import read_truth_txt
-from task6_overlay_all_frames import ecef_to_ned, ecef_to_ned_vec
+from task6_overlay_all_frames import ecef_to_ned, ecef_to_ned_vec, ned_to_ecef
 from scipy.interpolate import interp1d
 import numpy as np
 import pandas as pd
+
+# ------------------------------------------------------------------
+# Helpers (robust metadata lookup and coercion)
+# ------------------------------------------------------------------
+
+def _get_first_key(d, keys):
+    """Return the first non-None value for any key in keys from dict-like d."""
+    for k in keys:
+        if k in d:
+            v = d.get(k)
+            if v is not None:
+                return v
+    return None
+
+import numpy as _np
+
+def _as_vec3(x):
+    """Coerce x to shape (3,) float array."""
+    if x is None:
+        return None
+    x = _np.asarray(x, dtype=float)
+    x = x.squeeze()
+    if x.size != 3:
+        # Try to take first 3 if it’s longer; else fail clearly
+        if x.size > 3:
+            x = x.ravel()[:3]
+        else:
+            raise ValueError(f"Expected 3 elements for vec3, got shape {x.shape} with size {x.size}")
+    return x
 
 
 def eprint(*a, **k):
@@ -18,37 +47,6 @@ def derive_run_id(est_file: Path) -> str:
     stem = est_file.stem  # e.g., IMU_X002_GNSS_X002_TRIAD_kf_output
     # Keep what you already use elsewhere if present:
     return stem.replace('_kf_output', '')
-
-
-def _get_ref_scalar(store: dict, keys: list[str]):
-    """Return first available scalar value for any key in ``keys``.
-
-    Handles numpy arrays and MATLAB-style scalars by squeezing and taking the
-    first element. Returns ``None`` if no key is present.
-    """
-    for k in keys:
-        if k in store and store[k] is not None:
-            v = np.asarray(store[k]).squeeze()
-            if v.size >= 1:
-                try:
-                    return float(v.flat[0])
-                except Exception:
-                    continue
-    return None
-
-
-def _get_ref_vec3(store: dict, keys: list[str]):
-    """Return first available 3-vector for any key in ``keys``.
-
-    Coerces to ``float64`` and returns shape ``(3,)`` when possible.
-    Returns ``None`` if not found.
-    """
-    for k in keys:
-        if k in store and store[k] is not None:
-            v = np.asarray(store[k], dtype=float).reshape(-1)
-            if v.size >= 3:
-                return v[:3]
-    return None
 
 
 def main():
@@ -67,6 +65,7 @@ def main():
     ap.add_argument('--output', default=None, help='(ignored) kept for backward compat')
     ap.add_argument('--debug-task6', action='store_true', help='enable verbose Task 6 debugging')
     ap.add_argument('--flat-output', action='store_true', default=True, help='also copy PNGs to results/ root')
+    ap.add_argument('--include-accel', action='store_true', default=False, help='Include acceleration overlays (default False)')
     args = ap.parse_args()
 
     est_path = Path(args.est_file).resolve()
@@ -109,7 +108,7 @@ def main():
     if t_est is None:
         t_est = est.get('time_s')
     if t_est is None:
-        dt = _get_ref_scalar(est, ['dt', 'imu_dt']) or 0.0
+        dt = est.get('dt') or est.get('imu_dt') or 0.0
         n = None
         for key in ('pos_ned_m','pos_ecef_m','pos_body_m'):
             if key in est:
@@ -123,20 +122,60 @@ def main():
             f"[Task6][Est] len(t_est)={len(t_est)} t0={t_est[0]:.3f} t1={t_est[-1]:.3f} dt≈{np.median(np.diff(t_est)) if len(t_est)>1 else 0:.6f}"
         )
 
-    # Reference lat/lon/r0
-    ref_lat_rad = _get_ref_scalar(est, ['ref_lat_rad', 'lat_rad', 'lat0_rad', 'lat'])
-    ref_lon_rad = _get_ref_scalar(est, ['ref_lon_rad', 'lon_rad', 'lon0_rad', 'lon'])
-    ref_r0_m = _get_ref_vec3(est, ['ref_r0_m', 'r0', 'r0_ecef_m', 'ecef_ref'])
-    if ref_lat_rad is None or ref_lon_rad is None or ref_r0_m is None:
-        print("[Task6] ref values missing, deriving from first GNSS sample")
-        if args.gnss_file:
-            df_g = pd.read_csv(args.gnss_file)
-            row = df_g.iloc[0]
-            x,y,z = float(row.get('X_ECEF_m',0)), float(row.get('Y_ECEF_m',0)), float(row.get('Z_ECEF_m',0))
-            from utils import ecef_to_geodetic
-            ref_lat_rad, ref_lon_rad, _ = ecef_to_geodetic(x,y,z)
-            ref_r0_m = np.array([x,y,z],dtype=float)
-    print(f"[Task6] ref_lat={ref_lat_rad} ref_lon={ref_lon_rad} r0={ref_r0_m}")
+    # --- Robust metadata lookup (avoid 'or' on arrays) ---
+    ref_r0_m = _get_first_key(est, ['ref_r0_m', 'r0', 'r0_ecef_m'])
+    ref_lat_rad = _get_first_key(est, ['ref_lat_rad', 'lat_rad', 'ref_lat'])
+    ref_lon_rad = _get_first_key(est, ['ref_lon_rad', 'lon_rad', 'ref_lon'])
+
+    # Coerce to proper types/shapes
+    ref_r0_m = _as_vec3(ref_r0_m)
+
+    # lat/lon may come as 0-d arrays; cast to float
+    if ref_lat_rad is not None:
+        ref_lat_rad = float(_np.asarray(ref_lat_rad).squeeze())
+    if ref_lon_rad is not None:
+        ref_lon_rad = float(_np.asarray(ref_lon_rad).squeeze())
+
+    # Fallbacks if any missing: derive from GNSS first row
+    if (ref_r0_m is None) or _np.any(~_np.isfinite(ref_r0_m)):
+        # Load minimal GNSS ECEF columns
+        import pandas as _pd
+        gnss = _pd.read_csv(args.gnss_file)
+        # Prefer standard names; otherwise take first 3 numeric ECEF-like cols
+        cols = [c for c in gnss.columns if 'ECEF' in c.upper()]
+        if len(cols) >= 3:
+            Xc = [c for c in cols if 'X_ECEF' in c.upper()]
+            Yc = [c for c in cols if 'Y_ECEF' in c.upper()]
+            Zc = [c for c in cols if 'Z_ECEF' in c.upper()]
+            if Xc and Yc and Zc:
+                ref_r0_m = _np.array([gnss[Xc[0]][0], gnss[Yc[0]][0], gnss[Zc[0]][0]], dtype=float)
+            else:
+                ref_r0_m = _np.array(gnss[cols[:3]].iloc[0].to_list(), dtype=float)
+        else:
+            raise RuntimeError("Cannot derive ref_r0_m from GNSS; missing ECEF columns")
+
+    # If lat/lon are still None, estimate from ECEF
+    if (ref_lat_rad is None) or (ref_lon_rad is None):
+        # Convert ref_r0_m ECEF -> lat/lon (WGS84)
+        x, y, z = ref_r0_m
+        # quick geodetic from ECEF (sufficient for plotting)
+        a = 6378137.0; e2 = 6.69437999014e-3
+        lon = _np.arctan2(y, x)
+        p = _np.hypot(x, y)
+        lat = _np.arctan2(z, p * (1 - e2))
+        for _ in range(5):  # iteratively refine
+            sinlat = _np.sin(lat)
+            N = a / _np.sqrt(1 - e2 * sinlat*sinlat)
+            lat = _np.arctan2(z + e2 * N * sinlat, p)
+        ref_lat_rad = float(lat)
+        ref_lon_rad = float(lon)
+
+    # (Optional) helpful debug
+    print(f"[Task6][Est] keys={list(est.keys())}")
+    try:
+        print(f"[Task6][Meta] ref_lat_rad={ref_lat_rad:.6f} ref_lon_rad={ref_lon_rad:.6f} ref_r0_m={ref_r0_m}")
+    except Exception:
+        print(f"[Task6][Meta] ref_lat_rad={ref_lat_rad} ref_lon_rad={ref_lon_rad} ref_r0_m={ref_r0_m}")
 
     # Interpolate truth into estimator timebase
     if t_truth.size and t_est.size:
@@ -172,24 +211,143 @@ def main():
         traceback.print_exc()
         sys.exit(2)
 
-    # Single-method overlays
+    # Helper for extracting vectors from estimator
+    def _pick(store, keys):
+        for k in keys:
+            if k in store and store[k] is not None:
+                arr = np.asarray(store[k]).squeeze()
+                if arr.ndim == 1 and arr.size == 3:
+                    arr = np.tile(arr, (len(t_est), 1))
+                if arr.ndim == 2 and arr.shape[0] >= len(t_est) and arr.shape[1] == 3:
+                    return arr[:len(t_est)].astype(float)
+                if arr.ndim == 2 and arr.shape[1] >= len(t_est) and arr.shape[0] == 3:
+                    return arr.T[:len(t_est)].astype(float)
+        return None
+
+    def _plot_2x3(time_s, pos_est, vel_est, pos_tru=None, vel_tru=None, title='', outfile=None):
+        comps = ['X','Y','Z']
+        fig, axes = plt.subplots(2, 3, figsize=(12, 6), sharex=True)
+        for i in range(3):
+            ax = axes[0, i]
+            if pos_tru is not None:
+                ax.plot(time_s, pos_tru[:, i], label='truth', alpha=0.8)
+            if pos_est is not None:
+                ax.plot(time_s, pos_est[:, i], label='estimate', alpha=0.8)
+            ax.set_ylabel('Position [m]')
+            ax.set_title(f'{title} {comps[i]}')
+            if i == 2:
+                ax.legend(loc='upper right')
+        for i in range(3):
+            ax = axes[1, i]
+            if vel_tru is not None:
+                ax.plot(time_s, vel_tru[:, i], label='truth', alpha=0.8)
+            if vel_est is not None:
+                ax.plot(time_s, vel_est[:, i], label='estimate', alpha=0.8)
+            ax.set_ylabel('Velocity [m/s]')
+            ax.set_xlabel('Time [s]')
+        fig.suptitle(f'Task 6 Overlay ({title})', y=1.02)
+        fig.tight_layout()
+        if outfile:
+            # Save PNG and MATLAB .fig side-by-side
+            try:
+                fig.savefig(outfile, dpi=200, bbox_inches='tight')
+                print(f"[PNG] {outfile}")
+            except Exception as e:
+                eprint(f"WARN: could not save PNG {outfile}: {e}")
+            try:
+                from utils.matlab_fig_export import save_matlab_fig, validate_fig_openable
+                base = str(Path(outfile).with_suffix(''))
+                fig_path = save_matlab_fig(fig, base)
+                if fig_path:
+                    validate_fig_openable(str(fig_path))
+                else:
+                    # Fallback to MAT-based .fig (convertible) if MATLAB engine missing
+                    try:
+                        from utils_legacy import save_plot_fig
+                        save_plot_fig(fig, base + '.fig')
+                        eprint(f"FIG-alt: Saved MAT-based .fig (convert later): {base + '.fig'}")
+                    except Exception:
+                        pass
+            except Exception as e:
+                eprint(f"WARN: .fig export/validation skipped for {outfile}: {e}")
+        plt.close(fig)
+
+    import matplotlib.pyplot as plt
+
+    # Single-method overlays (acceleration OFF by default per requirements)
     saved = {}
-    try:
-        saved_single = run_task6_overlay_all_frames(
-            est_file=str(est_path),
-            truth_file=args.truth_file,
-            output_dir=str(out_dir),
-            lat_deg=args.lat, lon_deg=args.lon,
-            gnss_file=args.gnss_file,
-            q_b2n_const=q_const,
-            time_hint_path=time_hint_path,
-            debug=args.debug_task6,
-            flat_output=args.flat_output,
-        )
-        saved.update(saved_single if isinstance(saved_single, dict) else {})
-    except Exception as ex:
-        eprint('ERROR: run_task6_overlay_all_frames failed:', ex)
-        traceback.print_exc()
+    if not args.include_accel:
+        # Build NED/ECEF/BODY overlays with only pos/vel
+        run_id = run_id or derive_run_id(est_path)
+        # Time base already in t_est
+        # Estimate vectors
+        pos_ned = _pick(est, ['pos_ned_m', 'fused_pos_ned', 'pos_ned'])
+        vel_ned = _pick(est, ['vel_ned_ms', 'fused_vel_ned', 'vel_ned'])
+        pos_ecef_est = _pick(est, ['pos_ecef_m', 'fused_pos_ecef', 'pos_ecef'])
+        vel_ecef_est = _pick(est, ['vel_ecef_ms', 'fused_vel_ecef', 'vel_ecef'])
+        pos_body = _pick(est, ['pos_body_m', 'fused_pos_body', 'pos_body'])
+        vel_body = _pick(est, ['vel_body_ms', 'fused_vel_body', 'vel_body'])
+
+        # Derive ECEF from NED if needed
+        if pos_ecef_est is None and pos_ned is not None:
+            pos_ecef_est = ned_to_ecef(pos_ned, ref_lat_rad, ref_lon_rad, ref_r0_m)
+        if vel_ecef_est is None and vel_ned is not None:
+            # vector transform only
+            Re2n = np.array([[ -np.sin(ref_lat_rad)*np.cos(ref_lon_rad), -np.sin(ref_lat_rad)*np.sin(ref_lon_rad),  np.cos(ref_lat_rad)],
+                             [                 -np.sin(ref_lon_rad),                  np.cos(ref_lon_rad),               0.0],
+                             [ -np.cos(ref_lat_rad)*np.cos(ref_lon_rad), -np.cos(ref_lat_rad)*np.sin(ref_lon_rad), -np.sin(ref_lat_rad)]])
+            vel_ecef_est = (Re2n.T @ vel_ned.T).T
+
+        # Interpolate truth to estimator time base
+        pos_ned_truth = vel_ned_truth = None
+        pos_ecef_truth_i = vel_ecef_truth_i = None
+        pos_body_truth_i = vel_body_truth_i = None
+        if t_truth.size and t_est.size:
+            if pos_ecef_truth.size:
+                pos_ned_truth = ecef_to_ned(pos_ecef_truth, ref_lat_rad, ref_lon_rad, ref_r0_m)
+                vel_ned_truth = ecef_to_ned_vec(vel_ecef_truth, ref_lat_rad, ref_lon_rad)
+                # interp to t_est
+                def _interp(X):
+                    return np.column_stack([
+                        interp1d(t_truth, X[:, i], bounds_error=False, fill_value="extrapolate")(t_est) for i in range(3)
+                    ])
+                pos_ned_truth = _interp(pos_ned_truth)
+                vel_ned_truth = _interp(vel_ned_truth)
+                pos_ecef_truth_i = _interp(pos_ecef_truth)
+                vel_ecef_truth_i = _interp(vel_ecef_truth)
+                # BODY truth: mirror NED (consistent with estimator BODY derivation)
+                pos_body_truth_i = pos_ned_truth
+                vel_body_truth_i = vel_ned_truth
+
+        # Save 2x3 grids
+        # NED
+        out_ned = out_dir / f"{run_id}_task6_overlay_NED.png"
+        _plot_2x3(t_est, pos_ned, vel_ned, pos_ned_truth, vel_ned_truth, 'NED', str(out_ned))
+        # ECEF
+        out_ecef = out_dir / f"{run_id}_task6_overlay_ECEF.png"
+        _plot_2x3(t_est, pos_ecef_est, vel_ecef_est, pos_ecef_truth_i, vel_ecef_truth_i, 'ECEF', str(out_ecef))
+        # BODY (include truth mirrored from NED for consistent overlay)
+        out_body = out_dir / f"{run_id}_task6_overlay_BODY.png"
+        _plot_2x3(t_est, pos_body, vel_body, pos_body_truth_i, vel_body_truth_i, 'BODY', str(out_body))
+
+        print(f"[Task6] Saved overlays (2x3 pos/vel only): {[out_ned, out_ecef, out_body]}")
+    else:
+        try:
+            saved_single = run_task6_overlay_all_frames(
+                est_file=str(est_path),
+                truth_file=args.truth_file,
+                output_dir=str(out_dir),
+                lat_deg=args.lat, lon_deg=args.lon,
+                gnss_file=args.gnss_file,
+                q_b2n_const=q_const,
+                time_hint_path=time_hint_path,
+                debug=args.debug_task6,
+                flat_output=args.flat_output,
+            )
+            saved.update(saved_single if isinstance(saved_single, dict) else {})
+        except Exception as ex:
+            eprint('ERROR: run_task6_overlay_all_frames failed:', ex)
+            traceback.print_exc()
 
     # Multi-method overlays (best-effort)
     method_files = {}
@@ -209,7 +367,7 @@ def main():
             if os.path.isfile(p):
                 method_files[name] = p
 
-    if method_files:
+    if method_files and args.include_accel:
         try:
             saved_multi = run_task6_compare_methods_all_frames(
                 method_files=method_files,

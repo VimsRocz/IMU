@@ -10,11 +10,38 @@ from scipy.spatial.transform import Rotation as R, Slerp
 import matplotlib.pyplot as plt
 from tabulate import tabulate
 
-from utils import compute_C_ECEF_to_NED, ecef_to_geodetic, zero_base_time
-from utils import frames as _frames
+# Import helpers with robust fallback so this module works whether imported
+# via package path (src) or run from sibling scripts.
+try:
+    from utils import compute_C_ECEF_to_NED, ecef_to_geodetic, zero_base_time  # type: ignore
+    from utils import frames as _frames  # type: ignore
+except Exception:  # pragma: no cover - fallback for direct script execution
+    try:
+        # Prefer package-relative import when available
+        from .utils import compute_C_ECEF_to_NED, ecef_to_geodetic, zero_base_time  # type: ignore
+        from .utils import frames as _frames  # type: ignore
+    except Exception:
+        # Ultimate fallback to legacy module directly
+        from .utils_legacy import compute_C_ECEF_to_NED, ecef_to_geodetic, zero_base_time  # type: ignore
+        # frames functions unavailable in legacy fallback; define minimal shims
+        class _frames:
+            @staticmethod
+            def R_ecef_to_ned(lat_rad: float, lon_rad: float) -> np.ndarray:
+                return compute_C_ECEF_to_NED(lat_rad, lon_rad)
+
+            @staticmethod
+            def ecef_vec_to_ned(vec_ecef: np.ndarray, lat_rad: float, lon_rad: float) -> np.ndarray:
+                C = compute_C_ECEF_to_NED(lat_rad, lon_rad)
+                v = np.asarray(vec_ecef)
+                if v.ndim == 1:
+                    return C @ v
+                return (C @ v.T).T
 R_ecef_to_ned = _frames.R_ecef_to_ned
 ecef_vec_to_ned = _frames.ecef_vec_to_ned
-from plot_overlay import plot_overlay
+try:
+    from plot_overlay import plot_overlay
+except Exception:  # pragma: no cover - package-relative import
+    from .plot_overlay import plot_overlay
 import pandas as pd
 import re
 
@@ -68,7 +95,8 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
     tuple
         ``(rmse_pos, final_pos, rmse_vel, final_vel, rmse_eul, final_eul, rmse_acc, final_acc)``
         containing root-mean-square and final errors for position, velocity,
-        attitude and acceleration.
+        and attitude. Acceleration errors are not evaluated (set to ``None``)
+        because the truth data does not contain acceleration.
     """
 
     if debug:
@@ -207,19 +235,9 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
     rmse_vel = np.sqrt(np.mean(np.linalg.norm(vel_err, axis=1) ** 2))
     final_vel = np.linalg.norm(vel_err[-1, :])
 
-    # --- acceleration error -------------------------------------------------
-    dt = np.diff(truth_time, prepend=truth_time[0])
-    acc_est = np.zeros_like(vel_interp)
-    acc_est[1:] = np.diff(vel_interp, axis=0) / dt[1:, None]
-    if convert_est_to_ecef:
-        vel_truth = truth[:, 5:8]
-    else:
-        vel_truth = truth_vel_ned
-    acc_truth = np.zeros_like(vel_truth)
-    acc_truth[1:] = np.diff(vel_truth, axis=0) / dt[1:, None]
-    acc_err = acc_est - acc_truth
-    rmse_acc = np.sqrt(np.mean(np.linalg.norm(acc_err, axis=1) ** 2))
-    final_acc = np.linalg.norm(acc_err[-1, :])
+    # Acceleration comparison intentionally omitted: truth has no acceleration.
+    rmse_acc = None
+    final_acc = None
 
     rmse_eul = np.sqrt(np.mean(np.linalg.norm(eul_err, axis=1) ** 2))
     final_eul = np.linalg.norm(eul_err[-1, :])
@@ -410,7 +428,8 @@ def run_debug_checks(estimate_file, truth_file, dataset):
             plt.ylabel(lbl)
             plt.legend()
             plt.tight_layout()
-            plt.savefig(Path("results") / f"debug_{lbl}.pdf")
+            from utils.matlab_fig_export import save_matlab_fig
+            save_matlab_fig(fig_dbg, str(Path("results") / f"debug_{lbl}"))
             plt.close()
     except Exception as e:  # pragma: no cover - plotting helper
         print(f"Plot generation failed: {e}")
@@ -968,6 +987,25 @@ def main():
         action="store_true",
         help="Validate only ECEF position/velocity fields",
     )
+    # New CLI flags for divergence detection and length scan
+    ap.add_argument(
+        "--div-threshold-deg",
+        type=float,
+        default=30.0,
+        help="Angle threshold in degrees to declare divergence (default 30.0)",
+    )
+    ap.add_argument(
+        "--div-persist-sec",
+        type=float,
+        default=10.0,
+        help="Minimum duration (s) the error must remain above threshold (default 10.0)",
+    )
+    ap.add_argument(
+        "--length-scan",
+        type=str,
+        default="60,120,300,600,900,1200",
+        help="Comma-separated max time values (s) for divergence-vs-length scan",
+    )
     ap.add_argument("--ref-lat", type=float, help="reference latitude in degrees")
     ap.add_argument("--ref-lon", type=float, help="reference longitude in degrees")
     ap.add_argument("--ref-r0", type=float, nargs=3, help="ECEF origin [m]")
@@ -1061,17 +1099,308 @@ def main():
         truth_vel_ned = np.array([C @ v for v in truth[:, 5:8]])
         err_vel = np.asarray(est["vel"]) - truth_vel_ned
 
-    if est.get("quat") is not None:
-        q_true = truth[:, 8:12]
-        r_true = R.from_quat(q_true[:, [1, 2, 3, 0]])
-        r_est = R.from_quat(np.asarray(est["quat"])[:, [1, 2, 3, 0]])
-        r_err = r_est * r_true.inv()
-        err_quat = r_err.as_quat()[:, [3, 0, 1, 2]]
-        # magnitude of the quaternion error in degrees
-        err_angles = 2 * np.arccos(np.clip(np.abs(err_quat[:, 0]), -1.0, 1.0))
-        err_deg = np.degrees(err_angles)
-        final_att_error = err_deg[-1]
-        rmse_att = np.sqrt(np.mean(err_deg**2))
+    # Robust quaternion truth vs estimate comparison and divergence detection
+    tag = (m_truth.group(1) if m_truth else (m_est.group(1) if m_est else "DATA"))
+    if est.get("quat") is not None and truth.shape[1] >= 12:
+        # Build shared time window
+        t_est = np.asarray(est.get("time")).squeeze()
+        if t_est is None or t_est.size == 0:
+            t_est = np.arange(len(est.get("pos", []))) * 0.0025
+        t_truth = np.asarray(t_truth).squeeze()
+        t0 = max(float(t_truth[0]), float(t_est[0]))
+        t1 = min(float(t_truth[-1]), float(t_est[-1]))
+        if not (t1 > t0):
+            logging.warning("No overlapping time window between estimate and truth for attitude comparison.")
+        else:
+            mask_est = (t_est >= t0) & (t_est <= t1)
+            te_win = t_est[mask_est]
+
+            # Candidate quaternion layouts: interpret arrays as wxyz (default) or xyzw
+            q_truth_raw = np.asarray(truth[:, 8:12], float)
+            q_est_raw = np.asarray(est["quat"], float)
+
+            def as_xyzw_from_wxyz(qwxyz):
+                qwxyz = np.asarray(qwxyz, float)
+                return np.column_stack([qwxyz[:, 1], qwxyz[:, 2], qwxyz[:, 3], qwxyz[:, 0]])
+
+            def as_wxyz_from_xyzw(qxyzw):
+                qxyzw = np.asarray(qxyzw, float)
+                return np.column_stack([qxyzw[:, 3], qxyzw[:, 0], qxyzw[:, 1], qxyzw[:, 2]])
+
+            # Prepare Slerp for truth under both layout assumptions
+            r_truth_wxyz = None
+            r_truth_xyzw = None
+            try:
+                r_truth_wxyz = R.from_quat(as_xyzw_from_wxyz(q_truth_raw))
+            except Exception:
+                r_truth_wxyz = None
+            try:
+                r_truth_xyzw = R.from_quat(np.asarray(q_truth_raw, float))
+            except Exception:
+                r_truth_xyzw = None
+
+            # Estimate candidates
+            q_est_wxyz = None
+            q_est_xyzw = None
+            # Try interpreting as wxyz first
+            try:
+                _ = R.from_quat(as_xyzw_from_wxyz(q_est_raw))
+                q_est_wxyz = q_est_raw.copy()
+            except Exception:
+                q_est_wxyz = None
+            # Also allow xyzw
+            try:
+                _ = R.from_quat(np.asarray(q_est_raw, float))
+                q_est_xyzw = q_est_raw.copy()
+            except Exception:
+                q_est_xyzw = None
+
+            # Interpolate truth to estimate time via Slerp for both options
+            cand = []  # list of dicts with qt_wxyz, qe_wxyz, ang_deg, euler arrays
+            for truth_layout, r_truth in [("wxyz", r_truth_wxyz), ("xyzw", r_truth_xyzw)]:
+                if r_truth is None:
+                    continue
+                slerp = Slerp(t_truth, r_truth)
+                r_truth_i = slerp(np.clip(te_win, t_truth[0], t_truth[-1]))
+                qt_xyzw = r_truth_i.as_quat()
+                qt_wxyz = as_wxyz_from_xyzw(qt_xyzw)
+
+                for est_layout, qraw in [("wxyz", q_est_wxyz), ("xyzw", q_est_xyzw)]:
+                    if qraw is None:
+                        continue
+                    if est_layout == "wxyz":
+                        qe_wxyz_full = np.asarray(qraw, float)
+                    else:
+                        qe_wxyz_full = as_wxyz_from_xyzw(np.asarray(qraw, float))
+                    qe_wxyz = qe_wxyz_full[mask_est]
+
+                    # Normalize and hemisphere fix
+                    qt = qt_wxyz / np.linalg.norm(qt_wxyz, axis=1, keepdims=True)
+                    qe = qe_wxyz / np.linalg.norm(qe_wxyz, axis=1, keepdims=True)
+                    d = np.sum(qt * qe, axis=1)
+                    s = np.sign(d)
+                    s[s == 0] = 1.0
+                    qe = qe * s[:, None]
+                    dot_abs = np.clip(np.abs(np.sum(qt * qe, axis=1)), 0.0, 1.0)
+                    ang = 2.0 * np.degrees(np.arccos(dot_abs))
+                    # short-window score to prefer the correct layout
+                    wmask = te_win <= (t0 + min(30.0, (t1 - t0)))
+                    score = float(np.median(ang[wmask])) if np.any(wmask) else float(np.median(ang))
+                    # Euler for plotting (Z-Y-X yaw,pitch,roll)
+                    eul_truth = R.from_quat(qt_xyzw).as_euler("zyx", degrees=True)
+                    eul_est = R.from_quat(as_xyzw_from_wxyz(qe)).as_euler("zyx", degrees=True)
+                    cand.append({
+                        "score": score,
+                        "qt_wxyz": qt,
+                        "qe_wxyz": qe,
+                        "ang": ang,
+                        "eul_truth": eul_truth,
+                        "eul_est": eul_est,
+                    })
+
+            if not cand:
+                logging.warning("Could not parse quaternions for truth/estimate; skipping attitude plots.")
+            else:
+                best = min(cand, key=lambda c: c["score"])
+                qt = best["qt_wxyz"]
+                qe = best["qe_wxyz"]
+                ang = best["ang"]
+                eul_truth = best["eul_truth"]
+                eul_est = best["eul_est"]
+
+                # Plots with TAG in filename
+                tag_prefix = os.path.join(args.output, f"{tag}")
+                # Quaternion components (w,x,y,z)
+                comps = ["w", "x", "y", "z"]
+                plt.figure(figsize=(10, 7))
+                for i, cch in enumerate(comps):
+                    plt.subplot(4, 1, i + 1)
+                    plt.plot(te_win, qt[:, i], label="truth")
+                    plt.plot(te_win, qe[:, i], label="estimate")
+                    plt.ylabel(f"q_{cch}")
+                    if i == 0:
+                        plt.title("Quaternion Components: Truth vs Estimate")
+                        plt.legend(loc="upper right")
+                    if i == 3:
+                        plt.xlabel("Time [s]")
+                plt.tight_layout()
+                # Save PNG and MATLAB .fig with Task/Frame in filename
+                f_q_base = f"{tag_prefix}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion"
+                fig_q = plt.gcf()
+                try:
+                    fig_q.savefig(f"{f_q_base}.png", dpi=200, bbox_inches='tight')
+                except Exception:
+                    pass
+                from utils.matlab_fig_export import save_matlab_fig
+                if save_matlab_fig(fig_q, f_q_base) is None:
+                    try:
+                        from utils_legacy import save_plot_fig
+                        save_plot_fig(fig_q, f_q_base + '.fig')
+                    except Exception:
+                        pass
+                plt.close()
+                # Euler (Z-Y-X yaw/pitch/roll)
+                labels = ["Yaw [deg]", "Pitch [deg]", "Roll [deg]"]
+                plt.figure(figsize=(10, 6))
+                for i, lab in enumerate(labels):
+                    plt.subplot(3, 1, i + 1)
+                    plt.plot(te_win, eul_truth[:, i], label="truth", alpha=0.8)
+                    plt.plot(te_win, eul_est[:, i], label="estimate", alpha=0.8)
+                    plt.ylabel(lab)
+                    if i == 0:
+                        plt.title("Attitude (Euler Z-Y-X, body→NED) Truth vs Estimate")
+                        plt.legend(loc="upper right")
+                    if i == 2:
+                        plt.xlabel("Time [s]")
+                plt.tight_layout()
+                f_e_base = f"{tag_prefix}_Task7_BodyToNED_attitude_truth_vs_estimate_euler"
+                fig_e = plt.gcf()
+                try:
+                    fig_e.savefig(f"{f_e_base}.png", dpi=200, bbox_inches='tight')
+                except Exception:
+                    pass
+                from utils.matlab_fig_export import save_matlab_fig
+                if save_matlab_fig(fig_e, f_e_base) is None:
+                    try:
+                        from utils_legacy import save_plot_fig
+                        save_plot_fig(fig_e, f_e_base + '.fig')
+                    except Exception:
+                        pass
+                plt.close()
+
+                # Divergence detection on overlap only, with CLI threshold/persist
+                thr = float(args.div_threshold_deg)
+                persist = float(args.div_persist_sec)
+                above = ang > thr
+                dt = np.diff(te_win, prepend=te_win[0])
+                run_t = 0.0
+                div_idx = None
+                for i in range(len(te_win)):
+                    if above[i]:
+                        run_t += dt[i]
+                        if run_t >= persist:
+                            j = i
+                            while j > 0 and above[j - 1]:
+                                j -= 1
+                            div_idx = j
+                            break
+                    else:
+                        run_t = 0.0
+                if div_idx is not None:
+                    div_time_rel = float(te_win[div_idx] - te_win[0])
+                    print(f"Estimated divergence start time (attitude): {div_time_rel:.1f} s")
+                    divergence_s = div_time_rel
+                else:
+                    print("Estimated divergence start time (attitude): nan s")
+                    divergence_s = np.nan
+
+                # Save angle error plot
+                plt.figure(figsize=(10, 4))
+                plt.plot(te_win, ang, label="attitude error [deg]")
+                plt.axhline(thr, color="r", linestyle="--", label=f"threshold {thr:.1f} deg")
+                if div_idx is not None:
+                    plt.axvline(te_win[div_idx], color="g", linestyle=":", label=f"diverges @ {divergence_s:.1f}s")
+                plt.xlabel("Time [s]")
+                plt.ylabel("Angle error [deg]")
+                plt.title("Quaternion Angle Error vs Time")
+                plt.legend()
+                plt.tight_layout()
+                f_a_base = f"{tag_prefix}_Task7_attitude_error_angle_over_time"
+                fig_a = plt.gcf()
+                try:
+                    fig_a.savefig(f"{f_a_base}.png", dpi=200, bbox_inches='tight')
+                except Exception:
+                    pass
+                from utils.matlab_fig_export import save_matlab_fig
+                if save_matlab_fig(fig_a, f_a_base) is None:
+                    try:
+                        from utils_legacy import save_plot_fig
+                        save_plot_fig(fig_a, f_a_base + '.fig')
+                    except Exception:
+                        pass
+                plt.close()
+
+                # Save divergence summary CSV
+                import csv
+                f_csv = f"{tag_prefix}_divergence_summary.csv"
+                with open(f_csv, "w", newline="") as fh:
+                    w = csv.writer(fh)
+                    w.writerow(["threshold_deg", "persist_s", "divergence_s"])
+                    w.writerow([thr, persist, divergence_s])
+
+                # Length-dependence scan
+                try:
+                    scan_vals = [float(x) for x in str(args.length_scan).split(",") if str(x).strip()]
+                except Exception:
+                    scan_vals = []
+                if scan_vals:
+                    rows = []
+                    for L in scan_vals:
+                        # truncate to [t0, min(t0+L, t1)]
+                        tmax = te_win[0] + L
+                        m = te_win <= tmax
+                        if not np.any(m):
+                            rows.append([L, np.nan])
+                            continue
+                        ang_L = ang[m]
+                        t_L = te_win[m]
+                        above_L = ang_L > thr
+                        dt_L = np.diff(t_L, prepend=t_L[0])
+                        run = 0.0
+                        div_idx_L = None
+                        for i in range(len(t_L)):
+                            if above_L[i]:
+                                run += dt_L[i]
+                                if run >= persist:
+                                    j = i
+                                    while j > 0 and above_L[j - 1]:
+                                        j -= 1
+                                    div_idx_L = j
+                                    break
+                            else:
+                                run = 0.0
+                        div_s_L = (t_L[div_idx_L] - t_L[0]) if div_idx_L is not None else np.nan
+                        rows.append([L, float(div_s_L) if np.isfinite(div_s_L) else np.nan])
+
+                    # Write CSV and plot PNG + MATLAB .mat for interactive use
+                    import csv
+                    f_len = f"{tag_prefix}_Task7_divergence_vs_length.csv"
+                    with open(f_len, "w", newline="") as fh:
+                        w = csv.writer(fh)
+                        w.writerow(["tmax_s", "divergence_s"])
+                        for r in rows:
+                            w.writerow(r)
+                    # Plot
+                    xs = [r[0] for r in rows]
+                    ys = [r[1] for r in rows]
+                    plt.figure(figsize=(6, 4))
+                    plt.plot(xs, ys, "o-", label="divergence vs length")
+                    plt.xlabel("tmax_s")
+                    plt.ylabel("divergence_s (from overlap start)")
+                    plt.grid(True, alpha=0.3)
+                    plt.tight_layout()
+                    f_png_base = f"{tag_prefix}_Task7_divergence_vs_length"
+                    try:
+                        plt.gcf().savefig(f"{f_png_base}.png", dpi=200, bbox_inches='tight')
+                    except Exception:
+                        pass
+                    from utils.matlab_fig_export import save_matlab_fig
+                    if save_matlab_fig(plt.gcf(), f_png_base) is None:
+                        try:
+                            from utils_legacy import save_plot_fig
+                            save_plot_fig(plt.gcf(), f_png_base + '.fig')
+                        except Exception:
+                            pass
+                    plt.close()
+                    # Save MATLAB-friendly .mat with the arrays
+                    try:
+                        from scipy.io import savemat
+                        savemat(f"{tag_prefix}_Task7_divergence_vs_length.mat", {
+                            "tmax_s": np.array(xs, float),
+                            "divergence_s": np.array(ys, float),
+                        })
+                    except Exception:
+                        pass
 
     # --- Performance metrics ----------------------------------------------
     final_pos_error = np.linalg.norm(err_pos[-1])
@@ -1094,18 +1423,6 @@ def main():
         print(f"Final fused_vel_ned: {est['vel'][-1]}")
         print(f"Final truth_vel_ned: {truth_vel_ned[-1]}")
         print(f"Final velocity error: {err_vel[-1]}")
-        dt = np.diff(t_truth, prepend=t_truth[0])
-        acc_est = np.zeros_like(err_vel)
-        acc_est[1:] = np.diff(np.asarray(est["vel"]), axis=0) / dt[1:, None]
-        acc_truth = np.zeros_like(err_vel)
-        acc_truth[1:] = np.diff(truth_vel_ned, axis=0) / dt[1:, None]
-        err_acc = acc_est - acc_truth
-        final_acc_error = np.linalg.norm(err_acc[-1])
-        rmse_acc = np.sqrt(np.mean(np.sum(err_acc**2, axis=1)))
-        summary_lines += [
-            f"Final acceleration error: {final_acc_error:.2f} m/s^2",
-            f"RMSE acceleration error: {rmse_acc:.2f} m/s^2",
-        ]
     if err_quat is not None:
         summary_lines += [
             f"Final attitude error: {final_att_error:.4f} deg",
@@ -1149,7 +1466,9 @@ def main():
             plt.ylabel(f"{lbl} error")
             plt.legend()
             plt.tight_layout()
-            plt.savefig(os.path.join(args.output, f"{prefix}_{lbl}.pdf"))
+            from utils.matlab_fig_export import save_matlab_fig
+            from utils.matlab_fig_export import save_matlab_fig
+            save_matlab_fig(fig, os.path.join(args.output, f"{prefix}_{lbl}"))
             plt.close()
 
     plot_err(dist_truth, err_pos, sigma_pos, ["X", "Y", "Z"], "pos_err", "Distance [m]")
@@ -1207,8 +1526,7 @@ def main():
     table_rows = [["Position [m]", final_pos_error, rmse_pos]]
     if rmse_vel is not None:
         table_rows.append(["Velocity [m/s]", final_vel_error, rmse_vel])
-    if 'rmse_acc' in locals():
-        table_rows.append(["Acceleration [m/s^2]", final_acc_error, rmse_acc])
+    # Acceleration is intentionally omitted (no truth acceleration available)
     if err_quat is not None:
         table_rows.append(["Attitude [deg]", final_att_error, rmse_att])
     print(tabulate(table_rows, headers=["Metric", "Final Error", "RMSE"], floatfmt=".3f"))

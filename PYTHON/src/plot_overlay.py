@@ -187,13 +187,12 @@ def _plot_overlay_static(
     if suffix is None:
         suffix = "_overlay_state.pdf" if t_truth is not None else "_overlay.pdf"
 
-    frame_upper = frame.upper()
     axis_labels = {
         "NED": ["\u0394N [m]", "\u0394E [m]", "\u0394D [m]"],
         "ECEF": ["X", "Y", "Z"],
-        "BODY": ["X", "Y", "Z"],
+        "Body": ["X", "Y", "Z"],
     }
-    cols = axis_labels.get(frame_upper, ["X", "Y", "Z"])
+    cols = axis_labels.get(frame, ["X", "Y", "Z"])
 
     fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
 
@@ -217,24 +216,18 @@ def _plot_overlay_static(
             ax = axes[row, col]
             values = [fused[:, col]]
             if include_measurements:
-                gnss_label = (
-                    "Measured GNSS" if frame_upper == "ECEF" and row < 2 else "Derived GNSS"
-                )
                 ax.plot(
                     t_gnss,
                     gnss[:, col],
                     color=color_map["GNSS"],
-                    label=gnss_label,
-                )
-                imu_label = (
-                    "Measured IMU" if frame_upper == "BODY" and row == 2 else "Derived IMU"
+                    label="Measured GNSS",
                 )
                 ax.plot(
                     t_imu,
                     imu[:, col],
                     linestyle="--",
                     color=color_map["IMU"],
-                    label=imu_label,
+                    label="Measured IMU",
                 )
                 values.append(gnss[:, col])
                 values.append(imu[:, col])
@@ -301,8 +294,9 @@ def _plot_overlay_static(
 
     fname_pdf = out_path.with_suffix(".pdf")
     fname_png = out_path.with_suffix(".png")
-    fig.savefig(fname_pdf, dpi=300, bbox_inches="tight")
-    fig.savefig(fname_png, dpi=150, bbox_inches="tight")
+    # Save only PNG and MAT using the PDF stem as base
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(Path(fname_pdf).with_suffix("")))
     try:
         from utils import save_plot_mat
         save_plot_mat(fig, str(out_path.with_suffix(".mat")))

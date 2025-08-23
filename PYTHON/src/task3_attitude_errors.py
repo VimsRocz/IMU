@@ -197,7 +197,8 @@ def plot_task3_errors(
 
     out_png = Path(out_png)
     out_png.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_png, dpi=150)
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(out_png.with_suffix('')))
     plt.close(fig)
     print(f"[Task3] Saved error comparison -> {out_png}")
 
@@ -292,7 +293,8 @@ def run_task3(run_id: str, runs: List[str] | None = None) -> None:
             ax.set_title(f"Task 3: Quaternion Components by Method (RUN={run})")
             ax.legend()
         fig.tight_layout()
-        fig.savefig(outdir / f"{run}_task3_quaternions_comparison.png")
+        from utils.matlab_fig_export import save_matlab_fig
+        save_matlab_fig(fig, str((outdir / f"{run}_task3_quaternions_comparison").with_suffix('')))
         plt.close(fig)
 
         if not stats_rows:
@@ -329,5 +331,6 @@ def run_task3(run_id: str, runs: List[str] | None = None) -> None:
                 fontsize=8,
             )
         fig.tight_layout()
-        fig.savefig(outdir / f"{run}_task3_errors_comparison.png")
+        from utils.matlab_fig_export import save_matlab_fig
+        save_matlab_fig(fig, str((outdir / f"{run}_task3_errors_comparison").with_suffix('')))
         plt.close(fig)

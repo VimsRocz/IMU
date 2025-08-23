@@ -16,6 +16,7 @@ from ..utils import (
     validate_gravity_vector,
 )
 from ..compute_biases import compute_biases
+from .axis_map_auto import choose_C_bs_from_static, tilt_from_body_Z
 from ..paths import PY_RES_DIR
 from .init_vectors import butter_lowpass_filter
 
@@ -146,9 +147,16 @@ def measure_body_vectors(
         static_end,
         static_end - static_start,
     )
+    # --- Determine sensor→body axis map from the static window so gravity aligns to +Z (NED down)
+    a_mean_s = np.mean(acc[static_start:static_end], axis=0)
+    C_bs, map_err = choose_C_bs_from_static(a_mean_s)
+    acc_b = (C_bs @ acc.T).T
+    gyro_b = (C_bs @ gyro.T).T
+
+    # Compute static means in the body frame
     static_acc, static_gyro = compute_biases(
-        acc,
-        gyro,
+        acc_b,
+        gyro_b,
         static_start,
         static_end,
     )
@@ -182,6 +190,15 @@ def measure_body_vectors(
         np.array2string(g_body, precision=4),
         np.array2string(omega_ie_body, precision=4),
     )
+    # Axis-map debug
+    try:
+        g_mean = np.mean(acc_b[static_start:static_end], axis=0)
+        print("[AxisMap] C_bs =\n", C_bs)
+        print("[AxisMap] static mean accel (sensor):", a_mean_s)
+        print("[AxisMap] static mean accel (body)  :", g_mean, " err_to_[0,0,+g]=", map_err)
+        print(f"[AxisMap] Tilt from body Z: {tilt_from_body_Z(g_mean):.2f}° (want small at rest, +Z=down)")
+    except Exception:
+        pass
     print(
         f"Task 2: static interval = {static_start}:{static_end}, g_body = {g_body}, omega_ie_body = {omega_ie_body}"
     )
@@ -199,8 +216,8 @@ def measure_body_vectors(
     # Plot accelerometer and gyroscope norms with static interval highlighted
     try:
         t = np.arange(len(time)) * dt
-        acc_norm = np.linalg.norm(acc, axis=1)
-        gyro_norm = np.linalg.norm(gyro, axis=1)
+        acc_norm = np.linalg.norm(acc_b, axis=1)
+        gyro_norm = np.linalg.norm(gyro_b, axis=1)
         fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
         ax[0].plot(t, acc_norm)
         ax[0].axvspan(t[static_start], t[static_end], color="red", alpha=0.3)
@@ -210,8 +227,9 @@ def measure_body_vectors(
         ax[1].set_ylabel("|gyro| [rad/s]")
         ax[1].set_xlabel("Time [s]")
         plot_tag = tag or Path(imu_file).stem
-        plot_path = PY_RES_DIR / f"{plot_tag}_task2_static_interval.png"
-        fig.savefig(plot_path, dpi=300)
+        plot_path = PY_RES_DIR / f"{plot_tag}_task2_static_interval"
+        from utils.matlab_fig_export import save_matlab_fig
+        save_matlab_fig(fig, str(plot_path))
         plt.close(fig)
         logging.info("Task 2 plot saved to %s", plot_path)
     except Exception as exc:  # pragma: no cover - plotting is best effort

@@ -77,7 +77,8 @@ def main(argv: list[str] | None = None) -> None:
     plt.title("Timestamps: Fused vs Truth")
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(args.output / "debug_timestamps.pdf")
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig1, str(args.output / "debug_timestamps"))
     plt.close()
 
     interp_truth_pos = np.vstack([
@@ -93,7 +94,7 @@ def main(argv: list[str] | None = None) -> None:
     plt.title("Position Error Over Time")
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(args.output / "debug_error_norm.pdf")
+    save_matlab_fig(fig2, str(args.output / "debug_error_norm"))
     plt.close()
 
     plot_fused_vs_truth(
