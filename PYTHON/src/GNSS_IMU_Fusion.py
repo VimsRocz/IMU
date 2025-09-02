@@ -359,6 +359,19 @@ def main():
             "[m^2/s^2]"
         ),
     )
+    # FIX: Add GNSS speed configuration (Fix #1)
+    parser.add_argument(
+        "--gnss-speed-clip-mps",
+        type=float,
+        default=float('inf'),
+        help="Maximum GNSS speed before clipping [m/s]. Set to inf to disable clipping.",
+    )
+    parser.add_argument(
+        "--gnss-vel-sigma-mps",
+        type=float,
+        default=5.0,
+        help="GNSS velocity measurement noise standard deviation [m/s]",
+    )
     parser.add_argument(
         "--zupt-acc-var",
         type=float,
@@ -953,14 +966,22 @@ def main():
     lon_series = np.array(lon_series)
 
     # --------------------------------
-    # Subtask 4.5: Define Reference Point
+    # Subtask 4.5: Define Reference Point (FIX: Use GNSS ECEF median)  
     # --------------------------------
-    logging.info("Subtask 4.5: Defining reference point.")
-    ref_lat = np.deg2rad(lat_deg)
-    ref_lon = np.deg2rad(lon_deg)
-    ref_r0 = ecef_origin
+    logging.info("Subtask 4.5: Defining reference point from GNSS ECEF median.")
+    
+    # FIX: Frame consistency - compute lat0/lon0/r0_ecef from GNSS ECEF median (Fix #4)
+    valid_idx = (gnss_pos_ecef[:, 0] != 0) & (gnss_pos_ecef[:, 1] != 0) & (gnss_pos_ecef[:, 2] != 0)
+    if not np.any(valid_idx):
+        raise ValueError("No valid GNSS ECEF positions found")
+    
+    valid_pos_ecef = gnss_pos_ecef[valid_idx]
+    ref_r0 = np.median(valid_pos_ecef, axis=0)  # Use median instead of ecef_origin
+    ref_lat_deg, ref_lon_deg, _ = ecef_to_geodetic(ref_r0[0], ref_r0[1], ref_r0[2])
+    ref_lat = np.deg2rad(ref_lat_deg)
+    ref_lon = np.deg2rad(ref_lon_deg)
     logging.info(
-        f"Reference point: lat={ref_lat:.6f} rad, lon={ref_lon:.6f} rad, r0={ref_r0}"
+        f"Reference point from GNSS ECEF median: lat={ref_lat:.6f} rad, lon={ref_lon:.6f} rad, r0={ref_r0}"
     )
 
     # --------------------------------
@@ -981,6 +1002,27 @@ def main():
     gnss_pos_ned = ecef_to_ned(gnss_pos_ecef, ref_lat, ref_lon, ref_r0)
     gnss_vel_ned = np.array([C_ECEF_to_NED @ v for v in gnss_vel_ecef])
     logging.info(f"GNSS velocity incorporated: {gnss_vel_ned[0]}")
+    
+    # FIX: GNSS speed clamping removal and enhanced measurement noise (Fix #1)
+    gnss_speed = np.linalg.norm(gnss_vel_ned, axis=1)
+    if args.gnss_speed_clip_mps < np.inf:
+        # Apply speed clamping only if explicitly set (not inf)
+        clip_idx = gnss_speed > args.gnss_speed_clip_mps
+        if np.any(clip_idx):
+            scale = args.gnss_speed_clip_mps / np.maximum(gnss_speed[clip_idx], 1e-9)
+            gnss_vel_ned[clip_idx] = gnss_vel_ned[clip_idx] * scale[:, np.newaxis]
+            logging.info(f"Applied GNSS speed clipping at {args.gnss_speed_clip_mps} m/s to {np.sum(clip_idx)} samples")
+    else:
+        logging.info("GNSS speed clamping disabled (speed_clip_mps = inf)")
+    
+    # Print GNSS speed statistics (Fix #9)
+    speed_stats = {
+        'min': np.min(gnss_speed),
+        'median': np.median(gnss_speed), 
+        'max': np.max(gnss_speed)
+    }
+    logging.info(f"GNSS horizontal speed stats (m/s): min={speed_stats['min']:.3f}, median={speed_stats['median']:.3f}, max={speed_stats['max']:.3f}")
+    
     logging.info("GNSS data transformed to NED frame.")
 
     # --------------------------------
@@ -1582,7 +1624,8 @@ def main():
         meas_R_vel = np.eye(3) * 1e-2
     else:
         meas_R_pos = np.eye(3)
-        meas_R_vel = np.eye(3) * args.vel_r
+        # FIX: Use gnss_vel_sigma_mps for velocity measurement noise (Fix #1)
+        meas_R_vel = np.eye(3) * (args.gnss_vel_sigma_mps ** 2)
 
     # Load IMU data
     imu_time = np.arange(len(imu_data)) * dt_imu
@@ -1766,6 +1809,48 @@ def main():
         vel_blow_warn_interval = 0  # set >0 to re-warn every N events
         P_hist = [kf.P.copy()]
 
+        # FIX: Liftoff detection and ZUPT masking (Fix #2)
+        # Detect liftoff: first index where (GNSS_speed > 5 m/s) OR (movstd(acc_norm, 400) > 0.15)
+        gnss_speed_threshold = 5.0  # m/s
+        acc_std_threshold = 0.15    # m/s^2
+        liftoff_idx = len(imu_time)  # default to end if no liftoff detected
+        
+        # Check GNSS speed for liftoff
+        gnss_speed_imu = np.linalg.norm(gnss_vel_ned_interp, axis=1)
+        speed_liftoff_idx = np.where(gnss_speed_imu > gnss_speed_threshold)[0]
+        if len(speed_liftoff_idx) > 0:
+            speed_liftoff_idx = speed_liftoff_idx[0]
+        else:
+            speed_liftoff_idx = len(imu_time)
+            
+        # Check accelerometer std for liftoff (moving standard deviation with window 400)
+        if len(imu_time) > 400:
+            from scipy.ndimage import uniform_filter1d
+            acc_norm = np.linalg.norm(acc_body_corrected[m], axis=1)
+            # Compute moving standard deviation using moving mean
+            acc_mean = uniform_filter1d(acc_norm, size=400, mode='nearest')
+            acc_sq_mean = uniform_filter1d(acc_norm**2, size=400, mode='nearest')  
+            acc_movstd = np.sqrt(np.maximum(0, acc_sq_mean - acc_mean**2))
+            acc_liftoff_idx = np.where(acc_movstd > acc_std_threshold)[0]
+            if len(acc_liftoff_idx) > 0:
+                acc_liftoff_idx = acc_liftoff_idx[0]
+            else:
+                acc_liftoff_idx = len(imu_time)
+        else:
+            acc_liftoff_idx = len(imu_time)
+        
+        # Take the earlier liftoff detection
+        liftoff_idx = min(speed_liftoff_idx, acc_liftoff_idx)
+        
+        # Create ZUPT mask - true only before liftoff
+        zupt_mask = np.zeros(len(imu_time), dtype=bool)
+        if liftoff_idx < len(imu_time):
+            zupt_mask[:liftoff_idx] = True
+            logging.info(f"Liftoff detected at sample {liftoff_idx} (time {imu_time[liftoff_idx]:.2f} s). ZUPT will only apply before liftoff.")
+        else:
+            zupt_mask[:] = True  # No liftoff detected, allow ZUPT throughout
+            logging.info("No liftoff detected. ZUPT will apply throughout the run.")
+
         # attitude initialisation for logging
         orientations = np.zeros((len(imu_time), 4))
         orientations[0] = chosen_init
@@ -1822,9 +1907,17 @@ def main():
             orientations[i] = q_cur
             kf.x[9:13] = q_cur
 
-            # Prediction step
+            # Prediction step with adaptive process noise
             kf.F[0:3, 3:6] = np.eye(3) * dt
             kf.F[3:6, 6:9] = np.eye(3) * dt
+            
+            # FIX: Adaptive process noise for velocity (Fix #6)
+            # Q(3:6,3:6) = (q_base * q_scale)*I where q_scale = 1 + 10*max(0, acc_norm - 9.81)
+            acc_norm = np.linalg.norm(acc_body_corrected[m][i])
+            q_base = 0.01 * args.vel_q_scale
+            q_scale = 1 + 10 * max(0, acc_norm - 9.81)
+            kf.Q[3:6, 3:6] = np.eye(3) * q_base * q_scale
+            
             kf.predict()
 
             if np.linalg.norm(kf.x[3:6]) > 500:
@@ -1883,17 +1976,18 @@ def main():
                         euler_list[-1] = [roll, pitch, yaw]
 
             # --- ZUPT check with rolling variance ---
+            # FIX: Apply ZUPT only before liftoff using zupt_mask (Fix #2)
             acc_win.append(acc_body_corrected[m][i])
             gyro_win.append(gyro_body_corrected[m][i])
             if len(acc_win) > win:
                 acc_win.pop(0)
                 gyro_win.pop(0)
-            if len(acc_win) == win and is_static(
+            if (len(acc_win) == win and zupt_mask[i] and is_static(
                 np.array(acc_win),
                 np.array(gyro_win),
                 accel_var_thresh=args.zupt_acc_var,
                 gyro_var_thresh=args.zupt_gyro_var,
-            ):
+            )):
                 H_z = np.zeros((3, 13))
                 H_z[:, 3:6] = np.eye(3)
                 R_z = np.eye(3) * 1e-4
@@ -1908,7 +2002,7 @@ def main():
                 # during long runs. Use DEBUG level so it only appears when
                 # explicitly requested.
                 logging.debug(
-                    f"ZUPT applied at {imu_time[i]:.2f}s (window {i-win+1}-{i})"
+                    f"ZUPT applied at {imu_time[i]:.2f}s (window {i-win+1}-{i}) [mask={zupt_mask[i]}]"
                 )
 
             fused_pos[m][i] = kf.x[0:3]
@@ -1923,6 +2017,16 @@ def main():
         logging.info(
             f"Method {m}: velocity blow-up events={vel_blow_count}"
         )
+        
+        # FIX: Enhanced output logs (Fix #9)
+        # Print liftoff index/time, final ZUPTcnt, GNSS speed stats
+        if 'liftoff_idx' in locals() and liftoff_idx < len(imu_time):
+            logging.info(f"Method {m}: Liftoff detected at index {liftoff_idx} (time {imu_time[liftoff_idx]:.2f} s)")
+        else:
+            logging.info(f"Method {m}: No liftoff detected during run")
+        logging.info(f"Method {m}: Final ZUPT count: {zupt_count} (should stop growing after liftoff)")
+        logging.info(f"Method {m}: GNSS speed stats already logged above.")
+        
         with open("triad_init_log.txt", "a") as logf:
             for s, e in zupt_events:
                 logf.write(f"{imu_file}: ZUPT {s}-{e}\n")
@@ -1967,6 +2071,55 @@ def main():
                     f"min={np.min(fused_vel[m], axis=0)}, "
                     f"max={np.max(fused_vel[m], axis=0)}"
                 )
+
+    # FIX: Truth-EKF Time Shift Computation (Fix #3)
+    # Estimate dt by cross-correlating speed_truth vs speed_est (±5000 lags limit)
+    dt_truth_shift = 0.0  # default no shift
+    if truth_file and Path(truth_file).exists():
+        try:
+            logging.info("Loading truth data for time shift estimation...")
+            truth_data = np.loadtxt(truth_file)
+            t_truth_raw = truth_data[:, 1]  # Assuming column 1 is time
+            vel_truth_ecef = truth_data[:, 5:8]  # Assuming columns 5:8 are velocity
+            
+            # Convert truth velocity to NED for comparison
+            vel_truth_ned = np.array([C_ECEF_to_NED @ v for v in vel_truth_ecef])
+            speed_truth_raw = np.linalg.norm(vel_truth_ned, axis=1)
+            
+            # Interpolate truth speed to estimator timeline for cross-correlation  
+            speed_truth_interp = np.interp(imu_time, t_truth_raw, speed_truth_raw)
+            speed_est = np.linalg.norm(fused_vel[method], axis=1)
+            
+            # Cross-correlate with ±5000 lags limit
+            max_lags = min(5000, min(len(speed_truth_interp), len(speed_est)) - 1)
+            
+            # Demean for cross-correlation
+            speed_est_demean = speed_est - np.mean(speed_est)
+            speed_truth_demean = speed_truth_interp - np.mean(speed_truth_interp)
+            
+            # Compute cross-correlation using numpy correlate
+            xcorr_vals = np.correlate(speed_est_demean, speed_truth_demean, mode='full')
+            lags = np.arange(-len(speed_truth_demean) + 1, len(speed_est_demean))
+            
+            # Limit to max_lags
+            center = len(xcorr_vals) // 2
+            start_idx = max(0, center - max_lags)
+            end_idx = min(len(xcorr_vals), center + max_lags + 1)
+            xcorr_vals_limited = xcorr_vals[start_idx:end_idx]
+            lags_limited = lags[start_idx:end_idx]
+            
+            # Find best lag
+            max_idx = np.argmax(xcorr_vals_limited)
+            lag_samples = lags_limited[max_idx] 
+            dt_truth_shift = lag_samples * dt_imu
+            
+            logging.info(f"Time shift estimation: lag={lag_samples} samples, dt={dt_truth_shift:.3f} s")
+            
+        except Exception as e:
+            logging.warning(f"Time shift estimation failed: {e}")
+            dt_truth_shift = 0.0
+    else:
+        logging.info("No truth file available for time shift estimation")
 
     # Compute residuals for the selected method
     _ = res_pos_all[method]
@@ -2430,6 +2583,34 @@ def main():
     rms_resid_vel = np.sqrt(np.mean(resid_vel**2))
     max_resid_pos = np.max(np.linalg.norm(resid_pos, axis=1))
     max_resid_vel = np.max(np.linalg.norm(resid_vel, axis=1))
+
+    # FIX: Compute tail-window RMSE [t_end-60, t_end] (Fix #9)
+    tail_window_sec = 60.0  # seconds
+    t_end = gnss_time[-1]
+    tail_idx = gnss_time >= (t_end - tail_window_sec)
+    
+    if np.any(tail_idx):
+        rmse_pos_tail = np.sqrt(np.mean(resid_pos[tail_idx]**2))
+        rmse_vel_tail = np.sqrt(np.mean(resid_vel[tail_idx]**2))
+        
+        # Target RMSE thresholds
+        target_rmse_vel = 20.0   # m/s  
+        target_rmse_pos = 500.0  # m
+        
+        logging.info(f"Tail window RMSE [t_end-{tail_window_sec:.0f}, t_end]: pos={rmse_pos_tail:.3f} m, vel={rmse_vel_tail:.3f} m/s")
+        logging.info(f"Target thresholds: RMSE_vel < {target_rmse_vel:.1f} m/s, RMSE_pos < {target_rmse_pos:.0f} m")
+        
+        if rmse_vel_tail < target_rmse_vel:
+            logging.info(f"✓ Velocity RMSE target MET ({rmse_vel_tail:.3f} < {target_rmse_vel:.1f} m/s)")
+        else:
+            logging.info(f"✗ Velocity RMSE target MISSED ({rmse_vel_tail:.3f} >= {target_rmse_vel:.1f} m/s)")
+            
+        if rmse_pos_tail < target_rmse_pos:
+            logging.info(f"✓ Position RMSE target MET ({rmse_pos_tail:.3f} < {target_rmse_pos:.0f} m)")
+        else:
+            logging.info(f"✗ Position RMSE target MISSED ({rmse_pos_tail:.3f} >= {target_rmse_pos:.0f} m)")
+    else:
+        logging.warning("Insufficient data for tail-window RMSE computation")
 
     accel_bias = acc_biases.get(method, np.zeros(3))
     gyro_bias = gyro_biases.get(method, np.zeros(3))
