@@ -127,12 +127,14 @@ end
 if isfield(S,'ref_lat'); ref_lat = S.ref_lat; else; ref_lat = deg2rad(-32.026554); end
 if isfield(S,'ref_lon'); ref_lon = S.ref_lon; else; ref_lon = deg2rad(133.455801); end
 if isfield(S,'ref_r0');  ref_r0 = S.ref_r0; else; ref_r0 = zeros(3,1); end
+dt_shift = 0;
+if isfield(S,'dt_truth_shift'); dt_shift = S.dt_truth_shift; end % FIX: use Task5 time shift
 C = R_ecef_to_ned(ref_lat, ref_lon);
 C_N_E = C';
 
 if ~isfile(truth_file)
     warning('Truth file %s not found; using GNSS as truth.', truth_file);
-    t_truth = S.gnss_time;
+    t_truth = S.gnss_time + dt_shift; % FIX: apply time shift
     pos_truth_ned_i_raw = S.gnss_pos_ned;
     vel_truth_ned_i_raw = S.gnss_vel_ned;
     acc_truth_ned_i_raw = [zeros(1,3); diff(vel_truth_ned_i_raw)./diff(t_truth)];
@@ -156,7 +158,7 @@ end
 if endsWith(truth_file, '.txt')
     % Read full truth state file (count, time, X Y Z, VX VY VZ, q)
     truth_data = read_state_file(truth_file);
-    truth_time = truth_data(:,2);
+    truth_time = truth_data(:,2) + dt_shift; % FIX: apply time shift
     truth_pos_ecef = truth_data(:,3:5);
     truth_vel_ecef = truth_data(:,6:8);
 else
@@ -306,22 +308,9 @@ truth_struct.t = t_est;
 hfig_ned = plot_state_grid_overlay(t_ref, fused_struct, truth_struct, 'NED', ...
     'Title', sprintf('%s Task6: Fused vs Truth', run_id), ...
     'Visible', visibleFlag, 'MaxPlotPoints', 20000);
-% Save with best-fit to avoid cut-off and multiple formats/names
-set(hfig_ned, 'PaperPositionMode', 'auto');
-print(hfig_ned, fullfile(out_dir, sprintf('%s_task6_overlay_grid_NED.pdf', run_id)), '-dpdf', '-bestfit');
-try
-    exportgraphics(hfig_ned, fullfile(out_dir, sprintf('%s_task6_overlay_grid_NED.png', run_id)), 'Resolution', 300);
-catch
-    print(hfig_ned, fullfile(out_dir, sprintf('%s_task6_overlay_grid_NED.png', run_id)), '-dpng', '-r300');
-end
-try, savefig(hfig_ned, fullfile(out_dir, sprintf('%s_task6_overlay_grid_NED.fig', run_id))); catch, end
-% Also save with Task6 *_state naming to mirror Task5 style
-try
-    exportgraphics(hfig_ned, fullfile(out_dir, sprintf('%s_task6_NED_state.png', run_id)), 'Resolution', 300);
-catch
-    print(hfig_ned, fullfile(out_dir, sprintf('%s_task6_NED_state.png', run_id)), '-dpng', '-r300');
-end
-try, savefig(hfig_ned, fullfile(out_dir, sprintf('%s_task6_NED_state.fig', run_id))); catch, end
+set(hfig_ned,'Units','centimeters','Position',[2 2 18 9]); % FIX: page width export
+set(hfig_ned,'PaperPositionMode','auto');
+exportgraphics(hfig_ned, fullfile(out_dir, sprintf('%s_task6_overlay_grid_NED.png', run_id)), 'Resolution',300);
 
 C_N_E = C';
 pos_ecef = (C_N_E*pos_ned_raw')' + ref_r0';
@@ -335,44 +324,30 @@ cy = corrcoef(vel_ecef(:,2), vel_truth_ecef_i(:,2));% Y
 fprintf('[Sanity] corr(N)=%.3f  corr(E)=%.3f  corr(X)=%.3f  corr(Y)=%.3f\n', ...
         cn(1,2), ce(1,2), cx(1,2), cy(1,2));
 
-% Body frame conversion
-if ~exist('g_NED','var')
-    g_NED = [0;0;constants.GRAVITY];
-end
-N = length(t_est);
-pos_body = zeros(N,3); vel_body = zeros(N,3); acc_body = zeros(N,3);
-pos_truth_body = zeros(N,3); vel_truth_body = zeros(N,3); acc_truth_body = zeros(N,3);
-for k = 1:N
-    C_B_N = euler_to_rot(S.euler_log(:,k));
-    pos_body(k,:) = (C_B_N'*pos_ned_raw(k,:)')';
-    vel_body(k,:) = (C_B_N'*vel_ned_raw(k,:)')';
-    acc_body(k,:) = (C_B_N'*(acc_ned_raw(k,:)' - g_NED))';
-    pos_truth_body(k,:) = (C_B_N'*pos_truth_ned_i_raw(k,:)')';
-    vel_truth_body(k,:) = (C_B_N'*vel_truth_ned_i_raw(k,:)')';
-    acc_truth_body(k,:) = (C_B_N'*(acc_truth_ned_i_raw(k,:)' - g_NED))';
-end
+% Body frame conversion skipped (truth attitude not used)
+pos_body = [];
+vel_body = [];
+acc_body = [];
+pos_truth_body = [];
+vel_truth_body = [];
+acc_truth_body = [];
 
 % Persist processed TRUTH and FUSED series in all three frames for Task 6
 try
     truth_proc_file = fullfile(out_dir, sprintf('%s_task6_truth_processed.mat', run_id));
     fused_proc_file = fullfile(out_dir, sprintf('%s_task6_fused_processed.mat', run_id));
-    % Backwards/compat names expected by user requests
-    pos_body_truth = pos_truth_body_full; %#ok<NASGU>
-    vel_body_truth = vel_truth_body_full; %#ok<NASGU>
-    % TRUTH (ECEF/NED/Body)
+    % Backwards/compat names expected by user requests (body skipped)
+    % TRUTH (ECEF/NED)
     save(truth_proc_file, 't_est', ...
         'pos_truth_ecef_i', 'vel_truth_ecef_i', 'acc_truth_ecef_i', ...
         'pos_truth_ecef',   'vel_truth_ecef',   'acc_truth_ecef', ...
         'pos_truth_ned_i_raw', 'vel_truth_ned_i_raw', 'acc_truth_ned_i_raw', ...
         'pos_truth_ned_i',     'vel_truth_ned_i',     'acc_truth_ned_i', ...
-        'pos_truth_body_full', 'vel_truth_body_full', 'acc_truth_body_full', ...
-        'pos_body_truth',      'vel_body_truth', ...
         'ref_lat', 'ref_lon', 'ref_r0');
-    % FUSED (ECEF/NED/Body)
+    % FUSED (ECEF/NED)
     save(fused_proc_file, 't_est', ...
         'pos_ned', 'vel_ned', 'acc_ned', ...
         'pos_ecef', 'vel_ecef', 'acc_ecef', ...
-        'pos_body', 'vel_body', 'acc_body', ...
         'ref_lat', 'ref_lon', 'ref_r0');
     fprintf('Task 6: saved processed TRUTH (%s) and FUSED (%s)\n', truth_proc_file, fused_proc_file);
 catch ME
@@ -387,16 +362,11 @@ try
     % FUSED
     results6.pos_ned = pos_ned; results6.vel_ned = vel_ned; results6.acc_ned = acc_ned;
     results6.pos_ecef = pos_ecef; results6.vel_ecef = vel_ecef; results6.acc_ecef = acc_ecef;
-    results6.pos_body = pos_body; results6.vel_body = vel_body; results6.acc_body = acc_body;
     % TRUTH full
     results6.truth_pos_ned = pos_truth_ned_i_raw; results6.truth_vel_ned = vel_truth_ned_i_raw; results6.truth_acc_ned = acc_truth_ned_i_raw;
     results6.truth_pos_ecef = pos_truth_ecef; results6.truth_vel_ecef = vel_truth_ecef; results6.truth_acc_ecef = acc_truth_ecef;
-    results6.truth_pos_body = pos_truth_body_full; results6.truth_vel_body = vel_truth_body_full; results6.truth_acc_body = acc_truth_body_full;
-    % Add alias field names requested
-    results6.pos_body_truth = pos_truth_body_full;
-    results6.vel_body_truth = vel_truth_body_full;
     % Refs
-    results6.ref_lat = ref_lat; results6.ref_lon = ref_lon; results6.ref_r0 = ref_r0;
+    results6.ref_lat = ref_lat; results6.ref_lon = ref_lon; results6.ref_r0 = ref_r0; results6.dt_truth_shift = dt_shift;
     results6.method = method;
     res6_sub = fullfile(out_dir, sprintf('%s_task6_results.mat', run_id));
     res6_root = fullfile(results_dir, sprintf('%s_task6_results.mat', run_id));
@@ -418,8 +388,6 @@ save_overlay_state(t_est, pos_ned, vel_ned, pos_truth_ned_i, vel_truth_ned_i, ..
     'NED', run_id, method, out_dir);
 save_overlay_state(t_est, pos_ecef, vel_ecef, pos_truth_ecef_i, vel_truth_ecef_i, ...
     'ECEF', run_id, method, out_dir);
-save_overlay_state(t_est, pos_body, vel_body, pos_truth_body, vel_truth_body, ...
-    'Body', run_id, method, out_dir);
 
 % Also plot and save ECEF and Body frame overlays as 3x3 grids (popup if requested)
 % ECEF overlay
@@ -428,57 +396,16 @@ fused_ecef_struct  = struct('t', t_est, 'pos', pos_ecef,          'vel', vel_ece
 hfig_ecef = plot_state_grid_overlay(t_est, fused_ecef_struct, truth_ecef_struct, 'ECEF', ...
     'Title', sprintf('%s Task6: Fused vs Truth', run_id), ...
     'Visible', visibleFlag, 'MaxPlotPoints', 20000);
-set(hfig_ecef, 'PaperPositionMode', 'auto');
-print(hfig_ecef, fullfile(out_dir, sprintf('%s_task6_overlay_grid_ECEF.pdf', run_id)), '-dpdf', '-bestfit');
-try
-    exportgraphics(hfig_ecef, fullfile(out_dir, sprintf('%s_task6_overlay_grid_ECEF.png', run_id)), 'Resolution', 300);
-catch
-    print(hfig_ecef, fullfile(out_dir, sprintf('%s_task6_overlay_grid_ECEF.png', run_id)), '-dpng', '-r300');
-end
-try, savefig(hfig_ecef, fullfile(out_dir, sprintf('%s_task6_overlay_grid_ECEF.fig', run_id))); catch, end
-try
-    exportgraphics(hfig_ecef, fullfile(out_dir, sprintf('%s_task6_ECEF_state.png', run_id)), 'Resolution', 300);
-catch
-    print(hfig_ecef, fullfile(out_dir, sprintf('%s_task6_ECEF_state.png', run_id)), '-dpng', '-r300');
-end
-try, savefig(hfig_ecef, fullfile(out_dir, sprintf('%s_task6_ECEF_state.fig', run_id))); catch, end
+set(hfig_ecef,'Units','centimeters','Position',[2 2 18 9]); % FIX: page width export
+set(hfig_ecef,'PaperPositionMode','auto');
+exportgraphics(hfig_ecef, fullfile(out_dir, sprintf('%s_task6_overlay_grid_ECEF.png', run_id)), 'Resolution',300);
 
-% Body overlay
-% Build TRUTH body series on full truth timeline by interpolating euler
-eul_truth = interp1(t_est, S.euler_log', t_truth, 'linear','extrap')';
-pos_truth_body_full = zeros(numel(t_truth),3); vel_truth_body_full = pos_truth_body_full; acc_truth_body_full = pos_truth_body_full;
-for k = 1:numel(t_truth)
-    C_B_Nk = euler_to_rot(eul_truth(:,k));
-    pos_truth_body_full(k,:) = (C_B_Nk' * pos_truth_ned_i_raw(k,:)')';
-    vel_truth_body_full(k,:) = (C_B_Nk' * vel_truth_ned_i_raw(k,:)')';
-    acc_truth_body_full(k,:) = (C_B_Nk' * (acc_truth_ned_i_raw(k,:)' - g_NED))';
-end
-truth_body_struct = struct('t', t_truth, 'pos', pos_truth_body_full, 'vel', vel_truth_body_full, 'acc', acc_truth_body_full);
-fused_body_struct  = struct('t', t_est, 'pos', pos_body,       'vel', vel_body,       'acc', acc_body);
-hfig_body = plot_state_grid_overlay(t_est, fused_body_struct, truth_body_struct, 'Body', ...
-    'Title', sprintf('%s Task6: Fused vs Truth', run_id), ...
-    'Visible', visibleFlag, 'MaxPlotPoints', 20000);
-set(hfig_body, 'PaperPositionMode', 'auto');
-print(hfig_body, fullfile(out_dir, sprintf('%s_task6_overlay_grid_Body.pdf', run_id)), '-dpdf', '-bestfit');
-try
-    exportgraphics(hfig_body, fullfile(out_dir, sprintf('%s_task6_overlay_grid_Body.png', run_id)), 'Resolution', 300);
-catch
-    print(hfig_body, fullfile(out_dir, sprintf('%s_task6_overlay_grid_Body.png', run_id)), '-dpng', '-r300');
-end
-try, savefig(hfig_body, fullfile(out_dir, sprintf('%s_task6_overlay_grid_Body.fig', run_id))); catch, end
-try
-    exportgraphics(hfig_body, fullfile(out_dir, sprintf('%s_task6_BODY_state.png', run_id)), 'Resolution', 300);
-catch
-    print(hfig_body, fullfile(out_dir, sprintf('%s_task6_BODY_state.png', run_id)), '-dpng', '-r300');
-end
-try, savefig(hfig_body, fullfile(out_dir, sprintf('%s_task6_BODY_state.fig', run_id))); catch, end
 % ------------------------------------------------------------------
 % Compute overlay metrics for summary tables
 % ------------------------------------------------------------------
 [mNED, ~]  = compute_overlay_metrics(t_est, pos_ned,  vel_ned,  pos_truth_ned_i,  vel_truth_ned_i);
 [mECEF, ~] = compute_overlay_metrics(t_est, pos_ecef, vel_ecef, pos_truth_ecef_i, vel_truth_ecef_i);
-[mBody, ~] = compute_overlay_metrics(t_est, pos_body, vel_body, pos_truth_body,  vel_truth_body);
-metrics = struct('NED', mNED, 'ECEF', mECEF, 'Body', mBody);
+metrics = struct('NED', mNED, 'ECEF', mECEF);
 metrics_file = fullfile(out_dir, sprintf('%s_task6_metrics.mat', run_id));
 try
     save(metrics_file, 'metrics');
@@ -487,8 +414,7 @@ catch ME
 end
 rows = {
     'NED',  mNED.rmse_pos,  mNED.final_pos,  mNED.rmse_vel,  mNED.final_vel,  mNED.rmse_acc,  mNED.final_acc;
-    'ECEF', mECEF.rmse_pos, mECEF.final_pos, mECEF.rmse_vel, mECEF.final_vel, mECEF.rmse_acc, mECEF.final_acc;
-    'Body', mBody.rmse_pos, mBody.final_pos, mBody.rmse_vel, mBody.final_vel, mBody.rmse_acc, mBody.final_acc};
+    'ECEF', mECEF.rmse_pos, mECEF.final_pos, mECEF.rmse_vel, mECEF.final_vel, mECEF.rmse_acc, mECEF.final_acc};
 header = {'Frame','RMSEpos','FinalPos','RMSEvel','FinalVel','RMSEacc','FinalAcc'};
 T = cell2table(rows,'VariableNames',header);
 disp(T);
@@ -548,28 +474,7 @@ try
     fprintf('Task 6: Body comparison plotting | samples=%d\n', numel(t_est));
     fig = figure('Name','Task6 Body Comparison','Position',[100 100 1200 900], 'Visible', visibleFlag);
     labelsB = {'X','Y','Z'};
-    % GNSS -> body via euler
-    eul_interp = interp1(t_est, S.euler_log', t_g, 'linear','extrap')';
-    pos_g_body = zeros(size(pos_g')); vel_g_body = zeros(size(vel_g')); acc_g_body = zeros(size(acc_g'));
-    for k = 1:numel(t_g)
-        C_B_Nk = euler_to_rot(eul_interp(:,k));
-        pos_g_body(:,k) = C_B_Nk' * pos_g(k,:)';
-        vel_g_body(:,k) = C_B_Nk' * vel_g(k,:)';
-        acc_g_body(:,k) = C_B_Nk' * (acc_g(k,:)' - g_NED);
-    end
-    for j = 1:3
-        subplot(3,3,j); hold on; plot(t_g, pos_g_body(j,:),'k:','DisplayName','GNSS'); plot(t_est, pos_body(:,j),'b-','DisplayName','IMU fused'); grid on; title(['Pos ' labelsB{j}]); legend;
-        subplot(3,3,3+j); hold on; plot(t_g, vel_g_body(j,:),'k:'); plot(t_est, vel_body(:,j),'b-'); grid on; title(['Vel ' labelsB{j}]);
-        subplot(3,3,6+j); hold on; plot(t_g, acc_g_body(j,:),'k:'); plot(t_est, acc_body(:,j),'b-');
-        if isfield(S,'acc_body_raw'), plot(t_est, S.acc_body_raw(:,j),'r-'); end
-        grid on; title(['Acc ' labelsB{j}]);
-    end
-    set(fig,'PaperPositionMode','auto');
-    body_base = fullfile(out_dir, sprintf('%s_task6_compare_BODY', run_id));
-    print(fig, [body_base '.pdf'], '-dpdf', '-bestfit');
-    print(fig, [body_base '.png'], '-dpng');
-    fprintf('Task 6: saved body comparison plots to %s.[pdf|png]\n', body_base);
-    close(fig);
+    % Body comparison skipped
 catch ME
     warning('Task 6 comparison plots failed: %s', ME.message);
 end

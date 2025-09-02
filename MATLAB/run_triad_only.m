@@ -40,7 +40,7 @@ if ~isfield(cfg.plots,'save_pdf'),      cfg.plots.save_pdf      = false; end
 if ~isfield(cfg.plots,'save_png'),      cfg.plots.save_png      = false; end
 % KF tuning defaults (safe if default_cfg not reloaded)
 if ~isfield(cfg,'vel_q_scale'), cfg.vel_q_scale = 1.0; end
-if ~isfield(cfg,'vel_r'),       cfg.vel_r       = 0.25; end
+if ~isfield(cfg,'vel_sigma_mps'), cfg.vel_sigma_mps = 5; end % FIX: velocity meas sigma
 % Optional auto-tune flag
 if ~isfield(cfg,'autotune'),    cfg.autotune    = true; end
 % Optional trace capture (first N KF steps)
@@ -86,35 +86,37 @@ Task_4(cfg.imu_path, cfg.gnss_path, cfg.method);
 if cfg.autotune
     fprintf('Auto-tune sweep over vel_q_scale and vel_r...\n');
     grid_q = [5, 10, 20, 40];
-    grid_r = [0.25, 0.5, 1.0];
-    rows = zeros(numel(grid_q)*numel(grid_r), 3);
+    grid_sigma = [5, 10, 20];
+    rows = zeros(numel(grid_q)*numel(grid_sigma), 3);
     idx = 1;
     for iq = 1:numel(grid_q)
-        for ir = 1:numel(grid_r)
-            qv = grid_q(iq); rv = grid_r(ir);
+        for ir = 1:numel(grid_sigma)
+            qv = grid_q(iq); rv = grid_sigma(ir);
             rmse = Task_5_try_once(cfg, qv, rv);
             rows(idx,:) = [qv, rv, rmse];
             idx = idx + 1;
         end
     end
     % Print table
-    fprintf('\n q_scale    vel_r    rmse_pos\n');
+    fprintf('\n q_scale    vel_sigma    rmse_pos\n');
     for i = 1:size(rows,1)
-        fprintf(' %7.3f  %7.3f  %8.3f\n', rows(i,1), rows(i,2), rows(i,3));
+        fprintf(' %7.3f  %9.3f  %8.3f\n', rows(i,1), rows(i,2), rows(i,3));
     end
     % Pick best (min rmse)
     [~,j] = min(rows(:,3));
     if isfinite(rows(j,3))
-        cfg.vel_q_scale = rows(j,1);
-        cfg.vel_r       = rows(j,2);
-        fprintf('Auto-tune best: vel_q_scale=%.3f  vel_r=%.3f  (RMSE_pos=%.3f m)\n', rows(j,1), rows(j,2), rows(j,3));
+        cfg.vel_q_scale   = rows(j,1);
+        cfg.vel_sigma_mps = rows(j,2);
+        fprintf('Auto-tune best: vel_q_scale=%.3f  vel_sigma=%.3f (RMSE_pos=%.3f m)\n', rows(j,1), rows(j,2), rows(j,3));
     else
         warning('Auto-tune produced no valid result; keeping defaults.');
     end
 end
 
 Task_5(cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
-       'vel_q_scale', cfg.vel_q_scale, 'vel_r', cfg.vel_r, 'trace_first_n', cfg.trace_first_n);
+       'truth_path', cfg.truth_path, ...
+       'vel_q_scale', cfg.vel_q_scale, 'vel_sigma_mps', cfg.vel_sigma_mps, ...
+       'trace_first_n', cfg.trace_first_n);
 
 runTag = rid; resultsDir = cfg.paths.matlab_results; dataTruthDir = truthDir;
 

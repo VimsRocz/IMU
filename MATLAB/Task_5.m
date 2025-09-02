@@ -17,7 +17,7 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %       'accel_bias_noise' - accelerometer bias random walk             [m/s^2]  (1e-5)
 %       'gyro_bias_noise'  - gyroscope bias random walk                 [rad/s]  (1e-5)
 %       'vel_q_scale'      - scale for Q(4:6,4:6) velocity process noise [-]      (1.0)
-%       'vel_r'            - R(4:6,4:6) velocity measurement variance   [m^2/s^2] (0.25)
+%       'vel_sigma_mps'    - R(4:6,4:6) velocity measurement sigma       [m/s]    (5.0)
 %       'scale_factor'     - accelerometer scale factor                 [-]      (required)
 
 addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
@@ -93,7 +93,8 @@ end
     addParameter(p, 'accel_bias_noise', 1e-5); % [m/s^2]
     addParameter(p, 'gyro_bias_noise', 1e-5);  % [rad/s]
     addParameter(p, 'vel_q_scale', 1.0);       % [-]
-    addParameter(p, 'vel_r', 0.25);            % [m^2/s^2]
+    addParameter(p, 'vel_sigma_mps', 5.0);     % FIX: velocity meas sigma [m/s]
+    addParameter(p, 'truth_path', '');         % optional truth file for dt
     addParameter(p, 'trace_first_n', 0);       % [steps] capture first N KF steps
     addParameter(p, 'max_steps', inf);         % [steps] limit processing for tuning
     addParameter(p, 'scale_factor', []);       % [-]
@@ -107,7 +108,8 @@ end
     accel_bias_noise = p.Results.accel_bias_noise;
     gyro_bias_noise  = p.Results.gyro_bias_noise;
     vel_q_scale     = p.Results.vel_q_scale;
-    vel_r           = p.Results.vel_r;
+    vel_sigma_mps   = p.Results.vel_sigma_mps; % [m/s]
+    truth_path      = char(p.Results.truth_path);
     trace_first_n   = p.Results.trace_first_n;
     max_steps       = p.Results.max_steps;
     scale_factor    = p.Results.scale_factor;
@@ -179,8 +181,17 @@ end
     vy = gnss_tbl.VY_ECEF_mps;
     vz = gnss_tbl.VZ_ECEF_mps;
     gnss_vel_ecef = [vx vy vz];
-    first_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
-    ref_r0 = gnss_pos_ecef(first_idx, :)';
+    % Reference origin: median ECEF position for consistent frame
+    ref_r0 = median(gnss_pos_ecef,1)'; % FIX: use median GNSS ECEF
+    % Optional DOP columns
+    hdop = []; vdop = [];
+    if ismember('HDOP', gnss_tbl.Properties.VariableNames)
+        hdop = gnss_tbl.HDOP;
+    end
+    if ismember('VDOP', gnss_tbl.Properties.VariableNames)
+        vdop = gnss_tbl.VDOP;
+    end
+    dop = max(hdop, vdop);
     % Prefer Mapping Toolbox signature; fall back to local helper if shadowed
     try
         wgs84 = wgs84Ellipsoid("meter");
@@ -201,15 +212,14 @@ end
     % Convert GNSS measurements from ECEF to NED to guarantee a common frame
     gnss_pos_ned_calc = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
     gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
-    % Optional: clip GNSS speeds to suppress outliers if configured
+    % Optional: clip GNSS speeds (disabled)
     try
-        if isfield(cfg,'gnss') && isstruct(cfg.gnss) && isfield(cfg.gnss,'speed_clip_mps') && cfg.gnss.speed_clip_mps > 0
-            spd = vecnorm(gnss_vel_ned,2,2);
-            idx = spd > cfg.gnss.speed_clip_mps & isfinite(spd);
-            if any(idx)
-                scale = cfg.gnss.speed_clip_mps ./ max(spd(idx), eps);
-                gnss_vel_ned(idx,:) = gnss_vel_ned(idx,:) .* scale;
-            end
+        speed_clip_mps = Inf; % FIX: remove GNSS speed cap
+        spd = vecnorm(gnss_vel_ned,2,2);
+        idx = spd > speed_clip_mps & isfinite(spd);
+        if any(idx)
+            scale = speed_clip_mps ./ max(spd(idx), eps);
+            gnss_vel_ned(idx,:) = gnss_vel_ned(idx,:) .* scale;
         end
     catch
     end
@@ -235,6 +245,7 @@ end
     end
     gnss_accel_ned  = [zeros(1,3); diff(gnss_vel_ned) ./ dt_gnss];
     gnss_accel_ecef = [zeros(1,3); diff(gnss_vel_ecef) ./ dt_gnss];
+    gnss_speed = vecnorm(gnss_vel_ned,2,2);
     % Early GNSS speed stats and yaw-aid tip (helps configuration)
     try
         spd_h = hypot(gnss_vel_ned(:,1), gnss_vel_ned(:,2));
@@ -369,12 +380,14 @@ P(10:15,10:15) = eye(6) * 1e-4;      % Bias uncertainty
 
 % Process/measurement noise (aligned with Python defaults)
 Q = eye(15) * 1e-4;
-Q(4:6,4:6) = eye(3) * 0.01 * vel_q_scale;
+q_base = 0.01 * vel_q_scale; % FIX: base velocity process noise
+Q(4:6,4:6) = eye(3) * q_base;
 Q(10:12,10:12) = eye(3) * accel_bias_noise;
 Q(13:15,13:15) = eye(3) * gyro_bias_noise;
-R = zeros(6);
-R(1:3,1:3) = eye(3) * pos_meas_noise^2;
-R(4:6,4:6) = eye(3) * vel_r;
+R_base = zeros(6);
+R_base(1:3,1:3) = eye(3) * pos_meas_noise^2;
+R_base(4:6,4:6) = eye(3) * vel_sigma_mps^2; % FIX: velocity meas covariance
+R = R_base; %#ok<NASGU>
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
@@ -543,6 +556,22 @@ for k = 1:3
     gnss_vel_interp(imu_time < gnss_time_eff(1),k) = gnss_vel_ned(1,k);
     gnss_vel_interp(imu_time > gnss_time_eff(end),k) = gnss_vel_ned(end,k);
 end
+% Interpolate DOP and speed onto IMU timeline for adaptive R and liftoff
+if ~isempty(dop)
+    dop_interp = interp1(gnss_time, dop, imu_time, 'linear', 'extrap');
+else
+    dop_interp = ones(size(imu_time));
+end
+gnss_speed_interp = interp1(gnss_time, gnss_speed, imu_time, 'linear', 'extrap');
+
+% Liftoff detection for ZUPT gating
+acc_norm = vecnorm(acc_body_raw,2,2);
+acc_movstd = movstd(acc_norm, 400);
+liftoff_idx = find(gnss_speed_interp > 5 | acc_movstd > 0.15, 1, 'first');
+if isempty(liftoff_idx), liftoff_idx = num_imu_samples; end
+zupt_mask = false(num_imu_samples,1);
+zupt_mask(1:liftoff_idx-1) = true;
+fprintf('[Task5] Liftoff at idx=%d t=%.3f s\n', liftoff_idx, imu_time(liftoff_idx)); % FIX: log liftoff
 % Compare raw and interpolated GNSS data
 if ~dryrun
     task5_gnss_interp_ned_plot(gnss_time, gnss_pos_ned, gnss_vel_ned, imu_time, ...
@@ -585,6 +614,9 @@ for i = 1:num_imu_samples
     % Python helper ``interpolate_series`` used in GNSS_IMU_Fusion.py.
     gnss_pos_i = gnss_pos_interp(i,:)';
     gnss_vel_i = gnss_vel_interp(i,:)';
+    R_k = R_base; % FIX: per-sample measurement covariance
+    dop_scale = max(1, dop_interp(i)^2);
+    R_k(4:6,4:6) = R_base(4:6,4:6) * dop_scale;
     dbg_kf_pre_msg = sprintf('[DBG-KF] k=%d pre-pred velN=%.1f velE=%.1f velD=%.1f norm=%.1f', i, x(4), x(5), x(6), norm(x(4:6)));
 
     if mod(i, 1e5) == 0
@@ -594,7 +626,9 @@ for i = 1:num_imu_samples
     % --- 1. State Propagation (Prediction) ---
     F = eye(15);
     F(1:3, 4:6) = eye(3) * dt_imu;
-    % Match Python: apply fixed process noise per step (no extra dt scaling)
+    % Adaptive process noise on velocity
+    q_scale = 1 + 10*max(0, acc_norm(i) - 9.81); % FIX: adaptive Q based on accel
+    Q(4:6,4:6) = eye(3) * (q_base * q_scale);
     P = F * P * F' + Q;
 
     % --- 2. Attitude Propagation ---
@@ -725,11 +759,11 @@ for i = 1:num_imu_samples
                                   r_b(3)  0   -r_b(1);
                                  -r_b(2) r_b(1)  0    ];
         % Innovation covariance and gain
-        S = Hm * P * Hm' + R;
+        S = Hm * P * Hm' + R_k;
     else
         z = [gnss_pos_i; gnss_vel_i];
         y = z - H * x;
-        S = H * P * H' + R;
+        S = H * P * H' + R_k;
     end
     % Innovation gating (chi-square) to reject outlier GNSS updates
     % FIX: Handle invalid measurements/covariance and account in counters
@@ -971,46 +1005,48 @@ for i = 1:num_imu_samples
     prev_a_ned = a_ned;
 
     % --- 5. Zero-Velocity Update (ZUPT) ---
-    win_size = 80;
-    acc_win = acc_body_raw(max(1,i-win_size+1):i, :);
-    gyro_win = gyro_body_raw(max(1,i-win_size+1):i, :);
-    acc_std = max(std(acc_win,0,1));
-    gyro_std = max(std(gyro_win,0,1));
-    norm_acc = norm(acc_win(end,:));
-    dbg_zupt_msg = sprintf('[DBG-ZUPT] k=%d acc_norm=%.4f (threshold=%.4f)', i, norm_acc, accel_std_thresh);
-    if acc_std < accel_std_thresh && gyro_std < gyro_std_thresh && norm(x(4:6)) < vel_thresh
-        zupt_count = zupt_count + 1;
-        zupt_log(i) = 1;
-        H_z = [zeros(3,3), eye(3), zeros(3,9)];
-        R_z = eye(3) * 1e-6;
-        y_z = -H_z * x;
-        S_z = H_z * P * H_z' + R_z;
-        if rcond(S_z) <= eps
-            if ~warned_S_z
-                warning('ZUPT covariance S_z is singular or ill-conditioned; using pinv.');
-                warned_S_z = true;
+    if zupt_mask(i)
+        win_size = 80;
+        acc_win = acc_body_raw(max(1,i-win_size+1):i, :);
+        gyro_win = gyro_body_raw(max(1,i-win_size+1):i, :);
+        acc_std = max(std(acc_win,0,1));
+        gyro_std = max(std(gyro_win,0,1));
+        norm_acc = norm(acc_win(end,:));
+        dbg_zupt_msg = sprintf('[DBG-ZUPT] k=%d acc_norm=%.4f (threshold=%.4f)', i, norm_acc, accel_std_thresh);
+        if acc_std < accel_std_thresh && gyro_std < gyro_std_thresh && norm(x(4:6)) < vel_thresh
+            zupt_count = zupt_count + 1;
+            zupt_log(i) = 1;
+            H_z = [zeros(3,3), eye(3), zeros(3,9)];
+            R_z = eye(3) * 1e-6;
+            y_z = -H_z * x;
+            S_z = H_z * P * H_z' + R_z;
+            if rcond(S_z) <= eps
+                if ~warned_S_z
+                    warning('ZUPT covariance S_z is singular or ill-conditioned; using pinv.');
+                    warned_S_z = true;
+                end
+                K_z = (P * H_z') * pinv(S_z);
+            else
+                K_z = (P * H_z') / S_z;
             end
-            K_z = (P * H_z') * pinv(S_z);
-        else
-            K_z = (P * H_z') / S_z;
+            x = x + K_z * y_z;
+            P = (eye(15) - K_z * H_z) * P;
+            zupt_vel_norm(i) = norm(x(4:6));
+            if zupt_vel_norm(i) > vel_thresh
+                zupt_fail_count = zupt_fail_count + 1;
+                dprintf('ZUPT clamp failure at k=%d (norm=%.3f)\n', i, zupt_vel_norm(i));
+            end
+            x(4:6) = 0;
+            zupt_applied_msg = sprintf('[ZUPT-APPLIED] k=%d reset vel to 0', i);
         end
-        x = x + K_z * y_z;
-        P = (eye(15) - K_z * H_z) * P;
-        zupt_vel_norm(i) = norm(x(4:6));
-        if zupt_vel_norm(i) > vel_thresh
-            zupt_fail_count = zupt_fail_count + 1;
-            dprintf('ZUPT clamp failure at k=%d (norm=%.3f)\n', i, zupt_vel_norm(i));
+        if mod(i,100000) == 0
+            dprintf('ZUPT applied %d times so far\n', zupt_count);
         end
-        x(4:6) = 0;
-        zupt_applied_msg = sprintf('[ZUPT-APPLIED] k=%d reset vel to 0', i);
-    end
-    if mod(i,100000) == 0
-        dprintf('ZUPT applied %d times so far\n', zupt_count);
     end
 
     % --- Log State and Attitude ---
     % Safety clamp: cap velocity norm to mitigate late-run blow-ups
-    vmax = 50; % m/s cap for this dataset
+    vmax = Inf; % FIX: remove post-update velocity cap
     vnorm = norm(x(4:6));
     if vnorm > vmax
         x(4:6) = x(4:6) * (vmax / vnorm);
@@ -1035,6 +1071,30 @@ dprintf('Method %s: IMU data integrated.\n', method);
 dprintf('Method %s: Kalman Filter completed. ZUPTcnt=%d\n', method, zupt_count);
 dprintf('Method %s: velocity blow-up events=%d\n', method, vel_blow_count);
 dprintf('Method %s: ZUPT clamp failures=%d\n', method, zupt_fail_count);
+
+% Estimate Truth time shift via speed cross-correlation
+dt_est = 0; % FIX: default shift
+if ~isempty(truth_path) && isfile(truth_path)
+    try
+        truth_data = read_state_file(truth_path);
+        t_truth = truth_data(:,2);
+        vel_truth_ecef = truth_data(:,6:8);
+        vel_truth_ned = (C_ECEF_to_NED * vel_truth_ecef')';
+        vel_truth_i = interp1(t_truth, vel_truth_ned, imu_time, 'linear','extrap');
+        speed_truth = vecnorm(vel_truth_i,2,2);
+        speed_est = vecnorm(x_log(4:6,:)',2,2);
+        max_lag = min(5000, numel(speed_est)-1);
+        [c,lags] = xcorr(speed_truth-mean(speed_truth), speed_est-mean(speed_est), max_lag);
+        [~,idx_max] = max(c);
+        lag = lags(idx_max);
+        dt_est = lag * dt_imu;
+        fprintf('[Task5] Estimated truth time shift dt = %+0.3f s (lag %d)\n', dt_est, lag);
+    catch ME
+        warning('Time shift estimation failed: %s', ME.message);
+    end
+end
+spd = gnss_speed_interp;
+fprintf('[Task5] GNSS speed stats (m/s): min=%.3f  median=%.3f  max=%.3f\n', min(spd), median(spd), max(spd));
 
 % Optional end-window ZUPT: if last 10s are static, zero final velocities
 try
@@ -1316,6 +1376,7 @@ states.pos_ned_m  = x_log(1:3,:);
 states.vel_ned_mps = x_log(4:6,:);
 ref_lat = deg2rad(lat_deg); %#ok<NASGU>
 ref_lon = deg2rad(lon_deg); %#ok<NASGU>
+dt_truth_shift = dt_est; % FIX: store dt for downstream tasks
 
     % Save using the same naming convention as the Python pipeline
     % <IMU>_<GNSS>_<METHOD>_task5_results.mat
@@ -1357,6 +1418,7 @@ ref_lon = deg2rad(lon_deg); %#ok<NASGU>
             'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
             'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'quat_log', 'att_quat', 'att_quat_raw', 'att_quat_boresight', 'zupt_log', 'zupt_vel_norm', ...
             'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
+            'dt_truth_shift', ... % FIX: store truth time shift
             'pos_ned_est', 'vel_ned_est', 'acc_ned_est', ...
             'pos_ecef_est', 'vel_ecef_est', 'acc_ecef_est', ...
             'states', 't_est', 'dt', 'imu_rate_hz', 'acc_body_raw', 'gyro_body_raw', 'trace', 'vel_blow_count', ...
@@ -1402,7 +1464,8 @@ ref_lon = deg2rad(lon_deg); %#ok<NASGU>
         'x_log', x_log, 'vel_log', vel_log, 'accel_from_vel', accel_from_vel, ...
         'euler_log', euler_log, 'zupt_log', zupt_log, 'zupt_vel_norm', zupt_vel_norm, 'time', time, ...
         'gnss_time', gnss_time, 'pos_ned', pos_ned, 'vel_ned', vel_ned, ...
-        'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0);
+        'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0, ...
+        'dt_truth_shift', dt_truth_shift);
     % ``method`` already stores the algorithm name (e.g. 'TRIAD'). Use it
     % directly when saving so filenames match the Python pipeline.
     save_task_results(method_struct, imu_name, gnss_name, method, 5);

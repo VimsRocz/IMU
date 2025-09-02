@@ -60,25 +60,9 @@ else
     end
 end
 
-% Optional: apply time shift to Truth (from cfg or auto-estimate file)
+% Apply time shift from Task-5 results
 dt_shift = 0;
-try
-    cfg_local = evalin('base','cfg');
-catch
-    cfg_local = struct();
-end
-if isfield(cfg_local,'apply_time_shift') && isfield(cfg_local,'truth_dt_shift_s') && cfg_local.apply_time_shift
-    dt_shift = cfg_local.truth_dt_shift_s;
-else
-    % Try auto-estimate file from a previous Task-7 run
-    to_path = fullfile(resultsDir, sprintf('%s_task7_timeoffset.mat', runTag));
-    if isfile(to_path)
-        try
-            Sdt = load(to_path); if isfield(Sdt,'dt_est'), dt_shift = Sdt.dt_est; end
-        catch
-        end
-    end
-end
+if isfield(res5,'dt_truth_shift'), dt_shift = res5.dt_truth_shift; end
 if ~isempty(t_truth)
     t_truth_used = t_truth + dt_shift;
     if abs(dt_shift) > 1e-6
@@ -219,6 +203,10 @@ metrics.rmse_pos = rmse(pos_residual(:));
 metrics.rmse_vel = rmse(vel_residual(:));
 metrics.max_pos  = max(abs(pos_residual(:)), [], 'omitnan');
 metrics.max_vel  = max(abs(vel_residual(:)), [], 'omitnan');
+tail_idx = t_est >= (t_est(end) - 60);
+metrics.tail_rmse_pos = sqrt(mean(pos_residual(tail_idx,:).^2,'all','omitnan'));
+metrics.tail_rmse_vel = sqrt(mean(vel_residual(tail_idx,:).^2,'all','omitnan'));
+fprintf('[Task7] Tail RMSE pos=%.3f m vel=%.3f m/s\n', metrics.tail_rmse_pos, metrics.tail_rmse_vel);
 % Build and save results struct; expose to base workspace
 task7_results = struct();
 task7_results.runTag = runTag;
@@ -333,34 +321,7 @@ try
         if size(eul,2) ~= numel(t_est) && size(eul,1) == numel(t_est)
             eul = eul';
         end
-        pos_body_fused = zeros(numel(t_est),3);
-        vel_body_fused = zeros(numel(t_est),3);
-        pos_body_truth = zeros(numel(t_est),3);
-        vel_body_truth = zeros(numel(t_est),3);
-        for k=1:numel(t_est)
-            C_B_N = euler_to_rot(eul(:,k));
-            pos_body_fused(k,:) = (C_B_N' * E.pos_ned(k,:)')';
-            vel_body_fused(k,:) = (C_B_N' * E.vel_ned(k,:)')';
-            pos_body_truth(k,:) = (C_B_N' * Ptru(k,:)')';
-            vel_body_truth(k,:) = (C_B_N' * Vtru(k,:)')';
-        end
-        % BODY residuals (FUSED - TRUTH)
-        pos_res_body = pos_body_fused - pos_body_truth;
-        vel_res_body = vel_body_fused - vel_body_truth;
-        % Save combined residual grid for Body
-        fprintf('[Task7] Plotting residuals (Body) as 2x3 grid...\n');
-        plot_residual_grid(t_est, pos_res_body, vel_res_body, 'Body', resultsDir, runTag);
-        % BODY diffs (TRUTH - FUSED) for summaries
-        pos_diff_body = pos_body_truth - pos_body_fused;
-        vel_diff_body = vel_body_truth - vel_body_fused;
-        mean_pos = mean(pos_diff_body, 1, 'omitnan'); std_pos = std(pos_diff_body,0,1,'omitnan'); rmse_pos = sqrt(mean(pos_diff_body.^2,1,'omitnan')); max_posa = max(abs(pos_diff_body),[],1,'omitnan');
-        mean_vel = mean(vel_diff_body, 1, 'omitnan'); std_vel = std(vel_diff_body,0,1,'omitnan'); rmse_vel = sqrt(mean(vel_diff_body.^2,1,'omitnan')); max_vela = max(abs(vel_diff_body),[],1,'omitnan');
-        axes_lbl = {'Xb';'Yb';'Zb'};
-        pos_summary_body = table(axes_lbl, mean_pos(:), std_pos(:), rmse_pos(:), max_posa(:), 'VariableNames', {'Axis','Mean','Std','RMSE','MaxAbs'});
-        vel_summary_body = table(axes_lbl, mean_vel(:), std_vel(:), rmse_vel(:), max_vela(:), 'VariableNames', {'Axis','Mean','Std','RMSE','MaxAbs'});
-        fprintf('\n[Task7] Summary (Body): TRUTH - FUSED\n');
-        fprintf('Position [m]:\n'); disp(pos_summary_body);
-        fprintf('Velocity [m/s]:\n'); disp(vel_summary_body);
+        % BODY residuals skipped
     else
         warning('[Task7] euler_log not found in Task 5 results; skipping Body summary.');
     end
@@ -370,12 +331,6 @@ try
     task7_results.truth_pos_ecef_interp = Ptru_ecef; task7_results.truth_vel_ecef_interp = Vtru_ecef;
     task7_results.pos_diff_truth_minus_fused_ecef_est = pos_diff_ecef;
     task7_results.vel_diff_truth_minus_fused_ecef_est = vel_diff_ecef;
-    if exist('pos_body_fused','var')
-        task7_results.fused_pos_body = pos_body_fused; task7_results.fused_vel_body = vel_body_fused;
-        task7_results.truth_pos_body_interp = pos_body_truth; task7_results.truth_vel_body_interp = vel_body_truth;
-        task7_results.pos_diff_truth_minus_fused_body_est = pos_diff_body;
-        task7_results.vel_diff_truth_minus_fused_body_est = vel_diff_body;
-    end
     save(fullfile(resultsDir, sprintf('%s_task7_results.mat', runTag)), '-struct', 'task7_results');
     % Append ECEF/BODY tables to diff tables file
     diff_tables_path = fullfile(resultsDir, sprintf('%s_task7_diff_tables.mat', runTag));
@@ -938,7 +893,9 @@ end
 
 function plot_residual_grid(t, pos_res, vel_res, frameName, outDir, runTag)
 %PLOT_RESIDUAL_GRID Plot 2x3 residual grid: rows=pos/vel, cols=X/Y/Z
-    f = figure('Visible','on','Position',[100 100 1200 600]);
+    f = figure('Visible','off');
+    set(f,'Units','centimeters','Position',[2 2 18 9]); % FIX: page width
+    set(f,'PaperPositionMode','auto');
     tl = tiledlayout(2,3,'Padding','compact','TileSpacing','compact'); %#ok<NASGU>
     cols = {'X','Y','Z'};
     ylabels = {'Position Residual [m]','Velocity Residual [m/s]'};
@@ -955,12 +912,7 @@ function plot_residual_grid(t, pos_res, vel_res, frameName, outDir, runTag)
     end
     sgtitle(sprintf('Task 7 Residuals (%s Frame)', frameName));
     base = fullfile(outDir, sprintf('%s_task7_residuals_%s', runTag, frameName));
-    try
-        exportgraphics(f, [base '.png'], 'Resolution', 150);
-    catch
-        print(f, [base '.png'], '-dpng', '-r150');
-    end
-    try, savefig(f, [base '.fig']); catch, end
+    exportgraphics(f, [base '.png'], 'Resolution',300);
     close(f);
 end
 

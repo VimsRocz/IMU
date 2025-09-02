@@ -19,8 +19,8 @@ cfg.zupt_acc_var  = 0.01;   % accelerometer variance threshold
 cfg.zupt_gyro_var = 1e-6;   % gyroscope variance threshold
 
 % Kalman filter tuning (parity with Python defaults)
-cfg.vel_q_scale = 10.0;   % scales Q(4:6,4:6) base (0.01)
-cfg.vel_r       = 0.25;   % R(4:6,4:6) diagonal [m^2/s^2]
+cfg.vel_q_scale   = 10.0; % scales Q(4:6,4:6) base (0.01)
+cfg.vel_sigma_mps = 5.0;  % FIX: velocity measurement sigma [m/s]
 
 % Gravity aiding (Task-5 EKF)
 cfg.gaid = struct();
@@ -34,7 +34,7 @@ cfg.gaid.min_speed_mps = 0.0;    % optional min speed for aiding [m/s]
 % Yaw (course-over-ground) aiding
 cfg.yawaid = struct();
 cfg.yawaid.enabled        = true;  % enable GNSS course yaw aiding
-cfg.yawaid.min_speed_mps  = 3.0;   % require speed to exceed this
+cfg.yawaid.min_speed_mps  = 0.02;  % FIX: allow low-speed yaw aiding
 cfg.yawaid.sigma_yaw_deg  = 5.0;   % yaw measurement noise [deg]
 cfg.yawaid.max_gyro_dps   = 15.0;  % gate out fast turns [deg/s]
 cfg.yawaid.gate_deg       = 25.0;  % residual gate for yaw innovation [deg]
