@@ -76,6 +76,8 @@ if isfield(truth,'acc') && ~isempty(truth.acc)
 end
 
 T = figure('Name',[opt.Title,' ',frame_label],'Visible',opt.Visible, 'Renderer','painters');
+set(T,'Units','centimeters','Position',[2 2 18 9]); % FIX: page width
+set(T,'PaperPositionMode','auto');
 tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
 
 for r = 1:3

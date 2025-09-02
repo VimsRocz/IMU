@@ -1,10 +1,10 @@
-function rmse_pos = Task_5_try_once(cfg, vel_q_scale, vel_r)
+function rmse_pos = Task_5_try_once(cfg, vel_q_scale, vel_sigma)
 %TASK_5_TRY_ONCE Call Task_5 once with given Q/R and return RMSE position.
-%   RMSE_POS = TASK_5_TRY_ONCE(CFG, VEL_Q_SCALE, VEL_R) runs Task_5 with a
+%   RMSE_POS = TASK_5_TRY_ONCE(CFG, VEL_Q_SCALE, VEL_SIGMA) runs Task_5 with a
 %   limited step count and plotting/console output disabled, returning the scalar RMSE of
 %   position error for autotuning.
 
-    if nargin < 3, error('Task_5_try_once:args','cfg, vel_q_scale, vel_r required'); end
+    if nargin < 3, error('Task_5_try_once:args','cfg, vel_q_scale, vel_sigma required'); end
     % Use at most first 200k IMU steps for speed during tuning
     max_steps = 200000;
     % Determine total IMU samples to avoid requesting more steps than exist
@@ -33,7 +33,7 @@ function rmse_pos = Task_5_try_once(cfg, vel_q_scale, vel_r)
     cfg = cfg_local; %#ok<NASGU> ensure Task_5 sees modified cfg
     try
         res = Task_5(cfg_local.imu_path, cfg_local.gnss_path, cfg_local.method, [], ...
-            'vel_q_scale', vel_q_scale, 'vel_r', vel_r, ...
+            'vel_q_scale', vel_q_scale, 'vel_sigma_mps', vel_sigma, ...
             'trace_first_n', 0, 'max_steps', steps, 'dryrun', true); % dryrun suppresses plots/logging
         if isstruct(res) && isfield(res,'rmse_pos')
             rmse_pos = res.rmse_pos;
@@ -41,7 +41,7 @@ function rmse_pos = Task_5_try_once(cfg, vel_q_scale, vel_r)
             rmse_pos = NaN;
         end
     catch ME
-        warning('Task_5_try_once failed (q=%.3f r=%.3f): %s', vel_q_scale, vel_r, ME.message);
+        warning('Task_5_try_once failed (q=%.3f sig=%.3f): %s', vel_q_scale, vel_sigma, ME.message);
         rmse_pos = NaN;
     end
 end
