@@ -229,9 +229,19 @@ end
 dt_est = mean(diff(t_est));
 
 if has_truth_time && numel(t_truth) == size(pos_truth_ecef,1)
-    pos_truth_ecef_i = interp1(t_truth, pos_truth_ecef, t_est, 'linear', 'extrap');
-    vel_truth_ecef_i = interp1(t_truth, vel_truth_ecef, t_est, 'linear', 'extrap');
-    acc_truth_ecef_i = interp1(t_truth, acc_truth_ecef, t_est, 'linear', 'extrap');
+    % FIX: Use time shift from Task_5 if available (Fix #3)
+    if isfield(S, 'dt_truth_shift') && ~isempty(S.dt_truth_shift)
+        fprintf('Task 6: Using time shift from Task 5: dt = %.3f s\n', S.dt_truth_shift);
+        t_truth_shifted = t_truth + S.dt_truth_shift;
+        pos_truth_ecef_i = interp1(t_truth_shifted, pos_truth_ecef, t_est, 'linear', 'extrap');
+        vel_truth_ecef_i = interp1(t_truth_shifted, vel_truth_ecef, t_est, 'linear', 'extrap');
+        acc_truth_ecef_i = interp1(t_truth_shifted, acc_truth_ecef, t_est, 'linear', 'extrap');
+    else
+        % Fallback to original interpolation
+        pos_truth_ecef_i = interp1(t_truth, pos_truth_ecef, t_est, 'linear', 'extrap');
+        vel_truth_ecef_i = interp1(t_truth, vel_truth_ecef, t_est, 'linear', 'extrap');
+        acc_truth_ecef_i = interp1(t_truth, acc_truth_ecef, t_est, 'linear', 'extrap');
+    end
 else
     C_N_E = C';
     est_pos_ecef = (C_N_E*S.pos_ned')' + ref_r0';
@@ -306,7 +316,9 @@ truth_struct.t = t_est;
 hfig_ned = plot_state_grid_overlay(t_ref, fused_struct, truth_struct, 'NED', ...
     'Title', sprintf('%s Task6: Fused vs Truth', run_id), ...
     'Visible', visibleFlag, 'MaxPlotPoints', 20000);
-% Save with best-fit to avoid cut-off and multiple formats/names
+
+% FIX: Set figure size for page width export (Fix #8)
+set(hfig_ned, 'Units', 'centimeters', 'Position', [2 2 18 9]);
 set(hfig_ned, 'PaperPositionMode', 'auto');
 print(hfig_ned, fullfile(out_dir, sprintf('%s_task6_overlay_grid_NED.pdf', run_id)), '-dpdf', '-bestfit');
 try
@@ -428,6 +440,9 @@ fused_ecef_struct  = struct('t', t_est, 'pos', pos_ecef,          'vel', vel_ece
 hfig_ecef = plot_state_grid_overlay(t_est, fused_ecef_struct, truth_ecef_struct, 'ECEF', ...
     'Title', sprintf('%s Task6: Fused vs Truth', run_id), ...
     'Visible', visibleFlag, 'MaxPlotPoints', 20000);
+
+% FIX: Set figure size for page width export (Fix #8)
+set(hfig_ecef, 'Units', 'centimeters', 'Position', [2 2 18 9]);
 set(hfig_ecef, 'PaperPositionMode', 'auto');
 print(hfig_ecef, fullfile(out_dir, sprintf('%s_task6_overlay_grid_ECEF.pdf', run_id)), '-dpdf', '-bestfit');
 try
@@ -458,6 +473,9 @@ fused_body_struct  = struct('t', t_est, 'pos', pos_body,       'vel', vel_body, 
 hfig_body = plot_state_grid_overlay(t_est, fused_body_struct, truth_body_struct, 'Body', ...
     'Title', sprintf('%s Task6: Fused vs Truth', run_id), ...
     'Visible', visibleFlag, 'MaxPlotPoints', 20000);
+
+% FIX: Set figure size for page width export (Fix #8)
+set(hfig_body, 'Units', 'centimeters', 'Position', [2 2 18 9]);
 set(hfig_body, 'PaperPositionMode', 'auto');
 print(hfig_body, fullfile(out_dir, sprintf('%s_task6_overlay_grid_Body.pdf', run_id)), '-dpdf', '-bestfit');
 try

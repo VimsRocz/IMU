@@ -179,8 +179,16 @@ end
     vy = gnss_tbl.VY_ECEF_mps;
     vz = gnss_tbl.VZ_ECEF_mps;
     gnss_vel_ecef = [vx vy vz];
-    first_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
-    ref_r0 = gnss_pos_ecef(first_idx, :)';
+    
+    % FIX: Frame consistency - compute lat0/lon0/r0_ecef from GNSS ECEF median (Fix #4)
+    valid_idx = gnss_pos_ecef(:,1) ~= 0 & gnss_pos_ecef(:,2) ~= 0 & gnss_pos_ecef(:,3) ~= 0;
+    if ~any(valid_idx)
+        error('No valid GNSS ECEF positions found');
+    end
+    valid_pos_ecef = gnss_pos_ecef(valid_idx, :);
+    ref_r0 = median(valid_pos_ecef, 1)';  % Use median instead of first point
+    dprintf('[Task5] Frame reference computed from GNSS ECEF median: [%.1f, %.1f, %.1f] m\n', ref_r0);
+    
     % Prefer Mapping Toolbox signature; fall back to local helper if shadowed
     try
         wgs84 = wgs84Ellipsoid("meter");
@@ -2058,7 +2066,24 @@ end
 
     function plot_task5_body_truth(t, pos_ned, vel_ned, acc_ned, eul_log, state_file, C_E_N, r0, g_N, method, run_id, cfg)
         %PLOT_TASK5_BODY_TRUTH Overlay fused body-frame signals with truth.
-        if ~exist(state_file,'file'); return; end
+        
+        % FIX: Skip body-frame plots if truth attitude unavailable (Fix #5)
+        if ~exist(state_file,'file')
+            dprintf('[Task5] No truth file found, skipping body-frame truth plots.\n');
+            return;
+        end
+        
+        % Check if att_quat is a full timeseries (not a constant)
+        try
+            if size(eul_log, 2) <= 1
+                dprintf('[Task5] Warning: att_quat appears to be constant or too short, skipping body-frame truth plots.\n');
+                return;
+            end
+        catch
+            dprintf('[Task5] Warning: Invalid attitude data, skipping body-frame truth plots.\n');
+            return;
+        end
+        
         visibleFlag = 'off';
         try
             if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
