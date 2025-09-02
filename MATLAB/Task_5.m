@@ -510,15 +510,17 @@ innov_d2_vel   = nan(1, num_imu_samples);
 yaw_aid_flag         = zeros(1, num_imu_samples);   % 1 if yaw aiding applied at step
 yaw_aid_residual_deg = nan(1, num_imu_samples);     % innovation (meas - est) in deg
 % Mahalanobis gates (slightly relaxed to reduce late-stage starvation)
+prob_gate = cfg.gnss.reject_maha_prob;
 try
-    gate_chi2_total = chi2inv(0.9999, 6);  % was ~16.81 at 0.99; ~27–35 at 0.9999
-    gate_chi2_pos   = chi2inv(0.9999, 3);  % was ~11.35 at 0.99; ~27.88 at 0.9999
-    gate_chi2_vel   = chi2inv(0.9999, 3);
+    gate_chi2_total = chi2inv(prob_gate, 6);
+    gate_chi2_pos   = chi2inv(prob_gate, 3);
+    gate_chi2_vel   = chi2inv(prob_gate, 3);
 catch
     gate_chi2_total = 32.0;  % fallback approximations
     gate_chi2_pos   = 27.88;
     gate_chi2_vel   = 27.88;
 end
+chi2_gate3 = chi2inv(prob_gate,3); % single 3-dof gate reused
 dprintf('-> 15-State filter initialized.\n');
 dprintf('Subtask 5.4: Integrating IMU data for each method.\n');
 
@@ -564,14 +566,22 @@ else
 end
 gnss_speed_interp = interp1(gnss_time, gnss_speed, imu_time, 'linear', 'extrap');
 
-% Liftoff detection for ZUPT gating
+% Liftoff detection for ZUPT gating (configurable thresholds)
 acc_norm = vecnorm(acc_body_raw,2,2);
 acc_movstd = movstd(acc_norm, 400);
-liftoff_idx = find(gnss_speed_interp > 5 | acc_movstd > 0.15, 1, 'first');
-if isempty(liftoff_idx), liftoff_idx = num_imu_samples; end
+cond = (gnss_speed_interp > cfg.zupt.speed_thresh_mps) | ...
+       (acc_movstd > cfg.zupt.acc_movstd_thresh);
+first_idx = find(cond,1,'first');
+min_samples = max(1, round(cfg.zupt.min_pre_lift_s / dt_imu));
+if isempty(first_idx)
+    liftoff_idx = min_samples;
+else
+    liftoff_idx = max(first_idx, min_samples);
+end
 zupt_mask = false(num_imu_samples,1);
-zupt_mask(1:liftoff_idx-1) = true;
-fprintf('[Task5] Liftoff at idx=%d t=%.3f s\n', liftoff_idx, imu_time(liftoff_idx)); % FIX: log liftoff
+zupt_mask(1:liftoff_idx) = true;
+fprintf('[Task5] Liftoff at idx=%d t=%.3f s (pre-ZUPT samples=%d)\n', ...
+        liftoff_idx, imu_time(liftoff_idx), liftoff_idx);
 % Compare raw and interpolated GNSS data
 if ~dryrun
     task5_gnss_interp_ned_plot(gnss_time, gnss_pos_ned, gnss_vel_ned, imu_time, ...
@@ -619,7 +629,7 @@ for i = 1:num_imu_samples
     R_k(4:6,4:6) = R_base(4:6,4:6) * dop_scale;
     dbg_kf_pre_msg = sprintf('[DBG-KF] k=%d pre-pred velN=%.1f velE=%.1f velD=%.1f norm=%.1f', i, x(4), x(5), x(6), norm(x(4:6)));
 
-    if mod(i, 1e5) == 0
+    if mod(i, 50000) == 0
         dprintf('[DBG-KF] k=%d   posN=%.1f  velN=%.2f  accN=%.2f\n', ...
             i, x(1), x(4), a_ned(1));
     end
@@ -643,7 +653,7 @@ for i = 1:num_imu_samples
     % The accelerometer measures specific force f = a - g. Recover inertial
     % acceleration via a = f + g (parity with Python pipeline).
     a_ned = C_B_N * corrected_accel + g_NED;
-    if mod(i, 1e5) == 0
+    if mod(i, 50000) == 0
         dprintf('[DBG-KF] k=%d   posN=%.1f  velN=%.2f  accN=%.2f\n', ...
             i, x(1), x(4), a_ned(1));
     end
@@ -1073,22 +1083,26 @@ dprintf('Method %s: velocity blow-up events=%d\n', method, vel_blow_count);
 dprintf('Method %s: ZUPT clamp failures=%d\n', method, zupt_fail_count);
 
 % Estimate Truth time shift via speed cross-correlation
-dt_est = 0; % FIX: default shift
+dt_shift = 0; truth_interp = struct();
 if ~isempty(truth_path) && isfile(truth_path)
     try
         truth_data = read_state_file(truth_path);
         t_truth = truth_data(:,2);
+        pos_truth_ecef = truth_data(:,3:5);
         vel_truth_ecef = truth_data(:,6:8);
+        pos_truth_ned = (C_ECEF_to_NED * (pos_truth_ecef - ref_r0')')';
         vel_truth_ned = (C_ECEF_to_NED * vel_truth_ecef')';
-        vel_truth_i = interp1(t_truth, vel_truth_ned, imu_time, 'linear','extrap');
-        speed_truth = vecnorm(vel_truth_i,2,2);
+        speed_truth = vecnorm(vel_truth_ned,2,2);
         speed_est = vecnorm(x_log(4:6,:)',2,2);
         max_lag = min(5000, numel(speed_est)-1);
-        [c,lags] = xcorr(speed_truth-mean(speed_truth), speed_est-mean(speed_est), max_lag);
+        [c,lags] = xcorr(detrend(speed_truth), detrend(speed_est), max_lag, 'coeff');
         [~,idx_max] = max(c);
         lag = lags(idx_max);
-        dt_est = lag * dt_imu;
-        fprintf('[Task5] Estimated truth time shift dt = %+0.3f s (lag %d)\n', dt_est, lag);
+        dt_shift = lag * dt_imu;
+        fprintf('[Task5] Estimated truth time shift dt = %+0.3f s (lag %d)\n', dt_shift, lag);
+        t_truth_shifted = t_truth + dt_shift;
+        truth_interp.pos_ned = interp1(t_truth_shifted, pos_truth_ned, imu_time, 'linear','extrap');
+        truth_interp.vel_ned = interp1(t_truth_shifted, vel_truth_ned, imu_time, 'linear','extrap');
     catch ME
         warning('Time shift estimation failed: %s', ME.message);
     end
@@ -1376,7 +1390,7 @@ states.pos_ned_m  = x_log(1:3,:);
 states.vel_ned_mps = x_log(4:6,:);
 ref_lat = deg2rad(lat_deg); %#ok<NASGU>
 ref_lon = deg2rad(lon_deg); %#ok<NASGU>
-dt_truth_shift = dt_est; % FIX: store dt for downstream tasks
+dt_truth_shift = dt_shift; % legacy field name
 
     % Save using the same naming convention as the Python pipeline
     % <IMU>_<GNSS>_<METHOD>_task5_results.mat
@@ -1418,7 +1432,7 @@ dt_truth_shift = dt_est; % FIX: store dt for downstream tasks
             'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
             'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'quat_log', 'att_quat', 'att_quat_raw', 'att_quat_boresight', 'zupt_log', 'zupt_vel_norm', ...
             'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
-            'dt_truth_shift', ... % FIX: store truth time shift
+            'dt_truth_shift', 'dt_shift', 'truth_interp', ...
             'pos_ned_est', 'vel_ned_est', 'acc_ned_est', ...
             'pos_ecef_est', 'vel_ecef_est', 'acc_ecef_est', ...
             'states', 't_est', 'dt', 'imu_rate_hz', 'acc_body_raw', 'gyro_body_raw', 'trace', 'vel_blow_count', ...
@@ -1465,7 +1479,7 @@ dt_truth_shift = dt_est; % FIX: store dt for downstream tasks
         'euler_log', euler_log, 'zupt_log', zupt_log, 'zupt_vel_norm', zupt_vel_norm, 'time', time, ...
         'gnss_time', gnss_time, 'pos_ned', pos_ned, 'vel_ned', vel_ned, ...
         'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0, ...
-        'dt_truth_shift', dt_truth_shift);
+        'dt_truth_shift', dt_truth_shift, 'dt_shift', dt_shift, 'truth_interp', truth_interp);
     % ``method`` already stores the algorithm name (e.g. 'TRIAD'). Use it
     % directly when saving so filenames match the Python pipeline.
     save_task_results(method_struct, imu_name, gnss_name, method, 5);

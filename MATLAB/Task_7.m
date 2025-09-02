@@ -96,8 +96,12 @@ if isempty(E.acc_ned) && isfield(res5,'acc_ecef_est')
     E.acc_ned = attitude_tools('ecef2ned_vec', res5.acc_ecef_est, lat, lon);
 end
 
-% Truth (prefer Task 6 processed NED if available)
-if hasRes6 && isfield(tmp6,'truth_pos_ned') && ~isempty(tmp6.truth_pos_ned)
+% Truth (prefer Task 5 interpolation, then Task 6 processed NED)
+if isfield(res5,'truth_interp')
+    P_ned = res5.truth_interp.pos_ned;
+    V_ned = res5.truth_interp.vel_ned;
+    t_truth_used = t_est; % already aligned
+elseif hasRes6 && isfield(tmp6,'truth_pos_ned') && ~isempty(tmp6.truth_pos_ned)
     P_ned = tmp6.truth_pos_ned; V_ned = tmp6.truth_vel_ned;
 else
     % Build from raw TRUTH file; attempt robust numeric load
@@ -118,7 +122,7 @@ else
             r0 = res5.ref_r0(:)';
         end
         % subtract reference origin for positions
-    P_ned = attitude_tools('ecef2ned_vec', P_ecef - r0, lat, lon);
+        P_ned = attitude_tools('ecef2ned_vec', P_ecef - r0, lat, lon);
     end
     V_ned = [];
     if ~isempty(V_ecef)
