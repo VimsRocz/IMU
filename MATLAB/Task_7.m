@@ -219,6 +219,39 @@ metrics.rmse_pos = rmse(pos_residual(:));
 metrics.rmse_vel = rmse(vel_residual(:));
 metrics.max_pos  = max(abs(pos_residual(:)), [], 'omitnan');
 metrics.max_vel  = max(abs(vel_residual(:)), [], 'omitnan');
+
+% FIX: Compute tail-window RMSE [t_end-60, t_end] (Fix #9)
+tail_window_sec = 60;  % seconds
+t_end = t_est(end);
+tail_idx = t_est >= (t_end - tail_window_sec);
+
+if any(tail_idx)
+    metrics.rmse_pos_tail = rmse(pos_residual(tail_idx, :));
+    metrics.rmse_vel_tail = rmse(vel_residual(tail_idx, :));
+    
+    % Target RMSE thresholds
+    target_rmse_vel = 20.0;   % m/s
+    target_rmse_pos = 500.0;  % m
+    
+    fprintf('[Task7] Tail window RMSE [t_end-%.0f, t_end]: pos=%.3f m, vel=%.3f m/s\n', ...
+        tail_window_sec, metrics.rmse_pos_tail, metrics.rmse_vel_tail);
+    fprintf('[Task7] Target thresholds: RMSE_vel < %.1f m/s, RMSE_pos < %.0f m\n', ...
+        target_rmse_vel, target_rmse_pos);
+    
+    if metrics.rmse_vel_tail < target_rmse_vel
+        fprintf('[Task7] ✓ Velocity RMSE target MET (%.3f < %.1f m/s)\n', metrics.rmse_vel_tail, target_rmse_vel);
+    else
+        fprintf('[Task7] ✗ Velocity RMSE target MISSED (%.3f >= %.1f m/s)\n', metrics.rmse_vel_tail, target_rmse_vel);
+    end
+    
+    if metrics.rmse_pos_tail < target_rmse_pos
+        fprintf('[Task7] ✓ Position RMSE target MET (%.3f < %.0f m)\n', metrics.rmse_pos_tail, target_rmse_pos);
+    else
+        fprintf('[Task7] ✗ Position RMSE target MISSED (%.3f >= %.0f m)\n', metrics.rmse_pos_tail, target_rmse_pos);
+    end
+else
+    fprintf('[Task7] Warning: Insufficient data for tail-window RMSE computation\n');
+end
 % Build and save results struct; expose to base workspace
 task7_results = struct();
 task7_results.runTag = runTag;
@@ -938,7 +971,10 @@ end
 
 function plot_residual_grid(t, pos_res, vel_res, frameName, outDir, runTag)
 %PLOT_RESIDUAL_GRID Plot 2x3 residual grid: rows=pos/vel, cols=X/Y/Z
-    f = figure('Visible','on','Position',[100 100 1200 600]);
+    % FIX: Set figure size for page width export (Fix #8)
+    f = figure('Visible','on');
+    set(f, 'Units', 'centimeters', 'Position', [2 2 18 9]);
+    set(f, 'PaperPositionMode', 'auto');
     tl = tiledlayout(2,3,'Padding','compact','TileSpacing','compact'); %#ok<NASGU>
     cols = {'X','Y','Z'};
     ylabels = {'Position Residual [m]','Velocity Residual [m/s]'};
@@ -956,9 +992,10 @@ function plot_residual_grid(t, pos_res, vel_res, frameName, outDir, runTag)
     sgtitle(sprintf('Task 7 Residuals (%s Frame)', frameName));
     base = fullfile(outDir, sprintf('%s_task7_residuals_%s', runTag, frameName));
     try
-        exportgraphics(f, [base '.png'], 'Resolution', 150);
+        % FIX: Export PNG with 300 DPI resolution (Fix #8)
+        exportgraphics(f, [base '.png'], 'Resolution', 300);
     catch
-        print(f, [base '.png'], '-dpng', '-r150');
+        print(f, [base '.png'], '-dpng', '-r300');
     end
     try, savefig(f, [base '.fig']); catch, end
     close(f);

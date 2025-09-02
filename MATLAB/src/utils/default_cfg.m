@@ -31,10 +31,15 @@ cfg.gaid.max_dev_g     = 0.15;   % gate if | |a_lp|-g |/g > this
 cfg.gaid.max_gyro_dps  = 5.0;    % gate if any |gyro| > this [deg/s]
 cfg.gaid.min_speed_mps = 0.0;    % optional min speed for aiding [m/s]
 
+% GNSS measurement configuration  
+cfg.gnss = struct();
+cfg.gnss.speed_clip_mps = Inf;     % FIX: Remove GNSS speed clamping (was limited)
+cfg.gnss.vel_sigma_mps  = 5.0;     % FIX: Default velocity measurement noise [m/s]
+
 % Yaw (course-over-ground) aiding
 cfg.yawaid = struct();
-cfg.yawaid.enabled        = true;  % enable GNSS course yaw aiding
-cfg.yawaid.min_speed_mps  = 3.0;   % require speed to exceed this
+cfg.yawaid.enabled        = true;  % enable GNSS course yaw aiding  
+cfg.yawaid.min_speed_mps  = 0.02;  % FIX: Lower min speed for yaw-aid (was 3.0)
 cfg.yawaid.sigma_yaw_deg  = 5.0;   % yaw measurement noise [deg]
 cfg.yawaid.max_gyro_dps   = 15.0;  % gate out fast turns [deg/s]
 cfg.yawaid.gate_deg       = 25.0;  % residual gate for yaw innovation [deg]
