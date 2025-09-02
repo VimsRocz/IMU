@@ -63,6 +63,11 @@ if ~isfield(S, 'x_log')
 end
 fprintf('Task 6: Loaded x_log, size: %dx%d\n', size(S.x_log));
 
+use_precomp_truth = isfield(S,'truth_interp');
+if use_precomp_truth
+    fprintf('[Task6] Using truth_interp from Task5 results.\n');
+end
+
 % Echo estimator attitude convention for clarity in logs
 if isfield(S,'att_quat')
     fprintf('Estimator attitude convention: C_nb (Body->NED), quaternion [w x y z] from att_quat (Nx4)\n');
@@ -132,46 +137,58 @@ if isfield(S,'dt_truth_shift'); dt_shift = S.dt_truth_shift; end % FIX: use Task
 C = R_ecef_to_ned(ref_lat, ref_lon);
 C_N_E = C';
 
-if ~isfile(truth_file)
-    warning('Truth file %s not found; using GNSS as truth.', truth_file);
-    t_truth = S.gnss_time + dt_shift; % FIX: apply time shift
-    pos_truth_ned_i_raw = S.gnss_pos_ned;
-    vel_truth_ned_i_raw = S.gnss_vel_ned;
-    acc_truth_ned_i_raw = [zeros(1,3); diff(vel_truth_ned_i_raw)./diff(t_truth)];
-    pos_truth_ned_i = centre(pos_truth_ned_i_raw .* sign_ned);
-    vel_truth_ned_i = vel_truth_ned_i_raw .* sign_ned;
-    acc_truth_ned_i = acc_truth_ned_i_raw .* sign_ned;
-    pos_ned_raw = S.pos_ned;
-    vel_ned_raw = S.vel_ned;
-    acc_ned_raw = [zeros(1,3); diff(vel_ned_raw)./diff(t_est)];
-    pos_ned = centre(pos_ned_raw .* sign_ned);
-    vel_ned = vel_ned_raw .* sign_ned;
-    acc_ned = [zeros(1,3); diff(vel_ned)./diff(t_est)];
-    t_imu = zero_base_time(t_est);
-    t_truth = zero_base_time(t_truth);
-    plot_state_grid(t_imu, {pos_truth_ned_i, pos_ned}, {vel_truth_ned_i, vel_ned}, {acc_truth_ned_i, acc_ned}, ...
-        'NED', [run_id '_' method '_Task6_TruthOverlay'], out_dir, {'Truth','Fused'});
-    return;
-end
-
-% Support text-based STATE_X files in addition to MAT files
-if endsWith(truth_file, '.txt')
-    % Read full truth state file (count, time, X Y Z, VX VY VZ, q)
-    truth_data = read_state_file(truth_file);
-    truth_time = truth_data(:,2) + dt_shift; % FIX: apply time shift
-    truth_pos_ecef = truth_data(:,3:5);
-    truth_vel_ecef = truth_data(:,6:8);
+if use_precomp_truth
+    t_truth = S.t_est;
+    pos_ned_truth = S.truth_interp.pos_ned;
+    vel_ned_truth = S.truth_interp.vel_ned;
+    pos_truth_ecef = attitude_tools('ned2ecef_vec', pos_ned_truth, ref_lat, ref_lon) + ref_r0';
+    vel_truth_ecef = attitude_tools('ned2ecef_vec', vel_ned_truth, ref_lat, ref_lon);
+    truth_time = t_truth;
+    truth_pos_ecef = pos_truth_ecef;
+    truth_vel_ecef = vel_truth_ecef;
+    has_truth_time = true;
 else
-    S_truth = load(truth_file);
-    if isfield(S_truth,'truth_time')
-        truth_time = S_truth.truth_time;
-    else
-        truth_time = [];
+    if ~isfile(truth_file)
+        warning('Truth file %s not found; using GNSS as truth.', truth_file);
+        t_truth = S.gnss_time + dt_shift; % FIX: apply time shift
+        pos_truth_ned_i_raw = S.gnss_pos_ned;
+        vel_truth_ned_i_raw = S.gnss_vel_ned;
+        acc_truth_ned_i_raw = [zeros(1,3); diff(vel_truth_ned_i_raw)./diff(t_truth)];
+        pos_truth_ned_i = centre(pos_truth_ned_i_raw .* sign_ned);
+        vel_truth_ned_i = vel_truth_ned_i_raw .* sign_ned;
+        acc_truth_ned_i = acc_truth_ned_i_raw .* sign_ned;
+        pos_ned_raw = S.pos_ned;
+        vel_ned_raw = S.vel_ned;
+        acc_ned_raw = [zeros(1,3); diff(vel_ned_raw)./diff(t_est)];
+        pos_ned = centre(pos_ned_raw .* sign_ned);
+        vel_ned = vel_ned_raw .* sign_ned;
+        acc_ned = [zeros(1,3); diff(vel_ned)./diff(t_est)];
+        t_imu = zero_base_time(t_est);
+        t_truth = zero_base_time(t_truth);
+        plot_state_grid(t_imu, {pos_truth_ned_i, pos_ned}, {vel_truth_ned_i, vel_ned}, {acc_truth_ned_i, acc_ned}, ...
+            'NED', [run_id '_' method '_Task6_TruthOverlay'], out_dir, {'Truth','Fused'});
+        return;
     end
-    truth_pos_ecef = S_truth.truth_pos_ecef;
-    truth_vel_ecef = S_truth.truth_vel_ecef;
+
+    % Support text-based STATE_X files in addition to MAT files
+    if endsWith(truth_file, '.txt')
+        % Read full truth state file (count, time, X Y Z, VX VY VZ, q)
+        truth_data = read_state_file(truth_file);
+        truth_time = truth_data(:,2) + dt_shift; % FIX: apply time shift
+        truth_pos_ecef = truth_data(:,3:5);
+        truth_vel_ecef = truth_data(:,6:8);
+    else
+        S_truth = load(truth_file);
+        if isfield(S_truth,'truth_time')
+            truth_time = S_truth.truth_time;
+        else
+            truth_time = [];
+        end
+        truth_pos_ecef = S_truth.truth_pos_ecef;
+        truth_vel_ecef = S_truth.truth_vel_ecef;
+    end
+    has_truth_time = ~isempty(truth_time);
 end
-has_truth_time = ~isempty(truth_time);
 
 I = C * C';
 errC = norm(I - eye(3), 'fro');
