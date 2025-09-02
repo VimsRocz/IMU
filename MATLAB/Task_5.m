@@ -201,9 +201,10 @@ end
     % Convert GNSS measurements from ECEF to NED to guarantee a common frame
     gnss_pos_ned_calc = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
     gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
-    % Optional: clip GNSS speeds to suppress outliers if configured
+    % FIX: GNSS speed clamping removed - set to Inf in config 
+    % No speed clamping applied when speed_clip_mps = Inf (Fix #1)
     try
-        if isfield(cfg,'gnss') && isstruct(cfg.gnss) && isfield(cfg.gnss,'speed_clip_mps') && cfg.gnss.speed_clip_mps > 0
+        if isfield(cfg,'gnss') && isstruct(cfg.gnss) && isfield(cfg.gnss,'speed_clip_mps') && cfg.gnss.speed_clip_mps < Inf
             spd = vecnorm(gnss_vel_ned,2,2);
             idx = spd > cfg.gnss.speed_clip_mps & isfinite(spd);
             if any(idx)
@@ -372,9 +373,19 @@ Q = eye(15) * 1e-4;
 Q(4:6,4:6) = eye(3) * 0.01 * vel_q_scale;
 Q(10:12,10:12) = eye(3) * accel_bias_noise;
 Q(13:15,13:15) = eye(3) * gyro_bias_noise;
+
+% FIX: Use cfg.gnss.vel_sigma_mps for velocity measurement noise (Fix #1)
+vel_sigma_mps = 5.0;  % default
+try
+    if isfield(cfg,'gnss') && isfield(cfg.gnss,'vel_sigma_mps')
+        vel_sigma_mps = cfg.gnss.vel_sigma_mps;
+    end
+catch
+end
+
 R = zeros(6);
 R(1:3,1:3) = eye(3) * pos_meas_noise^2;
-R(4:6,4:6) = eye(3) * vel_r;
+R(4:6,4:6) = eye(3) * vel_sigma_mps^2;  % FIX: Using vel_sigma_mps instead of vel_r
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
@@ -487,6 +498,44 @@ vel_blow_count = 0;             % track number of velocity blow-ups
 accel_std_thresh = 0.05;        % [m/s^2]
 gyro_std_thresh  = 0.005;       % [rad/s]
 vel_thresh       = 0.1;         % [m/s]
+
+% FIX: Liftoff detection and ZUPT masking (Fix #2)
+% Detect liftoff: first index where (GNSS_speed > 5 m/s) OR (movstd(acc_norm, 400) > 0.15)
+gnss_speed_threshold = 5.0;  % m/s
+acc_std_threshold = 0.15;    % m/s^2
+liftoff_idx = inf;
+
+% Check GNSS speed for liftoff
+gnss_speed = vecnorm(gnss_vel_ned, 2, 2);
+speed_liftoff_idx = find(gnss_speed > gnss_speed_threshold, 1, 'first');
+
+% Check accelerometer std for liftoff (moving standard deviation with window 400)
+if num_imu_samples > 400
+    acc_norm = vecnorm(acc_body_raw, 2, 2);
+    acc_movstd = movstd(acc_norm, 400);
+    acc_liftoff_idx = find(acc_movstd > acc_std_threshold, 1, 'first');
+else
+    acc_liftoff_idx = inf;
+end
+
+% Take the earlier liftoff detection
+if ~isempty(speed_liftoff_idx) && ~isempty(acc_liftoff_idx)
+    liftoff_idx = min(speed_liftoff_idx, acc_liftoff_idx);
+elseif ~isempty(speed_liftoff_idx)
+    liftoff_idx = speed_liftoff_idx;
+elseif ~isempty(acc_liftoff_idx)
+    liftoff_idx = acc_liftoff_idx;
+end
+
+% Create ZUPT mask - true only before liftoff
+zupt_mask = false(num_imu_samples, 1);
+if liftoff_idx <= num_imu_samples
+    zupt_mask(1:liftoff_idx-1) = true;  % ZUPT only before liftoff
+    dprintf('[Task5] Liftoff detected at sample %d (time %.2f s). ZUPT will only apply before liftoff.\n', liftoff_idx, imu_time(liftoff_idx));
+else
+    zupt_mask(:) = true;  % No liftoff detected, allow ZUPT throughout
+    dprintf('[Task5] No liftoff detected. ZUPT will apply throughout the run.\n');
+end
 vel_limit        = 500;         % [m/s] hard bound for velocity magnitude
 vel_exceed_log   = zeros(0,2);  % [k,|v|] log for debugging
 % Innovation logs for Task-7 diagnostics
@@ -594,8 +643,18 @@ for i = 1:num_imu_samples
     % --- 1. State Propagation (Prediction) ---
     F = eye(15);
     F(1:3, 4:6) = eye(3) * dt_imu;
-    % Match Python: apply fixed process noise per step (no extra dt scaling)
-    P = F * P * F' + Q;
+    
+    % FIX: Adaptive process noise for velocity (Fix #6)
+    % Q(4:6,4:6) = (q_base * q_scale)*I where q_scale = 1 + 10*max(0, acc_norm - 9.81)
+    Q_adaptive = Q;  % Start with base Q
+    corrected_accel_step = acc_body_raw(i,:)' - x(10:12);
+    acc_norm = norm(corrected_accel_step);
+    q_base = 0.01 * vel_q_scale;
+    q_scale = 1 + 10 * max(0, acc_norm - 9.81);
+    Q_adaptive(4:6,4:6) = eye(3) * q_base * q_scale;
+    
+    % Apply adaptive process noise
+    P = F * P * F' + Q_adaptive;
 
     % --- 2. Attitude Propagation ---
     corrected_gyro = gyro_body_raw(i,:)' - x(13:15);
@@ -971,14 +1030,15 @@ for i = 1:num_imu_samples
     prev_a_ned = a_ned;
 
     % --- 5. Zero-Velocity Update (ZUPT) ---
+    % FIX: Apply ZUPT only before liftoff using zupt_mask (Fix #2)
     win_size = 80;
     acc_win = acc_body_raw(max(1,i-win_size+1):i, :);
     gyro_win = gyro_body_raw(max(1,i-win_size+1):i, :);
     acc_std = max(std(acc_win,0,1));
     gyro_std = max(std(gyro_win,0,1));
     norm_acc = norm(acc_win(end,:));
-    dbg_zupt_msg = sprintf('[DBG-ZUPT] k=%d acc_norm=%.4f (threshold=%.4f)', i, norm_acc, accel_std_thresh);
-    if acc_std < accel_std_thresh && gyro_std < gyro_std_thresh && norm(x(4:6)) < vel_thresh
+    dbg_zupt_msg = sprintf('[DBG-ZUPT] k=%d acc_norm=%.4f (threshold=%.4f) zupt_allowed=%d', i, norm_acc, accel_std_thresh, zupt_mask(i));
+    if zupt_mask(i) && acc_std < accel_std_thresh && gyro_std < gyro_std_thresh && norm(x(4:6)) < vel_thresh
         zupt_count = zupt_count + 1;
         zupt_log(i) = 1;
         H_z = [zeros(3,3), eye(3), zeros(3,9)];
@@ -1036,6 +1096,18 @@ dprintf('Method %s: Kalman Filter completed. ZUPTcnt=%d\n', method, zupt_count);
 dprintf('Method %s: velocity blow-up events=%d\n', method, vel_blow_count);
 dprintf('Method %s: ZUPT clamp failures=%d\n', method, zupt_fail_count);
 
+% FIX: Enhanced output logs (Fix #9) 
+% Print liftoff index/time, final ZUPTcnt, estimated dt, GNSS speed stats
+if exist('liftoff_idx', 'var') && liftoff_idx <= num_imu_samples
+    dprintf('[Task5] Liftoff detected at index %d (time %.2f s)\n', liftoff_idx, imu_time(liftoff_idx));
+else
+    dprintf('[Task5] No liftoff detected during run\n');
+end
+dprintf('[Task5] Final ZUPT count: %d (should stop growing after liftoff)\n', zupt_count);
+if exist('dt_truth_shift', 'var')
+    dprintf('[Task5] Estimated truth time shift: %.3f s\n', dt_truth_shift);
+end
+
 % Optional end-window ZUPT: if last 10s are static, zero final velocities
 try
     t_window = 10; % seconds
@@ -1048,6 +1120,60 @@ try
         end
     end
 catch
+end
+
+%% ========================================================================
+% FIX: Truth-EKF Time Shift Computation (Fix #3)
+% =========================================================================
+% Estimate dt by cross-correlating speed_truth vs speed_est (±5000 lags limit)
+dt_truth_shift = 0;  % default no shift
+try
+    % Look for truth file
+    truth_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
+    if ~isfile(truth_file)
+        % Try DATA/Truth directory
+        truth_file = fullfile(paths.root, 'DATA', 'Truth', 'STATE_X001.txt');
+    end
+    
+    if isfile(truth_file)
+        dprintf('[Task5] Loading truth data for time shift estimation from: %s\n', truth_file);
+        truth_data = readmatrix(truth_file);
+        t_truth_raw = truth_data(:,2);
+        vel_truth_ecef = truth_data(:,6:8);
+        
+        % Convert truth velocity to NED for comparison
+        vel_truth_ned = (C_ECEF_to_NED * vel_truth_ecef')';
+        speed_truth_raw = vecnorm(vel_truth_ned, 2, 2);
+        
+        % Interpolate truth speed to estimator timeline for cross-correlation
+        speed_truth_interp = interp1(t_truth_raw, speed_truth_raw, imu_time, 'linear', 'extrap');
+        speed_est = vecnorm(x_log(4:6,:)', 2, 2);
+        
+        % Cross-correlate with ±5000 lags limit
+        max_lags = min(5000, min(length(speed_truth_interp), length(speed_est)) - 1);
+        [xcorr_vals, lags] = xcorr(speed_est - mean(speed_est), speed_truth_interp - mean(speed_truth_interp), max_lags);
+        [~, max_idx] = max(xcorr_vals);
+        lag_samples = lags(max_idx);
+        dt_truth_shift = lag_samples * dt_imu;
+        
+        dprintf('[Task5] Time shift estimation: lag=%d samples, dt=%.3f s\n', lag_samples, dt_truth_shift);
+        
+        % Apply time shift to truth data
+        t_truth_shifted = t_truth_raw + dt_truth_shift;
+        
+        % Store shifted truth data for use in Tasks 6&7
+        truth_shifted = truth_data;
+        truth_shifted(:,2) = t_truth_shifted;
+        
+        % Save shifted truth to results for downstream tasks
+        shifted_truth_file = fullfile(results_dir, sprintf('%s_truth_shifted.mat', run_id));
+        save(shifted_truth_file, 'truth_shifted', 'dt_truth_shift', 't_truth_raw', 't_truth_shifted');
+        dprintf('[Task5] Saved shifted truth data to: %s\n', shifted_truth_file);
+    else
+        dprintf('[Task5] No truth file found for time shift estimation\n');
+    end
+catch ME
+    warning('[Task5] Time shift estimation failed: %s', ME.message);
 end
 
 %% ========================================================================
@@ -1097,7 +1223,11 @@ end
 
 % --- Combined Position, Velocity and Acceleration ---
 if ~dryrun
-    fig = figure('Name', 'KF Results: P/V/A', 'Position', [100 100 1200 900]);
+    % FIX: Set figure size for page width export (Fix #8)
+    fig = figure('Name', 'KF Results: P/V/A');
+    set(fig, 'Units', 'centimeters', 'Position', [2 2 18 9]);
+    set(fig, 'PaperPositionMode', 'auto');
+    
     labels = {'North', 'East', 'Down'};
     all_file = fullfile(results_dir, sprintf('%s_Task5_AllResults.pdf', run_id));
     if exist(all_file, 'file'); delete(all_file); end
@@ -1135,15 +1265,22 @@ if ~dryrun
     end
     % Always save interactive .fig
     try, savefig(fig, [fname '.fig']); catch, end
+    % FIX: Export as PNG with proper resolution (Fix #8)
     if cfg.plots.save_png
-        print(fig, [fname '.png'], '-dpng');
+        exportgraphics(fig, [fname '.png'], 'Resolution', 300);
+    else
+        % Export PNG by default for overlay and residual plots
+        exportgraphics(fig, [fname '.png'], 'Resolution', 300);
     end
     close(fig);
 end
 
 % --- Plot 4: Attitude (Euler Angles) ---
 if ~dryrun
-    fig_att = figure('Name', 'KF Results: Attitude', 'Position', [200 200 1200 600]);
+    % FIX: Set figure size for page width export (Fix #8)
+    fig_att = figure('Name', 'KF Results: Attitude');
+    set(fig_att, 'Units', 'centimeters', 'Position', [2 2 18 9]);
+    set(fig_att, 'PaperPositionMode', 'auto');
     euler_labels = {'Roll', 'Pitch', 'Yaw'};
     for i = 1:3
         subplot(3, 1, i);
@@ -1156,23 +1293,31 @@ if ~dryrun
         print(fig_att, [fname '.pdf'], '-dpdf', '-bestfit');
     end
     try, savefig(fig_att, [fname '.fig']); catch, end
-    if cfg.plots.save_png
-        print(fig_att, [fname '.png'], '-dpng');
-    end
+    % FIX: Export as PNG with proper resolution (Fix #8)
+    exportgraphics(fig_att, [fname '.png'], 'Resolution', 300);
     close(fig_att);
 end
 
 % --- Plot 5: Velocity Magnitude After ZUPTs ---
 zupt_indices = find(zupt_log);
 if ~dryrun && ~isempty(zupt_indices)
-    fig_zupt = figure('Name', 'Post-ZUPT Velocity', 'Position', [300 300 800 400]);
+    % FIX: Set figure size for page width export (Fix #8)
+    fig_zupt = figure('Name', 'Post-ZUPT Velocity');
+    set(fig_zupt, 'Units', 'centimeters', 'Position', [2 2 18 9]);
+    set(fig_zupt, 'PaperPositionMode', 'auto');
+    
     plot(imu_time(zupt_indices), zupt_vel_norm(zupt_indices), 'bo-');
     grid on; box on;
     xlabel('Time (s)'); ylabel('|v| after ZUPT [m/s]');
     title('Velocity magnitude following each ZUPT');
     legend('|v|');
-    save_plot(fig_zupt, imu_name, gnss_name, [method '_ZUPT'], 5, ...
-              cfg.plots.save_pdf, cfg.plots.save_png);
+    
+    % FIX: Use exportgraphics for PNG export (Fix #8)
+    fname = fullfile(results_dir, sprintf('%s_%s_ZUPT_Task5', imu_name, method));
+    exportgraphics(fig_zupt, [fname '.png'], 'Resolution', 300);
+    if cfg.plots.save_pdf
+        print(fig_zupt, [fname '.pdf'], '-dpdf', '-bestfit');
+    end
     close(fig_zupt);
 end
 
@@ -1362,7 +1507,8 @@ ref_lon = deg2rad(lon_deg); %#ok<NASGU>
             'states', 't_est', 'dt', 'imu_rate_hz', 'acc_body_raw', 'gyro_body_raw', 'trace', 'vel_blow_count', ...
             'vel_exceed_log', 'innov_d2_total', 'innov_d2_pos', 'innov_d2_vel', ...
             'yaw_aid_flag', 'yaw_aid_residual_deg', ...
-            'gate_chi2_total', 'gate_chi2_pos', 'gate_chi2_vel');
+            'gate_chi2_total', 'gate_chi2_pos', 'gate_chi2_vel', ...
+            'dt_truth_shift', 'liftoff_idx', 'zupt_mask');  % FIX: Store time shift and liftoff data
         % Log attitude details for downstream tasks and human readers
         try
             fprintf('Task 5: Attitude logged as Body->NED (C_{nb}). Quaternion order [w x y z].\\n');
