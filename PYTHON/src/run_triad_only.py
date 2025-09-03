@@ -1171,10 +1171,10 @@ def main(argv: Iterable[str] | None = None) -> None:
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
     print_timeline(run_id, str(imu_path), str(gnss_path), str(truth_path), out_dir=str(results_dir))
 
-    # Force STATE_X001 truth file fallback and compare only overlapping window
+    # Use fallback only if provided truth is missing
     base_dir = str(REPO_ROOT)
     truth_fallback = os.path.join(base_dir, 'DATA', 'Truth', 'STATE_X001.txt')
-    if ('STATE_X001' not in os.path.basename(str(truth_path))) or (not os.path.isfile(str(truth_path))):
+    if not os.path.isfile(str(truth_path)):
         print(f"[INFO] Using fallback truth file: {truth_fallback}")
         truth_path = Path(truth_fallback)
 
