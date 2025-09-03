@@ -434,20 +434,23 @@ function rmse = run_kf_once(params, data, opts)
 
     arguments
         params struct
-        data struct
-        opts.decimate (1,1) double = 1
-        opts.tail_s (1,1) double = 0
+        data   struct
+        opts   struct = struct()
     end
+
+    if ~isfield(opts, 'decimate'), opts.decimate = 1; end
+    if ~isfield(opts, 'tail_s'),  opts.tail_s  = 0; end
+
     max_steps = inf;
     if opts.tail_s > 0
         % assume raw IMU at 400 Hz
         max_steps = round((400/opts.decimate) * opts.tail_s);
     end
     res = Task_5(data.imu_path, data.gnss_path, data.method, [], ...
-        'vel_q_scale', params.vel_q_scale, ...
+        'vel_q_scale',  params.vel_q_scale, ...
         'vel_sigma_mps', params.vel_sigma_mps, ...
-        'max_steps', max_steps, ...
-        'dryrun', true);
+        'max_steps',    max_steps, ...
+        'dryrun',       true);
     rmse = res.rmse_pos;
 end
 
