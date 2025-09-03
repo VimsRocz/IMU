@@ -29,6 +29,19 @@ def integrate_trajectory(
 ]:
     """Integrate body-frame accelerations to position and velocity.
 
+    Parameters
+    ----------
+    acc_body : np.ndarray
+        Specific force measurements in the body frame.
+    imu_time : np.ndarray
+        Sample times corresponding to ``acc_body``.
+    C_B_N : np.ndarray, shape (3, 3)
+        Rotation matrix from the body frame to NED.  The matrix must be
+        orthonormal.
+    g_NED : np.ndarray, optional
+        Constant gravity vector expressed in NED.  Required when ``lat`` and
+        ``lon`` are not provided.
+
     If ``lat`` and ``lon`` are provided (or ``g_ecef`` is given), a
     position-dependent gravity vector is removed in the ECEF frame before
     converting the acceleration back to NED for integration.  Otherwise a
@@ -38,6 +51,10 @@ def integrate_trajectory(
     values at the start, middle and end of the integration to help diagnose
     divergence issues.
     """
+
+    C_B_N = np.asarray(C_B_N)
+    if not np.allclose(C_B_N.T @ C_B_N, np.eye(3), atol=1e-6):
+        raise ValueError("C_B_N must be an orthonormal body->NED rotation matrix")
 
     n = len(imu_time)
     pos = np.zeros((n, 3))
