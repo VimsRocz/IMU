@@ -235,6 +235,36 @@ end
     g_body = -mean(acc_body_raw(static_start:static_end, :), 1)';
     omega_ie_body = mean(gyro_body_raw(static_start:static_end, :), 1)';
 
+    % Auto-suggest ZUPT thresholds from static segment statistics
+    try
+        g_scalar = 9.794; % default; refined below if Task-1 gravity available later
+        if exist('g_NED','var') && numel(g_NED) == 3
+            g_scalar = abs(g_NED(3));
+        end
+        acc_mag = vecnorm(acc_body_raw(static_start:static_end,:),2,2);
+        aerr = abs(acc_mag - g_scalar);
+        acc_eps_suggest = max(0.05, 3*std(aerr,0,1,'omitnan'));
+        gyro_win = gyro_body_raw(static_start:static_end,:);
+        gyro_eps_suggest = max(0.0025, 3*max(std(gyro_win,0,1,'omitnan')));
+        dprintf('[Task5] ZUPT suggest: epsAcc=%.4f m/s^2, epsGyro=%.5f rad/s (from static stats)\n', ...
+            acc_eps_suggest, gyro_eps_suggest);
+        % Respect cfg flags to auto-apply; otherwise, keep existing thresholds
+        try
+            auto_apply = false;
+            if isfield(cfg,'zupt') && isfield(cfg.zupt,'autoset') && cfg.zupt.autoset
+                auto_apply = true;
+            end
+            if auto_apply
+                if ~isfield(cfg,'zupt') || ~isstruct(cfg.zupt), cfg.zupt = struct(); end
+                cfg.zupt.acc_movstd_thresh = acc_eps_suggest;
+                gyro_std_thresh = gyro_eps_suggest; %#ok<NASGU>
+                dprintf('[Task5] ZUPT thresholds auto-applied.\n');
+            end
+        catch
+        end
+    catch
+    end
+
     % Load biases/scale from Task 4 if available (parity with Python). Fallback to Task 2.
     accel_bias = []; gyro_bias = []; accel_scale = [];
     results4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
