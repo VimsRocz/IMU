@@ -51,9 +51,12 @@ LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
 DEFAULT_DATASETS = [
-    ("IMU_X001.dat", "GNSS_X001.csv"),
-    ("IMU_X002.dat", "GNSS_X002.csv"),
-    ("IMU_X003.dat", "GNSS_X002.csv"),  # dataset X003 shares GNSS_X002
+    ("IMU_X001.dat", "GNSS_X001.csv"),  # X001: clean baseline
+    ("IMU_X002.dat", "GNSS_X002.csv"),  # X002: additional sensor noise
+    (
+        "IMU_X003.dat",
+        "GNSS_X002.csv",
+    ),  # X003: IMU bias, GNSS reused from X002
 ]
 
 DEFAULT_METHODS = ["TRIAD", "Davenport", "SVD"]
