@@ -1196,6 +1196,8 @@ def main(argv: Iterable[str] | None = None) -> None:
             "--gnss-file",
             str(gnss_path),
         ]
+        # Apply Task 6 plotting defaults (decimation + y-limit sync)
+        cmd += ["--decimate-maxpoints", "200000", "--ylim-percentile", "99.5"]
         if args.debug:
             cmd.append("--debug-task6")
         subprocess.check_call(cmd)
@@ -1504,6 +1506,8 @@ def main(argv: Iterable[str] | None = None) -> None:
             "--output",
             str(results_dir),
         ]
+        # Apply Task 6 plotting defaults (decimation + y-limit sync)
+        overlay_cmd += ["--decimate-maxpoints", "200000", "--ylim-percentile", "99.5"]
         if args.show_measurements:
             overlay_cmd.append("--show-measurements")
         with open(log_path, "a") as log:

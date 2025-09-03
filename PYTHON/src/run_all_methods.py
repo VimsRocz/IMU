@@ -404,13 +404,13 @@ def main(argv=None):
                 str(HERE / "task6_plot_truth.py"),
                 "--est-file",
                 str(npz_path.with_suffix(".mat")),
-                "--imu-file",
-                str(imu_path),
                 "--gnss-file",
                 str(gnss_path),
                 "--output",
                 "results",
             ]
+            # Apply Task 6 plotting defaults (decimation + y-limit sync)
+            overlay_cmd += ["--decimate-maxpoints", "200000", "--ylim-percentile", "99.5"]
             if truth_file is not None:
                 overlay_cmd.extend(["--truth-file", str(truth_file.resolve())])
             if args.show_measurements:
