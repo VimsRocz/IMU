@@ -17,8 +17,9 @@ def _read_truth_time(truth_path, notes):
 
     - Ignore lines starting with '#'
     - Split on any whitespace
-    - Coerce 1st column to numeric, drop NaN rows
-    - Return time starting at zero
+    - Examine all columns and choose the one with the smallest positive span
+      (closest to seconds) to be robust to preceding index columns.
+    - Return time starting at zero.
     """
     if not truth_path or not Path(truth_path).exists():
         return None
@@ -33,18 +34,25 @@ def _read_truth_time(truth_path, notes):
         keep_default_na=True,
     )
 
-    # coerce first column to numeric; drop bad rows
-    t = pd.to_numeric(st.iloc[:, 0], errors="coerce").to_numpy(np.float64)
-    mask = np.isfinite(t)
-    t = t[mask]
-    if t.size < 2:
+    best: np.ndarray | None = None
+    best_span = float("inf")
+    for c in range(min(3, st.shape[1])):
+        col = pd.to_numeric(st.iloc[:, c], errors="coerce").to_numpy(np.float64)
+        col = col[np.isfinite(col)]
+        if col.size < 2:
+            continue
+        span = float(col.max() - col.min())
+        if span >= 1.0 and span < best_span:
+            best_span = span
+            best = col
+
+    if best is None:
         notes.append(
             "TRUTH: failed to parse time column; insufficient numeric rows."
         )
         return None
 
-    # normalize to start at zero
-    t = t - t[0]
+    t = best - best[0]
     return t
 
 

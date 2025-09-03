@@ -1030,8 +1030,11 @@ def main(argv: Iterable[str] | None = None) -> None:
     parser.add_argument(
         "--mode",
         choices=["all", "triad"],
-        default="all",
-        help="Mode: run all methods across datasets (all) or TRIAD-only (triad)",
+        default="triad",
+        help=(
+            "Mode: run all methods across datasets (all) or TRIAD-only (triad). "
+            "Default is triad."
+        ),
     )
     parser.add_argument(
         "--show-measurements",
