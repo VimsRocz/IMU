@@ -6,6 +6,7 @@ from paths import ensure_results_dir
 from utils.read_truth_txt import read_truth_txt
 from task6_overlay_all_frames import ecef_to_ned, ecef_to_ned_vec, ned_to_ecef
 from scipy.interpolate import interp1d
+from scipy.spatial.transform import Rotation, Slerp
 import numpy as np
 import pandas as pd
 
@@ -84,9 +85,9 @@ def main():
     # ------------------------------------------------------------------
     print(f"[Task6] truth_file={args.truth_file} exists={Path(args.truth_file).exists()}")
     try:
-        t_truth, pos_ecef_truth, vel_ecef_truth = read_truth_txt(args.truth_file)
+        t_truth, pos_ecef_truth, vel_ecef_truth, quat_truth = read_truth_txt(args.truth_file)
         print(
-            f"[Task6][Truth] t:{t_truth.shape} pos_ecef:{pos_ecef_truth.shape} vel_ecef:{vel_ecef_truth.shape}"
+            f"[Task6][Truth] t:{t_truth.shape} pos_ecef:{pos_ecef_truth.shape} vel_ecef:{vel_ecef_truth.shape} quat:{quat_truth.shape}"
         )
         if t_truth.size:
             print(
@@ -96,6 +97,7 @@ def main():
         print(f"[Task6][Truth][ERROR] failed to load truth: {ex}")
         t_truth = np.array([])
         pos_ecef_truth = vel_ecef_truth = np.zeros((0, 3))
+        quat_truth = np.zeros((0, 4))
 
     # Load estimator file and time vector
     import scipy.io as sio
@@ -272,6 +274,29 @@ def main():
                 eprint(f"WARN: .fig export/validation skipped for {outfile}: {e}")
         plt.close(fig)
 
+    def _plot_quat(time_s, quat_est, quat_tru=None, outfile=None):
+        comps = ['w', 'x', 'y', 'z']
+        fig, axes = plt.subplots(4, 1, figsize=(10, 8), sharex=True)
+        for i, comp in enumerate(comps):
+            ax = axes[i]
+            if quat_tru is not None:
+                ax.plot(time_s, quat_tru[:, i], label='truth', alpha=0.8)
+            if quat_est is not None:
+                ax.plot(time_s, quat_est[:, i], label='estimate', alpha=0.8)
+            ax.set_ylabel(comp)
+            if i == 0:
+                ax.legend(loc='upper right')
+        axes[-1].set_xlabel('Time [s]')
+        fig.suptitle('Task 6 Quaternion Overlay', y=1.02)
+        fig.tight_layout()
+        if outfile:
+            try:
+                fig.savefig(outfile, dpi=200, bbox_inches='tight')
+                print(f"[PNG] {outfile}")
+            except Exception as e:
+                eprint(f"WARN: could not save quaternion PNG {outfile}: {e}")
+        plt.close(fig)
+
     import matplotlib.pyplot as plt
 
     # Single-method overlays (acceleration OFF by default per requirements)
@@ -302,6 +327,8 @@ def main():
         pos_ned_truth = vel_ned_truth = None
         pos_ecef_truth_i = vel_ecef_truth_i = None
         pos_body_truth_i = vel_body_truth_i = None
+        quat_truth_i = None
+        quat_est = None
         if t_truth.size and t_est.size:
             if pos_ecef_truth.size:
                 pos_ned_truth = ecef_to_ned(pos_ecef_truth, ref_lat_rad, ref_lon_rad, ref_r0_m)
@@ -318,6 +345,28 @@ def main():
                 # BODY truth: mirror NED (consistent with estimator BODY derivation)
                 pos_body_truth_i = pos_ned_truth
                 vel_body_truth_i = vel_ned_truth
+                if quat_truth.size:
+                    r_truth = Rotation.from_quat(
+                        np.column_stack([quat_truth[:, 1:4], quat_truth[:, 0]])
+                    )
+                    slerp = Slerp(t_truth, r_truth)
+                    r_i = slerp(np.clip(t_est, t_truth[0], t_truth[-1]))
+                    q_xyzw = r_i.as_quat()
+                    quat_truth_i = np.column_stack([q_xyzw[:, 3], q_xyzw[:, :3]])
+
+        # Extract estimator quaternion if present
+        for k in ['att_quat', 'quat', 'quaternion']:
+            if k in est and est[k] is not None:
+                q = np.asarray(est[k]).squeeze()
+                if q.ndim == 2 and q.shape[1] == 4:
+                    quat_est = q[: len(t_est)].astype(float)
+                elif q.ndim == 2 and q.shape[0] == 4:
+                    quat_est = q.T[: len(t_est)].astype(float)
+                break
+        if quat_est is not None and quat_truth_i is not None:
+            # Hemisphere alignment
+            dots = np.sum(quat_est * quat_truth_i, axis=1)
+            quat_est[dots < 0] *= -1
 
         # Save 2x3 grids
         # NED
@@ -329,6 +378,12 @@ def main():
         # BODY (include truth mirrored from NED for consistent overlay)
         out_body = out_dir / f"{run_id}_task6_overlay_BODY.png"
         _plot_2x3(t_est, pos_body, vel_body, pos_body_truth_i, vel_body_truth_i, 'BODY', str(out_body))
+
+        # Quaternion overlay
+        if quat_est is not None and quat_truth_i is not None:
+            out_quat = out_dir / f"{run_id}_task6_overlay_QUAT.png"
+            _plot_quat(t_est, quat_est, quat_truth_i, str(out_quat))
+            print(f"[Task6] Saved quaternion overlay: {out_quat}")
 
         print(f"[Task6] Saved overlays (2x3 pos/vel only): {[out_ned, out_ecef, out_body]}")
     else:
