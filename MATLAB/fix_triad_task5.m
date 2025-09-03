@@ -145,10 +145,27 @@ function TT = tryLoadIMU(f)
         if isfield(S,'imuTT'); TT = S.imuTT; return; end
         if isfield(S,'imu');   TT = S.imu;   return; end
     end
-    M = readmatrix(f);                          % [t ax ay az gx gy gz]
-    T = seconds(M(:,1)-M(1,1));
-    TT = timetable(T, M(:,2),M(:,3),M(:,4), M(:,5),M(:,6),M(:,7), ...
-        'VariableNames', {'ax','ay','az','gx','gy','gz'});
+    M = readmatrix(f);
+    % Two supported layouts:
+    %  (A) [t ax ay az gx gy gz]
+    %  (B) [idx time dWx dWy dWz dVx dVy dVz] (increments) as used in Task_2
+    if size(M,2) >= 7
+        % Heuristic: if columns 3:5 and 6:8 look like small increments, use (B)
+        if size(M,2) >= 8
+            dt_s = median(diff(M(1:min(1000,end),2)), 'omitnan');
+            if ~isfinite(dt_s) || dt_s <= 0, dt_s = 1/400; end
+            ax = M(:,6) ./ dt_s; ay = M(:,7) ./ dt_s; az = M(:,8) ./ dt_s;
+            gx = M(:,3) ./ dt_s; gy = M(:,4) ./ dt_s; gz = M(:,5) ./ dt_s;
+            T = seconds(M(:,2) - M(1,2));
+        else
+            % Assume layout (A)
+            T = seconds(M(:,1) - M(1,1));
+            ax = M(:,2); ay = M(:,3); az = M(:,4); gx = M(:,5); gy = M(:,6); gz = M(:,7);
+        end
+    else
+        error('tryLoadIMU: Unsupported IMU format (need >=7 columns).');
+    end
+    TT = timetable(T, ax, ay, az, gx, gy, gz, 'VariableNames', {'ax','ay','az','gx','gy','gz'});
 end
 
 function TT = tryLoadGNSS(f, lat0, lon0)
@@ -299,4 +316,3 @@ end
 
 % ========================== end helpers ==========================
 end
-
