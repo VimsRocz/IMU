@@ -188,9 +188,13 @@ The pipeline tasks correspond to steps in the MATLAB implementation. Each task p
 
 The repository includes three IMU logs and two GNSS traces:
 
-- `DATA/IMU/IMU_X001.dat` with `DATA/GNSS/GNSS_X001.csv`
-- `DATA/IMU/IMU_X002.dat` with `DATA/GNSS/GNSS_X002.csv`
-- `DATA/IMU/IMU_X003.dat` with `DATA/GNSS/GNSS_X002.csv` (no dedicated GNSS log was recorded)
+- `DATA/IMU/IMU_X001.dat` with `DATA/GNSS/GNSS_X001.csv` – baseline run without additional errors.
+- `DATA/IMU/IMU_X002.dat` with `DATA/GNSS/GNSS_X002.csv` – same trajectory with extra measurement noise.
+- `DATA/IMU/IMU_X003.dat` with `DATA/GNSS/GNSS_X002.csv` – reuses the X002 GNSS log but adds a constant bias to the IMU.
+
+The GNSS CSV files record only Earth-centred Earth-fixed (ECEF) coordinates and
+velocities; the latitude, longitude and altitude columns are left at zero.  Any
+geodetic coordinates used by the pipeline are derived from the ECEF values.
 
 For quick tests the repository also provides truncated versions of each file:
 
