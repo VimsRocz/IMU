@@ -1,7 +1,7 @@
- function run_triad_only(cfg)
+function run_triad_only(cfg)
 % RUN_TRIAD_ONLY  Process dataset using TRIAD (Tasks 1..7) — MATLAB-only, no Python deps.
 %
-% Usage:
+% Usage:matlab -batch "run('/Users/vimalchawda/Desktop/IMU/MATLAB/run_triad_only.m')"
 %   run_triad_only();
 %   run_triad_only(struct(''dataset_id'',''X002''));
 
@@ -39,8 +39,11 @@ if ~isfield(cfg.plots,'popup_figures'), cfg.plots.popup_figures = true; end
 if ~isfield(cfg.plots,'save_pdf'),      cfg.plots.save_pdf      = false; end
 if ~isfield(cfg.plots,'save_png'),      cfg.plots.save_png      = false; end
 % KF tuning defaults (safe if default_cfg not reloaded)
-if ~isfield(cfg,'vel_q_scale'), cfg.vel_q_scale = 1.0; end
-if ~isfield(cfg,'vel_r'),       cfg.vel_r       = 0.25; end
+if ~isfield(cfg,'vel_q_scale'),   cfg.vel_q_scale   = 1.0; end
+if ~isfield(cfg,'vel_r'),         cfg.vel_r         = 0.25; end
+if ~isfield(cfg,'pos_meas_noise'),cfg.pos_meas_noise= 1.0; end
+if ~isfield(cfg,'vel_limit'),     cfg.vel_limit     = 500; end
+if ~isfield(cfg,'vmax_cap'),      cfg.vmax_cap      = 50; end
 % Optional auto-tune flag
 if ~isfield(cfg,'autotune'),    cfg.autotune    = true; end
 % Optional trace capture (first N KF steps)
@@ -85,8 +88,8 @@ Task_4(cfg.imu_path, cfg.gnss_path, cfg.method);
 % Optionally auto-tune Q/R on a small grid before the final full run
 if cfg.autotune
     fprintf('Auto-tune sweep over vel_q_scale and vel_r...\n');
-    grid_q = [5, 10, 20, 40];
-    grid_r = [0.25, 0.5, 1.0];
+    grid_q = [0.5, 1, 2, 5, 10, 20, 40];
+    grid_r = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
     rows = zeros(numel(grid_q)*numel(grid_r), 3);
     idx = 1;
     for iq = 1:numel(grid_q)
@@ -114,7 +117,10 @@ if cfg.autotune
 end
 
 Task_5(cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
-       'vel_q_scale', cfg.vel_q_scale, 'vel_r', cfg.vel_r, 'trace_first_n', cfg.trace_first_n);
+       'vel_q_scale', cfg.vel_q_scale, 'vel_r', cfg.vel_r, ...
+       'pos_meas_noise', cfg.pos_meas_noise, ...
+        'vel_limit', cfg.vel_limit, 'vmax_cap', cfg.vmax_cap, ...
+        'trace_first_n', cfg.trace_first_n);
 
 runTag = rid; resultsDir = cfg.paths.matlab_results; dataTruthDir = truthDir;
 

@@ -75,6 +75,8 @@ end
     addParameter(p, 'gyro_bias_noise', 1e-5);  % [rad/s]
     addParameter(p, 'vel_q_scale', 1.0);       % [-]
     addParameter(p, 'vel_r', 0.25);            % [m^2/s^2]
+    addParameter(p, 'vel_limit', 500);         % [m/s] hard bound for velocity magnitude
+    addParameter(p, 'vmax_cap', 50);           % [m/s] final safety cap on logged velocity
     addParameter(p, 'trace_first_n', 0);       % [steps] capture first N KF steps
     addParameter(p, 'max_steps', inf);         % [steps] limit processing for tuning
     addParameter(p, 'scale_factor', []);       % [-]
@@ -93,6 +95,28 @@ end
     max_steps       = p.Results.max_steps;
     scale_factor    = p.Results.scale_factor;
     dryrun          = p.Results.dryrun;
+    vel_limit       = p.Results.vel_limit;
+    vmax_cap        = p.Results.vmax_cap;
+    % Allow cfg to override defaults if present (e.g., from run_triad_only)
+    try
+        if isfield(cfg, 'vel_q_scale') && ~isempty(cfg.vel_q_scale)
+            vel_q_scale = cfg.vel_q_scale;
+        end
+        if isfield(cfg, 'vel_r') && ~isempty(cfg.vel_r)
+            vel_r = cfg.vel_r;
+        end
+        if isfield(cfg, 'pos_meas_noise') && ~isempty(cfg.pos_meas_noise)
+            pos_meas_noise = cfg.pos_meas_noise;
+        end
+        if isfield(cfg, 'vel_limit') && ~isempty(cfg.vel_limit)
+            vel_limit = cfg.vel_limit;
+        end
+        if isfield(cfg, 'vmax_cap') && ~isempty(cfg.vmax_cap)
+            vmax_cap = cfg.vmax_cap;
+        end
+    catch
+    end
+
     if dryrun
         dprintf = @(varargin) [];
         visibleFlag = 'off'; % suppress any figure visibility
@@ -267,6 +291,8 @@ end
         warning('Task 5: accel bias recomputation failed; using Task 2 bias');
     end
     dprintf('Method %s: Scale factor: %.4f\n', method, scale_factor);
+    dprintf('Task 5: Using vel_q_scale=%.3f, vel_r=%.3f, pos_meas_noise=%.3f\n', vel_q_scale, vel_r, pos_meas_noise);
+    dprintf('Task 5: Velocity limits | vel_limit=%.1f m/s, vmax_cap=%.1f m/s\n', vel_limit, vmax_cap);
 
     % Apply bias correction to IMU data
     gyro_body_raw = gyro_body_raw - gyro_bias';
@@ -309,13 +335,14 @@ P(7:9,7:9)   = eye(3) * deg2rad(5)^2; % Attitude uncertainty (5 deg)
 P(10:15,10:15) = eye(6) * 1e-4;      % Bias uncertainty
 
 % Process/measurement noise (aligned with Python defaults)
-Q = eye(15) * 1e-4;
+ Q = eye(15) * 1e-4;
 Q(4:6,4:6) = eye(3) * 0.01 * vel_q_scale;
 Q(10:12,10:12) = eye(3) * accel_bias_noise;
 Q(13:15,13:15) = eye(3) * gyro_bias_noise;
-R = zeros(6);
-R(1:3,1:3) = eye(3) * pos_meas_noise^2;
-R(4:6,4:6) = eye(3) * 0.25;
+ R = zeros(6);
+ R(1:3,1:3) = eye(3) * pos_meas_noise^2;
+ % Honour configured velocity measurement variance (was hardcoded 0.25)
+ R(4:6,4:6) = eye(3) * vel_r;
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
@@ -428,7 +455,6 @@ vel_blow_count = 0;             % track number of velocity blow-ups
 accel_std_thresh = 0.05;        % [m/s^2]
 gyro_std_thresh  = 0.005;       % [rad/s]
 vel_thresh       = 0.1;         % [m/s]
-vel_limit        = 500;         % [m/s] hard bound for velocity magnitude
 vel_exceed_log   = zeros(0,2);  % [k,|v|] log for debugging
 % Innovation logs for Task-7 diagnostics
 innov_d2_total = nan(1, num_imu_samples);
@@ -664,7 +690,7 @@ for i = 1:num_imu_samples
 
     % --- Log State and Attitude ---
     % Safety clamp: cap velocity norm to mitigate late-run blow-ups
-    vmax = 50; % m/s cap for this dataset
+    vmax = vmax_cap; % m/s safety cap (configurable)
     vnorm = norm(x(4:6));
     if vnorm > vmax
         x(4:6) = x(4:6) * (vmax / vnorm);
