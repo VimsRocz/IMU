@@ -372,8 +372,33 @@ def _save_png_and_mat(path_png, arrays):
         print(f"[WARN] Failed to save PNG {path_png}: {e}")
 
     # 2) Save MATLAB .mat with arrays for reproducibility
+    #    Align all arrays on first dimension to a common length when a time
+    #    vector 't' is provided, to avoid downstream length mismatches.
     try:
-        savemat(base + '.mat', arrays)
+        to_save = dict(arrays)
+        # Normalise and align shapes if a reference time vector is present
+        if 't' in to_save:
+            import numpy as _np
+            t_vec = _np.ravel(_np.asarray(to_save['t']))
+            lengths = []
+            # Gather candidate lengths from arrays that have a first-dimension length
+            for k, v in to_save.items():
+                a = _np.asarray(v)
+                if a.ndim >= 1 and a.shape[0] > 0:
+                    lengths.append(int(a.shape[0]))
+            if lengths:
+                n = int(min(lengths))
+                if any(L != n for L in lengths):
+                    print(f"[Align] Harmonising lengths to n={n} for MAT save: "
+                          + ", ".join(f"{k}:{_np.asarray(v).shape}" for k, v in to_save.items()))
+                # Trim all arrays on the first axis to common n
+                for k, v in list(to_save.items()):
+                    a = _np.asarray(v)
+                    if a.ndim >= 1 and a.shape[0] != n:
+                        to_save[k] = a[:n]
+                # Also trim 't' explicitly in case it's longer
+                to_save['t'] = t_vec[:n]
+        savemat(base + '.mat', to_save)
         print(f"[MAT] {base + '.mat'}")
     except Exception as e:
         print(f"[WARN] Failed to save MAT {base + '.mat'}: {e}")
