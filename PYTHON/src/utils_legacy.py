@@ -408,16 +408,27 @@ def ecef_to_geodetic(x: float, y: float, z: float) -> Tuple[float, float, float]
     a = 6378137.0
     e_sq = 6.69437999014e-3
     p = np.sqrt(x ** 2 + y ** 2)
+    lon = np.arctan2(y, x)
+
+    # Initial latitude estimate (Bowring's formula)
     b = a * np.sqrt(1 - e_sq)
     theta = np.arctan2(z * a, p * b)
-    ep_sq = (a ** 2 - b ** 2) / b ** 2
-    lon = np.arctan2(y, x)
     lat = np.arctan2(
-        z + ep_sq * b * np.sin(theta) ** 3,
+        z + (e_sq * b) * np.sin(theta) ** 3,
         p - e_sq * a * np.cos(theta) ** 3,
     )
-    N = a / np.sqrt(1 - e_sq * np.sin(lat) ** 2)
-    alt = p / np.cos(lat) - N
+
+    # Iterate to refine latitude and altitude; typically converges in <5 steps
+    alt = 0.0
+    for _ in range(5):
+        N = a / np.sqrt(1 - e_sq * np.sin(lat) ** 2)
+        alt_prev = alt
+        alt = p / np.cos(lat) - N
+        lat_prev = lat
+        lat = np.arctan2(z, p * (1 - e_sq * N / (N + alt)))
+        if abs(lat - lat_prev) < 1e-12 and abs(alt - alt_prev) < 1e-9:
+            break
+
     return float(np.degrees(lat)), float(np.degrees(lon)), float(alt)
 
 
