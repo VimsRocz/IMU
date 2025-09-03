@@ -157,15 +157,29 @@ fprintf('Longitude (deg):             %.6f\n', lon_deg);
 % ================================
 fprintf('\nSubtask 1.5: Plotting location on Earth map.\n');
 
-fig = figure('Name','Task 1 – Initial Location (World View)');
-gx = geoaxes(fig,'Basemap','colorterrain');
-hold(gx,'on');
-geolimits(gx,[-90 90],[-180 180]);
-geoscatter(gx,lat_deg,lon_deg,100,'r','filled');
-text(gx,lat_deg,lon_deg,tag,'VerticalAlignment','bottom');
-title(gx,'Location on Earth Map');
+% Some environments (headless or library-mismatch) cannot initialise
+% geoaxes/basemap. Fall back to a simple lon/lat plot if that happens.
 fig_path = fullfile(results_dir, sprintf('%s_task1_location_map.fig', tag));
-savefig(fig, fig_path);
+try
+    fig = figure('Name','Task 1 – Initial Location (World View)');
+    gx = geoaxes(fig,'Basemap','colorterrain');
+    hold(gx,'on');
+    geolimits(gx,[-90 90],[-180 180]);
+    geoscatter(gx,lat_deg,lon_deg,100,'r','filled');
+    text(gx,lat_deg,lon_deg,tag,'VerticalAlignment','bottom');
+    title(gx,'Location on Earth Map');
+    savefig(fig, fig_path);
+catch ME
+    warning('Task1:GeoaxesFailed','Skipping basemap (geoaxes init failed): %s', ME.message);
+    fig = figure('Name','Task 1 – Initial Location (Lon/Lat)');
+    ax = axes(fig); hold(ax,'on');
+    plot(ax, lon_deg, lat_deg, 'ro','MarkerFaceColor','r');
+    text(ax, lon_deg, lat_deg, [' ' tag], 'VerticalAlignment','bottom');
+    xlim(ax, [-180 180]); ylim(ax, [-90 90]); grid(ax,'on'); box(ax,'on');
+    xlabel(ax, 'Longitude [deg]'); ylabel(ax, 'Latitude [deg]');
+    title(ax, 'Location (no basemap)');
+    savefig(fig, fig_path);
+end
 
 % Prepare Task 1 artifacts
 fprintf('Saving Task 1 artifacts...\n');
