@@ -285,9 +285,9 @@ try
         if size(q_tru,1) ~= n_final, q_tru = q_tru(1:n_final,:); end
         if numel(t_est)   ~= n_final, t_est = t_est(1:n_final); end
 
-        % Normalize
-        q_est = q_est ./ vecnorm(q_est,2,2);
-        q_tru = q_tru ./ vecnorm(q_tru,2,2);
+        % Normalize (avoid implicit expansion issues on older MATLAB)
+        q_est = bsxfun(@rdivide, q_est, max(eps, vecnorm(q_est,2,2)));
+        q_tru = bsxfun(@rdivide, q_tru, max(eps, vecnorm(q_tru,2,2)));
 
         % Convert truth ECEF-based quaternions into Body->NED to match estimator.
         % Try both interpretations (Body<-ECEF and ECEF<-Body) and choose the
@@ -306,8 +306,9 @@ try
             q_truth_nb_1(k,:) = dcm_to_quat(R_nb_1);
             q_truth_nb_2(k,:) = dcm_to_quat(R_nb_2);
         end
-        dots1 = abs(sum(q_est .* q_truth_nb_1, 2)); dots1 = max(-1,min(1,dots1)); ang1 = 2*acosd(dots1);
-        dots2 = abs(sum(q_est .* q_truth_nb_2, 2)); dots2 = max(-1,min(1,dots2)); ang2 = 2*acosd(dots2);
+        % Dot products with explicit bsxfun to avoid size broadcasting issues
+        dots1 = abs(sum(bsxfun(@times, q_est, q_truth_nb_1), 2)); dots1 = max(-1,min(1,dots1)); ang1 = 2*acosd(dots1);
+        dots2 = abs(sum(bsxfun(@times, q_est, q_truth_nb_2), 2)); dots2 = max(-1,min(1,dots2)); ang2 = 2*acosd(dots2);
         m1 = mean(ang1,'omitnan'); m2 = mean(ang2,'omitnan');
         fprintf('Task 7: Est attitude is Body->NED (C_{nb}).\\n');
         fprintf('Task 7: Truth quat mapping test (deg): meanErr C_e2n*(C_B_E)^T=%.2f, C_e2n*C_E_B=%.2f\\n', m1, m2);
@@ -341,10 +342,10 @@ try
             q_est_aligned(kk,:) = dcm_to_quat(R_est_aligned(:,:,kk));
         end
         % Hemisphere alignment: flip estimator to agree with truth
-        flipMask = sum(q_tru_nb .* q_est_aligned, 2) < 0;
+        flipMask = sum(bsxfun(@times, q_tru_nb, q_est_aligned), 2) < 0;
         q_est_aligned(flipMask,:) = -q_est_aligned(flipMask,:);
         % Compute final error with aligned estimator
-        dots = abs(sum(q_est_aligned .* q_tru_nb, 2)); dots = max(-1,min(1,dots));
+        dots = abs(sum(bsxfun(@times, q_est_aligned, q_tru_nb), 2)); dots = max(-1,min(1,dots));
         ang_deg = 2 * acosd(dots);
         f = figure('Visible','on','Position',[100 100 700 300]);
         plot(t_est, ang_deg, 'LineWidth', 1.2); grid on;
@@ -365,7 +366,20 @@ try
         % New Task 7 overlays: Position/Velocity/Euler and Quaternion components
         eul_est_deg = quat_to_euler_deg_batch(q_est_aligned);
         eul_tru_deg = quat_to_euler_deg_batch(q_tru_nb);
-        plot_task7_overlay_pveul(t_est, pos_est, pos_tru_i, vel_est, vel_tru_i, eul_est_deg, eul_tru_deg, out_dir);
+        % Align lengths for attitude overlays to prevent size mismatches
+        nE = min([size(eul_est_deg,1), size(eul_tru_deg,1), numel(t_est)]);
+        if nE == 0
+            error('Task7:EulerAlign','Empty Euler arrays after conversion');
+        end
+        if size(eul_est_deg,1) ~= nE, eul_est_deg = eul_est_deg(1:nE,:); end
+        if size(eul_tru_deg,1) ~= nE, eul_tru_deg = eul_tru_deg(1:nE,:); end
+        t_plot = t_est(1:nE);
+        % Match position/velocity arrays to plot time
+        pos_est_plot = pos_est(1:min(size(pos_est,1), nE), :);
+        pos_tru_plot = pos_tru_i(1:min(size(pos_tru_i,1), nE), :);
+        vel_est_plot = vel_est(1:min(size(vel_est,1), nE), :);
+        vel_tru_plot = vel_tru_i(1:min(size(vel_tru_i,1), nE), :);
+        plot_task7_overlay_pveul(t_plot, pos_est_plot, pos_tru_plot, vel_est_plot, vel_tru_plot, eul_est_deg, eul_tru_deg, out_dir);
         plot_task7_quat_components(t_est, q_est_aligned, q_tru_nb, out_dir);
 
         % Save attitude error series for downstream metrics/inspection
@@ -438,7 +452,9 @@ try
         end
 
         % Euler RMSE summary (deg) with wrap handling to [-180,180]
-        de = eul_est_deg - eul_tru_deg;
+        % Ensure same length before subtraction
+        nE = min(size(eul_est_deg,1), size(eul_tru_deg,1));
+        de = eul_est_deg(1:nE,:) - eul_tru_deg(1:nE,:);
         de = mod(de + 180, 360) - 180;
         rmse_eul = sqrt(mean(de.^2, 1)); % [roll pitch yaw]
         summary.euler_rmse_deg = rmse_eul;

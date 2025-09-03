@@ -354,6 +354,48 @@ if ~isempty(q_hist) && size(unique(q_hist.', 'rows'),1) > 1
 end
 fprintf('[Task6] Using %s quaternion: %d\n', quatType, ~isempty(q_hist));
 
+% Extra: concise PV overlays (NED) and quaternion timeline
+try
+    % Position/Velocity overlay in NED
+    if exist('TRU_NED','var') && exist('EST_NED','var') && ~isempty(TRU_NED.pos) && ~isempty(EST_NED.pos)
+        fig_pv = figure('Name','Task6 PV Overlay (NED)','Position',[120 120 1200 800], 'Visible','on');
+        labels = {'North','East','Down'};
+        for k = 1:3
+            subplot(2,3,k); hold on;
+            plot(t_est, TRU_NED.pos(:,k), 'k-', 'DisplayName','Truth');
+            plot(t_est, EST_NED.pos(:,k), 'b-', 'DisplayName','Fused');
+            grid on; ylabel('m'); title(['Pos ' labels{k}]); legend('Location','best');
+            subplot(2,3,3+k); hold on;
+            plot(t_est, TRU_NED.vel(:,k), 'k-');
+            plot(t_est, EST_NED.vel(:,k), 'b-');
+            grid on; ylabel('m/s'); title(['Vel ' labels{k}]);
+        end
+        xlabel('Time [s]');
+        pv_base = fullfile(out6_dir, sprintf('%s_task6_overlay_PV_NED', runTag));
+        try, exportgraphics(fig_pv, [pv_base '.png'], 'Resolution', 200); catch, print(fig_pv, [pv_base '.png'], '-dpng', '-r200'); end
+        try, print(fig_pv, [pv_base '.pdf'], '-dpdf', '-bestfit'); catch, end
+        try, savefig(fig_pv, [pv_base '.fig']); catch, end
+        % keep open for user when popup_figures=true
+    end
+    % Quaternion components (estimator)
+    if exist('q_est','var') && size(q_est,1) == numel(t_est)
+        fig_q = figure('Name','Task6 Quaternion (Estimator)','Position',[160 160 900 550], 'Visible','on');
+        plot(t_est, q_est(:,1), 'k-', 'LineWidth',1.0); hold on;
+        plot(t_est, q_est(:,2), 'r-','LineWidth',1.0);
+        plot(t_est, q_est(:,3), 'g-','LineWidth',1.0);
+        plot(t_est, q_est(:,4), 'b-','LineWidth',1.0);
+        grid on; xlabel('Time [s]'); ylabel('q');
+        title('Estimator Quaternion (Body->NED), [q0 q1 q2 q3]');
+        legend('q0','q1','q2','q3','Location','best');
+        q_base = fullfile(out6_dir, sprintf('%s_task6_quaternion_est', runTag));
+        try, exportgraphics(fig_q, [q_base '.png'], 'Resolution', 200); catch, print(fig_q, [q_base '.png'], '-dpng', '-r200'); end
+        try, print(fig_q, [q_base '.pdf'], '-dpdf', '-bestfit'); catch, end
+        try, savefig(fig_q, [q_base '.fig']); catch, end
+    end
+catch ME
+    warning('Task 6: supplemental PV/quaternion plots failed: %s', ME.message);
+end
+
 if exist('Task_7.m','file')
     Task_7();
 end
