@@ -2588,6 +2588,50 @@ def main():
     with gzip.open(fname, "wb") as f:
         pickle.dump(pack, f)
 
+    # Align truth quaternions to IMU timeline if available -----------------
+    q_truth_i = None
+    if args.init_att_with_truth and truth_file:
+        try:
+            import numpy as _np
+            from scipy.spatial.transform import Rotation as _R
+
+            truth_arr = _np.loadtxt(truth_file)
+            t_cols = []
+            for c in range(min(3, truth_arr.shape[1])):
+                col = truth_arr[:, c].astype(float)
+                if _np.all(_np.isfinite(col)) and (
+                    _np.nanmax(col) - _np.nanmin(col)
+                ) > 0:
+                    t_cols.append((c, float(_np.nanmax(col) - _np.nanmin(col)), col))
+            t_cols.sort(key=lambda x: x[1])
+            t_truth = t_cols[0][2]
+            q_truth = truth_arr[:, -4:]
+
+            if args.truth_quat_frame == "ECEF":
+                C_e2n = compute_C_ECEF_to_NED(ref_lat, ref_lon)
+                qn_list = []
+                for q in q_truth:
+                    r_be = _R.from_quat([q[1], q[2], q[3], q[0]])
+                    R_bn = C_e2n @ r_be.as_matrix()
+                    r_bn = _R.from_matrix(R_bn)
+                    q_xyzw = r_bn.as_quat()
+                    qn_list.append([q_xyzw[3], q_xyzw[0], q_xyzw[1], q_xyzw[2]])
+                q_truth = _np.asarray(qn_list)
+
+            q_truth = q_truth / (
+                _np.linalg.norm(q_truth, axis=1, keepdims=True) + 1e-12
+            )
+            _sign_mask = q_truth[:, 0] < 0
+            q_truth[_sign_mask, :] *= -1.0
+
+            idx_nn = _np.searchsorted(
+                t_truth, imu_time.clip(t_truth[0], t_truth[-1])
+            )
+            idx_nn = _np.clip(idx_nn, 0, len(t_truth) - 1)
+            q_truth_i = q_truth[idx_nn]
+        except Exception as exc:
+            logging.warning("Failed to load truth quaternions for summary: %s", exc)
+
     # --- Final plots -------------------------------------------------------
     if not args.no_plots:
         dataset_id = imu_stem.split("_")[1]
@@ -2708,6 +2752,23 @@ def main():
             except Exception as ex:
                 logging.warning("Failed to save Task 7 attitude comparison: %s", ex)
 
+    q_final = attitude_q_all[method][-1].copy()
+    q_final = q_final / (np.linalg.norm(q_final) + 1e-12)
+    if q_final[0] < 0:
+        q_final *= -1.0
+
+    att_err_deg = float("nan")
+    if q_truth_i is not None:
+        try:
+            q_truth_final = q_truth_i[-1]
+            q_est_final = q_final.copy()
+            if np.dot(q_truth_final, q_est_final) < 0:
+                q_est_final *= -1.0
+            dot = np.clip(np.dot(q_truth_final, q_est_final), -1.0, 1.0)
+            att_err_deg = 2.0 * np.degrees(np.arccos(dot))
+        except Exception as exc:
+            logging.warning("Failed to compute final attitude error: %s", exc)
+
     logging.info(
         f"[SUMMARY] method={method:<9} imu={os.path.basename(imu_file)} gnss={os.path.basename(gnss_file)} "
         f"rmse_pos={rmse_pos:7.2f}m final_pos={final_pos:7.2f}m "
@@ -2716,7 +2777,9 @@ def main():
         f"accel_bias={np.linalg.norm(accel_bias):.4f} gyro_bias={np.linalg.norm(gyro_bias):.4f} "
         f"ZUPT_count={zupt_counts.get(method,0)} "
         f"GravErrMean_deg={grav_err_mean:.6f} GravErrMax_deg={grav_err_max:.6f} "
-        f"EarthRateErrMean_deg={omega_err_mean:.6f} EarthRateErrMax_deg={omega_err_max:.6f}"
+        f"EarthRateErrMean_deg={omega_err_mean:.6f} EarthRateErrMax_deg={omega_err_max:.6f} "
+        f"att_err_deg={att_err_deg:.6f} "
+        f"q_final=[{q_final[0]:.6f},{q_final[1]:.6f},{q_final[2]:.6f},{q_final[3]:.6f}]"
     )
 
 
