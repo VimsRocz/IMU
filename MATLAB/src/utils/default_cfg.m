@@ -18,6 +18,12 @@ cfg.strict = true;   % tasks should error on missing inputs
 cfg.zupt_acc_var  = 0.01;   % accelerometer variance threshold
 cfg.zupt_gyro_var = 1e-6;   % gyroscope variance threshold
 
+% ZUPT detection configuration (Task-5 liftoff logic)
+cfg.zupt = struct();
+cfg.zupt.acc_movstd_thresh = 0.15;
+cfg.zupt.min_pre_lift_s    = 5;
+cfg.zupt.speed_thresh_mps  = 0.30;
+
 % Kalman filter tuning (parity with Python defaults)
 cfg.vel_q_scale   = 10.0; % scales Q(4:6,4:6) base (0.01)
 cfg.vel_sigma_mps = 5.0;  % FIX: velocity measurement sigma [m/s]
