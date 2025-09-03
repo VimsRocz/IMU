@@ -447,6 +447,13 @@ def normal_gravity(lat: float, h: float = 0.0) -> float:
     float
         Gravity magnitude in m/s² using the WGS‑84 model.
     """
+    # Allow ``lat`` and ``h`` to be passed as numpy arrays of size one or other
+    # array-like types.  ``np.asarray(x).item()`` reliably extracts the scalar
+    # value without raising "setting an array element with a sequence" errors
+    # when these functions are called with values produced by interpolation
+    # routines.
+    lat = np.asarray(lat).item()
+    h = np.asarray(h).item()
     sin_lat = np.sin(lat)
     g = (
         9.7803253359
@@ -458,6 +465,13 @@ def normal_gravity(lat: float, h: float = 0.0) -> float:
 
 def gravity_ecef(lat: float, lon: float, h: float = 0.0) -> np.ndarray:
     """Return gravity vector in ECEF coordinates."""
+    # Accept latitude, longitude and height provided as scalars or length-one
+    # arrays.  ``np.asarray(x).item()`` extracts the underlying float so
+    # downstream computations operate on plain Python scalars even if callers
+    # supply numpy scalars or arrays.
+    lat = np.asarray(lat).item()
+    lon = np.asarray(lon).item()
+    h = np.asarray(h).item()
     g_ned = np.array([0.0, 0.0, normal_gravity(lat, h)])
     return compute_C_ECEF_to_NED(lat, lon).T @ g_ned
 

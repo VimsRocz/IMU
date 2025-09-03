@@ -4,6 +4,8 @@ from src.utils import (
     save_static_zupt_params,
     ecef_to_ned,
     compute_C_ECEF_to_NED,
+    gravity_ecef,
+    normal_gravity,
     zero_base_time,
 )
 
@@ -58,3 +60,13 @@ def test_zero_base_time_empty_and_shift():
     assert zero_base_time([]).size == 0
     t = np.array([5.0, 6.5, 7.0])
     assert np.allclose(zero_base_time(t), t - 5.0)
+
+
+def test_gravity_functions_accept_array_inputs():
+    lat = np.array([0.1])
+    lon = np.array([0.2])
+    h = np.array([50.0])
+    g_mag = normal_gravity(lat, h)
+    assert isinstance(g_mag, float)
+    g_vec = gravity_ecef(lat, lon, h)
+    assert g_vec.shape == (3,)
