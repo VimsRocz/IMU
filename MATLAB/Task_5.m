@@ -1,5 +1,5 @@
-function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
-%TASK_5  Run 15-state EKF using IMU & GNSS NED positions
+function result = Task_5(imu_path, truth_path, method, truth_pos_ned, varargin)
+%TASK_5  Run 15-state EKF using IMU & Truth NED positions
 %   Expects Task 1 outputs saved in the results directory for gravity
 %   initialization.
 %
@@ -7,13 +7,13 @@ function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
 %   bias-corrected accelerations.  When no scale factor is supplied or
 %   available, a neutral factor of 1.0 is used.
 %
-%   result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
+%   result = Task_5(imu_path, truth_path, method, truth_pos_ned)
 %   Optional name/value arguments mirror the Python Kalman filter defaults:
 %       'accel_noise'      - process noise for acceleration             [m/s^2]  (0.1)
 %       'vel_proc_noise'   - extra velocity process noise               [m/s^2]  (0.0)
 %       'pos_proc_noise'   - position process noise                     [m]      (0.0)
-%       'pos_meas_noise'   - GNSS position measurement noise            [m]      (1.0)
-%       'vel_meas_noise'   - GNSS velocity measurement noise            [m/s]    (1.0)
+%       'pos_meas_noise'   - Truth position measurement noise            [m]      (1.0)
+%       'vel_meas_noise'   - Truth velocity measurement noise            [m/s]    (1.0)
 %       'accel_bias_noise' - accelerometer bias random walk             [m/s^2]  (1e-5)
 %       'gyro_bias_noise'  - gyroscope bias random walk                 [rad/s]  (1e-5)
 %       'vel_q_scale'      - scale for Q(4:6,4:6) velocity process noise [-]      (1.0)
@@ -64,8 +64,8 @@ end
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
-    if nargin < 2 || isempty(gnss_path)
-        error('GNSS path not specified');
+    if nargin < 2 || isempty(truth_path)
+        error('Truth path not specified');
     end
     if nargin < 3 || isempty(method)
         method = 'TRIAD';
@@ -74,14 +74,14 @@ end
     % Allow string or char inputs for file paths and convert to char
     pin = inputParser;
     addRequired(pin, 'imu_path', @(x) isstring(x) || ischar(x));
-    addRequired(pin, 'gnss_path', @(x) isstring(x) || ischar(x));
+    addRequired(pin, 'truth_path', @(x) isstring(x) || ischar(x));
     addRequired(pin, 'method',    @(x) isstring(x) || ischar(x));
-    addOptional(pin, 'gnss_pos_ned', [], @(x) isempty(x) || isnumeric(x));
-    parse(pin, imu_path, gnss_path, method, gnss_pos_ned);
+    addOptional(pin, 'truth_pos_ned', [], @(x) isempty(x) || isnumeric(x));
+    parse(pin, imu_path, truth_path, method, truth_pos_ned);
     imu_path    = char(pin.Results.imu_path);
-    gnss_path   = char(pin.Results.gnss_path);
+    truth_path   = char(pin.Results.truth_path);
     method      = char(pin.Results.method);
-    gnss_pos_ned = pin.Results.gnss_pos_ned;
+    truth_pos_ned = pin.Results.truth_pos_ned;
 
     % Optional noise parameters
     p = inputParser;
@@ -94,7 +94,6 @@ end
     addParameter(p, 'gyro_bias_noise', 1e-5);  % [rad/s]
     addParameter(p, 'vel_q_scale', 1.0);       % [-]
     addParameter(p, 'vel_sigma_mps', 5.0);     % FIX: velocity meas sigma [m/s]
-    addParameter(p, 'truth_path', '');         % optional truth file for dt
     addParameter(p, 'trace_first_n', 0);       % [steps] capture first N KF steps
     addParameter(p, 'max_steps', inf);         % [steps] limit processing for tuning
     addParameter(p, 'scale_factor', []);       % [-]
@@ -109,8 +108,7 @@ end
     gyro_bias_noise  = p.Results.gyro_bias_noise;
     vel_q_scale     = p.Results.vel_q_scale;
     vel_sigma_mps   = p.Results.vel_sigma_mps; % [m/s]
-    truth_path      = char(p.Results.truth_path);
-    trace_first_n   = p.Results.trace_first_n;
+        trace_first_n   = p.Results.trace_first_n;
     max_steps       = p.Results.max_steps;
     scale_factor    = p.Results.scale_factor;
     dryrun          = p.Results.dryrun;
@@ -121,10 +119,10 @@ end
         dprintf = @fprintf;
     end
 
-    if ~isfile(gnss_path)
-        error('Task_5:GNSSFileNotFound', ...
-              'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
-              gnss_path);
+    if ~isfile(truth_path)
+        error('Task_5:TruthFileNotFound', ...
+              'Could not find Truth data at:\n  %s\nCheck path or filename.', ...
+              truth_path);
     end
     if ~isfile(imu_path)
         error('Task_5:IMUFileNotFound', ...
@@ -132,10 +130,10 @@ end
               imu_path);
     end
     [~, imu_name, ~] = fileparts(imu_path);
-    [~, gnss_name, ~] = fileparts(gnss_path);
+    [~, truth_name, ~] = fileparts(truth_path);
     % Consistent IDs: pair_tag without method; run_id with method
-    pair_tag = sprintf('%s_%s', imu_name, gnss_name);
-    run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
+    pair_tag = sprintf('%s_%s', imu_name, truth_name);
+    run_id = sprintf('%s_%s_%s', imu_name, truth_name, method);
 
     if isempty(method)
         log_tag = '';
@@ -171,27 +169,16 @@ end
         assignin('base','C_B_N_ref', C_B_N);
     end
 
-    dprintf('Subtask 5.3: Loading GNSS and IMU data.\n');
-    % Load GNSS data to obtain time and velocity
-    gnss_tbl = readtable(gnss_path);
-    gnss_time = zero_base_time(gnss_tbl.Posix_Time);
-    pos_cols = {'X_ECEF_m','Y_ECEF_m','Z_ECEF_m'};
-    gnss_pos_ecef = gnss_tbl{:, pos_cols};
-    vx = gnss_tbl.VX_ECEF_mps;
-    vy = gnss_tbl.VY_ECEF_mps;
-    vz = gnss_tbl.VZ_ECEF_mps;
-    gnss_vel_ecef = [vx vy vz];
+    dprintf('Subtask 5.3: Loading Truth and IMU data.\n');
+    % Load Truth data to obtain time and velocity
+    truth_data = read_state_file(truth_path);
+    truth_time = zero_base_time(truth_data(:,2));
+    truth_pos_ecef = truth_data(:,3:5);
+    truth_vel_ecef = truth_data(:,6:8);
     % Reference origin: median ECEF position for consistent frame
-    ref_r0 = median(gnss_pos_ecef,1)'; % FIX: use median GNSS ECEF
-    % Optional DOP columns
-    hdop = []; vdop = [];
-    if ismember('HDOP', gnss_tbl.Properties.VariableNames)
-        hdop = gnss_tbl.HDOP;
-    end
-    if ismember('VDOP', gnss_tbl.Properties.VariableNames)
-        vdop = gnss_tbl.VDOP;
-    end
-    dop = max(hdop, vdop);
+    ref_r0 = median(truth_pos_ecef,1)'; % FIX: use median Truth ECEF
+    % Truth files do not provide DOP information
+    hdop = []; vdop = []; dop = [];
     % Prefer Mapping Toolbox signature; fall back to local helper if shadowed
     try
         wgs84 = wgs84Ellipsoid("meter");
@@ -209,48 +196,48 @@ end
     assignin('base','ref_lat', deg2rad(lat_deg));
     assignin('base','ref_lon', deg2rad(lon_deg));
     assignin('base','ref_r0',  ref_r0);
-    % Convert GNSS measurements from ECEF to NED to guarantee a common frame
-    gnss_pos_ned_calc = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
-    gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
-    % Optional: clip GNSS speeds (disabled)
+    % Convert Truth measurements from ECEF to NED to guarantee a common frame
+    truth_pos_ned_calc = (C_ECEF_to_NED * (truth_pos_ecef' - ref_r0))';
+    truth_vel_ned = (C_ECEF_to_NED * truth_vel_ecef')';
+    % Optional: clip Truth speeds (disabled)
     try
-        speed_clip_mps = Inf; % FIX: remove GNSS speed cap
-        spd = vecnorm(gnss_vel_ned,2,2);
+        speed_clip_mps = Inf; % FIX: remove Truth speed cap
+        spd = vecnorm(truth_vel_ned,2,2);
         idx = spd > speed_clip_mps & isfinite(spd);
         if any(idx)
             scale = speed_clip_mps ./ max(spd(idx), eps);
-            gnss_vel_ned(idx,:) = gnss_vel_ned(idx,:) .* scale;
+            truth_vel_ned(idx,:) = truth_vel_ned(idx,:) .* scale;
         end
     catch
     end
-    if nargin >= 4 && ~isempty(gnss_pos_ned)
-        diff_pos = max(abs(gnss_pos_ned(:) - gnss_pos_ned_calc(:)));
+    if nargin >= 4 && ~isempty(truth_pos_ned)
+        diff_pos = max(abs(truth_pos_ned(:) - truth_pos_ned_calc(:)));
         if diff_pos > 1e-3
-            warning('Provided gnss\_pos\_ned differs from computed NED positions (max %.3f m); using computed values.', diff_pos);
-            gnss_pos_ned = gnss_pos_ned_calc;
+            warning('Provided truth\_pos\_ned differs from computed NED positions (max %.3f m); using computed values.', diff_pos);
+            truth_pos_ned = truth_pos_ned_calc;
         end
     else
-        gnss_pos_ned = gnss_pos_ned_calc;
+        truth_pos_ned = truth_pos_ned_calc;
     end
-    dt_gnss = diff(gnss_time);
-    % Fallback: build GNSS NED velocity from position diffs if velocity missing or near-zero
+    dt_truth = diff(truth_time);
+    % Fallback: build Truth NED velocity from position diffs if velocity missing or near-zero
     try
-        if ~exist('gnss_vel_ned','var') || isempty(gnss_vel_ned) || all(vecnorm(gnss_vel_ned,2,2) < 1e-6)
-            vned = [ (gnss_pos_ned(2:end,:) - gnss_pos_ned(1:end-1,:)) ./ max(1e-6, dt_gnss), [0 0 0] ];
-            vned = vned(1:size(gnss_pos_ned,1),:);
-            gnss_vel_ned = vned;
-            dprintf('[Task5] Built GNSS NED velocity via finite differences.\n');
+        if ~exist('truth_vel_ned','var') || isempty(truth_vel_ned) || all(vecnorm(truth_vel_ned,2,2) < 1e-6)
+            vned = [ (truth_pos_ned(2:end,:) - truth_pos_ned(1:end-1,:)) ./ max(1e-6, dt_truth), [0 0 0] ];
+            vned = vned(1:size(truth_pos_ned,1),:);
+            truth_vel_ned = vned;
+            dprintf('[Task5] Built Truth NED velocity via finite differences.\n');
         end
     catch
     end
-    gnss_accel_ned  = [zeros(1,3); diff(gnss_vel_ned) ./ dt_gnss];
-    gnss_accel_ecef = [zeros(1,3); diff(gnss_vel_ecef) ./ dt_gnss];
-    gnss_speed = vecnorm(gnss_vel_ned,2,2);
-    % Early GNSS speed stats and yaw-aid tip (helps configuration)
+    truth_accel_ned  = [zeros(1,3); diff(truth_vel_ned) ./ dt_truth];
+    truth_accel_ecef = [zeros(1,3); diff(truth_vel_ecef) ./ dt_truth];
+    truth_speed = vecnorm(truth_vel_ned,2,2);
+    % Early Truth speed stats and yaw-aid tip (helps configuration)
     try
-        spd_h = hypot(gnss_vel_ned(:,1), gnss_vel_ned(:,2));
+        spd_h = hypot(truth_vel_ned(:,1), truth_vel_ned(:,2));
         smin = min(spd_h, [], 'omitnan'); smed = median(spd_h, 'omitnan'); smax = max(spd_h, [], 'omitnan');
-        dprintf('[Task5] GNSS horizontal speed stats (m/s): min=%.3f  median=%.3f  max=%.3f\n', smin, smed, smax);
+        dprintf('[Task5] Truth horizontal speed stats (m/s): min=%.3f  median=%.3f  max=%.3f\n', smin, smed, smax);
         if isfield(cfg,'yawaid') && isfield(cfg.yawaid,'enabled') && cfg.yawaid.enabled && isfield(cfg.yawaid,'min_speed_mps')
             if smed < cfg.yawaid.min_speed_mps
                 dprintf('[Task5] Tip: median speed < yaw-aid min_speed_mps (%.2f < %.2f). Consider lowering the gate.\n', smed, cfg.yawaid.min_speed_mps);
@@ -302,7 +289,7 @@ end
     if isempty(accel_bias) || isempty(gyro_bias)
         % Fallback to Task 2
         task2_file = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', ...
-            imu_name, gnss_name, method));
+            imu_name, truth_name, method));
         if isfile(task2_file)
             S2 = load(task2_file);
             bd = S2.body_data;
@@ -349,27 +336,27 @@ end
 % =========================================================================
 dprintf('\nSubtask 5.1-5.5: Configuring and Initializing 15-State Kalman Filter.\n');
 results4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-if nargin < 4 || isempty(gnss_pos_ned)
+if nargin < 4 || isempty(truth_pos_ned)
     if evalin('base','exist(''task4_results'',''var'')')
-        gnss_pos_ned = evalin('base','task4_results.gnss_pos_ned');
+        truth_pos_ned = evalin('base','task4_results.truth_pos_ned');
     else
         if ~isfile(results4)
             error('Task_5:MissingResults', ...
-                  'Task 4 must run first and save gnss_pos_ned.');
+                  'Task 4 must run first and save truth_pos_ned.');
         end
-        S = load(results4,'gnss_pos_ned');
-        if ~isfield(S,'gnss_pos_ned')
+        S = load(results4,'truth_pos_ned');
+        if ~isfield(S,'truth_pos_ned')
             error('Task_5:BadMATfile', ...
-                  '''gnss_pos_ned'' not found in %s', results4);
+                  '''truth_pos_ned'' not found in %s', results4);
         end
-        gnss_pos_ned = S.gnss_pos_ned;
+        truth_pos_ned = S.truth_pos_ned;
     end
 end
 % State vector x: [pos; vel; euler; accel_bias; gyro_bias] (15x1)
 init_eul = quat_to_euler(rot_to_quaternion(C_B_N));
 x = zeros(15, 1);
-x(1:3)  = gnss_pos_ned(1,:)';
-x(4:6)  = gnss_vel_ned(1,:)';
+x(1:3)  = truth_pos_ned(1,:)';
+x(4:6)  = truth_vel_ned(1,:)';
 x(7:9)  = init_eul;
 x(10:12) = accel_bias(:);
 x(13:15) = gyro_bias(:);
@@ -510,7 +497,7 @@ innov_d2_vel   = nan(1, num_imu_samples);
 yaw_aid_flag         = zeros(1, num_imu_samples);   % 1 if yaw aiding applied at step
 yaw_aid_residual_deg = nan(1, num_imu_samples);     % innovation (meas - est) in deg
 % Mahalanobis gates (slightly relaxed to reduce late-stage starvation)
-prob_gate = cfg.gnss.reject_maha_prob;
+prob_gate = cfg.truth.reject_maha_prob;
 try
     gate_chi2_total = chi2inv(prob_gate, 6);
     gate_chi2_pos   = chi2inv(prob_gate, 3);
@@ -529,8 +516,8 @@ dprintf('Subtask 5.4: Integrating IMU data for each method.\n');
 % =========================================================================
 dprintf('\nSubtask 5.6: Running Kalman Filter for sensor fusion for each method.\n');
 
-% Interpolate GNSS measurements to IMU timestamps (optionally time-aligned)
-gnss_time_eff = gnss_time;
+% Interpolate Truth measurements to IMU timestamps (optionally time-aligned)
+truth_time_eff = truth_time;
 dt_align = 0;
 try
     if isfield(cfg,'time_align') && isfield(cfg.time_align,'apply') && cfg.time_align.apply
@@ -542,34 +529,34 @@ try
         else
             if isfield(cfg.time_align,'dt_s'); dt_align = cfg.time_align.dt_s; end
         end
-        gnss_time_eff = gnss_time + dt_align;
-        dprintf('[Task5] Applying GNSS time shift dt = %+0.3f s for measurement alignment.\n', dt_align);
+        truth_time_eff = truth_time + dt_align;
+        dprintf('[Task5] Applying Truth time shift dt = %+0.3f s for measurement alignment.\n', dt_align);
     end
 catch
 end
-gnss_pos_interp = zeros(num_imu_samples,3);
-gnss_vel_interp = zeros(num_imu_samples,3);
+truth_pos_interp = zeros(num_imu_samples,3);
+truth_vel_interp = zeros(num_imu_samples,3);
 for k = 1:3
-    gnss_pos_interp(:,k) = interp1(gnss_time_eff, gnss_pos_ned(:,k), imu_time, 'linear', 'extrap');
-    gnss_vel_interp(:,k) = interp1(gnss_time_eff, gnss_vel_ned(:,k), imu_time, 'linear', 'extrap');
-    % Clamp out-of-bounds values to nearest GNSS sample to mirror np.interp
-    gnss_pos_interp(imu_time < gnss_time_eff(1),k) = gnss_pos_ned(1,k);
-    gnss_pos_interp(imu_time > gnss_time_eff(end),k) = gnss_pos_ned(end,k);
-    gnss_vel_interp(imu_time < gnss_time_eff(1),k) = gnss_vel_ned(1,k);
-    gnss_vel_interp(imu_time > gnss_time_eff(end),k) = gnss_vel_ned(end,k);
+    truth_pos_interp(:,k) = interp1(truth_time_eff, truth_pos_ned(:,k), imu_time, 'linear', 'extrap');
+    truth_vel_interp(:,k) = interp1(truth_time_eff, truth_vel_ned(:,k), imu_time, 'linear', 'extrap');
+    % Clamp out-of-bounds values to nearest Truth sample to mirror np.interp
+    truth_pos_interp(imu_time < truth_time_eff(1),k) = truth_pos_ned(1,k);
+    truth_pos_interp(imu_time > truth_time_eff(end),k) = truth_pos_ned(end,k);
+    truth_vel_interp(imu_time < truth_time_eff(1),k) = truth_vel_ned(1,k);
+    truth_vel_interp(imu_time > truth_time_eff(end),k) = truth_vel_ned(end,k);
 end
 % Interpolate DOP and speed onto IMU timeline for adaptive R and liftoff
 if ~isempty(dop)
-    dop_interp = interp1(gnss_time, dop, imu_time, 'linear', 'extrap');
+    dop_interp = interp1(truth_time, dop, imu_time, 'linear', 'extrap');
 else
     dop_interp = ones(size(imu_time));
 end
-gnss_speed_interp = interp1(gnss_time, gnss_speed, imu_time, 'linear', 'extrap');
+truth_speed_interp = interp1(truth_time, truth_speed, imu_time, 'linear', 'extrap');
 
 % Liftoff detection for ZUPT gating (configurable thresholds)
 acc_norm = vecnorm(acc_body_raw,2,2);
 acc_movstd = movstd(acc_norm, 400);
-cond = (gnss_speed_interp > cfg.zupt.speed_thresh_mps) | ...
+cond = (truth_speed_interp > cfg.zupt.speed_thresh_mps) | ...
        (acc_movstd > cfg.zupt.acc_movstd_thresh);
 first_idx = find(cond,1,'first');
 min_samples = max(1, round(cfg.zupt.min_pre_lift_s / dt_imu));
@@ -582,10 +569,10 @@ zupt_mask = false(num_imu_samples,1);
 zupt_mask(1:liftoff_idx) = true;
 fprintf('[Task5] Liftoff at idx=%d t=%.3f s (pre-ZUPT samples=%d)\n', ...
         liftoff_idx, imu_time(liftoff_idx), liftoff_idx);
-% Compare raw and interpolated GNSS data
+% Compare raw and interpolated Truth data
 if ~dryrun
-    task5_gnss_interp_ned_plot(gnss_time, gnss_pos_ned, gnss_vel_ned, imu_time, ...
-        gnss_pos_interp, gnss_vel_interp, run_id, results_dir, cfg);
+    task5_truth_interp_ned_plot(truth_time, truth_pos_ned, truth_vel_ned, imu_time, ...
+        truth_pos_interp, truth_vel_interp, run_id, results_dir, cfg);
 end
 
 % --- Main Filter Loop ---
@@ -615,15 +602,15 @@ summary_loop_msg = '';
 % Diagnostics counters
 yaw_updates = 0; gaid_updates = 0; yaw_res_sum = 0; gaid_err_sum = 0;
 yaw_speed_reject = 0; yaw_rate_reject = 0; yaw_residual_reject = 0;
-% GNSS chi-square gating breakdown (per block)
-gnss_attempt = 0; gnss_accept = 0; gnss_reject_total = 0; gnss_reject_pos = 0; gnss_reject_vel = 0; gnss_nan = 0;
+% Truth chi-square gating breakdown (per block)
+truth_attempt = 0; truth_accept = 0; truth_reject_total = 0; truth_reject_pos = 0; truth_reject_vel = 0; truth_nan = 0;
 
 for i = 1:num_imu_samples
-    % Interpolate GNSS to the current IMU timestamp so the measurement
+    % Interpolate Truth to the current IMU timestamp so the measurement
     % aligns with the state about to be propagated.  This mirrors the
-    % Python helper ``interpolate_series`` used in GNSS_IMU_Fusion.py.
-    gnss_pos_i = gnss_pos_interp(i,:)';
-    gnss_vel_i = gnss_vel_interp(i,:)';
+    % Python helper ``interpolate_series`` used in Truth_IMU_Fusion.py.
+    truth_pos_i = truth_pos_interp(i,:)';
+    truth_vel_i = truth_vel_interp(i,:)';
     R_k = R_base; % FIX: per-sample measurement covariance
     dop_scale = max(1, dop_interp(i)^2);
     R_k(4:6,4:6) = R_base(4:6,4:6) * dop_scale;
@@ -691,7 +678,7 @@ for i = 1:num_imu_samples
     acc_log(:,i) = a_ned;
 
     % --- 3. Measurement Update (Correction) ---
-    % Build measurement with optional lever arm (IMU->GNSS) in body
+    % Build measurement with optional lever arm (IMU->Truth) in body
     use_lever = false; r_b = [0;0;0];
     if isfield(cfg,'lever_arm') && isfield(cfg.lever_arm,'enabled') && cfg.lever_arm.enabled
         if isfield(cfg.lever_arm,'r_b') && numel(cfg.lever_arm.r_b)==3
@@ -747,7 +734,7 @@ for i = 1:num_imu_samples
         omega_b_la = corrected_gyro;    % body angular rate [rad/s]
         h_pos = x(1:3) + Rwb * r_b;
         h_vel = x(4:6) + Rwb * (cross(omega_b_la, r_b));
-        z = [gnss_pos_i; gnss_vel_i];
+        z = [truth_pos_i; truth_vel_i];
         y = z - [h_pos; h_vel];
         % Jacobian H_lever (6x15)
         Hm = zeros(6,15);
@@ -771,15 +758,15 @@ for i = 1:num_imu_samples
         % Innovation covariance and gain
         S = Hm * P * Hm' + R_k;
     else
-        z = [gnss_pos_i; gnss_vel_i];
+        z = [truth_pos_i; truth_vel_i];
         y = z - H * x;
         S = H * P * H' + R_k;
     end
-    % Innovation gating (chi-square) to reject outlier GNSS updates
+    % Innovation gating (chi-square) to reject outlier Truth updates
     % FIX: Handle invalid measurements/covariance and account in counters
     if any(~isfinite(z)) || any(~isfinite(y)) || any(~isfinite(S(:)))
-        gnss_attempt = gnss_attempt + 1;
-        gnss_nan = gnss_nan + 1;
+        truth_attempt = truth_attempt + 1;
+        truth_nan = truth_nan + 1;
         innov_d2_total(i) = NaN; innov_d2_pos(i) = NaN; innov_d2_vel(i) = NaN;
         continue;
     end
@@ -804,16 +791,16 @@ for i = 1:num_imu_samples
     innov_d2_total(i) = d2;
     innov_d2_pos(i)   = d2p;
     innov_d2_vel(i)   = d2v;
-    gnss_attempt = gnss_attempt + 1;
+    truth_attempt = truth_attempt + 1;
     if d2 > gate_chi2_total
         do_update = false;
-        gnss_reject_total = gnss_reject_total + 1;
+        truth_reject_total = truth_reject_total + 1;
         if mod(i, 10000) == 0
             dprintf('[GATE] k=%d reject update: d2=%.2f > %.2f\n', i, d2, gate_chi2_total);
         end
     end
-    if d2p > gate_chi2_pos, gnss_reject_pos = gnss_reject_pos + 1; end
-    if d2v > gate_chi2_vel, gnss_reject_vel = gnss_reject_vel + 1; end
+    if d2p > gate_chi2_pos, truth_reject_pos = truth_reject_pos + 1; end
+    if d2v > gate_chi2_vel, truth_reject_vel = truth_reject_vel + 1; end
     if do_update && rcond(S) <= eps
         if ~warned_S
             warning('Measurement covariance S is singular or ill-conditioned; using pinv.');
@@ -833,7 +820,7 @@ for i = 1:num_imu_samples
     end
     if do_update
         x = x + K * y;
-        gnss_accept = gnss_accept + 1;
+        truth_accept = truth_accept + 1;
         if use_lever
             P = (eye(15) - K * Hm) * P;
         else
@@ -931,13 +918,13 @@ for i = 1:num_imu_samples
         end
     end
 
-    % --- 3c. Yaw aiding from GNSS course-over-ground (when moving) ---
+    % --- 3c. Yaw aiding from Truth course-over-ground (when moving) ---
     if isfield(cfg,'yawaid') && isfield(cfg.yawaid,'enabled') && cfg.yawaid.enabled
-        % Compute GNSS-derived course and speed at this step
-        v_ned_meas = gnss_vel_interp(i,:)';
+        % Compute Truth-derived course and speed at this step
+        v_ned_meas = truth_vel_interp(i,:)';
         speed = norm(v_ned_meas(1:2)); % horizontal speed [m/s]
         if speed >= cfg.yawaid.min_speed_mps
-            % Heading from GNSS (course over ground), radians in [-pi,pi]
+            % Heading from Truth (course over ground), radians in [-pi,pi]
             psi_meas = atan2(v_ned_meas(2), v_ned_meas(1));
             % Current yaw estimate from quaternion
             eul_cur = quat_to_euler(q_b_n);
@@ -1107,8 +1094,8 @@ if ~isempty(truth_path) && isfile(truth_path)
         warning('Time shift estimation failed: %s', ME.message);
     end
 end
-spd = gnss_speed_interp;
-fprintf('[Task5] GNSS speed stats (m/s): min=%.3f  median=%.3f  max=%.3f\n', min(spd), median(spd), max(spd));
+spd = truth_speed_interp;
+fprintf('[Task5] Truth speed stats (m/s): min=%.3f  median=%.3f  max=%.3f\n', min(spd), median(spd), max(spd));
 
 % Optional end-window ZUPT: if last 10s are static, zero final velocities
 try
@@ -1143,12 +1130,12 @@ if numel(imu_time) ~= size(x_log,2)
     quat_log  = quat_log(:,1:N);
     zupt_log = zupt_log(1:N);
 end
-if numel(gnss_time) ~= size(gnss_pos_ned,1)
-    N = min(numel(gnss_time), size(gnss_pos_ned,1));
-    gnss_time = gnss_time(1:N);
-    gnss_pos_ned = gnss_pos_ned(1:N,:);
-    gnss_vel_ned = gnss_vel_ned(1:N,:);
-    gnss_accel_ned = gnss_accel_ned(1:N,:);
+if numel(truth_time) ~= size(truth_pos_ned,1)
+    N = min(numel(truth_time), size(truth_pos_ned,1));
+    truth_time = truth_time(1:N);
+    truth_pos_ned = truth_pos_ned(1:N,:);
+    truth_vel_ned = truth_vel_ned(1:N,:);
+    truth_accel_ned = truth_accel_ned(1:N,:);
 end
 
 % Extract velocity states and derive acceleration from them
@@ -1176,14 +1163,14 @@ if ~dryrun
     all_file = fullfile(results_dir, sprintf('%s_Task5_AllResults.pdf', run_id));
     if exist(all_file, 'file'); delete(all_file); end
     for i = 1:3
-        % Position (FUSED only; GNSS removed)
+        % Position (FUSED only; Truth removed)
         subplot(3,3,i); hold on;
         plot(imu_time, x_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'FUSED (TRIAD-KF)');
         hold off; grid on; legend({'FUSED (TRIAD-KF)'}, 'Location','best'); ylabel('[m]'); title(['Position ' labels{i}]);
         dprintf('Subtask 5.8.2: Plotted %s position %s: First = %.4f, Last = %.4f\n', ...
             method, labels{i}, x_log(i,1), x_log(i,end));
 
-        % Velocity (FUSED only; GNSS removed)
+        % Velocity (FUSED only; Truth removed)
         subplot(3,3,i+3); hold on;
         plot(imu_time, x_log(i+3,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'FUSED (TRIAD-KF)');
         zupt_indices = find(zupt_log);
@@ -1194,7 +1181,7 @@ if ~dryrun
         dprintf('Subtask 5.8.2: Plotted %s velocity %s: First = %.4f, Last = %.4f\n', ...
             method, labels{i}, x_log(i+3,1), x_log(i+3,end));
 
-        % Acceleration (FUSED only; GNSS removed)
+        % Acceleration (FUSED only; Truth removed)
         subplot(3,3,i+6); hold on;
         plot(imu_time, acc_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'FUSED (TRIAD-KF)');
         hold off; grid on; legend({'FUSED (TRIAD-KF)'}, 'Location','best'); ylabel('[m/s^2]'); title(['Acceleration ' labels{i}]);
@@ -1245,7 +1232,7 @@ if ~dryrun && ~isempty(zupt_indices)
     xlabel('Time (s)'); ylabel('|v| after ZUPT [m/s]');
     title('Velocity magnitude following each ZUPT');
     legend('|v|');
-    save_plot(fig_zupt, imu_name, gnss_name, [method '_ZUPT'], 5, ...
+    save_plot(fig_zupt, imu_name, truth_name, [method '_ZUPT'], 5, ...
               cfg.plots.save_pdf, cfg.plots.save_png);
     close(fig_zupt);
 end
@@ -1257,15 +1244,15 @@ if ~dryrun
 
     dprintf('Plotting all data in NED frame.\n');
     plot_task5_ned_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-        gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, run_id, cfg);
+        truth_time, truth_pos_ned, truth_vel_ned, truth_accel_ned, method, run_id, cfg);
 
     dprintf('Plotting all data in ECEF frame.\n');
     plot_task5_ecef_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-        gnss_time, gnss_pos_ecef, gnss_vel_ecef, gnss_accel_ecef, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
+        truth_time, truth_pos_ecef, truth_vel_ecef, truth_accel_ecef, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
 
     dprintf('Plotting all data in body frame.\n');
     plot_task5_body_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, acc_body_raw, euler_log, ...
-        gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, g_NED, run_id, cfg);
+        truth_time, truth_pos_ned, truth_vel_ned, truth_accel_ned, method, g_NED, run_id, cfg);
 
     state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
     if exist(state_file, 'file')
@@ -1282,23 +1269,23 @@ if ~dryrun
 end
 
 %% --- End-of-run summary statistics --------------------------------------
-% Interpolate filter estimates to GNSS timestamps for residual analysis
+% Interpolate filter estimates to Truth timestamps for residual analysis
 % The transpose on x_log ensures interp1 operates over rows (time). The
-% result should be Nx3 matching the GNSS matrices, so avoid an extra
+% result should be Nx3 matching the Truth matrices, so avoid an extra
 % transpose which previously produced a 3xN array and caused dimension
-% mismatches when subtracting from gnss_pos_ned.
-pos_interp = interp1(imu_time, x_log(1:3,:)', gnss_time, 'linear', 'extrap');
-vel_interp = interp1(imu_time, x_log(4:6,:)', gnss_time, 'linear', 'extrap');
-res_pos = pos_interp - gnss_pos_ned;
-res_vel = vel_interp - gnss_vel_ned;
+% mismatches when subtracting from truth_pos_ned.
+pos_interp = interp1(imu_time, x_log(1:3,:)', truth_time, 'linear', 'extrap');
+vel_interp = interp1(imu_time, x_log(4:6,:)', truth_time, 'linear', 'extrap');
+res_pos = pos_interp - truth_pos_ned;
+res_vel = vel_interp - truth_vel_ned;
 rmse_pos = sqrt(mean(sum(res_pos.^2,2)));
 rmse_vel = sqrt(mean(sum(res_vel.^2,2)));
 % Both vectors are 3x1 column vectors so avoid an extra transpose which
 % previously produced a 3x3 matrix due to implicit broadcasting.
-final_pos_err = norm(x_log(1:3,end) - gnss_pos_ned(end,:)');
-final_vel_err = norm(vel_log(:,end) - gnss_vel_ned(end,:)');
+final_pos_err = norm(x_log(1:3,end) - truth_pos_ned(end,:)');
+final_vel_err = norm(vel_log(:,end) - truth_vel_ned(end,:)');
 final_vel = norm(vel_log(:,end));
-final_acc_err = norm(accel_from_vel(:,end) - gnss_accel_ned(end,:)');
+final_acc_err = norm(accel_from_vel(:,end) - truth_accel_ned(end,:)');
 final_vel_mag = norm(x_log(4:6,end));
 % Be tolerant to hard clamp behaviour: warn instead of aborting
 if final_vel_mag > vel_limit
@@ -1322,10 +1309,10 @@ if ~dryrun
     err_labels = {'N', 'E', 'D'};
     for i = 1:3
         subplot(3,1,i);
-        plot(gnss_time, res_pos(:,i), 'b-');
+        plot(truth_time, res_pos(:,i), 'b-');
         grid on; ylabel('[m]'); title(['Residual ' err_labels{i}]);
     end
-    xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
+    xlabel('Time (s)'); sgtitle('Position Residuals (KF - Truth)');
     fname = fullfile(results_dir, sprintf('%s_Task5_ErrorAnalysis', run_id));
     if cfg.plots.save_pdf
         print(fig_err, [fname '.pdf'], '-dpdf', '-bestfit');
@@ -1335,12 +1322,12 @@ if ~dryrun
     end
     close(fig_err);
 end
-summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%8.2fm ' ...
+summary_line = sprintf(['[SUMMARY] method=%s imu=%s truth=%s rmse_pos=%8.2fm ' ...
     'final_pos=%8.2fm rms_vel=%8.2fm/s final_vel=%8.2fm/s ' ...
     'rms_resid_pos=%8.2fm max_resid_pos=%8.2fm ' ...
     'rms_resid_vel=%8.2fm max_resid_vel=%8.2fm accel_bias=%.4f gyro_bias=%.4f ' ...
     'grav_err_mean=%.4f grav_err_max=%.4f omega_err_mean=%.4f omega_err_max=%.4f ' ...
-    'ZUPT_count=%d'], method, imu_name, [gnss_name '.csv'], rmse_pos, ...
+    'ZUPT_count=%d'], method, imu_name, [truth_name '.csv'], rmse_pos, ...
     final_pos_err, rmse_vel, final_vel, rms_resid_pos, max_resid_pos, ...
     rms_resid_vel, max_resid_vel, norm(accel_bias), norm(gyro_bias), grav_err_mean, grav_err_max, ...
     omega_err_mean, omega_err_max, zupt_count);
@@ -1356,8 +1343,8 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
     'grav_err_mean', grav_err_mean, 'grav_err_max', grav_err_max, ...
     'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max, ...
     'vel_blow_events', vel_blow_count);
-perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
-summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt');
+perf_file = fullfile(results_dir, 'IMU_Truth_bias_and_performance.mat');
+summary_file = fullfile(results_dir, 'IMU_Truth_summary.txt');
 if ~dryrun
     fid = fopen(fullfile(results_dir, [run_id '_summary.txt']), 'w');
     fprintf(fid, '%s\n', summary_line);
@@ -1375,9 +1362,9 @@ if ~dryrun
 end
 
 % Persist core results for unit tests and further analysis
-% Persist IMU and GNSS time vectors for Tasks 6 and 7
+% Persist IMU and Truth time vectors for Tasks 6 and 7
 time      = imu_time; %#ok<NASGU>  used by Task_6
-gnss_time = gnss_time; %#ok<NASGU>
+truth_time = truth_time; %#ok<NASGU>
 t_est = (0:size(x_log,2)-1)' * dt_imu; %#ok<NASGU>
 dprintf('Saved t_est with length %d\n', length(t_est));
 dt = dt_imu; %#ok<NASGU> IMU sample interval
@@ -1393,7 +1380,7 @@ ref_lon = deg2rad(lon_deg); %#ok<NASGU>
 dt_truth_shift = dt_shift; % legacy field name
 
     % Save using the same naming convention as the Python pipeline
-    % <IMU>_<GNSS>_<METHOD>_task5_results.mat
+    % <IMU>_<Truth>_<METHOD>_task5_results.mat
     if ~dryrun
         results_file = fullfile(results_dir, sprintf('%s_task5_results.mat', run_id));
         % Build estimator outputs in both NED and ECEF for downstream Tasks 6/7
@@ -1428,10 +1415,10 @@ dt_truth_shift = dt_shift; % legacy field name
             % ignore boresight application errors
         end
         %#ok<NASU> att_quat att_quat_boresight
-        save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
-            'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
+        save(results_file, 'truth_pos_ned', 'truth_vel_ned', 'truth_accel_ned', ...
+            'truth_pos_ecef', 'truth_vel_ecef', 'truth_accel_ecef', ...
             'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'quat_log', 'att_quat', 'att_quat_raw', 'att_quat_boresight', 'zupt_log', 'zupt_vel_norm', ...
-            'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
+            'time', 'truth_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
             'dt_truth_shift', 'dt_shift', 'truth_interp', ...
             'pos_ned_est', 'vel_ned_est', 'acc_ned_est', ...
             'pos_ecef_est', 'vel_ecef_est', 'acc_ecef_est', ...
@@ -1472,17 +1459,17 @@ dt_truth_shift = dt_shift; % legacy field name
     save(time_file, 't_est', 'dt', 'x_log');
     dprintf('Task 5: Saved time vector to %s\n', time_file);
 
-    method_struct = struct('gnss_pos_ned', gnss_pos_ned, 'gnss_vel_ned', gnss_vel_ned, ...
-        'gnss_accel_ned', gnss_accel_ned, 'gnss_pos_ecef', gnss_pos_ecef, ...
-        'gnss_vel_ecef', gnss_vel_ecef, 'gnss_accel_ecef', gnss_accel_ecef, ...
+    method_struct = struct('truth_pos_ned', truth_pos_ned, 'truth_vel_ned', truth_vel_ned, ...
+        'truth_accel_ned', truth_accel_ned, 'truth_pos_ecef', truth_pos_ecef, ...
+        'truth_vel_ecef', truth_vel_ecef, 'truth_accel_ecef', truth_accel_ecef, ...
         'x_log', x_log, 'vel_log', vel_log, 'accel_from_vel', accel_from_vel, ...
         'euler_log', euler_log, 'zupt_log', zupt_log, 'zupt_vel_norm', zupt_vel_norm, 'time', time, ...
-        'gnss_time', gnss_time, 'pos_ned', pos_ned, 'vel_ned', vel_ned, ...
+        'truth_time', truth_time, 'pos_ned', pos_ned, 'vel_ned', vel_ned, ...
         'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0, ...
         'dt_truth_shift', dt_truth_shift, 'dt_shift', dt_shift, 'truth_interp', truth_interp);
     % ``method`` already stores the algorithm name (e.g. 'TRIAD'). Use it
     % directly when saving so filenames match the Python pipeline.
-    save_task_results(method_struct, imu_name, gnss_name, method, 5);
+    save_task_results(method_struct, imu_name, truth_name, method, 5);
 end
 
 % Expose fused position for comparison plots across methods
@@ -1498,7 +1485,7 @@ assignin('base', 't_kf', imu_time);
         fclose(warn_fid);
     end
 
-    % Print aiding summaries and GNSS speed stats / lever-arm status
+    % Print aiding summaries and Truth speed stats / lever-arm status
     try
         if yaw_updates > 0
             fprintf('[Task5] Yaw-aid: %d updates (mean |res|=%.2f deg).\n', yaw_updates, yaw_res_sum/max(1,yaw_updates));
@@ -1511,29 +1498,29 @@ assignin('base', 't_kf', imu_time);
             fprintf('[Task5] Gravity-aid: 0 updates (likely high dynamics or gating).\n');
         end
         if abs(dt_align) > 1e-6
-            fprintf('[Task5] Time alignment applied: dt = %+0.3f s (GNSS shifted).\n', dt_align);
+            fprintf('[Task5] Time alignment applied: dt = %+0.3f s (Truth shifted).\n', dt_align);
         end
-        % GNSS chi-square gating breakdown
+        % Truth chi-square gating breakdown
         try
-            fprintf('[Task5] GNSS chi-square gating: attempts=%d  accept=%d  reject_total=%d  reject_pos=%d  reject_vel=%d  nan=%d\n', ...
-                gnss_attempt, gnss_accept, gnss_reject_total, gnss_reject_pos, gnss_reject_vel, gnss_nan);
+            fprintf('[Task5] Truth chi-square gating: attempts=%d  accept=%d  reject_total=%d  reject_pos=%d  reject_vel=%d  nan=%d\n', ...
+                truth_attempt, truth_accept, truth_reject_total, truth_reject_pos, truth_reject_vel, truth_nan);
         catch
         end
-        % GNSS speed stats (horizontal) on estimator timeline
+        % Truth speed stats (horizontal) on estimator timeline
         try
-            spd = hypot(gnss_vel_interp(:,1), gnss_vel_interp(:,2));
+            spd = hypot(truth_vel_interp(:,1), truth_vel_interp(:,2));
             smin = min(spd, [], 'omitnan'); smed = median(spd, 'omitnan'); smax = max(spd, [], 'omitnan');
-            fprintf('[Task5] GNSS speed stats (m/s): min=%.3f  median=%.3f  max=%.3f\n', smin, smed, smax);
+            fprintf('[Task5] Truth speed stats (m/s): min=%.3f  median=%.3f  max=%.3f\n', smin, smed, smax);
             if yaw_updates == 0
                 fprintf('[Task5] Tip: Yaw-aid had 0 updates. If speeds are low, try cfg.yawaid.min_speed_mps=0.2.\n');
             end
         catch
         end
-        % GNSS speed stats on GNSS timebase
+        % Truth speed stats on Truth timebase
         try
-            spd_g = hypot(gnss_vel_ned(:,1), gnss_vel_ned(:,2));
+            spd_g = hypot(truth_vel_ned(:,1), truth_vel_ned(:,2));
             gsmin = min(spd_g, [], 'omitnan'); gsmed = median(spd_g, 'omitnan'); gsmax = max(spd_g, [], 'omitnan');
-            fprintf('[Task5] GNSS speed stats (GNSS base, m/s): min=%.3f  median=%.3f  max=%.3f\n', gsmin, gsmed, gsmax);
+            fprintf('[Task5] Truth speed stats (Truth base, m/s): min=%.3f  median=%.3f  max=%.3f\n', gsmin, gsmed, gsmax);
         catch
         end
         % Yaw-aid gating breakdown
@@ -1757,8 +1744,8 @@ end
         close(fig);
     end
 
-    function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_gnss, vel_gnss, acc_gnss, method, run_id, cfg)
-        %PLOT_TASK5_NED_FRAME Plot fused data in the NED frame (GNSS removed).
+    function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, t_truth, pos_truth, vel_truth, acc_truth, method, run_id, cfg)
+        %PLOT_TASK5_NED_FRAME Plot fused data in the NED frame (Truth removed).
         labels = {'North','East','Down'};
         visibleFlag = 'off';
         try
@@ -1795,8 +1782,8 @@ end
         close(gcf);
     end
 
-    function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_ecef, vel_ecef, acc_ecef, C_E_N, r0, method, run_id, cfg)
-        %PLOT_TASK5_ECEF_FRAME Plot fused data in the ECEF frame (GNSS removed).
+    function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, t_truth, pos_ecef, vel_ecef, acc_ecef, C_E_N, r0, method, run_id, cfg)
+        %PLOT_TASK5_ECEF_FRAME Plot fused data in the ECEF frame (Truth removed).
         labels = {'X','Y','Z'};
         visibleFlag = 'off';
         try
@@ -1836,8 +1823,8 @@ end
         close(gcf);
     end
 
-    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, acc_body_raw, eul_log, t_gnss, pos_gnss_ned, vel_gnss_ned, acc_gnss_ned, method, g_N, run_id, cfg)
-        %PLOT_TASK5_BODY_FRAME Plot fused results in body frame coordinates (GNSS removed).
+    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, acc_body_raw, eul_log, t_truth, pos_truth_ned, vel_truth_ned, acc_truth_ned, method, g_N, run_id, cfg)
+        %PLOT_TASK5_BODY_FRAME Plot fused results in body frame coordinates (Truth removed).
         labels = {'X','Y','Z'};
         visibleFlag = 'off';
         try
@@ -1855,7 +1842,7 @@ end
             vel_body(:,k) = C_B_N' * vel_ned(:,k);
             acc_body(:,k) = C_B_N' * (acc_ned(:,k) - g_N);
         end
-        % GNSS body overlay removed per requirement; show only FUSED and IMU raw
+        % Truth body overlay removed per requirement; show only FUSED and IMU raw
         figure('Name','Task5 Body Frame','Position',[100 100 1200 900], ...
             'Visible', visibleFlag);
         for j = 1:3
