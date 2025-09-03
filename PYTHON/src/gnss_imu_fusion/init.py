@@ -21,6 +21,21 @@ from ..paths import PY_RES_DIR
 from .init_vectors import butter_lowpass_filter
 
 
+def _require_radians(angle: float, name: str) -> None:
+    """Ensure an angle is provided in radians.
+
+    Parameters
+    ----------
+    angle : float
+        The angle value to check.
+    name : str
+        Name of the parameter for error messages.
+    """
+
+    if abs(angle) > 2 * np.pi:
+        raise ValueError(f"{name} must be in radians, got {angle}.")
+
+
 def compute_reference_vectors(
     gnss_file: str, mag_file: Optional[str] = None
 ) -> Tuple[
@@ -54,6 +69,8 @@ def compute_reference_vectors(
     lat_deg, lon_deg, alt = ecef_to_geodetic(x_ecef, y_ecef, z_ecef)
     lat = np.deg2rad(lat_deg)
     lon = np.deg2rad(lon_deg)
+    _require_radians(lat, "latitude")
+    _require_radians(lon, "longitude")
     logging.info("Subtask 1.2: Defining gravity vector in NED frame.")
     g_ned = validate_gravity_vector(lat_deg, alt)
     logging.info("Subtask 1.3: Defining Earth rotation rate vector in NED frame.")
