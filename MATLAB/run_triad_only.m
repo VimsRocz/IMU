@@ -121,7 +121,8 @@ if cfg.auto_tune
     q_list = [5 10 20 40];
     r_list = [0.25 0.5 1.0];
     best.rmse = inf;
-    data = struct('imu_path',cfg.imu_path,'gnss_path',cfg.gnss_path,'method',cfg.method);
+    % Include truth_path for Task_5; auto-tune runs on a short window
+    data = struct('imu_path',cfg.imu_path,'truth_path',cfg.truth_path,'method',cfg.method);
     opts = struct('decimate',cfg.auto_tune_decim,'tail_s',cfg.auto_tune_tail_s);
     for qi = 1:numel(q_list)
         for ri = 1:numel(r_list)
@@ -138,8 +139,8 @@ if cfg.auto_tune
     fprintf('Auto-tune best: q=%g r=%g (RMSE_pos=%0.3f m)\n', best.q, best.r, best.rmse);
 end
 
-Task_5(cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
-       'truth_path', cfg.truth_path, ...
+% Run full Task 5 with the correct Truth path
+Task_5(cfg.imu_path, cfg.truth_path, cfg.method, [], ...
        'vel_q_scale', cfg.vel_q_scale, 'vel_sigma_mps', cfg.vel_sigma_mps, ...
        'trace_first_n', cfg.trace_first_n);
 
@@ -428,7 +429,7 @@ end
 function rmse = run_kf_once(params, data, opts)
 %RUN_KF_ONCE  Helper for auto-tuning: run Task_5 with limited window.
 %   PARAMS.vel_q_scale, PARAMS.vel_sigma_mps specify tuning.
-%   DATA must contain imu_path, gnss_path, method.
+%   DATA must contain imu_path, truth_path, method.
 %   OPTS.tail_s and OPTS.decimate define a short window; this helper simply
 %   converts these to a max_steps value to avoid rerunning the full dataset.
 
@@ -446,7 +447,8 @@ function rmse = run_kf_once(params, data, opts)
         % assume raw IMU at 400 Hz
         max_steps = round((400/opts.decimate) * opts.tail_s);
     end
-    res = Task_5(data.imu_path, data.gnss_path, data.method, [], ...
+    % Pass Truth path (not GNSS) to Task_5 for the auto-tune window
+    res = Task_5(data.imu_path, data.truth_path, data.method, [], ...
         'vel_q_scale',  params.vel_q_scale, ...
         'vel_sigma_mps', params.vel_sigma_mps, ...
         'max_steps',    max_steps, ...

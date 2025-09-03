@@ -31,8 +31,15 @@ function rmse_pos = Task_5_try_once(cfg, vel_q_scale, vel_sigma)
     cfg_local.plots.save_pdf = false;
     cfg_local.plots.save_png = false;
     cfg = cfg_local; %#ok<NASGU> ensure Task_5 sees modified cfg
+    % Determine Truth path: prefer cfg.truth_path; else default to DATA/Truth/STATE_X001.txt
+    if isfield(cfg_local,'truth_path') && ~isempty(cfg_local.truth_path)
+        truth_path = cfg_local.truth_path;
+    else
+        root_dir = fileparts(fileparts(mfilename('fullpath')));
+        truth_path = fullfile(root_dir, 'DATA', 'Truth', 'STATE_X001.txt');
+    end
     try
-        res = Task_5(cfg_local.imu_path, cfg_local.gnss_path, cfg_local.method, [], ...
+        res = Task_5(cfg_local.imu_path, truth_path, cfg_local.method, [], ...
             'vel_q_scale', vel_q_scale, 'vel_sigma_mps', vel_sigma, ...
             'trace_first_n', 0, 'max_steps', steps, 'dryrun', true); % dryrun suppresses plots/logging
         if isstruct(res) && isfield(res,'rmse_pos')
@@ -45,4 +52,3 @@ function rmse_pos = Task_5_try_once(cfg, vel_q_scale, vel_sigma)
         rmse_pos = NaN;
     end
 end
-

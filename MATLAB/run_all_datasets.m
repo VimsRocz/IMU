@@ -48,4 +48,3 @@ for i = 1:numel(imu_files)
 end
 
 fprintf('All datasets complete.\n');
-

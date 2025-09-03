@@ -25,6 +25,10 @@ function run_triad_method(imu_file, gnss_file)
         error('File not found: %s or %s', imu_path, gnss_path);
     end
 
+    % Resolve Truth STATE file path from repo root (default single truth file)
+    root_dir = fileparts(fileparts(mfilename('fullpath')));
+    truth_path = fullfile(root_dir, 'DATA', 'Truth', 'STATE_X001.txt');
+
     % Load data
     imu_data = readmatrix(imu_path);
     gnss_data = readtable(gnss_path);
@@ -34,5 +38,6 @@ function run_triad_method(imu_file, gnss_file)
     Task_2(imu_path, gnss_path, 'TRIAD');
     Task_3(imu_path, gnss_path, 'TRIAD');
     Task_4(imu_path, gnss_path, 'TRIAD');
-    Task_5(imu_path, gnss_path, 'TRIAD');
+    % Pass Truth path (not GNSS) to Task 5
+    Task_5(imu_path, truth_path, 'TRIAD');
 end

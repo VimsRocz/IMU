@@ -496,8 +496,18 @@ innov_d2_vel   = nan(1, num_imu_samples);
 % Yaw-aiding diagnostics
 yaw_aid_flag         = zeros(1, num_imu_samples);   % 1 if yaw aiding applied at step
 yaw_aid_residual_deg = nan(1, num_imu_samples);     % innovation (meas - est) in deg
-% Mahalanobis gates (slightly relaxed to reduce late-stage starvation)
-prob_gate = cfg.truth.reject_maha_prob;
+    % Mahalanobis gates (slightly relaxed to reduce late-stage starvation)
+    % Be robust to different cfg schemas: prefer cfg.truth.reject_maha_prob,
+    % then cfg.gnss.reject_maha_prob, else default 0.999.
+    prob_gate = 0.999;
+    try
+        if isfield(cfg,'truth') && isfield(cfg.truth,'reject_maha_prob') && ~isempty(cfg.truth.reject_maha_prob)
+            prob_gate = cfg.truth.reject_maha_prob;
+        elseif isfield(cfg,'gnss') && isfield(cfg.gnss,'reject_maha_prob') && ~isempty(cfg.gnss.reject_maha_prob)
+            prob_gate = cfg.gnss.reject_maha_prob;
+        end
+    catch
+    end
 try
     gate_chi2_total = chi2inv(prob_gate, 6);
     gate_chi2_pos   = chi2inv(prob_gate, 3);

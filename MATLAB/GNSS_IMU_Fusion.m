@@ -26,12 +26,16 @@ results_dir = get_results_dir();
 if ~exist(results_dir,'dir')
     mkdir(results_dir);
 end
+% Resolve Truth STATE file path (single source)
+root_dir = fileparts(fileparts(mfilename('fullpath')));
+truth_path = fullfile(root_dir, 'DATA', 'Truth', 'STATE_X001.txt');
 
 Task_1(imu_file, gnss_file, method);
 Task_2(imu_file, gnss_file, method);
 Task_3(imu_file, gnss_file, method);
 Task_4(imu_file, gnss_file, method);
-Task_5(imu_file, gnss_file, method);
+% Task 5 requires Truth STATE file as the 2nd argument
+Task_5(imu_file, truth_path, method);
 
 fprintf('All tasks completed. Results saved to %s\n', results_dir);
 files = dir(fullfile(results_dir,'*.mat'));
