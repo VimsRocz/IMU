@@ -93,6 +93,7 @@ from .gnss_imu_fusion.kalman_filter import (
     quat_from_rate,
     quat2euler,
 )
+from .kalman_filter import init_bias_kalman, inject_zupt
 
 try:
     from rich.console import Console
@@ -379,6 +380,11 @@ def main():
         type=float,
         default=1e-6,
         help="Gyroscope variance threshold for ZUPT detection",
+    )
+    parser.add_argument(
+        "--no-zupt",
+        action="store_true",
+        help="Disable ZUPT pseudo-measurements",
     )
     parser.add_argument(
         "--static-start",
@@ -1098,7 +1104,7 @@ def main():
 
             # Correct the entire dataset
             acc_body_corrected[m] = scale * (acc_body - acc_bias)
-            gyro_body_corrected[m] = gyro_body - gyro_bias
+            gyro_body_corrected[m] = gyro_body  # bias estimated online
             acc_biases[m] = acc_bias
             gyro_biases[m] = gyro_bias
 
@@ -1701,7 +1707,7 @@ def main():
     zupt_events_all = {}
 
     for m in methods:
-        kf = KalmanFilter(dim_x=13, dim_z=6)
+        kf = init_bias_kalman(dt_imu, meas_R_pos, meas_R_vel, args.vel_q_scale)
         initial_quats = {"TRIAD": q_tri, "Davenport": q_dav, "SVD": q_svd}
         chosen_init = None
         # Optionally override initial attitude with truth quaternion at IMU start
@@ -1760,14 +1766,13 @@ def main():
         chosen_init = chosen_init / (np.linalg.norm(chosen_init) + 1e-12)
         if chosen_init[0] < 0:
             chosen_init = -chosen_init
-        kf.x = np.hstack((imu_pos[m][0], imu_vel[m][0], imu_acc[m][0], chosen_init))
-        kf.F = np.eye(13)
-        kf.H = np.hstack((np.eye(6), np.zeros((6, 7))))
-        kf.P *= 1.0
-        kf.Q = np.eye(13) * 0.01  # process noise base [m^2/s^2]
-        kf.Q[3:6, 3:6] *= args.vel_q_scale
-        kf.R = np.block(
-            [[meas_R_pos, np.zeros((3, 3))], [np.zeros((3, 3)), meas_R_vel]]
+        kf.x = np.hstack(
+            (
+                imu_pos[m][0],
+                imu_vel[m][0],
+                chosen_init,
+                gyro_biases.get(m, np.zeros(3)),
+            )
         )
         logging.info(f"Adjusted Q[3:6,3:6]: {kf.Q[3:6,3:6]}")
         logging.info(f"Adjusted R[3:6,3:6]: {kf.R[3:6,3:6]}")
@@ -1840,17 +1845,18 @@ def main():
             C_b_n = R.from_quat([q_cur[1], q_cur[2], q_cur[3], q_cur[0]]).as_matrix()
             C_n_b = C_b_n.T
             omega_in_b = C_n_b @ omega_in_n
-            omega_eff_b = gyro_body_corrected[m][i] - omega_in_b
+            omega_eff_b = gyro_body_corrected[m][i] - kf.x[10:13] - omega_in_b
             dq = quat_from_rate(omega_eff_b, dt)
             q_cur = quat_multiply(q_cur, dq)
             q_cur /= np.linalg.norm(q_cur)
             orientations[i] = q_cur
-            kf.x[9:13] = q_cur
+            kf.x[6:10] = q_cur
 
             # Prediction step
             kf.F[0:3, 3:6] = np.eye(3) * dt
-            kf.F[3:6, 6:9] = np.eye(3) * dt
-            kf.predict()
+            kf.B[0:3] = 0.5 * dt * dt * np.eye(3)
+            kf.B[3:6] = dt * np.eye(3)
+            kf.predict(u=imu_acc[m][i])
 
             if np.linalg.norm(kf.x[3:6]) > 500:
                 vel_blow_count += 1
@@ -1899,7 +1905,7 @@ def main():
                     q_cur = quat_multiply(dqz, q_cur)
                     q_cur /= np.linalg.norm(q_cur) + 1e-12
                     orientations[i] = q_cur
-                    kf.x[9:13] = q_cur
+                    kf.x[6:10] = q_cur
                     # Overwrite last logged attitude and Euler with corrected values
                     if attitude_q:
                         attitude_q[-1] = q_cur
@@ -1913,25 +1919,19 @@ def main():
             if len(acc_win) > win:
                 acc_win.pop(0)
                 gyro_win.pop(0)
-            if len(acc_win) == win and is_static(
-                np.array(acc_win),
-                np.array(gyro_win),
-                accel_var_thresh=args.zupt_acc_var,
-                gyro_var_thresh=args.zupt_gyro_var,
+            if (
+                not args.no_zupt
+                and len(acc_win) == win
+                and is_static(
+                    np.array(acc_win),
+                    np.array(gyro_win),
+                    accel_var_thresh=args.zupt_acc_var,
+                    gyro_var_thresh=args.zupt_gyro_var,
+                )
             ):
-                H_z = np.zeros((3, 13))
-                H_z[:, 3:6] = np.eye(3)
-                R_z = np.eye(3) * 1e-4
-                pred_v = H_z @ kf.x
-                S = H_z @ kf.P @ H_z.T + R_z
-                K = kf.P @ H_z.T @ np.linalg.inv(S)
-                kf.x += K @ (-pred_v)
-                kf.P = (np.eye(13) - K @ H_z) @ kf.P
+                inject_zupt(kf)
                 zupt_count += 1
                 zupt_events.append((i - win + 1, i))
-                # This log was previously INFO but produced excessive output
-                # during long runs. Use DEBUG level so it only appears when
-                # explicitly requested.
                 logging.debug(
                     f"ZUPT applied at {imu_time[i]:.2f}s (window {i-win+1}-{i})"
                 )
