@@ -423,6 +423,48 @@ def subtask7_5_diff_plot(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    def _compute_frame_summary(arr_p: np.ndarray, arr_v: np.ndarray, time_vec: np.ndarray):
+        """Return dict with Final Error and RMSE for position/velocity/acceleration."""
+        # Vector norms
+        pos_norm = np.linalg.norm(arr_p, axis=1)
+        vel_norm = np.linalg.norm(arr_v, axis=1)
+        # Differentiate velocity to get acceleration difference
+        try:
+            acc = np.gradient(arr_v, time_vec, axis=0)
+        except Exception:
+            # Fallback: uniform dt
+            dt = np.median(np.diff(time_vec)) if len(time_vec) > 1 else 1.0
+            acc = np.diff(arr_v, axis=0, prepend=arr_v[:1]) / max(dt, 1e-12)
+        acc_norm = np.linalg.norm(acc, axis=1)
+
+        def _final(arr):
+            return float(arr[-1]) if arr.size else float("nan")
+
+        def _rmse(arr):
+            return float(np.sqrt(np.mean(arr ** 2))) if arr.size else float("nan")
+
+        return {
+            "Position [m]": {"Final Error": _final(pos_norm), "RMSE": _rmse(pos_norm)},
+            "Velocity [m/s]": {"Final Error": _final(vel_norm), "RMSE": _rmse(vel_norm)},
+            "Acceleration [m/s^2]": {"Final Error": _final(acc_norm), "RMSE": _rmse(acc_norm)},
+        }
+
+    def _print_and_save_summary(summary: dict, frame: str, out_dir: Path, run_id: str):
+        headers = ["Metric", "Final Error", "RMSE"]
+        rows = [
+            [k, v.get("Final Error", float("nan")), v.get("RMSE", float("nan"))]
+            for k, v in summary.items()
+        ]
+        print(f"\n{frame} frame differences summary:")
+        print(tabulate(rows, headers=headers, floatfmt=".3f"))
+        # save CSV alongside plots
+        df = pd.DataFrame(rows, columns=headers)
+        csv_path = out_dir / f"{run_id}_task7_5_{frame.lower()}_summary.csv"
+        try:
+            df.to_csv(csv_path, index=False)
+        except Exception:
+            pass
+
     def _plot(arr_p: np.ndarray, arr_v: np.ndarray, labels: list[str], frame: str) -> None:
         fig, axes = plt.subplots(2, 3, figsize=(9, 4), sharex=True)
         for i in range(3):
@@ -476,6 +518,7 @@ def subtask7_5_diff_plot(
 
     # NED frame
     _plot(diff_pos_ned, diff_vel_ned, ["North", "East", "Down"], "NED")
+    _print_and_save_summary(_compute_frame_summary(diff_pos_ned, diff_vel_ned, time), "NED", out_dir, run_id)
 
     # ECEF frame
     if ref_lat is not None and ref_lon is not None:
@@ -485,12 +528,14 @@ def subtask7_5_diff_plot(
     diff_pos_ecef = (C @ diff_pos_ned.T).T
     diff_vel_ecef = (C @ diff_vel_ned.T).T
     _plot(diff_pos_ecef, diff_vel_ecef, ["X", "Y", "Z"], "ECEF")
+    _print_and_save_summary(_compute_frame_summary(diff_pos_ecef, diff_vel_ecef, time), "ECEF", out_dir, run_id)
 
     # Body frame
     rot = R.from_quat(quat_bn[:, [1, 2, 3, 0]])
     diff_pos_body = rot.apply(diff_pos_ned, inverse=True)
     diff_vel_body = rot.apply(diff_vel_ned, inverse=True)
     _plot(diff_pos_body, diff_vel_body, ["X", "Y", "Z"], "Body")
+    _print_and_save_summary(_compute_frame_summary(diff_pos_body, diff_vel_body, time), "Body", out_dir, run_id)
     task_summary("task7")
     print(
         "Saved Task 7.5 diff-truth plots for NED/ECEF/Body frames under: "

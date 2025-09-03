@@ -714,50 +714,67 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
     # Angle error between aligned truth and estimate across full timeline
     ang = _quat_angle_deg(qT, qE)
 
+    # Helper to align x and multiple y-arrays to the shortest common length
+    def _align_to_same_len(x, *ys):
+        n = int(min(len(x), *[len(y) for y in ys]))
+        if n <= 0:
+            return x, ys
+        x2 = x[:n]
+        ys2 = tuple(y[:n] for y in ys)
+        return x2, ys2
+
     # plots (NO acceleration)
     # 1) quaternion components (Body->NED frame)
     plt.figure(figsize=(10, 6))
+    # Ensure same-length arrays for plotting
+    t_plot, (qT_plot, qE_plot) = _align_to_same_len(tE, qT, qE)
     for i, lab in enumerate(['w', 'x', 'y', 'z']):
         ax = plt.subplot(2, 2, i + 1)
-        ax.plot(tE, qT[:, i], '-', label='Truth')
-        ax.plot(tE, qE[:, i], '--', label='KF')
+        ax.plot(t_plot, qT_plot[:, i], '-', label='Truth')
+        ax.plot(t_plot, qE_plot[:, i], '--', label='KF')
         ax.set_title(f'q_{lab}')
         ax.grid(True)
     plt.legend(loc='upper right')
     plt.suptitle(f'{tag} Task7 (Body→NED): Quaternion Truth vs KF')
-    _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion.png'),
-                      {'t': tE, 'q_truth': qT, 'q_kf': qE})
+    _save_png_and_mat(
+        os.path.join(results_dir, f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion.png'),
+        {'t': t_plot, 'q_truth': qT_plot, 'q_kf': qE_plot}
+    )
 
     # 1b) quaternion component residuals (est - truth), sign-aligned already
-    dq = qE - qT
+    dq = qE_plot - qT_plot
     plt.figure(figsize=(10, 6))
     for i, lab in enumerate(['w', 'x', 'y', 'z']):
         ax = plt.subplot(2, 2, i + 1)
-        ax.plot(tE, dq[:, i], '-', label='Δq = est − truth')
+        ax.plot(t_plot, dq[:, i], '-', label='Δq = est − truth')
         ax.set_title(f'Δq_{lab}')
         ax.grid(True)
         if i == 0:
             ax.legend(loc='upper right')
     plt.suptitle(f'{tag} Task7.6 (Body→NED): Quaternion Component Error')
-    _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_6_BodyToNED_attitude_quaternion_error_components.png'),
-                      {'t': tE, 'dq_wxyz': dq})
+    _save_png_and_mat(
+        os.path.join(results_dir, f'{tag}_Task7_6_BodyToNED_attitude_quaternion_error_components.png'),
+        {'t': t_plot, 'dq_wxyz': dq}
+    )
 
     # 2) Euler ZYX (yaw,pitch,roll)
-    eT = _quat_to_euler_zyx_deg(qT)
-    eE = _quat_to_euler_zyx_deg(qE)
+    eT = _quat_to_euler_zyx_deg(qT_plot)
+    eE = _quat_to_euler_zyx_deg(qE_plot)
     plt.figure(figsize=(10, 6))
     for i, lab in enumerate(['Yaw(Z)', 'Pitch(Y)', 'Roll(X)']):
         ax = plt.subplot(3, 1, i + 1)
-        ax.plot(tE, eT[:, i], '-', label='Truth')
-        ax.plot(tE, eE[:, i], '--', label='KF')
+        ax.plot(t_plot, eT[:, i], '-', label='Truth')
+        ax.plot(t_plot, eE[:, i], '--', label='KF')
         ax.set_ylabel(lab + ' [deg]')
         ax.grid(True)
         if i == 0:
             ax.legend()
     plt.xlabel('Time [s]')
     plt.suptitle(f'{tag} Task7 (Body→NED): Euler (ZYX) Truth vs KF')
-    _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_euler.png'),
-                      {'t': tE, 'e_truth_zyx_deg': eT, 'e_kf_zyx_deg': eE})
+    _save_png_and_mat(
+        os.path.join(results_dir, f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_euler.png'),
+        {'t': t_plot, 'e_truth_zyx_deg': eT, 'e_kf_zyx_deg': eE}
+    )
 
     # 2b) Euler error (difference, wrapped to [-180, 180])
     def _wrap_deg(x):
@@ -769,19 +786,26 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
     plt.figure(figsize=(10, 6))
     for i, lab in enumerate(['Yaw(Z)', 'Pitch(Y)', 'Roll(X)']):
         ax = plt.subplot(3, 1, i + 1)
-        ax.plot(tE, e_err[:, i], '-', label='Estimate − Truth')
+        ax.plot(t_plot, e_err[:, i], '-', label='Estimate − Truth')
         ax.set_ylabel(lab + ' err [deg]')
         ax.grid(True)
         if i == 0:
             ax.legend(loc='upper right')
     plt.xlabel('Time [s]')
     plt.suptitle(f'{tag} Task7.6 (Body→NED): Euler Error (ZYX) vs Time')
-    _save_png_and_mat(os.path.join(results_dir, f"{tag}_Task7_6_BodyToNED_attitude_euler_error_over_time.png"),
-                      {'t': tE, 'e_error_zyx_deg': e_err})
+    _save_png_and_mat(
+        os.path.join(results_dir, f"{tag}_Task7_6_BodyToNED_attitude_euler_error_over_time.png"),
+        {'t': t_plot, 'e_error_zyx_deg': e_err}
+    )
 
     # 3) attitude angle error (ensure time and error are same length; decimate both if plotting heavy)
-    t_plot = tE
+    t_plot = t_plot  # already aligned above
     ang_plot = ang
+    # Align angle error length to x if needed
+    if len(ang_plot) != len(t_plot):
+        n = min(len(ang_plot), len(t_plot))
+        t_plot = t_plot[:n]
+        ang_plot = ang_plot[:n]
     try:
         if t_plot.size > 200000:
             step = max(2, int(round(t_plot.size / 50000)))  # target ~50k points
@@ -962,7 +986,7 @@ def _task5_plot_quat_cases(results_dir: str, run_id: str, truth_file: str) -> No
 
 def main(argv: Iterable[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Run TRIAD (Task-1) on a selected dataset",
+        description="Run TRIAD (Task-1) on a selected dataset or run all methods",
         allow_abbrev=False,
     )
     parser.add_argument(
@@ -978,6 +1002,12 @@ def main(argv: Iterable[str] | None = None) -> None:
         "--outdir", type=str, help="Directory to write results (default PYTHON/results)"
     )
     parser.add_argument("--no-plots", action="store_true", help="Skip plot generation")
+    parser.add_argument(
+        "--mode",
+        choices=["all", "triad"],
+        default="all",
+        help="Mode: run all methods across datasets (all) or TRIAD-only (triad)",
+    )
     parser.add_argument(
         "--show-measurements",
         action="store_true",
@@ -1021,6 +1051,21 @@ def main(argv: Iterable[str] | None = None) -> None:
                         help='Run a second KF pass with true attitude init and compare quaternions (Task 5).')
 
     args = parser.parse_args(argv)
+
+    # Convenience: if requested to run everything, forward to run_all_methods.py
+    if args.mode == "all":
+        from pathlib import Path as _Path
+        import subprocess as _subprocess
+        HERE_ = _Path(__file__).resolve().parent
+        cmd = [sys.executable, str(HERE_ / "run_all_methods.py")]
+        if args.no_plots:
+            cmd.append("--no-plots")
+        # Forward dataset override if explicitly given
+        if args.imu and args.gnss:
+            cmd += ["--datasets", args.imu, args.gnss]
+        print("Running all methods across datasets …")
+        rc = _subprocess.call(cmd)
+        sys.exit(rc)
 
     if args.outdir:
         results_dir = Path(args.outdir)
