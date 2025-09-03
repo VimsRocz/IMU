@@ -2216,3 +2216,700 @@ def run_ekf_fusion(imu_data, gnss_data, initial_state, initial_P):
 ```
 
 This section provides a comprehensive overview of the core navigation concepts and algorithms implemented in the IMU repository, giving users the theoretical foundation needed to understand and modify the processing pipeline.
+
+---
+
+## Task-by-Task Tutorial
+
+### Task 1: Reference Vector Computation
+
+**Objective**: Establish reference vectors (gravity and Earth rotation) in the navigation frame using the initial GNSS position.
+
+#### Theory
+
+The reference vectors provide the foundation for attitude determination:
+- **Gravity Vector**: Points downward in the local NED frame with magnitude ~9.81 m/s²
+- **Earth Rotation Vector**: Points north with magnitude 7.29×10⁻⁵ rad/s at the equator
+
+#### Python Implementation
+
+```python
+# Complete Task 1 example
+from PYTHON.src.task1_reference_vectors import compute_reference_vectors
+from PYTHON.src.paths import gnss_path
+import pandas as pd
+
+def run_task1_python(dataset_id='X001'):
+    """Complete Task 1 implementation in Python."""
+    
+    # Load GNSS data
+    gnss_file = gnss_path(dataset_id)
+    gnss_data = pd.read_csv(gnss_file)
+    
+    # Get initial position (first valid GNSS fix)
+    first_pos_ecef = gnss_data[['X_ECEF', 'Y_ECEF', 'Z_ECEF']].iloc[0].values
+    
+    # Convert to geodetic coordinates
+    from PYTHON.src.utils import ecef_to_geodetic
+    lat, lon, alt = ecef_to_geodetic(first_pos_ecef)
+    
+    print(f"Initial position: {lat:.6f}°N, {lon:.6f}°E, {alt:.1f}m")
+    
+    # Compute reference vectors in NED frame
+    gravity_ned = np.array([0, 0, 9.81])  # Downward
+    
+    # Earth rotation rate (WGS84)
+    omega_earth = 7.2921159e-5  # rad/s
+    earth_rate_ned = np.array([
+        omega_earth * np.cos(np.radians(lat)),  # North component
+        0,                                       # East component  
+        -omega_earth * np.sin(np.radians(lat))  # Down component
+    ])
+    
+    print(f"Gravity vector (NED): {gravity_ned}")
+    print(f"Earth rate vector (NED): {earth_rate_ned}")
+    print(f"Earth rate magnitude: {np.linalg.norm(earth_rate_ned):.6e} rad/s")
+    
+    # Save results
+    results = {
+        'latitude': lat,
+        'longitude': lon,
+        'altitude': alt,
+        'gravity_ned': gravity_ned,
+        'earth_rate_ned': earth_rate_ned,
+        'reference_ecef': first_pos_ecef
+    }
+    
+    return results
+```
+
+#### MATLAB Implementation
+
+```matlab
+function results = run_task1_matlab(dataset_id)
+    % Complete Task 1 implementation in MATLAB
+    if nargin < 1, dataset_id = 'X001'; end
+    
+    % Load GNSS data
+    gnss_file = fullfile('DATA', 'GNSS', ['GNSS_' dataset_id '.csv']);
+    gnss_data = readtable(gnss_file);
+    
+    % Get initial position
+    first_pos_ecef = [gnss_data.X_ECEF(1), gnss_data.Y_ECEF(1), gnss_data.Z_ECEF(1)];
+    
+    % Convert to geodetic
+    [lat, lon, alt] = ecef2geodetic(first_pos_ecef);
+    
+    fprintf('Initial position: %.6f°N, %.6f°E, %.1fm\n', lat, lon, alt);
+    
+    % Compute reference vectors in NED frame
+    gravity_ned = [0; 0; 9.81];  % Downward
+    
+    % Earth rotation rate
+    omega_earth = 7.2921159e-5;  % rad/s
+    earth_rate_ned = [
+        omega_earth * cosd(lat);   % North component
+        0;                         % East component
+        -omega_earth * sind(lat)   % Down component
+    ];
+    
+    fprintf('Gravity vector (NED): [%.3f, %.3f, %.3f]\n', gravity_ned);
+    fprintf('Earth rate vector (NED): [%.6e, %.6e, %.6e]\n', earth_rate_ned);
+    fprintf('Earth rate magnitude: %.6e rad/s\n', norm(earth_rate_ned));
+    
+    % Create results structure
+    results = struct();
+    results.latitude = lat;
+    results.longitude = lon;
+    results.altitude = alt;
+    results.gravity_ned = gravity_ned;
+    results.earth_rate_ned = earth_rate_ned;
+    results.reference_ecef = first_pos_ecef;
+    
+    % Save to results directory
+    save(fullfile('MATLAB', 'results', ['Task1_' dataset_id '.mat']), 'results');
+end
+```
+
+### Task 2: Body Frame Vector Measurement
+
+**Objective**: Measure gravity and Earth rotation vectors in the body frame during a static period, and estimate sensor biases.
+
+#### Theory
+
+During static periods:
+- Accelerometers measure gravity + bias
+- Gyroscopes measure Earth rotation + bias
+- Bias estimation uses mean values during detected static intervals
+
+#### Static Period Detection Algorithm
+
+```python
+def detect_static_period(imu_data, window_size=200, accel_threshold=0.01, gyro_threshold=1e-6):
+    """
+    Detect static periods in IMU data using sliding variance.
+    
+    Parameters:
+    -----------
+    imu_data : dict
+        Contains 'accel' and 'gyro' arrays
+    window_size : int
+        Size of sliding window for variance computation
+    accel_threshold : float
+        Variance threshold for accelerometer [m²/s⁴]
+    gyro_threshold : float
+        Variance threshold for gyroscope [rad²/s²]
+        
+    Returns:
+    --------
+    static_mask : ndarray
+        Boolean array indicating static samples
+    longest_segment : tuple
+        (start_idx, end_idx) of longest static segment
+    """
+    
+    accel = imu_data['accel']
+    gyro = imu_data['gyro']
+    n_samples = len(accel)
+    
+    # Sliding variance computation
+    accel_var = np.zeros((n_samples - window_size + 1, 3))
+    gyro_var = np.zeros((n_samples - window_size + 1, 3))
+    
+    for i in range(n_samples - window_size + 1):
+        accel_window = accel[i:i+window_size]
+        gyro_window = gyro[i:i+window_size]
+        
+        accel_var[i] = np.var(accel_window, axis=0)
+        gyro_var[i] = np.var(gyro_window, axis=0)
+    
+    # Static detection criteria
+    accel_static = np.max(accel_var, axis=1) < accel_threshold
+    gyro_static = np.max(gyro_var, axis=1) < gyro_threshold
+    static_mask = accel_static & gyro_static
+    
+    # Pad mask to original length
+    full_static_mask = np.zeros(n_samples, dtype=bool)
+    full_static_mask[window_size//2:-window_size//2+1] = static_mask
+    
+    # Find longest continuous static segment
+    static_segments = []
+    in_segment = False
+    start_idx = 0
+    
+    for i, is_static in enumerate(full_static_mask):
+        if is_static and not in_segment:
+            start_idx = i
+            in_segment = True
+        elif not is_static and in_segment:
+            static_segments.append((start_idx, i-1))
+            in_segment = False
+    
+    # Handle case where data ends during static period
+    if in_segment:
+        static_segments.append((start_idx, n_samples-1))
+    
+    # Find longest segment
+    if static_segments:
+        longest_segment = max(static_segments, key=lambda x: x[1] - x[0])
+    else:
+        longest_segment = (0, min(1000, n_samples-1))  # Fallback
+    
+    return full_static_mask, longest_segment
+
+def estimate_sensor_biases(imu_data, static_segment, gravity_ned, earth_rate_ned):
+    """
+    Estimate accelerometer and gyroscope biases during static period.
+    
+    Parameters:
+    -----------
+    imu_data : dict
+        IMU data containing 'accel' and 'gyro'
+    static_segment : tuple
+        (start_idx, end_idx) of static period
+    gravity_ned : array_like
+        Expected gravity vector in NED frame
+    earth_rate_ned : array_like
+        Expected Earth rate in NED frame
+        
+    Returns:
+    --------
+    accel_bias : ndarray, shape (3,)
+        Estimated accelerometer bias
+    gyro_bias : ndarray, shape (3,)
+        Estimated gyroscope bias
+    measured_gravity_body : ndarray, shape (3,)
+        Measured gravity vector in body frame
+    measured_earth_rate_body : ndarray, shape (3,)
+        Measured Earth rate vector in body frame
+    """
+    
+    start_idx, end_idx = static_segment
+    
+    # Extract static measurements
+    static_accel = imu_data['accel'][start_idx:end_idx+1]
+    static_gyro = imu_data['gyro'][start_idx:end_idx+1]
+    
+    # Compute means (measured vectors in body frame)
+    measured_gravity_body = np.mean(static_accel, axis=0)
+    measured_earth_rate_body = np.mean(static_gyro, axis=0)
+    
+    print(f"Static period: samples {start_idx} to {end_idx} ({end_idx-start_idx+1} samples)")
+    print(f"Measured gravity (body): {measured_gravity_body}")
+    print(f"Measured Earth rate (body): {measured_earth_rate_body}")
+    
+    # Initial bias estimates (refined after attitude determination)
+    # For now, assume biases are the difference from expected magnitudes
+    gravity_magnitude_expected = np.linalg.norm(gravity_ned)
+    gravity_magnitude_measured = np.linalg.norm(measured_gravity_body)
+    
+    earth_rate_magnitude_expected = np.linalg.norm(earth_rate_ned)
+    earth_rate_magnitude_measured = np.linalg.norm(measured_earth_rate_body)
+    
+    # Rough bias estimates (will be refined in later tasks)
+    accel_bias = np.zeros(3)  # Will be computed after attitude determination
+    gyro_bias = np.zeros(3)   # Will be computed after attitude determination
+    
+    print(f"Gravity magnitude - Expected: {gravity_magnitude_expected:.3f}, Measured: {gravity_magnitude_measured:.3f}")
+    print(f"Earth rate magnitude - Expected: {earth_rate_magnitude_expected:.6e}, Measured: {earth_rate_magnitude_measured:.6e}")
+    
+    return accel_bias, gyro_bias, measured_gravity_body, measured_earth_rate_body
+```
+
+### Task 3: Initial Attitude Determination
+
+**Objective**: Compute initial attitude using TRIAD, Davenport, or SVD methods.
+
+#### Complete Implementation
+
+```python
+def run_task3_attitude_determination(reference_vectors, body_vectors, method='TRIAD'):
+    """
+    Complete Task 3: Initial attitude determination.
+    
+    Parameters:
+    -----------
+    reference_vectors : dict
+        Contains 'gravity_ned' and 'earth_rate_ned'
+    body_vectors : dict
+        Contains 'measured_gravity_body' and 'measured_earth_rate_body'
+    method : str
+        Attitude determination method ('TRIAD', 'Davenport', 'SVD')
+        
+    Returns:
+    --------
+    results : dict
+        Contains attitude matrix, Euler angles, and method-specific data
+    """
+    
+    # Extract vectors
+    gravity_ned = reference_vectors['gravity_ned']
+    earth_rate_ned = reference_vectors['earth_rate_ned']
+    gravity_body = body_vectors['measured_gravity_body']
+    earth_rate_body = body_vectors['measured_earth_rate_body']
+    
+    # Normalize vectors for attitude determination
+    gravity_body_norm = gravity_body / np.linalg.norm(gravity_body)
+    earth_rate_body_norm = earth_rate_body / np.linalg.norm(earth_rate_body)
+    gravity_ned_norm = gravity_ned / np.linalg.norm(gravity_ned)
+    earth_rate_ned_norm = earth_rate_ned / np.linalg.norm(earth_rate_ned)
+    
+    print(f"Computing initial attitude using {method} method")
+    
+    if method == 'TRIAD':
+        C_bn = triad_attitude(gravity_body_norm, earth_rate_body_norm,
+                             gravity_ned_norm, earth_rate_ned_norm)
+        additional_data = {}
+        
+    elif method == 'Davenport':
+        vectors_body = np.array([gravity_body_norm, earth_rate_body_norm])
+        vectors_ned = np.array([gravity_ned_norm, earth_rate_ned_norm])
+        weights = np.array([1.0, 0.5])  # Higher weight for gravity
+        
+        q_opt, C_bn = davenport_q_method(vectors_body, vectors_ned, weights)
+        additional_data = {'quaternion': q_opt, 'weights': weights}
+        
+    elif method == 'SVD':
+        vectors_body = np.array([gravity_body_norm, earth_rate_body_norm])
+        vectors_ned = np.array([gravity_ned_norm, earth_rate_ned_norm])
+        weights = np.array([1.0, 0.5])
+        
+        C_bn = svd_attitude(vectors_body, vectors_ned, weights)
+        additional_data = {'weights': weights}
+        
+    else:
+        raise ValueError(f"Unknown method: {method}")
+    
+    # Convert to Euler angles
+    roll, pitch, yaw = dcm_to_euler(C_bn)
+    
+    # Validate rotation matrix
+    det_C = np.linalg.det(C_bn)
+    orthogonality_error = np.max(np.abs(C_bn @ C_bn.T - np.eye(3)))
+    
+    print(f"Initial attitude (Euler angles):")
+    print(f"  Roll:  {np.degrees(roll):8.3f}°")
+    print(f"  Pitch: {np.degrees(pitch):8.3f}°") 
+    print(f"  Yaw:   {np.degrees(yaw):8.3f}°")
+    print(f"Rotation matrix validation:")
+    print(f"  Determinant: {det_C:.6f} (should be ~1.0)")
+    print(f"  Orthogonality error: {orthogonality_error:.2e} (should be ~0)")
+    
+    # Compute refined sensor biases using determined attitude
+    accel_bias_refined = gravity_body - C_bn.T @ gravity_ned
+    gyro_bias_refined = earth_rate_body - C_bn.T @ earth_rate_ned
+    
+    print(f"Refined sensor biases:")
+    print(f"  Accelerometer bias: {accel_bias_refined}")
+    print(f"  Gyroscope bias: {gyro_bias_refined}")
+    
+    results = {
+        'method': method,
+        'C_bn': C_bn,
+        'roll': roll,
+        'pitch': pitch, 
+        'yaw': yaw,
+        'euler_degrees': np.degrees([roll, pitch, yaw]),
+        'accel_bias': accel_bias_refined,
+        'gyro_bias': gyro_bias_refined,
+        'determinant': det_C,
+        'orthogonality_error': orthogonality_error,
+        **additional_data
+    }
+    
+    return results
+```
+
+### Task 4: IMU-Only Integration and GNSS Comparison
+
+**Objective**: Integrate IMU measurements to produce position, velocity, and attitude trajectories, then compare with GNSS solutions.
+
+#### Dead-Reckoning Integration
+
+```python
+def imu_dead_reckoning(imu_data, initial_state, attitude_results):
+    """
+    Perform IMU-only dead-reckoning integration.
+    
+    Parameters:
+    -----------
+    imu_data : dict
+        IMU measurements with 'times', 'accel', 'gyro'
+    initial_state : dict
+        Initial position, velocity, and attitude
+    attitude_results : dict
+        Results from Task 3 (biases, initial attitude)
+        
+    Returns:
+    --------
+    integration_results : dict
+        Integrated trajectory (position, velocity, attitude vs time)
+    """
+    
+    times = imu_data['times']
+    accel_raw = imu_data['accel']
+    gyro_raw = imu_data['gyro']
+    n_samples = len(times)
+    
+    # Extract biases and initial attitude
+    accel_bias = attitude_results['accel_bias']
+    gyro_bias = attitude_results['gyro_bias']
+    C_bn_initial = attitude_results['C_bn']
+    
+    # Initialize trajectory arrays
+    positions_ned = np.zeros((n_samples, 3))
+    velocities_ned = np.zeros((n_samples, 3))
+    attitudes_dcm = np.zeros((n_samples, 3, 3))
+    euler_angles = np.zeros((n_samples, 3))
+    
+    # Initial conditions
+    positions_ned[0] = initial_state['position_ned']
+    velocities_ned[0] = initial_state['velocity_ned']
+    attitudes_dcm[0] = C_bn_initial
+    euler_angles[0] = [attitude_results['roll'], attitude_results['pitch'], attitude_results['yaw']]
+    
+    # Gravity and scale factor
+    gravity_ned = np.array([0, 0, 9.81])
+    accel_scale_factor = 0.8368  # Typical scale factor from calibration
+    
+    print("Starting IMU integration...")
+    
+    for i in range(1, n_samples):
+        dt = times[i] - times[i-1]
+        
+        if dt <= 0:
+            # Handle time issues
+            positions_ned[i] = positions_ned[i-1]
+            velocities_ned[i] = velocities_ned[i-1]
+            attitudes_dcm[i] = attitudes_dcm[i-1]
+            euler_angles[i] = euler_angles[i-1]
+            continue
+        
+        # Correct IMU measurements
+        accel_corrected = (accel_raw[i] - accel_bias) * accel_scale_factor
+        gyro_corrected = gyro_raw[i] - gyro_bias
+        
+        # Previous attitude
+        C_bn_prev = attitudes_dcm[i-1]
+        
+        # Transform acceleration to navigation frame and remove gravity
+        accel_nav = C_bn_prev @ accel_corrected - gravity_ned
+        
+        # Integrate velocity and position using trapezoidal rule
+        accel_nav_avg = 0.5 * (accel_nav + (attitudes_dcm[i-1] @ (accel_raw[i-1] - accel_bias) * accel_scale_factor - gravity_ned))
+        
+        velocities_ned[i] = velocities_ned[i-1] + accel_nav_avg * dt
+        positions_ned[i] = positions_ned[i-1] + 0.5 * (velocities_ned[i] + velocities_ned[i-1]) * dt
+        
+        # Attitude integration using small-angle approximation
+        omega_nav = C_bn_prev @ gyro_corrected
+        
+        # Skew-symmetric matrix for attitude update
+        Omega = skew_symmetric(omega_nav * dt)
+        
+        # Attitude update (first-order approximation)
+        attitudes_dcm[i] = C_bn_prev @ (np.eye(3) + Omega)
+        
+        # Ensure orthonormality (Gram-Schmidt)
+        U, _, Vt = np.linalg.svd(attitudes_dcm[i])
+        attitudes_dcm[i] = U @ Vt
+        
+        # Extract Euler angles
+        euler_angles[i] = dcm_to_euler(attitudes_dcm[i])
+    
+    print(f"IMU integration completed for {n_samples} samples")
+    print(f"Final position (NED): {positions_ned[-1]}")
+    print(f"Final velocity (NED): {velocities_ned[-1]}")
+    print(f"Final attitude (deg): {np.degrees(euler_angles[-1])}")
+    
+    results = {
+        'times': times,
+        'positions_ned': positions_ned,
+        'velocities_ned': velocities_ned,
+        'attitudes_dcm': attitudes_dcm,
+        'euler_angles': euler_angles,
+        'euler_degrees': np.degrees(euler_angles)
+    }
+    
+    return results
+
+def compare_imu_gnss_trajectories(imu_results, gnss_data, reference_position):
+    """
+    Compare IMU-integrated trajectory with GNSS solution.
+    
+    Parameters:
+    -----------
+    imu_results : dict
+        Results from IMU integration
+    gnss_data : dict
+        GNSS position and velocity data
+    reference_position : array_like
+        Reference ECEF position for NED conversion
+        
+    Returns:
+    --------
+    comparison_results : dict
+        Comparison metrics and aligned trajectories
+    """
+    
+    # Convert GNSS ECEF to NED for comparison
+    gnss_positions_ecef = gnss_data['positions_ecef']
+    gnss_velocities_ecef = gnss_data['velocities_ecef']
+    gnss_times = gnss_data['times']
+    
+    # Convert reference position to geodetic
+    ref_lat, ref_lon, ref_alt = ecef_to_geodetic(reference_position)
+    
+    # Convert GNSS positions to NED
+    gnss_positions_ned = np.zeros_like(gnss_positions_ecef)
+    for i, pos_ecef in enumerate(gnss_positions_ecef):
+        pos_ned = ecef_to_ned(pos_ecef, ref_lat, ref_lon, ref_alt, reference_position)
+        gnss_positions_ned[i] = pos_ned
+    
+    # Interpolate IMU results to GNSS time epochs
+    from scipy.interpolate import interp1d
+    
+    imu_times = imu_results['times']
+    imu_pos_ned = imu_results['positions_ned']
+    
+    # Find common time range
+    t_start = max(imu_times[0], gnss_times[0])
+    t_end = min(imu_times[-1], gnss_times[-1])
+    
+    # Interpolate IMU to GNSS epochs
+    interp_func_pos = interp1d(imu_times, imu_pos_ned, axis=0, kind='linear', 
+                              bounds_error=False, fill_value='extrapolate')
+    
+    gnss_mask = (gnss_times >= t_start) & (gnss_times <= t_end)
+    gnss_times_common = gnss_times[gnss_mask]
+    gnss_pos_ned_common = gnss_positions_ned[gnss_mask]
+    
+    imu_pos_ned_interp = interp_func_pos(gnss_times_common)
+    
+    # Compute position differences
+    pos_diff = imu_pos_ned_interp - gnss_pos_ned_common
+    pos_error_magnitude = np.linalg.norm(pos_diff, axis=1)
+    
+    # Statistics
+    mean_error = np.mean(pos_error_magnitude)
+    rms_error = np.sqrt(np.mean(pos_error_magnitude**2))
+    max_error = np.max(pos_error_magnitude)
+    
+    print(f"IMU vs GNSS Position Comparison:")
+    print(f"  Mean error: {mean_error:.3f} m")
+    print(f"  RMS error:  {rms_error:.3f} m")
+    print(f"  Max error:  {max_error:.3f} m")
+    print(f"  Final error: {pos_error_magnitude[-1]:.3f} m")
+    
+    results = {
+        'common_times': gnss_times_common,
+        'imu_positions_ned': imu_pos_ned_interp,
+        'gnss_positions_ned': gnss_pos_ned_common,
+        'position_differences': pos_diff,
+        'error_magnitudes': pos_error_magnitude,
+        'mean_error': mean_error,
+        'rms_error': rms_error,
+        'max_error': max_error
+    }
+    
+    return results
+```
+
+### Task 5: Extended Kalman Filter Fusion
+
+**Objective**: Fuse IMU and GNSS data using an Extended Kalman Filter for optimal state estimation.
+
+This builds on the EKF implementation from the Core Concepts section but provides complete integration:
+
+```python
+def run_complete_ekf_fusion(imu_data, gnss_data, initial_conditions, filter_params=None):
+    """
+    Complete EKF-based IMU/GNSS fusion pipeline.
+    
+    Parameters:
+    -----------
+    imu_data : dict
+        Complete IMU dataset
+    gnss_data : dict  
+        Complete GNSS dataset
+    initial_conditions : dict
+        Initial state from previous tasks
+    filter_params : dict, optional
+        Kalman filter tuning parameters
+        
+    Returns:
+    --------
+    fusion_results : dict
+        Complete fusion solution with statistics
+    """
+    
+    # Default filter parameters
+    if filter_params is None:
+        filter_params = {
+            'process_noise': {
+                'position': 1e-8,
+                'velocity': 1e-6,
+                'attitude': 1e-8,
+                'accel_bias': 1e-10,
+                'gyro_bias': 1e-12
+            },
+            'measurement_noise': {
+                'position': [1.0, 1.0, 2.0],
+                'velocity': [0.1, 0.1, 0.2]
+            }
+        }
+    
+    # Initialize state vector [pos, vel, att_err, accel_bias, gyro_bias]
+    initial_state = np.zeros(15)
+    initial_state[:3] = initial_conditions['position_ned']
+    initial_state[3:6] = initial_conditions['velocity_ned']
+    initial_state[6:9] = [0, 0, 0]  # Small attitude errors
+    initial_state[9:12] = initial_conditions['accel_bias']
+    initial_state[12:15] = initial_conditions['gyro_bias']
+    
+    # Initial covariance matrix
+    initial_P = np.diag([
+        10.0, 10.0, 10.0,    # Position uncertainty [m²]
+        1.0, 1.0, 1.0,       # Velocity uncertainty [m²/s²]
+        0.1, 0.1, 0.1,       # Attitude uncertainty [rad²]
+        0.01, 0.01, 0.01,    # Accel bias uncertainty [m²/s⁴]
+        1e-6, 1e-6, 1e-6     # Gyro bias uncertainty [rad²/s²]
+    ])
+    
+    # Process noise matrix
+    Q = np.diag([
+        filter_params['process_noise']['position']] * 3 +
+        [filter_params['process_noise']['velocity']] * 3 +
+        [filter_params['process_noise']['attitude']] * 3 +
+        [filter_params['process_noise']['accel_bias']] * 3 +
+        [filter_params['process_noise']['gyro_bias']] * 3
+    )
+    
+    # Measurement noise matrix
+    R = np.diag(
+        filter_params['measurement_noise']['position'] +
+        filter_params['measurement_noise']['velocity']
+    )
+    
+    # Prepare synchronized data
+    sync_data = synchronize_imu_gnss_data(imu_data, gnss_data)
+    
+    # Run EKF fusion
+    fusion_results = run_ekf_fusion(
+        sync_data, initial_state, initial_P, Q, R
+    )
+    
+    # Post-process results
+    fusion_results['filter_params'] = filter_params
+    fusion_results['performance_metrics'] = analyze_filter_performance(fusion_results)
+    
+    return fusion_results
+
+def analyze_filter_performance(fusion_results):
+    """Analyze EKF performance and compute metrics."""
+    
+    residuals = fusion_results['residuals']
+    states = fusion_results['states']
+    covariances = fusion_results['covariances']
+    
+    if not residuals:
+        return {'error': 'No GNSS updates available'}
+    
+    # Extract residual statistics
+    pos_residuals = np.array([r['residual'][:3] for r in residuals])
+    vel_residuals = np.array([r['residual'][3:6] for r in residuals])
+    
+    # Compute RMS errors
+    pos_rms = np.sqrt(np.mean(pos_residuals**2, axis=0))
+    vel_rms = np.sqrt(np.mean(vel_residuals**2, axis=0))
+    
+    # Innovation consistency (normalized innovation squared)
+    innovation_consistency = []
+    for r in residuals:
+        residual = r['residual']
+        S = r['innovation_cov']
+        nis = residual.T @ np.linalg.inv(S) @ residual
+        innovation_consistency.append(nis)
+    
+    # Analyze covariance trace evolution
+    pos_uncertainty = np.array([np.sqrt(np.trace(P[:3, :3])) for P in covariances])
+    vel_uncertainty = np.array([np.sqrt(np.trace(P[3:6, 3:6])) for P in covariances])
+    att_uncertainty = np.array([np.sqrt(np.trace(P[6:9, 6:9])) for P in covariances])
+    
+    metrics = {
+        'position_rms_errors': pos_rms,
+        'velocity_rms_errors': vel_rms,
+        'mean_innovation_consistency': np.mean(innovation_consistency),
+        'final_position_uncertainty': pos_uncertainty[-1],
+        'final_velocity_uncertainty': vel_uncertainty[-1],
+        'final_attitude_uncertainty': att_uncertainty[-1],
+        'convergence_metrics': {
+            'position_convergence_95': np.where(pos_uncertainty < 0.05 * pos_uncertainty[0])[0],
+            'velocity_convergence_95': np.where(vel_uncertainty < 0.05 * vel_uncertainty[0])[0]
+        }
+    }
+    
+    return metrics
+```
+
+This comprehensive tutorial section covers the essential tasks in detail, providing both theoretical understanding and practical implementation examples for both Python and MATLAB environments. The remaining tasks (6 and 7) follow similar patterns focusing on validation and analysis.
