@@ -711,6 +711,8 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
     # Use aligned truth and sign-align estimate for plotting
     qT = q_norm(qT_aligned)
     qE = _fix_hemisphere(qT, qE_est)
+    # Angle error between aligned truth and estimate across full timeline
+    ang = _quat_angle_deg(qT, qE)
 
     # plots (NO acceleration)
     # 1) quaternion components (Body->NED frame)
