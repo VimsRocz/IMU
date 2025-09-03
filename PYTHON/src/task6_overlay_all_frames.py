@@ -199,23 +199,30 @@ def plot_overlay_3x3(
 
     comps = ["X", "Y", "Z"]
     ylabels = ["Position [m]", "Velocity [m/s]", "Acceleration [m/s²]"]
+    # Decimate to keep plots responsive for very long runs
+    n = len(time)
+    max_pts = 200_000
+    stride = max(1, int(np.ceil(n / max_pts)))
+    t_plot = time[::stride]
+    est = tuple(None if est_triplet[j] is None else est_triplet[j][::stride] for j in range(3))
+    tru = tuple(None if tru_triplet[j] is None else tru_triplet[j][::stride] for j in range(3))
     fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
     for j in range(3):  # columns: pos/vel/acc
-        est = est_triplet[j]
-        tru = tru_triplet[j]
+        est_j = est[j]
+        tru_j = tru[j]
         for i in range(3):  # rows: components
             ax = axes[i, j]
-            if est is not None:
+            if est_j is not None:
                 ax.plot(
-                    time,
-                    est[:, i],
+                    t_plot,
+                    est_j[:, i],
                     label="Fused" if (i == 0 and j == 0) else None,
                     linewidth=1.2,
                 )
-            if tru is not None:
+            if tru_j is not None:
                 ax.plot(
-                    time,
-                    tru[:, i],
+                    t_plot,
+                    tru_j[:, i],
                     linestyle="--",
                     label="Truth" if (i == 0 and j == 0) else None,
                     linewidth=1.0,
@@ -227,6 +234,23 @@ def plot_overlay_3x3(
             ax.grid(alpha=0.3)
         if tru is None and truth_missing:
             axes[0, j].plot([], [], linestyle="--", label="Truth (missing)")
+    # Harmonise y-limits per column using robust symmetric limits (99.5th percentile)
+    try:
+        perc = 99.5
+        for j in range(3):
+            rows = []
+            if est[j] is not None:
+                rows.append(np.abs(est[j]))
+            if tru[j] is not None:
+                rows.append(np.abs(tru[j]))
+            if rows:
+                lim = float(np.percentile(np.concatenate(rows, axis=0), perc))
+                if np.isfinite(lim) and lim > 0:
+                    for i in range(3):
+                        axes[i, j].set_ylim(-lim, lim)
+    except Exception:
+        pass
+
     handles, labels = axes[0, 0].get_legend_handles_labels()
     if handles:
         fig.legend(handles, labels, ncol=2, loc="upper center")
@@ -247,23 +271,34 @@ def plot_methods_overlay_3x3(
 ) -> None:
     comps = ["X", "Y", "Z"]
     ylabels = ["Position [m]", "Velocity [m/s]", "Acceleration [m/s²]"]
+    # Decimation
+    n = len(time)
+    max_pts = 200_000
+    stride = max(1, int(np.ceil(n / max_pts)))
+    t_plot = time[::stride]
+    methods_dec = {
+        name: tuple(None if trip[j] is None else trip[j][::stride] for j in range(3))
+        for name, trip in methods_triplets.items()
+    }
+    tru_dec = tuple(None if tru_triplet[j] is None else tru_triplet[j][::stride] for j in range(3))
+
     fig, axes = plt.subplots(3, 3, figsize=(12, 9), sharex=True)
     for j in range(3):
-        tru = tru_triplet[j]
+        tru = tru_dec[j]
         for i in range(3):
             ax = axes[i, j]
-            for name, trip in methods_triplets.items():
+            for name, trip in methods_dec.items():
                 est = trip[j]
                 if est is not None:
                     ax.plot(
-                        time,
+                        t_plot,
                         est[:, i],
                         label=(f"{name}" if (i == 0 and j == 0) else None),
                         linewidth=1.2,
                     )
             if tru is not None:
                 ax.plot(
-                    time,
+                    t_plot,
                     tru[:, i],
                     linestyle="--",
                     label="Truth" if (i == 0 and j == 0) else None,
@@ -274,6 +309,23 @@ def plot_methods_overlay_3x3(
             if i == 2:
                 ax.set_xlabel("Time [s]")
             ax.grid(alpha=0.3)
+    # Harmonise y-limits per column
+    try:
+        perc = 99.5
+        for j in range(3):
+            rows = []
+            for _, trip in methods_dec.items():
+                if trip[j] is not None:
+                    rows.append(np.abs(trip[j]))
+            if tru_dec[j] is not None:
+                rows.append(np.abs(tru_dec[j]))
+            if rows:
+                lim = float(np.percentile(np.concatenate(rows, axis=0), perc))
+                if np.isfinite(lim) and lim > 0:
+                    for i in range(3):
+                        axes[i, j].set_ylim(-lim, lim)
+    except Exception:
+        pass
     handles, labels = axes[0, 0].get_legend_handles_labels()
     if handles:
         fig.legend(handles, labels, ncol=2, loc="upper center")

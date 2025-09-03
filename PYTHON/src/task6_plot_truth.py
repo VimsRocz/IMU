@@ -69,6 +69,9 @@ def main():
     ap.add_argument('--debug-task6', action='store_true', help='enable verbose Task 6 debugging')
     ap.add_argument('--flat-output', action='store_true', default=True, help='also copy PNGs to results/ root')
     ap.add_argument('--include-accel', action='store_true', default=False, help='Include acceleration overlays (default False)')
+    ap.add_argument('--no-decimate', action='store_true', default=False, help='Disable plot decimation for long runs')
+    ap.add_argument('--decimate-maxpoints', type=int, default=200_000, help='Target max points after decimation (per series)')
+    ap.add_argument('--ylim-percentile', type=float, default=99.5, help='Percentile (0-100) for symmetric y-limit scaling')
     args = ap.parse_args()
 
     est_path = Path(args.est_file).resolve()
@@ -257,27 +260,61 @@ def main():
 
     def _plot_2x3(time_s, pos_est, vel_est, pos_tru=None, vel_tru=None, title='', outfile=None):
         comps = ['X','Y','Z']
+        # Decimation
+        n = len(time_s)
+        stride = 1 if args.no_decimate else max(1, int(np.ceil(n / max(1, args.decimate_maxpoints))))
+        t_plot = time_s[::stride]
+        pe = None if pos_est is None else pos_est[::stride]
+        ve = None if vel_est is None else vel_est[::stride]
+        pt = None if pos_tru is None else pos_tru[::stride]
+        vt = None if vel_tru is None else vel_tru[::stride]
         fig, axes = plt.subplots(2, 3, figsize=(12, 6), sharex=True)
         # Top row: Position
         for i in range(3):
             ax = axes[0, i]
-            if pos_tru is not None:
-                ax.plot(time_s, pos_tru[:, i], '--', label='Truth' if i == 0 else None, alpha=0.9, linewidth=1.0)
-            if pos_est is not None:
-                ax.plot(time_s, pos_est[:, i], label='Estimate' if i == 0 else None, alpha=0.95, linewidth=1.3)
+            if pt is not None:
+                ax.plot(t_plot, pt[:, i], '--', label='Truth' if i == 0 else None, alpha=0.9, linewidth=1.0)
+            if pe is not None:
+                ax.plot(t_plot, pe[:, i], label='Estimate' if i == 0 else None, alpha=0.95, linewidth=1.3)
             ax.set_ylabel('Position [m]')
             ax.set_title(f'{title} {comps[i]}')
             ax.grid(alpha=0.3)
         # Bottom row: Velocity
         for i in range(3):
             ax = axes[1, i]
-            if vel_tru is not None:
-                ax.plot(time_s, vel_tru[:, i], '--', label='Truth' if i == 0 else None, alpha=0.9, linewidth=1.0)
-            if vel_est is not None:
-                ax.plot(time_s, vel_est[:, i], label='Estimate' if i == 0 else None, alpha=0.95, linewidth=1.3)
+            if vt is not None:
+                ax.plot(t_plot, vt[:, i], '--', label='Truth' if i == 0 else None, alpha=0.9, linewidth=1.0)
+            if ve is not None:
+                ax.plot(t_plot, ve[:, i], label='Estimate' if i == 0 else None, alpha=0.95, linewidth=1.3)
             ax.set_ylabel('Velocity [m/s]')
             ax.set_xlabel('Time [s]')
             ax.grid(alpha=0.3)
+        # Harmonise y-limits using robust symmetric limits
+        try:
+            perc = float(args.ylim_percentile)
+            if perc > 0 and perc <= 100:
+                rows = []
+                if pe is not None:
+                    rows.append(np.abs(pe))
+                if pt is not None:
+                    rows.append(np.abs(pt))
+                if rows:
+                    lim_p = float(np.percentile(np.concatenate(rows, axis=0), perc))
+                    if np.isfinite(lim_p) and lim_p > 0:
+                        for i in range(3):
+                            axes[0, i].set_ylim(-lim_p, lim_p)
+                rows = []
+                if ve is not None:
+                    rows.append(np.abs(ve))
+                if vt is not None:
+                    rows.append(np.abs(vt))
+                if rows:
+                    lim_v = float(np.percentile(np.concatenate(rows, axis=0), perc))
+                    if np.isfinite(lim_v) and lim_v > 0:
+                        for i in range(3):
+                            axes[1, i].set_ylim(-lim_v, lim_v)
+        except Exception:
+            pass
         # Single, centered legend covering both rows
         handles, labels = axes[0, 0].get_legend_handles_labels()
         if handles:
@@ -307,13 +344,19 @@ def main():
 
     def _plot_quat(time_s, quat_est, quat_tru=None, outfile=None):
         comps = ['w', 'x', 'y', 'z']
+        # Decimation
+        n = len(time_s)
+        stride = 1 if args.no_decimate else max(1, int(np.ceil(n / max(1, args.decimate_maxpoints))))
+        t_plot = time_s[::stride]
+        qe = None if quat_est is None else quat_est[::stride]
+        qt = None if quat_tru is None else quat_tru[::stride]
         fig, axes = plt.subplots(4, 1, figsize=(10, 8), sharex=True)
         for i, comp in enumerate(comps):
             ax = axes[i]
-            if quat_tru is not None:
-                ax.plot(time_s, quat_tru[:, i], label='truth', alpha=0.8)
-            if quat_est is not None:
-                ax.plot(time_s, quat_est[:, i], label='estimate', alpha=0.8)
+            if qt is not None:
+                ax.plot(t_plot, qt[:, i], label='truth', alpha=0.8)
+            if qe is not None:
+                ax.plot(t_plot, qe[:, i], label='estimate', alpha=0.8)
             ax.set_ylabel(comp)
             if i == 0:
                 ax.legend(loc='upper right')
@@ -331,17 +374,37 @@ def main():
     import matplotlib.pyplot as plt
 
     def _plot_diff_2x3(time_s, diff_pos, diff_vel, labels, frame, out_base):
+        # Decimation
+        n = len(time_s)
+        stride = 1 if args.no_decimate else max(1, int(np.ceil(n / max(1, args.decimate_maxpoints))))
+        t_plot = time_s[::stride]
+        dp = diff_pos[::stride]
+        dv = diff_vel[::stride]
         fig, axes = plt.subplots(2, 3, figsize=(9, 4), sharex=True)
         for i in range(3):
-            axes[0, i].plot(time_s, diff_pos[:, i])
+            axes[0, i].plot(t_plot, dp[:, i])
             axes[0, i].set_title(labels[i])
             axes[0, i].set_ylabel('Difference [m]')
             axes[0, i].grid(True)
 
-            axes[1, i].plot(time_s, diff_vel[:, i])
+            axes[1, i].plot(t_plot, dv[:, i])
             axes[1, i].set_xlabel('Time [s]')
             axes[1, i].set_ylabel('Difference [m/s]')
             axes[1, i].grid(True)
+        # Harmonise y-limits
+        try:
+            perc = float(args.ylim_percentile)
+            if perc > 0 and perc <= 100:
+                lim_p = float(np.percentile(np.abs(dp), perc))
+                lim_v = float(np.percentile(np.abs(dv), perc))
+                if np.isfinite(lim_p) and lim_p > 0:
+                    for i in range(3):
+                        axes[0, i].set_ylim(-lim_p, lim_p)
+                if np.isfinite(lim_v) and lim_v > 0:
+                    for i in range(3):
+                        axes[1, i].set_ylim(-lim_v, lim_v)
+        except Exception:
+            pass
         fig.suptitle(f'Truth - Fused Differences ({frame} Frame)')
         fig.tight_layout(rect=[0, 0, 1, 0.95])
         png = Path(out_base).with_suffix('.png')
