@@ -1,6 +1,7 @@
 function Task_7()
 %TASK_7 Residual analysis with frame/time alignment and guard rails.
-fprintf('--- Starting Task 7: Residual Analysis ---\n');
+fprintf('Task 7: Residual Analysis and Summary\n');
+fprintf('Subtask 7.1: Locate Task-5/6 outputs and Truth.\n');
 
 % Paths
 addpath(genpath(fullfile(fileparts(mfilename('fullpath')), 'src')));
@@ -34,6 +35,7 @@ if ~hasRes6
 end
 
 % Time
+fprintf('Subtask 7.2: Establish estimator and truth time bases.\n');
 if isfield(res5,'t_est'), t_est = res5.t_est; else, error('Task7: t_est missing'); end
 N = numel(t_est);
 if hasRes6
@@ -85,6 +87,7 @@ if isempty(E.acc_ned) && isfield(res5,'acc_ecef_est')
 end
 
 % Truth (prefer Task 6 processed NED if available)
+fprintf('Subtask 7.3: Load/convert Truth to NED for comparison.\n');
 if hasRes6 && isfield(tmp6,'truth_pos_ned') && ~isempty(tmp6.truth_pos_ned)
     P_ned = tmp6.truth_pos_ned; V_ned = tmp6.truth_vel_ned;
 else
@@ -114,8 +117,25 @@ else
     end
 end
 
-% Interpolate truth to estimator time
-interp = @(X) attitude_tools('interp_to', t_truth, X, t_est);
+% Interpolate truth to estimator time (apply optional saved time shift)
+fprintf('Subtask 7.4: Interpolate Truth to estimator time (with optional time shift).\n');
+dt_s = 0;
+try
+    to_path = fullfile(resultsDir, sprintf('%s_task7_timeoffset.mat', runTag));
+    if isfile(to_path)
+        Sdt = load(to_path);
+        if isfield(Sdt,'dt_est')
+            dt_s = Sdt.dt_est;
+            fprintf('[Task7] Applying saved time offset dt = %+0.3f s to Truth.\n', dt_s);
+        end
+    end
+catch
+end
+t_truth_eff = t_truth;
+if dt_s ~= 0
+    t_truth_eff = t_truth + dt_s;
+end
+interp = @(X) attitude_tools('interp_to', t_truth_eff, X, t_est);
 Ptru = interp(P_ned); Vtru = interp(V_ned);
 
 %% --- Fix: interpolate truth quats to estimator time base (for attitude cmp) ---

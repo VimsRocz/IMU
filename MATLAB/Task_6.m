@@ -35,7 +35,8 @@ end
 % Use a row vector so element-wise operations broadcast correctly
 sign_ned = [1, 1, -1];
 
-fprintf('Starting Task 6 overlay ...\n');
+fprintf('Task 6: GNSS/Truth Overlay and Diagnostics\n');
+fprintf('Subtask 6.1: Load Task 5 results and setup.\n');
 start_time = tic;
 
 [~, imu_name, ~]  = fileparts(imu_path);
@@ -95,6 +96,7 @@ out_dir = fullfile(results_dir, run_id);
 if ~exist(out_dir, 'dir'); mkdir(out_dir); end
 
 % Load gravity vector from Task 1 initialisation
+fprintf('Subtask 6.2: Load Task 1 init and Truth source.\n');
 % Use explicit components to avoid any ambiguity in the filename
 pair_tag = [imu_name '_' gnss_name];
 task1_file = fullfile(results_dir, sprintf('Task1_init_%s_%s_%s.mat', ...
@@ -152,6 +154,7 @@ if ~isfile(truth_file)
     return;
 end
 
+fprintf('Subtask 6.3: Load and prepare Truth.\n');
 % Support text-based STATE_X files in addition to MAT files
 if endsWith(truth_file, '.txt')
     % Read full truth state file (count, time, X Y Z, VX VY VZ, q)
@@ -186,6 +189,7 @@ else
 end
 
 % Time vector from estimator
+fprintf('Subtask 6.4: Interpolate Truth to estimator time.\n');
 if isfield(S,'time_residuals') && ~isempty(S.time_residuals)
     t_est = S.time_residuals;
 elseif isfield(S,'time')
@@ -275,6 +279,7 @@ catch ME
     warning('Task 6: failed to save q\_est debug plot: %s', ME.message);
 end
 
+fprintf('Subtask 6.5: Convert Truth to NED and build fused signals.\n');
 pos_truth_ned_i_raw  = (C * (pos_truth_ecef_i' - ref_r0)).';
 vel_truth_ned_i_raw  = (C*vel_truth_ecef_i.').';
 acc_truth_ned_i_raw  = (C*acc_truth_ecef_i.').';
@@ -294,7 +299,19 @@ acc_ned = [zeros(1,3); diff(vel_ned)./diff(t_est)];
 
 t_imu = zero_base_time(t_est);
 
+% Optional: estimate and save a small time offset for Task-5 alignment reuse
+try
+    [lag_dt, dt_s] = compute_time_shift(vel_ned(:,1), vel_truth_ned_i(:,1), dt_est);
+    fprintf('Subtask 6.6: Estimated time offset via xcorr: %+0.3f s (lag=%d)\n', dt_s, lag_dt);
+    to_path = fullfile(out_dir, sprintf('%s_task7_timeoffset.mat', run_id));
+    dt_est_struct = struct('dt_est', dt_s, 'lag', lag_dt);
+    save(to_path, '-struct', 'dt_est_struct');
+catch ME
+    warning('Task6: time-offset estimation failed: %s', ME.message);
+end
+
 % 3x3 overlay grid comparing fused vs truth
+fprintf('Subtask 6.7: Plot fused vs truth overlays (NED/ECEF/Body).\n');
 fused_struct = struct('t', t_est, 'pos', pos_ned, 'vel', vel_ned, 'acc', acc_ned);
 % For interactive overlays, plot the full truth timeline
 truth_struct = struct('t', t_truth, 'pos', pos_truth_ned_i_raw, ...
@@ -568,11 +585,13 @@ try
     body_base = fullfile(out_dir, sprintf('%s_task6_compare_BODY', run_id));
     print(fig, [body_base '.pdf'], '-dpdf', '-bestfit');
     print(fig, [body_base '.png'], '-dpng');
-    fprintf('Task 6: saved body comparison plots to %s.[pdf|png]\n', body_base);
+fprintf('Task 6: saved body comparison plots to %s.[pdf|png]\n', body_base);
     close(fig);
 catch ME
     warning('Task 6 comparison plots failed: %s', ME.message);
 end
+
+fprintf('Subtask 6.8: Save processed series and summary metrics.\n');
 end
 
 function y = centre(x)

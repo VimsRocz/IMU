@@ -651,14 +651,22 @@ for i = 1:num_imu_samples
     prev_a_ned = a_ned;
 
     % --- 5. Zero-Velocity Update (ZUPT) ---
-    win_size = 80;
-    acc_win = acc_body_raw(max(1,i-win_size+1):i, :);
-    gyro_win = gyro_body_raw(max(1,i-win_size+1):i, :);
-    acc_std = max(std(acc_win,0,1));
-    gyro_std = max(std(gyro_win,0,1));
-    norm_acc = norm(acc_win(end,:));
-    dbg_zupt_msg = sprintf('[DBG-ZUPT] k=%d acc_norm=%.4f (threshold=%.4f)', i, norm_acc, accel_std_thresh);
-    if acc_std < accel_std_thresh && gyro_std < gyro_std_thresh && norm(x(4:6)) < vel_thresh
+    % Robust detection: (||a||-g) < eps AND ||gyro|| small with dwell
+    if i == 1
+        g_scalar = abs(g_NED(3));
+    end
+    win_size = 80; % ~0.2 s at 400 Hz
+    i0 = max(1,i-win_size+1);
+    acc_win = acc_body_raw(i0:i, :);
+    gyro_win = gyro_body_raw(i0:i, :);
+    acc_norm_err = abs(norm(acc_win(end,:)) - g_scalar);
+    gyro_win_std = max(std(gyro_win,0,1));
+    zupt_cond = (acc_norm_err < cfg.zupt.acc_movstd_thresh) && ...
+                (gyro_win_std < gyro_std_thresh) && ...
+                (norm(x(4:6)) < vel_thresh);
+    dbg_zupt_msg = sprintf('[DBG-ZUPT] k=%d |a|-g=%.4f (thr=%.4f) gyro_std=%.5f', ...
+                            i, acc_norm_err, cfg.zupt.acc_movstd_thresh, gyro_win_std);
+    if zupt_cond
         zupt_count = zupt_count + 1;
         zupt_log(i) = 1;
         H_z = [zeros(3,3), eye(3), zeros(3,9)];
