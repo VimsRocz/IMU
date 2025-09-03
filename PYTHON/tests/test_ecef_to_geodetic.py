@@ -22,6 +22,7 @@ def geodetic_to_ecef(lat_deg, lon_deg, alt_m):
         (0.0, 0.0, 0.0),
         (45.0, 45.0, 1000.0),
         (-32.026554, 133.455801, 120.0),
+        (80.0, 0.0, 5_000_000.0),
     ],
 )
 def test_roundtrip(lat_deg, lon_deg, alt):
