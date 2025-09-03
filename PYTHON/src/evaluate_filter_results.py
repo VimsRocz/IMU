@@ -479,17 +479,39 @@ def subtask7_5_diff_plot(
             pass
 
     def _plot(arr_p: np.ndarray, arr_v: np.ndarray, labels: list[str], frame: str) -> None:
+        # Decimate to keep plots responsive for very long runs
+        n = len(time)
+        stride = int(np.ceil(n / 200000)) if n > 200000 else 1
+        t_plot = time[::stride]
+        p_plot = arr_p[::stride]
+        v_plot = arr_v[::stride]
+
         fig, axes = plt.subplots(2, 3, figsize=(9, 4), sharex=True)
         for i in range(3):
-            axes[0, i].plot(time, arr_p[:, i])
+            axes[0, i].plot(t_plot, p_plot[:, i])
             axes[0, i].set_title(labels[i])
             axes[0, i].set_ylabel("Difference [m]")
             axes[0, i].grid(True)
 
-            axes[1, i].plot(time, arr_v[:, i])
+            axes[1, i].plot(t_plot, v_plot[:, i])
             axes[1, i].set_xlabel("Time [s]")
             axes[1, i].set_ylabel("Difference [m/s]")
             axes[1, i].grid(True)
+
+        # Harmonise y-limits per row using robust symmetric limits (99.5th percentile)
+        try:
+            lim_p = float(np.percentile(np.abs(p_plot), 99.5))
+            lim_v = float(np.percentile(np.abs(v_plot), 99.5))
+            lim_p = lim_p if np.isfinite(lim_p) and lim_p > 0 else None
+            lim_v = lim_v if np.isfinite(lim_v) and lim_v > 0 else None
+            if lim_p:
+                for i in range(3):
+                    axes[0, i].set_ylim(-lim_p, lim_p)
+            if lim_v:
+                for i in range(3):
+                    axes[1, i].set_ylim(-lim_v, lim_v)
+        except Exception:
+            pass
 
         fig.suptitle(f"Truth - Fused Differences ({frame} Frame)")
         fig.tight_layout(rect=[0, 0, 1, 0.95])
@@ -555,6 +577,21 @@ def subtask7_5_diff_plot(
         f"{out_dir}/"
     )
 
+    # Persist differences for downstream analysis
+    try:
+        np.savez(
+            out_dir / f"{run_id}_task7_5_diffs.npz",
+            time=time,
+            pos_ned=diff_pos_ned,
+            vel_ned=diff_vel_ned,
+            pos_ecef=diff_pos_ecef,
+            vel_ecef=diff_vel_ecef,
+            pos_body=diff_pos_body,
+            vel_body=diff_vel_body,
+        )
+    except Exception:
+        pass
+
 
 def subtask7_6_overlay_plot(
     time: np.ndarray,
@@ -575,18 +612,40 @@ def subtask7_6_overlay_plot(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     def _plot_overlay(arr_p_est, arr_p_tru, arr_v_est, arr_v_tru, labels, frame):
+        # Decimate if needed to keep plots responsive
+        n = len(time)
+        stride = int(np.ceil(n / 200000)) if n > 200000 else 1
+        t_plot = time[::stride]
+        p_est = arr_p_est[::stride]
+        p_tru = arr_p_tru[::stride]
+        v_est = arr_v_est[::stride]
+        v_tru = arr_v_tru[::stride]
+
         fig, axes = plt.subplots(2, 3, figsize=(9, 4), sharex=True)
         for i in range(3):
-            axes[0, i].plot(time, arr_p_est[:, i], label="Fused")
-            axes[0, i].plot(time, arr_p_tru[:, i], '--', label="Truth")
+            axes[0, i].plot(t_plot, p_est[:, i], label="Fused")
+            axes[0, i].plot(t_plot, p_tru[:, i], '--', label="Truth")
             axes[0, i].set_title(labels[i])
-            axes[0, i].set_ylabel("Position")
+            axes[0, i].set_ylabel("Position [m]")
             axes[0, i].grid(True)
-            axes[1, i].plot(time, arr_v_est[:, i], label="Fused")
-            axes[1, i].plot(time, arr_v_tru[:, i], '--', label="Truth")
+            axes[1, i].plot(t_plot, v_est[:, i], label="Fused")
+            axes[1, i].plot(t_plot, v_tru[:, i], '--', label="Truth")
             axes[1, i].set_xlabel("Time [s]")
-            axes[1, i].set_ylabel("Velocity")
+            axes[1, i].set_ylabel("Velocity [m/s]")
             axes[1, i].grid(True)
+
+        # Harmonise y-limits using robust symmetric limits across columns
+        try:
+            lim_p = float(np.percentile(np.abs(np.concatenate([p_est, p_tru], axis=0)), 99.5))
+            lim_v = float(np.percentile(np.abs(np.concatenate([v_est, v_tru], axis=0)), 99.5))
+            if lim_p and np.isfinite(lim_p) and lim_p > 0:
+                for i in range(3):
+                    axes[0, i].set_ylim(-lim_p, lim_p)
+            if lim_v and np.isfinite(lim_v) and lim_v > 0:
+                for i in range(3):
+                    axes[1, i].set_ylim(-lim_v, lim_v)
+        except Exception:
+            pass
         handles, labels_h = axes[0, 0].get_legend_handles_labels()
         if handles:
             fig.legend(handles, labels_h, ncol=2, loc="upper center")
@@ -627,9 +686,28 @@ def subtask7_6_overlay_plot(
     _plot_overlay(
         fused_pos_body, truth_pos_body, fused_vel_body, truth_vel_body, ["X", "Y", "Z"], "Body"
     )
-    print(
-        "Saved Task 7.6 truth-vs-fused overlays (NED/ECEF/Body) under:", out_dir
-    )
+    print("Saved Task 7.6 truth-vs-fused overlays (NED/ECEF/Body) under:", out_dir)
+
+    # Persist overlay series for downstream analysis
+    try:
+        np.savez(
+            out_dir / f"{run_id}_task7_6_overlay_data.npz",
+            time=time,
+            fused_pos_ned=fused_pos_ned,
+            truth_pos_ned=truth_pos_ned,
+            fused_vel_ned=fused_vel_ned,
+            truth_vel_ned=truth_vel_ned,
+            fused_pos_ecef=fused_pos_ecef,
+            truth_pos_ecef=truth_pos_ecef,
+            fused_vel_ecef=fused_vel_ecef,
+            truth_vel_ecef=truth_vel_ecef,
+            fused_pos_body=fused_pos_body,
+            truth_pos_body=truth_pos_body,
+            fused_vel_body=fused_vel_body,
+            truth_vel_body=truth_vel_body,
+        )
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
