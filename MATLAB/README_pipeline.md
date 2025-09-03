@@ -162,6 +162,18 @@ then calls `plot_overlay` for the NED, ECEF and body frames, saving the
 figures `<METHOD>_NED_overlay_truth.pdf`, `<METHOD>_ECEF_overlay_truth.pdf`
 and `<METHOD>_Body_overlay_truth.pdf` in `MATLAB/results/`.
 
+For non-interactive use, a helper script `run_task6_truth.m` accepts the
+Task‑5 output file and an optional truth path and then exits MATLAB when
+finished. IMU and GNSS paths are not required in this mode; if the truth path
+is empty `Task_6` attempts to resolve it via `resolve_truth_path`.
+
+```bash
+matlab -batch "addpath('MATLAB'); run_task6_truth('MATLAB/results/<task5>.mat', 'STATE_X001.txt')"
+```
+
+This command-line entry point keeps the MATLAB overlay workflow separate from
+the Python scripts such as `python src/validate_with_truth.py`.
+
 ### Compatibility notes
 
 Some older MATLAB releases expect the ellipsoid name for `ecef2lla` as a

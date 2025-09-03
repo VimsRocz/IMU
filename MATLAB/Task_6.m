@@ -9,9 +9,11 @@ function Task_6(task5_file, imu_path, gnss_path, truth_file)
 %   that residuals are expressed in a consistent frame. The resulting
 %   ``*_overlay_truth.pdf`` files are written to the directory returned by
 %   ``project_paths()``. If TRUTH_FILE is empty it will be resolved using
-%   ``resolve_truth_path``. This function expects the initialization
-%   output from Task 1 and the filter output from Task 5 to reside in that
-%   same directory.
+%   ``resolve_truth_path``. IMU_PATH and GNSS_PATH may be empty when only
+%   precomputed Task 5 results and a truth file are available; suitable
+%   placeholders are then used when constructing output identifiers. This
+%   function expects the initialization output from Task 1 and the filter
+%   output from Task 5 to reside in that same directory.
 %
 % Usage:
 %   Task_6(task5_file, imu_path, gnss_path, truth_file)
@@ -39,7 +41,13 @@ fprintf('Starting Task 6 overlay ...\n');
 start_time = tic;
 
 [~, imu_name, ~]  = fileparts(imu_path);
+if isempty(imu_name)
+    imu_name = 'no_imu';
+end
 [~, gnss_name, ~] = fileparts(gnss_path);
+if isempty(gnss_name)
+    gnss_name = 'no_gnss';
+end
 
 
 % paths and results_dir already defined above
@@ -91,9 +99,17 @@ end
 % Build output directory using method and dataset identifiers
 % Compute run_id locally to avoid dependency on path setup
 [~, imu_file, imu_ext]   = fileparts(imu_path);
+if isempty(imu_file) && isempty(imu_ext)
+    imu_tag = 'NO_IMU';
+else
+    imu_tag  = strrep(upper([imu_file imu_ext]),  '.DAT','');
+end
 [~, gnss_file, gnss_ext] = fileparts(gnss_path);
-imu_tag  = strrep(upper([imu_file imu_ext]),  '.DAT','');
-gnss_tag = strrep(upper([gnss_file gnss_ext]),'.CSV','');
+if isempty(gnss_file) && isempty(gnss_ext)
+    gnss_tag = 'NO_GNSS';
+else
+    gnss_tag = strrep(upper([gnss_file gnss_ext]),'.CSV','');
+end
 rid = sprintf('%s_%s_%s', imu_tag, gnss_tag, upper(method));
 run_id = rid;
 out_dir = fullfile(results_dir, run_id);
