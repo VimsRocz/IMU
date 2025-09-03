@@ -88,12 +88,16 @@ def integrate_trajectory(
                 )
         return pos, vel, acc, None, None
 
-    lat = np.asarray(lat)
-    lon = np.asarray(lon)
+    # ``lat`` and ``lon`` may arrive as column vectors from interpolation
+    # routines.  Reshape to 1-D so that ``lat[i]`` and ``lon[i]`` yield scalars
+    # rather than 1-element arrays, which would propagate through trig
+    # functions and break the construction of rotation matrices.
+    lat = np.asarray(lat, dtype=float).reshape(-1)
+    lon = np.asarray(lon, dtype=float).reshape(-1)
     if h is None:
         h = np.zeros(n)
     else:
-        h = np.asarray(h)
+        h = np.asarray(h, dtype=float).reshape(-1)
 
     if g_ecef is None:
         g_ecef = np.array([gravity_ecef(lat[i], lon[i], h[i]) for i in range(n)])
