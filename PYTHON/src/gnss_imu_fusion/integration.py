@@ -20,6 +20,8 @@ def integrate_trajectory(
     ref_lon: Optional[float] = None,
     ref_ecef: Optional[np.ndarray] = None,
     debug: bool = False,
+    omega_body: Optional[np.ndarray] = None,
+    lever_arm: Optional[np.ndarray] = None,
 ) -> Tuple[
     np.ndarray,
     np.ndarray,
@@ -43,6 +45,8 @@ def integrate_trajectory(
     pos = np.zeros((n, 3))
     vel = np.zeros((n, 3))
     acc = np.zeros((n, 3))
+    pos_imu = np.zeros((n, 3))
+    vel_imu = np.zeros((n, 3))
 
     if lat is None or lon is None:
         if g_NED is None:
@@ -52,8 +56,15 @@ def integrate_trajectory(
             f_ned = C_B_N @ acc_body[i]
             a_ned = f_ned + g_NED
             acc[i] = a_ned
-            vel[i] = vel[i - 1] + a_ned * dt
-            pos[i] = pos[i - 1] + vel[i] * dt
+            vel_imu[i] = vel_imu[i - 1] + a_ned * dt
+            pos_imu[i] = pos_imu[i - 1] + vel_imu[i] * dt
+            if lever_arm is not None and omega_body is not None:
+                cross = C_B_N @ np.cross(omega_body[i], lever_arm)
+                vel[i] = vel_imu[i] + cross
+                pos[i] = pos_imu[i] + C_B_N @ lever_arm
+            else:
+                vel[i] = vel_imu[i]
+                pos[i] = pos_imu[i]
             if debug and i in {1, n // 2, n - 1}:
                 print(
                     f"[DEBUG] i={i} dt={dt:.4f} vel={vel[i]} acc={a_ned}",
@@ -73,6 +84,8 @@ def integrate_trajectory(
     pos_ecef = np.zeros((n, 3))
     vel_ecef = np.zeros((n, 3))
     acc_ecef = np.zeros((n, 3))
+    pos_imu_ecef = np.zeros((n, 3))
+    vel_imu_ecef = np.zeros((n, 3))
 
     for i in range(1, n):
         dt = imu_time[i] - imu_time[i - 1]
@@ -81,8 +94,15 @@ def integrate_trajectory(
         f_ecef = C_b_e @ acc_body[i]
         a_ecef = f_ecef + g_ecef[i]
         acc_ecef[i] = a_ecef
-        vel_ecef[i] = vel_ecef[i - 1] + a_ecef * dt
-        pos_ecef[i] = pos_ecef[i - 1] + vel_ecef[i] * dt
+        vel_imu_ecef[i] = vel_imu_ecef[i - 1] + a_ecef * dt
+        pos_imu_ecef[i] = pos_imu_ecef[i - 1] + vel_imu_ecef[i] * dt
+        if lever_arm is not None and omega_body is not None:
+            cross = C_b_e @ np.cross(omega_body[i], lever_arm)
+            vel_ecef[i] = vel_imu_ecef[i] + cross
+            pos_ecef[i] = pos_imu_ecef[i] + C_b_e @ lever_arm
+        else:
+            vel_ecef[i] = vel_imu_ecef[i]
+            pos_ecef[i] = pos_imu_ecef[i]
         if debug and i in {1, n // 2, n - 1}:
             print(
                 f"[DEBUG] i={i} dt={dt:.4f} vel_ecef={vel_ecef[i]} acc_ecef={a_ecef}"
