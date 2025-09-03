@@ -340,6 +340,13 @@ def main():
             "attitudes (TRIAD/Davenport/SVD) or use TRUTH at t0 if provided."
         ),
     )
+    parser.add_argument(
+        "--lever-arm",
+        type=float,
+        nargs=3,
+        default=[0.0, 0.0, 0.0],
+        help="Lever arm from IMU to GNSS antenna in body frame [m]",
+    )
     parser.add_argument("--accel-noise", type=float, default=0.1)
     parser.add_argument("--accel-bias-noise", type=float, default=1e-5)
     parser.add_argument("--gyro-bias-noise", type=float, default=1e-5)
@@ -398,6 +405,7 @@ def main():
     )
 
     args = parser.parse_args()
+    lever_arm = np.array(args.lever_arm, dtype=float)
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
