@@ -87,11 +87,14 @@ def save_matlab_fig(fig, out_stem: str) -> Path | None:
 
     eng.savefig(str(out), nargout=0)  # native .fig
     print(f"[FIG] {out}")
-    # Also save a PNG snapshot from Matplotlib for convenience
+    # Also save PNG/PDF snapshots from Matplotlib for convenience
     try:
         png = Path(out_stem).with_suffix('.png')
         fig.savefig(png, dpi=200, bbox_inches='tight')
         print(f"[PNG] {png}")
+        pdf = Path(out_stem).with_suffix('.pdf')
+        fig.savefig(pdf, dpi=300, bbox_inches='tight')
+        print(f"[PDF] {pdf}")
     except Exception:
         pass
     return out

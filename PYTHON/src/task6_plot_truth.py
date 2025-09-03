@@ -148,6 +148,8 @@ def main():
         print(
             f"[Task6][Est] len(t_est)={len(t_est)} t0={t_est[0]:.3f} t1={t_est[-1]:.3f} dt≈{np.median(np.diff(t_est)) if len(t_est)>1 else 0:.6f}"
         )
+    # Normalise time to start at zero for consistent cross-task alignment
+    t_rel = (t_est - t_est[0]) if t_est.size else t_est
 
     # --- Robust metadata lookup (avoid 'or' on arrays) ---
     ref_r0_m = _get_first_key(est, ['ref_r0_m', 'r0', 'r0_ecef_m'])
@@ -254,47 +256,49 @@ def main():
     def _plot_2x3(time_s, pos_est, vel_est, pos_tru=None, vel_tru=None, title='', outfile=None):
         comps = ['X','Y','Z']
         fig, axes = plt.subplots(2, 3, figsize=(12, 6), sharex=True)
+        # Top row: Position
         for i in range(3):
             ax = axes[0, i]
             if pos_tru is not None:
-                ax.plot(time_s, pos_tru[:, i], label='truth', alpha=0.8)
+                ax.plot(time_s, pos_tru[:, i], '--', label='Truth' if i == 0 else None, alpha=0.9, linewidth=1.0)
             if pos_est is not None:
-                ax.plot(time_s, pos_est[:, i], label='estimate', alpha=0.8)
+                ax.plot(time_s, pos_est[:, i], label='Estimate' if i == 0 else None, alpha=0.95, linewidth=1.3)
             ax.set_ylabel('Position [m]')
             ax.set_title(f'{title} {comps[i]}')
-            if i == 2:
-                ax.legend(loc='upper right')
+            ax.grid(alpha=0.3)
+        # Bottom row: Velocity
         for i in range(3):
             ax = axes[1, i]
             if vel_tru is not None:
-                ax.plot(time_s, vel_tru[:, i], label='truth', alpha=0.8)
+                ax.plot(time_s, vel_tru[:, i], '--', label='Truth' if i == 0 else None, alpha=0.9, linewidth=1.0)
             if vel_est is not None:
-                ax.plot(time_s, vel_est[:, i], label='estimate', alpha=0.8)
+                ax.plot(time_s, vel_est[:, i], label='Estimate' if i == 0 else None, alpha=0.95, linewidth=1.3)
             ax.set_ylabel('Velocity [m/s]')
             ax.set_xlabel('Time [s]')
-        fig.suptitle(f'Task 6 Overlay ({title})', y=1.02)
-        fig.tight_layout()
+            ax.grid(alpha=0.3)
+        # Single, centered legend covering both rows
+        handles, labels = axes[0, 0].get_legend_handles_labels()
+        if handles:
+            fig.legend(handles, labels, ncol=2, loc='upper center')
+        fig.suptitle(f'Task 6 Overlay ({title})')
+        fig.tight_layout(rect=[0, 0, 1, 0.94])
         if outfile:
-            # Save PNG and MATLAB .fig side-by-side
             try:
-                fig.savefig(outfile, dpi=200, bbox_inches='tight')
+                # Save PNG and PDF directly from Matplotlib
+                fig.savefig(outfile, dpi=220, bbox_inches='tight')
+                pdf = str(Path(outfile).with_suffix('.pdf'))
+                fig.savefig(pdf, dpi=300, bbox_inches='tight')
                 print(f"[PNG] {outfile}")
+                print(f"[PDF] {pdf}")
             except Exception as e:
-                eprint(f"WARN: could not save PNG {outfile}: {e}")
+                eprint(f"WARN: failed to save raster/vector outputs for {outfile}: {e}")
             try:
+                # Save MATLAB .fig (plus PNG via helper) when engine is available
                 from utils.matlab_fig_export import save_matlab_fig, validate_fig_openable
                 base = str(Path(outfile).with_suffix(''))
                 fig_path = save_matlab_fig(fig, base)
                 if fig_path:
                     validate_fig_openable(str(fig_path))
-                else:
-                    # Fallback to MAT-based .fig (convertible) if MATLAB engine missing
-                    try:
-                        from utils_legacy import save_plot_fig
-                        save_plot_fig(fig, base + '.fig')
-                        eprint(f"FIG-alt: Saved MAT-based .fig (convert later): {base + '.fig'}")
-                    except Exception:
-                        pass
             except Exception as e:
                 eprint(f"WARN: .fig export/validation skipped for {outfile}: {e}")
         plt.close(fig)
@@ -403,18 +407,18 @@ def main():
         # Save 2x3 grids
         # NED
         out_ned = out_dir / f"{run_id}_task6_overlay_NED.png"
-        _plot_2x3(t_est, pos_ned, vel_ned, pos_ned_truth, vel_ned_truth, 'NED', str(out_ned))
+        _plot_2x3(t_rel, pos_ned, vel_ned, pos_ned_truth, vel_ned_truth, 'NED', str(out_ned))
         # ECEF
         out_ecef = out_dir / f"{run_id}_task6_overlay_ECEF.png"
-        _plot_2x3(t_est, pos_ecef_est, vel_ecef_est, pos_ecef_truth_i, vel_ecef_truth_i, 'ECEF', str(out_ecef))
+        _plot_2x3(t_rel, pos_ecef_est, vel_ecef_est, pos_ecef_truth_i, vel_ecef_truth_i, 'ECEF', str(out_ecef))
         # BODY (include truth mirrored from NED for consistent overlay)
         out_body = out_dir / f"{run_id}_task6_overlay_BODY.png"
-        _plot_2x3(t_est, pos_body, vel_body, pos_body_truth_i, vel_body_truth_i, 'BODY', str(out_body))
+        _plot_2x3(t_rel, pos_body, vel_body, pos_body_truth_i, vel_body_truth_i, 'BODY', str(out_body))
 
         # Quaternion overlay
         if quat_est is not None and quat_truth_i is not None:
             out_quat = out_dir / f"{run_id}_task6_overlay_QUAT.png"
-            _plot_quat(t_est, quat_est, quat_truth_i, str(out_quat))
+            _plot_quat(t_rel, quat_est, quat_truth_i, str(out_quat))
             print(f"[Task6] Saved quaternion overlay: {out_quat}")
 
         print(f"[Task6] Saved overlays (2x3 pos/vel only): {[out_ned, out_ecef, out_body]}")

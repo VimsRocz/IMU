@@ -17,7 +17,15 @@ def resolve_truth(preferred_path: str | None = None) -> str:
     - otherwise, return empty string
     """
 
-    root = Path(__file__).resolve().parents[2]
+    # Robustly locate repo root: find 'PYTHON' dir then go up one
+    here = Path(__file__).resolve()
+    root = None
+    for parent in here.parents:
+        if parent.name == "PYTHON":
+            root = parent.parent
+            break
+    if root is None:
+        root = here.parents[2]
     truth_dir = root / "DATA" / "Truth"
 
     # Preferred explicit argument
