@@ -24,7 +24,7 @@ addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
 
 paths = project_paths();
 results_dir = paths.matlab_results;
-addpath(fullfile(paths.root,'MATLAB','lib'));
+    addpath(fullfile(paths.root,'MATLAB','lib'));
 % Obtain cfg from caller/base, fall back to default
 try
     cfg = evalin('caller','cfg');
@@ -35,7 +35,7 @@ catch
         cfg = default_cfg();
     end
 end
-visibleFlag = 'off';
+    visibleFlag = 'off';
 try
     if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
         visibleFlag = 'on';
@@ -117,6 +117,27 @@ end
         visibleFlag = 'off'; % suppress any figure visibility
     else
         dprintf = @fprintf;
+    end
+
+    % Ensure configuration struct has required nested defaults to avoid
+    % missing-field errors during ZUPT and gating steps.
+    try
+        cfg = ensureCfgDefaults(cfg);
+    catch
+        % If ensureCfgDefaults is not on path for some reason, be defensive
+        if ~exist('cfg','var') || isempty(cfg), cfg = struct(); end
+        if ~isfield(cfg,'zupt') || ~isstruct(cfg.zupt)
+            cfg.zupt = struct('speed_thresh_mps',0.30, 'acc_movstd_thresh',0.15, 'min_pre_lift_s',5.0);
+        else
+            if ~isfield(cfg.zupt,'speed_thresh_mps'),   cfg.zupt.speed_thresh_mps = 0.30; end
+            if ~isfield(cfg.zupt,'acc_movstd_thresh'),  cfg.zupt.acc_movstd_thresh = 0.15; end
+            if ~isfield(cfg.zupt,'min_pre_lift_s'),     cfg.zupt.min_pre_lift_s = 5.0; end
+        end
+        if ~isfield(cfg,'gnss') || ~isstruct(cfg.gnss)
+            cfg.gnss = struct('reject_maha_prob', 0.999);
+        elseif ~isfield(cfg.gnss,'reject_maha_prob')
+            cfg.gnss.reject_maha_prob = 0.999;
+        end
     end
 
     if ~isfile(truth_path)
