@@ -4,6 +4,9 @@ from typing import Iterable, Tuple, Optional
 
 import numpy as np
 from scipy.signal import butter, filtfilt
+from scipy.spatial.transform import Rotation
+
+from utils.quaternion import assert_quaternion_convention
 
 
 def average_rotation_matrices(rotations: Iterable[np.ndarray]) -> np.ndarray:
@@ -239,16 +242,9 @@ def davenport_q_method(
     if q_opt[0] < 0:
         q_opt = -q_opt
 
-    q = np.array([q_opt[0], -q_opt[1], -q_opt[2], -q_opt[3]])
-
-    qw, qx, qy, qz = q
-    R = np.array(
-        [
-            [1 - 2 * (qy**2 + qz**2), 2 * (qx * qy - qw * qz), 2 * (qx * qz + qw * qy)],
-            [2 * (qx * qy + qw * qz), 1 - 2 * (qx**2 + qz**2), 2 * (qy * qz - qw * qx)],
-            [2 * (qx * qz - qw * qy), 2 * (qy * qz + qw * qx), 1 - 2 * (qx**2 + qy**2)],
-        ]
-    )
+    q = np.array([-q_opt[1], -q_opt[2], -q_opt[3], q_opt[0]])
+    assert_quaternion_convention(q)
+    R = Rotation.from_quat(q).as_matrix()
 
     return R, q
 

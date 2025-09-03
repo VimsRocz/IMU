@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation, Slerp
+
+from utils.quaternion import assert_quaternion_convention
 from tabulate import tabulate
 
 # Required project import style
@@ -21,19 +23,20 @@ RESULTS_ROOT = Path(__file__).resolve().parents[1] / "results"
 
 
 def _load_quat_csv(path: Path) -> Tuple[np.ndarray, np.ndarray]:
-    """Load quaternion CSV with columns time,qw,qx,qy,qz (case-insensitive)."""
+    """Load quaternion CSV with columns time,qx,qy,qz,qw (case-insensitive)."""
     df = pd.read_csv(path)
     cols = {c.lower(): c for c in df.columns}
-    required = ["time", "qw", "qx", "qy", "qz"]
+    required = ["time", "qx", "qy", "qz", "qw"]
     if not all(c in cols for c in required):
         missing = [c for c in required if c not in cols]
         raise ValueError(f"{path} missing columns: {missing}")
     df = df.rename(columns={cols[c]: c for c in required})
     t = df["time"].to_numpy(dtype=float)
-    q = df[["qw", "qx", "qy", "qz"]].to_numpy(dtype=float)
+    q = df[["qx", "qy", "qz", "qw"]].to_numpy(dtype=float)
     nrm = np.linalg.norm(q, axis=1, keepdims=True)
     nrm[nrm == 0] = 1.0
     q = q / nrm
+    assert_quaternion_convention(q)
     return t, q
 
 
@@ -76,47 +79,53 @@ def interp_quats(t_src: np.ndarray, q_src: np.ndarray, t_dst: np.ndarray) -> np.
     t_src = np.asarray(t_src, dtype=float)
     q_src = np.asarray(q_src, dtype=float)
     t_dst = np.asarray(t_dst, dtype=float)
+    assert_quaternion_convention(q_src)
     if t_src.size < 2:
         raise ValueError("Need at least two quaternions for interpolation")
     order = np.argsort(t_src)
     t_src = t_src[order]
     q_src = _continuous(q_src[order])
     try:
-        rot = Rotation.from_quat(q_src[:, [1, 2, 3, 0]])
+        rot = Rotation.from_quat(q_src)
         slerp = Slerp(t_src, rot)
-        out = slerp(t_dst).as_quat()[:, [3, 0, 1, 2]]
+        out = slerp(t_dst).as_quat()
     except Exception:  # pragma: no cover - fallback
         arr = np.vstack([np.interp(t_dst, t_src, q_src[:, i]) for i in range(4)]).T
         n = np.linalg.norm(arr, axis=1, keepdims=True)
         n[n == 0] = 1.0
         out = arr / n
+    assert_quaternion_convention(out)
     return out
 
 
 def quat_delta(q_ref: np.ndarray, q_est: np.ndarray) -> np.ndarray:
     """Return quaternion difference ``q_ref * conj(q_est)``."""
+    assert_quaternion_convention(q_ref)
+    assert_quaternion_convention(q_est)
     q_est_conj = q_est.copy()
-    q_est_conj[:, 1:] *= -1
-    w1, x1, y1, z1 = q_ref.T
-    w2, x2, y2, z2 = q_est_conj.T
+    q_est_conj[:, :3] *= -1
+    x1, y1, z1, w1 = q_ref.T
+    x2, y2, z2, w2 = q_est_conj.T
     q_err = np.column_stack(
         [
-            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
             w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
             w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
             w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
         ]
     )
     n = np.linalg.norm(q_err, axis=1, keepdims=True)
     n[n == 0] = 1.0
     q_err = q_err / n
-    q_err[q_err[:, 0] < 0] *= -1
+    q_err[q_err[:, 3] < 0] *= -1
+    assert_quaternion_convention(q_err)
     return q_err
 
 
 def quat_angle_deg(q: np.ndarray) -> np.ndarray:
     """Return rotation angle of quaternion(s) in degrees."""
-    return 2 * np.degrees(np.arccos(np.clip(q[:, 0], -1.0, 1.0)))
+    assert_quaternion_convention(q)
+    return 2 * np.degrees(np.arccos(np.clip(q[:, 3], -1.0, 1.0)))
 
 
 def summarize_errors(angle_deg: np.ndarray) -> Dict[str, float]:
@@ -270,7 +279,7 @@ def run_task3(run_id: str, runs: List[str] | None = None) -> None:
         outdir.mkdir(parents=True, exist_ok=True)
 
         # Quaternion overlay
-        comp_labels = ["qw", "qx", "qy", "qz"]
+        comp_labels = ["qx", "qy", "qz", "qw"]
         x = np.arange(len(comp_labels))
         series = []
         labels = []
