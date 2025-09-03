@@ -18,4 +18,9 @@ def default_cfg() -> dict:
             "popup_figures": False,
             "save_png": True,
         },
+        "zupt": {
+            "acc_movstd_thresh": 0.15,
+            "min_pre_lift_s": 5,
+            "speed_thresh_mps": 0.30,
+        },
     }
