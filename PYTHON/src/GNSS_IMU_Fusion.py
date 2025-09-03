@@ -63,6 +63,8 @@ from utils import (
     interpolate_series,
     zero_base_time,
 )
+from utils.interp_to import interp_to
+from utils.time_utils import compute_time_shift
 from constants import EARTH_RATE
 from .compute_biases import compute_biases
 from .scripts.validate_filter import compute_residuals, plot_residuals
@@ -1005,8 +1007,8 @@ def main():
     try:
         imu_data = pd.read_csv(imu_file, sep=r"\s+", header=None)
         imu_time = np.arange(len(imu_data)) * dt_imu
-        lat_interp = interpolate_series(imu_time, gnss_time, lat_series)
-        lon_interp = interpolate_series(imu_time, gnss_time, lon_series)
+        lat_interp = interp_to(gnss_time, lat_series, imu_time)
+        lon_interp = interp_to(gnss_time, lon_series, imu_time)
 
         # Convert increments to rates (sensor frame) and filter
         acc_s = imu_data[[5, 6, 7]].values / dt_imu  # delta_v / dt_imu
@@ -1650,18 +1652,33 @@ def main():
     logging.info(
         "Subtask 5.6: Running Kalman Filter for sensor fusion for each method."
     )
-    fused_pos = {m: np.zeros_like(imu_pos[m]) for m in methods}
-    fused_vel = {m: np.zeros_like(imu_vel[m]) for m in methods}
-    fused_acc = {m: np.zeros_like(imu_acc[m]) for m in methods}
-    # Interpolate GNSS data to IMU time once
-    gnss_pos_ned_interp = interpolate_series(imu_time, gnss_time, gnss_pos_ned)
-    gnss_vel_ned_interp = interpolate_series(imu_time, gnss_time, gnss_vel_ned)
-    gnss_acc_ned_interp = interpolate_series(imu_time, gnss_time, gnss_acc_ned)
+
+    # Estimate relative time shift between GNSS and IMU using integrated positions
+    ref_method = methods[0]
+    gnss_pos_on_imu = interp_to(gnss_time, gnss_pos_ned, imu_time)
+    lag, t_shift = compute_time_shift(
+        imu_pos[ref_method][:, 0], gnss_pos_on_imu[:, 0], dt_imu
+    )
+    logging.info(
+        "Estimated GNSS-IMU time shift: %.3f s (lag %d samples)", t_shift, lag
+    )
+    gnss_time_shifted = gnss_time - t_shift
+
+    # Resample GNSS series onto IMU timestamps using the aligned time vector
+    lat_interp = interp_to(gnss_time_shifted, lat_series, imu_time)
+    lon_interp = interp_to(gnss_time_shifted, lon_series, imu_time)
+    gnss_pos_ned_interp = interp_to(gnss_time_shifted, gnss_pos_ned, imu_time)
+    gnss_vel_ned_interp = interp_to(gnss_time_shifted, gnss_vel_ned, imu_time)
+    gnss_acc_ned_interp = interp_to(gnss_time_shifted, gnss_acc_ned, imu_time)
     logging.debug(
         "Interpolated GNSS data: first NED pos %.4f last %.4f",
         gnss_pos_ned_interp[0, 0],
         gnss_pos_ned_interp[-1, 0],
     )
+
+    fused_pos = {m: np.zeros_like(imu_pos[m]) for m in methods}
+    fused_vel = {m: np.zeros_like(imu_vel[m]) for m in methods}
+    fused_acc = {m: np.zeros_like(imu_acc[m]) for m in methods}
 
     innov_pos_all = {}
     innov_vel_all = {}
