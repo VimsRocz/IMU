@@ -339,7 +339,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     norm_path = save_plot(fig, out_dir, tag or "run", "task7", "3_error_norms", ext="pdf")
     plt.close(fig)
 
-    # Subtask 7.5: difference Truth - Fused in multiple frames
+    # Subtasks 7.5 and 7.6: difference and overlay (Truth vs Fused)
     if fused_time is not None and fused_pos is not None and fused_vel is not None:
         run_id = tag.replace(os.sep, "_") if tag else "run"
 
@@ -361,6 +361,19 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
                 ref_lon = np.deg2rad(lon_deg)
 
         subtask7_5_diff_plot(
+            t_rel,
+            pos_interp,
+            truth_pos,
+            vel_interp,
+            truth_vel,
+            quat,
+            ref_lat,
+            ref_lon,
+            run_id,
+            out_dir,
+        )
+        # Task 7.6 overlays (Truth vs Fused) in all frames
+        subtask7_6_overlay_plot(
             t_rel,
             pos_interp,
             truth_pos,
@@ -540,6 +553,82 @@ def subtask7_5_diff_plot(
     print(
         "Saved Task 7.5 diff-truth plots for NED/ECEF/Body frames under: "
         f"{out_dir}/"
+    )
+
+
+def subtask7_6_overlay_plot(
+    time: np.ndarray,
+    fused_pos_ned: np.ndarray,
+    truth_pos_ned: np.ndarray,
+    fused_vel_ned: np.ndarray,
+    truth_vel_ned: np.ndarray,
+    quat_bn: np.ndarray,
+    ref_lat: float | None,
+    ref_lon: float | None,
+    run_id: str,
+    out_dir: str,
+) -> None:
+    """Plot Truth and Fused overlays in NED, ECEF and Body frames (Task 7.6)."""
+
+    time = time - time[0]
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    def _plot_overlay(arr_p_est, arr_p_tru, arr_v_est, arr_v_tru, labels, frame):
+        fig, axes = plt.subplots(2, 3, figsize=(9, 4), sharex=True)
+        for i in range(3):
+            axes[0, i].plot(time, arr_p_est[:, i], label="Fused")
+            axes[0, i].plot(time, arr_p_tru[:, i], '--', label="Truth")
+            axes[0, i].set_title(labels[i])
+            axes[0, i].set_ylabel("Position")
+            axes[0, i].grid(True)
+            axes[1, i].plot(time, arr_v_est[:, i], label="Fused")
+            axes[1, i].plot(time, arr_v_tru[:, i], '--', label="Truth")
+            axes[1, i].set_xlabel("Time [s]")
+            axes[1, i].set_ylabel("Velocity")
+            axes[1, i].grid(True)
+        handles, labels_h = axes[0, 0].get_legend_handles_labels()
+        if handles:
+            fig.legend(handles, labels_h, ncol=2, loc="upper center")
+        fig.suptitle(f"Task 7.6 – Truth vs Fused ({frame} Frame)")
+        fig.tight_layout(rect=[0, 0, 1, 0.92])
+        base = out_dir / f"{run_id}_task7_6_overlay_{frame}"
+        try:
+            fig.savefig(base.with_suffix('.png'), dpi=200, bbox_inches='tight')
+            fig.savefig(base.with_suffix('.pdf'), dpi=200, bbox_inches='tight')
+        except Exception:
+            pass
+        plt.close(fig)
+
+    # NED overlay
+    _plot_overlay(
+        fused_pos_ned, truth_pos_ned, fused_vel_ned, truth_vel_ned, ["North", "East", "Down"], "NED"
+    )
+
+    # ECEF overlay (static rotation using reference lat/lon)
+    if ref_lat is not None and ref_lon is not None:
+        C = compute_C_ECEF_to_NED(ref_lat, ref_lon).T
+    else:
+        C = np.eye(3)
+    fused_pos_ecef = (C @ fused_pos_ned.T).T
+    truth_pos_ecef = (C @ truth_pos_ned.T).T
+    fused_vel_ecef = (C @ fused_vel_ned.T).T
+    truth_vel_ecef = (C @ truth_vel_ned.T).T
+    _plot_overlay(
+        fused_pos_ecef, truth_pos_ecef, fused_vel_ecef, truth_vel_ecef, ["X", "Y", "Z"], "ECEF"
+    )
+
+    # Body overlay (rotate NED by quaternion body->NED)
+    rot = R.from_quat(quat_bn[:, [1, 2, 3, 0]])
+    fused_pos_body = rot.apply(fused_pos_ned, inverse=True)
+    truth_pos_body = rot.apply(truth_pos_ned, inverse=True)
+    fused_vel_body = rot.apply(fused_vel_ned, inverse=True)
+    truth_vel_body = rot.apply(truth_vel_ned, inverse=True)
+    _plot_overlay(
+        fused_pos_body, truth_pos_body, fused_vel_body, truth_vel_body, ["X", "Y", "Z"], "Body"
+    )
+    print(
+        "Saved Task 7.6 truth-vs-fused overlays (NED/ECEF/Body) under:", out_dir
     )
 
 

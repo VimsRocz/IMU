@@ -35,8 +35,9 @@ TIME_KEYS = ["t", "time", "timestamp", "timestamps", "t_est", "time_s", "posix_t
 # Preferred key sets for the various vector series we might encounter in the
 # estimator output.  The first existing key is used.
 KEYSETS = {
-    "pos_ned": ["pos_ned_m", "fused_pos_ned", "pos_ned", "p_ned"],
-    "vel_ned": ["vel_ned_ms", "fused_vel_ned", "vel_ned", "v_ned"],
+    # Prefer fused outputs first for NED to match Task 7 conventions
+    "pos_ned": ["fused_pos", "pos_ned_m", "fused_pos_ned", "pos_ned", "p_ned"],
+    "vel_ned": ["fused_vel", "vel_ned_ms", "fused_vel_ned", "vel_ned", "v_ned"],
     "acc_ned": ["acc_ned_mps2", "fused_acc_ned", "acc_ned", "a_ned"],
     "pos_ecef": ["pos_ecef_m", "fused_pos_ecef", "pos_ecef", "p_ecef"],
     "vel_ecef": ["vel_ecef_ms", "fused_vel_ecef", "vel_ecef", "v_ecef"],
@@ -485,6 +486,8 @@ def run_task6_overlay_all_frames(
     _dprint(debug, f"[Task6][DBG] Estimator available keys: {sorted(raw.keys())}")
 
     t, time_desc = _resolve_time(raw)
+    # Normalise plot time to start at zero for consistency across tasks
+    t_rel = t - t[0] if len(t) else t
     dt = float(np.median(np.diff(t))) if len(t) > 1 else 0.0
     _dprint(
         debug,
@@ -592,7 +595,7 @@ def run_task6_overlay_all_frames(
             continue
         outfile = out_dir / f"{run_id}_task6_overlay_{name}.png"
         plot_overlay_3x3(
-            t,
+            t_rel,
             est_trip,
             tru_trip,
             f"Task 6: Overlay ({name})",
@@ -644,6 +647,7 @@ def run_task6_compare_methods_all_frames(
     first_path = next(iter(method_files.values()))
     base_raw = _load_any(first_path)
     t, time_desc = _resolve_time(base_raw)
+    t_rel = t - t[0] if len(t) else t
     lat = lat_deg
     lon = lon_deg
     r0 = extract_scalar(base_raw, ["ref_r0_m", "r0", "ecef_ref"])
@@ -698,7 +702,7 @@ def run_task6_compare_methods_all_frames(
         print(f"[Task6] {frame} shapes est:{est_shapes} truth:{truth_shapes}")
         outfile = out_dir / f"{run_id}_task6_compare_methods_{frame}.png"
         plot_methods_overlay_3x3(
-            t,
+            t_rel,
             methods_triplets,
             frames_truth.get(frame, (None, None, None)),
             f"Task 6: Methods Overlay ({frame})",

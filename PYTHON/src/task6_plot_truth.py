@@ -145,6 +145,8 @@ def main():
             t_est = np.arange(n) * float(dt)
     t_est = np.asarray(t_est, float).reshape(-1)
     if t_est.size:
+        t_est = t_est - t_est[0]
+    if t_est.size:
         print(
             f"[Task6][Est] len(t_est)={len(t_est)} t0={t_est[0]:.3f} t1={t_est[-1]:.3f} dt≈{np.median(np.diff(t_est)) if len(t_est)>1 else 0:.6f}"
         )
@@ -328,6 +330,31 @@ def main():
 
     import matplotlib.pyplot as plt
 
+    def _plot_diff_2x3(time_s, diff_pos, diff_vel, labels, frame, out_base):
+        fig, axes = plt.subplots(2, 3, figsize=(9, 4), sharex=True)
+        for i in range(3):
+            axes[0, i].plot(time_s, diff_pos[:, i])
+            axes[0, i].set_title(labels[i])
+            axes[0, i].set_ylabel('Difference [m]')
+            axes[0, i].grid(True)
+
+            axes[1, i].plot(time_s, diff_vel[:, i])
+            axes[1, i].set_xlabel('Time [s]')
+            axes[1, i].set_ylabel('Difference [m/s]')
+            axes[1, i].grid(True)
+        fig.suptitle(f'Truth - Fused Differences ({frame} Frame)')
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        png = Path(out_base).with_suffix('.png')
+        pdf = Path(out_base).with_suffix('.pdf')
+        try:
+            fig.savefig(png, dpi=200, bbox_inches='tight')
+            print(f"[PNG] {png}")
+            fig.savefig(pdf, dpi=200, bbox_inches='tight')
+            print(f"[PDF] {pdf}")
+        except Exception as e:
+            eprint(f"WARN: could not save diff plots for {frame}: {e}")
+        plt.close(fig)
+
     # Single-method overlays (acceleration OFF by default per requirements)
     saved = {}
     if not args.include_accel:
@@ -335,8 +362,9 @@ def main():
         run_id = run_id or derive_run_id(est_path)
         # Time base already in t_est
         # Estimate vectors
-        pos_ned = _pick(est, ['pos_ned_m', 'fused_pos_ned', 'pos_ned'])
-        vel_ned = _pick(est, ['vel_ned_ms', 'fused_vel_ned', 'vel_ned'])
+        # Prefer fused outputs for NED to match Task 7
+        pos_ned = _pick(est, ['fused_pos', 'pos_ned_m', 'fused_pos_ned', 'pos_ned'])
+        vel_ned = _pick(est, ['fused_vel', 'vel_ned_ms', 'fused_vel_ned', 'vel_ned'])
         pos_ecef_est = _pick(est, ['pos_ecef_m', 'fused_pos_ecef', 'pos_ecef'])
         vel_ecef_est = _pick(est, ['vel_ecef_ms', 'fused_vel_ecef', 'vel_ecef'])
         pos_body = _pick(est, ['pos_body_m', 'fused_pos_body', 'pos_body'])
@@ -359,6 +387,8 @@ def main():
         quat_truth_i = None
         quat_est = None
         if t_truth.size and t_est.size:
+            # Zero-base truth time for consistent interpolation
+            t_truth = t_truth - t_truth[0]
             if pos_ecef_truth.size:
                 pos_ned_truth = ecef_to_ned(pos_ecef_truth, ref_lat_rad, ref_lon_rad, ref_r0_m)
                 vel_ned_truth = ecef_to_ned_vec(vel_ecef_truth, ref_lat_rad, ref_lon_rad)
@@ -432,6 +462,22 @@ def main():
                 print(f"[SAVE] Copied {p.name} -> {dst}")
         except Exception as ex:
             eprint(f"WARN: flat results copy failed: {ex}")
+        # Difference plots (Truth - Fused) in all frames
+        try:
+            if pos_ned is not None and vel_ned is not None and pos_ned_truth is not None and vel_ned_truth is not None:
+                diff_pos_ned = pos_ned_truth - pos_ned
+                diff_vel_ned = vel_ned_truth - vel_ned
+                _plot_diff_2x3(t_rel, diff_pos_ned, diff_vel_ned, ['North','East','Down'], 'NED', str(out_dir / f"{run_id}_task6_diff_truth_fused_over_time_NED"))
+            if pos_ecef_est is not None and vel_ecef_est is not None and pos_ecef_truth_i is not None and vel_ecef_truth_i is not None:
+                diff_pos_ecef = pos_ecef_truth_i - pos_ecef_est
+                diff_vel_ecef = vel_ecef_truth_i - vel_ecef_est
+                _plot_diff_2x3(t_rel, diff_pos_ecef, diff_vel_ecef, ['X','Y','Z'], 'ECEF', str(out_dir / f"{run_id}_task6_diff_truth_fused_over_time_ECEF"))
+            if pos_body is not None and vel_body is not None and pos_body_truth_i is not None and vel_body_truth_i is not None:
+                diff_pos_body = pos_body_truth_i - pos_body
+                diff_vel_body = vel_body_truth_i - vel_body
+                _plot_diff_2x3(t_rel, diff_pos_body, diff_vel_body, ['X','Y','Z'], 'Body', str(out_dir / f"{run_id}_task6_diff_truth_fused_over_time_Body"))
+        except Exception as ex:
+            eprint(f"WARN: failed to create Task 6 diff plots: {ex}")
     else:
         try:
             saved_single = run_task6_overlay_all_frames(
