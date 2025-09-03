@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 import numpy as np
 import pandas as pd
+from .resolve_truth_path import resolve_truth_path
 
 
 def _read_truth_time(truth_path, notes):
@@ -192,7 +193,16 @@ def print_timeline_summary(
         )
     )
 
-    # --- TRUTH (optional) ---
+    # --- TRUTH (optional, with auto-resolve fallback) ---
+    # If not provided or missing, try to resolve the canonical truth file.
+    if not truth_path or not Path(truth_path).exists():
+        try:
+            auto = resolve_truth_path()
+        except Exception:
+            auto = None
+        if auto and Path(auto).exists():
+            truth_path = auto
+
     if truth_path and Path(truth_path).exists():
         tt = _read_truth_time(truth_path, notes)
         if tt is not None:
@@ -291,4 +301,3 @@ print_timeline = print_timeline_summary
 
 
 __all__ = ["print_timeline_summary", "print_timeline"]
-

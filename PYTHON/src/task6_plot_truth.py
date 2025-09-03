@@ -2,13 +2,15 @@
 import argparse, json, os, sys, traceback
 from pathlib import Path
 
-from paths import ensure_results_dir
+from paths import ensure_results_dir, TRUTH_DIR
 from utils.read_truth_txt import read_truth_txt
 from task6_overlay_all_frames import ecef_to_ned, ecef_to_ned_vec, ned_to_ecef
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation, Slerp
 import numpy as np
 import pandas as pd
+from utils.resolve_truth_path import resolve_truth_path
+import shutil
 
 # ------------------------------------------------------------------
 # Helpers (robust metadata lookup and coercion)
@@ -53,7 +55,7 @@ def derive_run_id(est_file: Path) -> str:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--est-file', required=True)
-    ap.add_argument('--truth-file', required=True)
+    ap.add_argument('--truth-file', required=False, help='Truth file path; if omitted, auto-resolve canonical truth')
     ap.add_argument('--gnss-file', default=None)
     ap.add_argument('--lat', type=float, default=None)
     ap.add_argument('--lon', type=float, default=None)
@@ -83,9 +85,32 @@ def main():
     # ------------------------------------------------------------------
     # Truth loading and estimator metadata debug
     # ------------------------------------------------------------------
-    print(f"[Task6] truth_file={args.truth_file} exists={Path(args.truth_file).exists()}")
+    # Resolve truth file if not provided or missing
+    truth_path = args.truth_file
+    if not truth_path or not Path(truth_path).exists():
+        try:
+            auto = resolve_truth_path()
+        except Exception:
+            auto = None
+        if auto and Path(auto).exists():
+            truth_path = auto
+            print(f"[Task6] Using auto-resolved truth file: {truth_path}")
+    if not truth_path or not Path(truth_path).exists():
+        raise FileNotFoundError("Truth file not provided and could not be auto-resolved.")
+
+    print(f"[Task6] truth_file={truth_path} exists={Path(truth_path).exists()}")
+
+    # Export/copy truth into canonical DATA/Truth/STATE_X001.txt for future runs
     try:
-        t_truth, pos_ecef_truth, vel_ecef_truth, quat_truth = read_truth_txt(args.truth_file)
+        TRUTH_DIR.mkdir(parents=True, exist_ok=True)
+        canonical_truth = TRUTH_DIR / 'STATE_X001.txt'
+        if Path(truth_path).resolve() != canonical_truth.resolve():
+            shutil.copy2(truth_path, canonical_truth)
+            print(f"[Task6] Exported truth to {canonical_truth}")
+    except Exception as ex:
+        eprint(f"WARN: could not export truth to canonical path: {ex}")
+    try:
+        t_truth, pos_ecef_truth, vel_ecef_truth, quat_truth = read_truth_txt(truth_path)
         print(
             f"[Task6][Truth] t:{t_truth.shape} pos_ecef:{pos_ecef_truth.shape} vel_ecef:{vel_ecef_truth.shape} quat:{quat_truth.shape}"
         )
@@ -342,7 +367,7 @@ def main():
                 vel_ned_truth = _interp(vel_ned_truth)
                 pos_ecef_truth_i = _interp(pos_ecef_truth)
                 vel_ecef_truth_i = _interp(vel_ecef_truth)
-                # BODY truth: mirror NED (consistent with estimator BODY derivation)
+                # BODY truth: use quaternion when available; otherwise mirror NED
                 pos_body_truth_i = pos_ned_truth
                 vel_body_truth_i = vel_ned_truth
                 if quat_truth.size:
@@ -353,6 +378,13 @@ def main():
                     r_i = slerp(np.clip(t_est, t_truth[0], t_truth[-1]))
                     q_xyzw = r_i.as_quat()
                     quat_truth_i = np.column_stack([q_xyzw[:, 3], q_xyzw[:, :3]])
+                    # Rotate NED -> BODY using inverse of body->NED quaternion
+                    R_b2n = r_i.as_matrix()  # shape (N,3,3)
+                    R_n2b = np.transpose(R_b2n, (0, 2, 1))
+                    if pos_ned_truth is not None:
+                        pos_body_truth_i = np.einsum('nij,nj->ni', R_n2b, pos_ned_truth)
+                    if vel_ned_truth is not None:
+                        vel_body_truth_i = np.einsum('nij,nj->ni', R_n2b, vel_ned_truth)
 
         # Extract estimator quaternion if present
         for k in ['att_quat', 'quat', 'quaternion']:
@@ -386,11 +418,21 @@ def main():
             print(f"[Task6] Saved quaternion overlay: {out_quat}")
 
         print(f"[Task6] Saved overlays (2x3 pos/vel only): {[out_ned, out_ecef, out_body]}")
+
+        # Also copy flat into PYTHON/results root for convenience
+        try:
+            res_root = ensure_results_dir()
+            for p in [out_ned, out_ecef, out_body]:
+                dst = res_root / p.name
+                shutil.copy2(p, dst)
+                print(f"[SAVE] Copied {p.name} -> {dst}")
+        except Exception as ex:
+            eprint(f"WARN: flat results copy failed: {ex}")
     else:
         try:
             saved_single = run_task6_overlay_all_frames(
                 est_file=str(est_path),
-                truth_file=args.truth_file,
+                truth_file=truth_path,
                 output_dir=str(out_dir),
                 lat_deg=args.lat, lon_deg=args.lon,
                 gnss_file=args.gnss_file,
@@ -426,7 +468,7 @@ def main():
         try:
             saved_multi = run_task6_compare_methods_all_frames(
                 method_files=method_files,
-                truth_file=args.truth_file,
+                truth_file=truth_path,
                 output_dir=str(out_dir),
                 lat_deg=args.lat, lon_deg=args.lon,
                 gnss_file=args.gnss_file,

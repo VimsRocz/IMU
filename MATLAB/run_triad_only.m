@@ -1,9 +1,10 @@
-function run_triad_only(cfg)
+function run_triad_only(cfg, varargin)
 % RUN_TRIAD_ONLY  Process dataset using TRIAD (Tasks 1..7) — MATLAB-only, no Python deps.
 %
 % Usage:matlab -batch "run('/Users/vimalchawda/Desktop/IMU/MATLAB/run_triad_only.m')"
 %   run_triad_only();
 %   run_triad_only(struct(''dataset_id'',''X002''));
+%   run_triad_only(struct(), 'truth_file', 'STATE_X002.txt');  % name/value overrides
 
 % Resolve repo root from MATLAB/ folder
 thisFile  = mfilename('fullpath');
@@ -22,14 +23,24 @@ addpath(genpath(fullfile(matlabDir,'utils'))); % extra helpers
 
 paths = struct('root', repoRoot, 'matlab_results', matResDir);
 if nargin==0 || isempty(cfg), cfg = struct(); end
+% Allow name/value overrides for convenience (e.g., truth_file)
+if ~isempty(varargin)
+    for i = 1:2:numel(varargin)
+        if i+1 <= numel(varargin) && ischar(varargin{i})
+            cfg.(varargin{i}) = varargin{i+1};
+        end
+    end
+end
 
 % ---- config (explicit, no hidden defaults) ----
 if ~isfield(cfg,'dataset_id'), cfg.dataset_id = 'X002'; end
 if ~isfield(cfg,'method'),     cfg.method     = 'TRIAD'; end
 if ~isfield(cfg,'imu_file'),   cfg.imu_file   = 'IMU_X002.dat'; end
 if ~isfield(cfg,'gnss_file'),  cfg.gnss_file  = 'GNSS_X002.csv'; end
-% Single-truth-file policy (always this name)
-if ~isfield(cfg,'truth_file'), cfg.truth_file = 'STATE_X001.txt'; end
+% Truth file (default), override-able via cfg or name/value args
+if ~isfield(cfg,'truth_file') || isempty(cfg.truth_file)
+    cfg.truth_file = 'STATE_X001.txt';
+end
 
 % Plot options defaults to avoid missing-field errors in Task 4/5
 if ~isfield(cfg,'plots') || ~isstruct(cfg.plots)
@@ -54,7 +65,31 @@ cfg.paths = paths;
 % ---- resolve inputs using DATA/* structure ----
 cfg.imu_path   = fullfile(imuDir,   cfg.imu_file);
 cfg.gnss_path  = fullfile(gnssDir,  cfg.gnss_file);
+% Resolve truth file; prefer dataset-matching STATE_X###.txt if available
+% Extract dataset ID from cfg or filenames
+ds_from_cfg = regexp(char(cfg.dataset_id),'(X\d+)','match','once');
+imu_ds = regexp(char(cfg.imu_file),'(X\d+)','match','once');
+gnss_ds = regexp(char(cfg.gnss_file),'(X\d+)','match','once');
+ds_effective = ds_from_cfg; if isempty(ds_effective), ds_effective = imu_ds; end; if isempty(ds_effective), ds_effective = gnss_ds; end
 cfg.truth_path = fullfile(truthDir, cfg.truth_file);
+% Check mismatch between truth filename and dataset id and auto-correct if possible
+truth_id = regexp(char(cfg.truth_file),'(X\d+)','match','once');
+if ~isempty(ds_effective) && (~strcmpi(ds_effective, truth_id))
+    cand = fullfile(truthDir, sprintf('STATE_%s.txt', ds_effective));
+    cand_small = fullfile(truthDir, sprintf('STATE_%s_small.txt', ds_effective));
+    if isfile(cand)
+        warning('run_triad_only:TruthMismatch','Truth %s does not match dataset %s. Switching to %s.', cfg.truth_file, ds_effective, ['STATE_' ds_effective '.txt']);
+        cfg.truth_file = sprintf('STATE_%s.txt', ds_effective);
+        cfg.truth_path = cand;
+    elseif isfile(cand_small)
+        warning('run_triad_only:TruthMismatch','Truth %s does not match dataset %s. Switching to %s.', cfg.truth_file, ds_effective, ['STATE_' ds_effective '_small.txt']);
+        cfg.truth_file = sprintf('STATE_%s_small.txt', ds_effective);
+        cfg.truth_path = cand_small;
+    else
+        % Only note, not warn — some setups provide a single truth file for all datasets
+        fprintf('Info: Truth %s does not match dataset %s; continuing with provided truth.\n', cfg.truth_file, ds_effective);
+    end
+end
 if ~isfile(cfg.imu_path)
     error('IMU file not found: %s', cfg.imu_path);
 end
@@ -167,7 +202,7 @@ fprintf('[Task6] Fields present | NED: pos=%s vel=%s acc=%s | ECEF: pos=%s vel=%
     mat2str(~isempty(EST.pos_ecef)), mat2str(~isempty(EST.vel_ecef)), mat2str(~isempty(EST.acc_ecef)));
 
 % Truth loading (prefer robust STATE_X parser)
-truthPath = fullfile(dataTruthDir, 'STATE_X001.txt');
+truthPath = cfg.truth_path;
 fprintf('[Task6] Loading TRUTH from %s\n', truthPath);
 pos_ecef_truth = []; vel_ecef_truth = [];
 try

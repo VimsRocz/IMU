@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 import scipy.io as sio
 from utils.read_truth_txt import read_truth_txt
+from scipy.spatial.transform import Rotation
 
 # ---------------------------------------------------------------------------
 # Key definitions
@@ -418,6 +419,32 @@ def _build_frames(
         out["acc_body"] = _derive_acc(debug, out["vel_body"], dt)
         if out["acc_body"] is not None:
             notes.append("acc_body derived")
+
+    # If quaternion is available, build BODY from NED
+    if (out["pos_body"] is None or out["vel_body"] is None):
+        q = None
+        for k in ["att_quat", "quat", "quaternion", "attitude_q"]:
+            if k in store and store[k] is not None:
+                arr = np.asarray(store[k]).squeeze()
+                if arr.ndim == 2 and arr.shape[1] == 4:
+                    q = arr.astype(float)
+                elif arr.ndim == 2 and arr.shape[0] == 4:
+                    q = arr.T.astype(float)
+                break
+        if q is not None and out["pos_ned"] is not None:
+            # Convert body->NED q(wxyz) to scipy expected xyzw
+            if q.shape[1] == 4:
+                q_xyzw = np.column_stack([q[:, 1:4], q[:, 0]])
+                r = Rotation.from_quat(q_xyzw)
+                R_b2n = r.as_matrix()
+                R_n2b = np.transpose(R_b2n, (0, 2, 1))
+                if out["pos_body"] is None:
+                    out["pos_body"] = np.einsum('nij,nj->ni', R_n2b, out["pos_ned"]) if out["pos_ned"] is not None else None
+                if out["vel_body"] is None and out["vel_ned"] is not None:
+                    out["vel_body"] = np.einsum('nij,nj->ni', R_n2b, out["vel_ned"]) if out["vel_ned"] is not None else None
+                if out["acc_body"] is None and out["acc_ned"] is not None:
+                    out["acc_body"] = np.einsum('nij,nj->ni', R_n2b, out["acc_ned"]) if out["acc_ned"] is not None else None
+                notes.append("BODY built from NED using quaternion")
 
     if out["pos_body"] is None and out["vel_body"] is None:
         if out["pos_ned"] is not None or out["vel_ned"] is not None:

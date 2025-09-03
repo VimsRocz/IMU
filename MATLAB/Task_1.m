@@ -157,29 +157,17 @@ fprintf('Longitude (deg):             %.6f\n', lon_deg);
 % ================================
 fprintf('\nSubtask 1.5: Plotting location on Earth map.\n');
 
-% Some environments (headless or library-mismatch) cannot initialise
-% geoaxes/basemap. Fall back to a simple lon/lat plot if that happens.
+
+% Always use fallback lon/lat plot to avoid geoaxes/basemap errors
 fig_path = fullfile(results_dir, sprintf('%s_task1_location_map.fig', tag));
-try
-    fig = figure('Name','Task 1 – Initial Location (World View)');
-    gx = geoaxes(fig,'Basemap','colorterrain');
-    hold(gx,'on');
-    geolimits(gx,[-90 90],[-180 180]);
-    geoscatter(gx,lat_deg,lon_deg,100,'r','filled');
-    text(gx,lat_deg,lon_deg,tag,'VerticalAlignment','bottom');
-    title(gx,'Location on Earth Map');
-    savefig(fig, fig_path);
-catch ME
-    warning('Task1:GeoaxesFailed','Skipping basemap (geoaxes init failed): %s', ME.message);
-    fig = figure('Name','Task 1 – Initial Location (Lon/Lat)');
-    ax = axes(fig); hold(ax,'on');
-    plot(ax, lon_deg, lat_deg, 'ro','MarkerFaceColor','r');
-    text(ax, lon_deg, lat_deg, [' ' tag], 'VerticalAlignment','bottom');
-    xlim(ax, [-180 180]); ylim(ax, [-90 90]); grid(ax,'on'); box(ax,'on');
-    xlabel(ax, 'Longitude [deg]'); ylabel(ax, 'Latitude [deg]');
-    title(ax, 'Location (no basemap)');
-    savefig(fig, fig_path);
-end
+fig = figure('Name','Task 1 – Initial Location (Lon/Lat)');
+ax = axes(fig); hold(ax,'on');
+plot(ax, lon_deg, lat_deg, 'ro','MarkerFaceColor','r');
+text(ax, lon_deg, lat_deg, [' ' tag], 'VerticalAlignment','bottom');
+xlim(ax, [-180 180]); ylim(ax, [-90 90]); grid(ax,'on'); box(ax,'on');
+xlabel(ax, 'Longitude [deg]'); ylabel(ax, 'Latitude [deg]');
+title(ax, 'Location (no basemap)');
+savefig(fig, fig_path);
 
 % Prepare Task 1 artifacts
 fprintf('Saving Task 1 artifacts...\n');
@@ -198,9 +186,10 @@ task1.gnss_columns = gnss_data.Properties.VariableNames;
 dataset_match = regexp(gnss_name,'X\d+','match','once');
 if isempty(dataset_match), dataset_match = ''; end
 truth_file = fullfile(paths.root,'DATA','Truth','STATE_X001.txt');
+% Avoid datetime() to prevent settings/lib initialization in headless runs
 task1.meta = struct('dataset_id',dataset_match,...
     'method',method,'imu_file',imu_path,'gnss_file',gnss_path,...
-    'truth_file',truth_file,'time_saved',datestr(datetime('now'),'yyyy-mm-ddTHH:MM:SS'),...
+    'truth_file',truth_file,'time_saved',datestr(now,'yyyy-mm-ddTHH:MM:SS'),...
     'versions',struct('matlab',version));
 
 mat_path = fullfile(results_dir, sprintf('%s_task1_results.mat', tag));
