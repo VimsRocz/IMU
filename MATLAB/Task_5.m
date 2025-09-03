@@ -1,5 +1,5 @@
-function result = Task_5(imu_path, truth_path, method, truth_pos_ned, varargin)
-%TASK_5  Run 15-state EKF using IMU & Truth NED positions
+function result = Task_5(imu_path, gnss_path, method, gnss_pos_ned, varargin)
+%TASK_5  Run 15-state EKF using IMU & GNSS NED positions
 %   Expects Task 1 outputs saved in the results directory for gravity
 %   initialization.
 %
@@ -7,24 +7,24 @@ function result = Task_5(imu_path, truth_path, method, truth_pos_ned, varargin)
 %   bias-corrected accelerations.  When no scale factor is supplied or
 %   available, a neutral factor of 1.0 is used.
 %
-%   result = Task_5(imu_path, truth_path, method, truth_pos_ned)
+%   result = Task_5(imu_path, gnss_path, method, gnss_pos_ned)
 %   Optional name/value arguments mirror the Python Kalman filter defaults:
 %       'accel_noise'      - process noise for acceleration             [m/s^2]  (0.1)
 %       'vel_proc_noise'   - extra velocity process noise               [m/s^2]  (0.0)
 %       'pos_proc_noise'   - position process noise                     [m]      (0.0)
-%       'pos_meas_noise'   - Truth position measurement noise            [m]      (1.0)
-%       'vel_meas_noise'   - Truth velocity measurement noise            [m/s]    (1.0)
+%       'pos_meas_noise'   - GNSS position measurement noise            [m]      (1.0)
+%       'vel_meas_noise'   - GNSS velocity measurement noise            [m/s]    (1.0)
 %       'accel_bias_noise' - accelerometer bias random walk             [m/s^2]  (1e-5)
 %       'gyro_bias_noise'  - gyroscope bias random walk                 [rad/s]  (1e-5)
 %       'vel_q_scale'      - scale for Q(4:6,4:6) velocity process noise [-]      (1.0)
-%       'vel_sigma_mps'    - R(4:6,4:6) velocity measurement sigma       [m/s]    (5.0)
+%       'vel_r'            - R(4:6,4:6) velocity measurement variance   [m^2/s^2] (0.25)
 %       'scale_factor'     - accelerometer scale factor                 [-]      (required)
 
 addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'utils'));
 
 paths = project_paths();
 results_dir = paths.matlab_results;
-    addpath(fullfile(paths.root,'MATLAB','lib'));
+addpath(fullfile(paths.root,'MATLAB','lib'));
 % Obtain cfg from caller/base, fall back to default
 try
     cfg = evalin('caller','cfg');
@@ -35,37 +35,18 @@ catch
         cfg = default_cfg();
     end
 end
-    visibleFlag = 'off';
+visibleFlag = 'off';
 try
     if isfield(cfg,'plots') && isfield(cfg.plots,'popup_figures') && cfg.plots.popup_figures
         visibleFlag = 'on';
     end
 catch
 end
-    % Normalize optional config aliases (robust to different cfg schemas)
-    try
-        if isfield(cfg,'yawaid') && isstruct(cfg.yawaid)
-            % FIX: Accept common alias fields for yaw-aid configuration
-            if isfield(cfg.yawaid,'en') && ~isfield(cfg.yawaid,'enabled')
-                cfg.yawaid.enabled = cfg.yawaid.en; %#ok<STRNU>
-            end
-            if isfield(cfg.yawaid,'enable') && ~isfield(cfg.yawaid,'enabled')
-                cfg.yawaid.enabled = cfg.yawaid.enable; %#ok<STRNU>
-            end
-            if isfield(cfg.yawaid,'max_turn_rate_dps') && ~isfield(cfg.yawaid,'max_gyro_dps')
-                cfg.yawaid.max_gyro_dps = cfg.yawaid.max_turn_rate_dps; %#ok<STRNU>
-            end
-            if isfield(cfg.yawaid,'residual_deg_max') && ~isfield(cfg.yawaid,'gate_deg')
-                cfg.yawaid.gate_deg = cfg.yawaid.residual_deg_max; %#ok<STRNU>
-            end
-        end
-    catch
-    end
     if nargin < 1 || isempty(imu_path)
         error('IMU path not specified');
     end
-    if nargin < 2 || isempty(truth_path)
-        error('Truth path not specified');
+    if nargin < 2 || isempty(gnss_path)
+        error('GNSS path not specified');
     end
     if nargin < 3 || isempty(method)
         method = 'TRIAD';
@@ -74,14 +55,14 @@ end
     % Allow string or char inputs for file paths and convert to char
     pin = inputParser;
     addRequired(pin, 'imu_path', @(x) isstring(x) || ischar(x));
-    addRequired(pin, 'truth_path', @(x) isstring(x) || ischar(x));
+    addRequired(pin, 'gnss_path', @(x) isstring(x) || ischar(x));
     addRequired(pin, 'method',    @(x) isstring(x) || ischar(x));
-    addOptional(pin, 'truth_pos_ned', [], @(x) isempty(x) || isnumeric(x));
-    parse(pin, imu_path, truth_path, method, truth_pos_ned);
+    addOptional(pin, 'gnss_pos_ned', [], @(x) isempty(x) || isnumeric(x));
+    parse(pin, imu_path, gnss_path, method, gnss_pos_ned);
     imu_path    = char(pin.Results.imu_path);
-    truth_path   = char(pin.Results.truth_path);
+    gnss_path   = char(pin.Results.gnss_path);
     method      = char(pin.Results.method);
-    truth_pos_ned = pin.Results.truth_pos_ned;
+    gnss_pos_ned = pin.Results.gnss_pos_ned;
 
     % Optional noise parameters
     p = inputParser;
@@ -93,7 +74,7 @@ end
     addParameter(p, 'accel_bias_noise', 1e-5); % [m/s^2]
     addParameter(p, 'gyro_bias_noise', 1e-5);  % [rad/s]
     addParameter(p, 'vel_q_scale', 1.0);       % [-]
-    addParameter(p, 'vel_sigma_mps', 5.0);     % FIX: velocity meas sigma [m/s]
+    addParameter(p, 'vel_r', 0.25);            % [m^2/s^2]
     addParameter(p, 'trace_first_n', 0);       % [steps] capture first N KF steps
     addParameter(p, 'max_steps', inf);         % [steps] limit processing for tuning
     addParameter(p, 'scale_factor', []);       % [-]
@@ -107,8 +88,8 @@ end
     accel_bias_noise = p.Results.accel_bias_noise;
     gyro_bias_noise  = p.Results.gyro_bias_noise;
     vel_q_scale     = p.Results.vel_q_scale;
-    vel_sigma_mps   = p.Results.vel_sigma_mps; % [m/s]
-        trace_first_n   = p.Results.trace_first_n;
+    vel_r           = p.Results.vel_r;
+    trace_first_n   = p.Results.trace_first_n;
     max_steps       = p.Results.max_steps;
     scale_factor    = p.Results.scale_factor;
     dryrun          = p.Results.dryrun;
@@ -119,31 +100,10 @@ end
         dprintf = @fprintf;
     end
 
-    % Ensure configuration struct has required nested defaults to avoid
-    % missing-field errors during ZUPT and gating steps.
-    try
-        cfg = ensureCfgDefaults(cfg);
-    catch
-        % If ensureCfgDefaults is not on path for some reason, be defensive
-        if ~exist('cfg','var') || isempty(cfg), cfg = struct(); end
-        if ~isfield(cfg,'zupt') || ~isstruct(cfg.zupt)
-            cfg.zupt = struct('speed_thresh_mps',0.30, 'acc_movstd_thresh',0.15, 'min_pre_lift_s',5.0);
-        else
-            if ~isfield(cfg.zupt,'speed_thresh_mps'),   cfg.zupt.speed_thresh_mps = 0.30; end
-            if ~isfield(cfg.zupt,'acc_movstd_thresh'),  cfg.zupt.acc_movstd_thresh = 0.15; end
-            if ~isfield(cfg.zupt,'min_pre_lift_s'),     cfg.zupt.min_pre_lift_s = 5.0; end
-        end
-        if ~isfield(cfg,'gnss') || ~isstruct(cfg.gnss)
-            cfg.gnss = struct('reject_maha_prob', 0.999);
-        elseif ~isfield(cfg.gnss,'reject_maha_prob')
-            cfg.gnss.reject_maha_prob = 0.999;
-        end
-    end
-
-    if ~isfile(truth_path)
-        error('Task_5:TruthFileNotFound', ...
-              'Could not find Truth data at:\n  %s\nCheck path or filename.', ...
-              truth_path);
+    if ~isfile(gnss_path)
+        error('Task_5:GNSSFileNotFound', ...
+              'Could not find GNSS data at:\n  %s\nCheck path or filename.', ...
+              gnss_path);
     end
     if ~isfile(imu_path)
         error('Task_5:IMUFileNotFound', ...
@@ -151,10 +111,10 @@ end
               imu_path);
     end
     [~, imu_name, ~] = fileparts(imu_path);
-    [~, truth_name, ~] = fileparts(truth_path);
+    [~, gnss_name, ~] = fileparts(gnss_path);
     % Consistent IDs: pair_tag without method; run_id with method
-    pair_tag = sprintf('%s_%s', imu_name, truth_name);
-    run_id = sprintf('%s_%s_%s', imu_name, truth_name, method);
+    pair_tag = sprintf('%s_%s', imu_name, gnss_name);
+    run_id = sprintf('%s_%s_%s', imu_name, gnss_name, method);
 
     if isempty(method)
         log_tag = '';
@@ -190,23 +150,19 @@ end
         assignin('base','C_B_N_ref', C_B_N);
     end
 
-    dprintf('Subtask 5.3: Loading Truth and IMU data.\n');
-    % Load Truth data to obtain time and velocity
-    truth_data = read_state_file(truth_path);
-    truth_time = zero_base_time(truth_data(:,2));
-    truth_pos_ecef = truth_data(:,3:5);
-    truth_vel_ecef = truth_data(:,6:8);
-    % Reference origin: median ECEF position for consistent frame
-    ref_r0 = median(truth_pos_ecef,1)'; % FIX: use median Truth ECEF
-    % Truth files do not provide DOP information
-    hdop = []; vdop = []; dop = [];
-    % Prefer Mapping Toolbox signature; fall back to local helper if shadowed
-    try
-        wgs84 = wgs84Ellipsoid("meter");
-        [lat_deg, lon_deg, ~] = ecef2geodetic(wgs84, ref_r0(1), ref_r0(2), ref_r0(3));
-    catch
-        [lat_deg, lon_deg, ~] = ecef_to_geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
-    end
+    dprintf('Subtask 5.3: Loading GNSS and IMU data.\n');
+    % Load GNSS data to obtain time and velocity
+    gnss_tbl = readtable(gnss_path);
+    gnss_time = zero_base_time(gnss_tbl.Posix_Time);
+    pos_cols = {'X_ECEF_m','Y_ECEF_m','Z_ECEF_m'};
+    gnss_pos_ecef = gnss_tbl{:, pos_cols};
+    vx = gnss_tbl.VX_ECEF_mps;
+    vy = gnss_tbl.VY_ECEF_mps;
+    vz = gnss_tbl.VZ_ECEF_mps;
+    gnss_vel_ecef = [vx vy vz];
+    first_idx = find(gnss_pos_ecef(:,1) ~= 0, 1, 'first');
+    ref_r0 = gnss_pos_ecef(first_idx, :)';
+    [lat_deg, lon_deg, ~] = ecef2geodetic(ref_r0(1), ref_r0(2), ref_r0(3));
     C_ECEF_to_NED = R_ecef_to_ned(deg2rad(lat_deg), deg2rad(lon_deg));
     I = C_ECEF_to_NED * C_ECEF_to_NED';
     err = norm(I - eye(3), 'fro');
@@ -217,55 +173,21 @@ end
     assignin('base','ref_lat', deg2rad(lat_deg));
     assignin('base','ref_lon', deg2rad(lon_deg));
     assignin('base','ref_r0',  ref_r0);
-    % Convert Truth measurements from ECEF to NED to guarantee a common frame
-    truth_pos_ned_calc = (C_ECEF_to_NED * (truth_pos_ecef' - ref_r0))';
-    truth_vel_ned = (C_ECEF_to_NED * truth_vel_ecef')';
-    % Optional: clip Truth speeds (disabled)
-    try
-        speed_clip_mps = Inf; % FIX: remove Truth speed cap
-        spd = vecnorm(truth_vel_ned,2,2);
-        idx = spd > speed_clip_mps & isfinite(spd);
-        if any(idx)
-            scale = speed_clip_mps ./ max(spd(idx), eps);
-            truth_vel_ned(idx,:) = truth_vel_ned(idx,:) .* scale;
-        end
-    catch
-    end
-    if nargin >= 4 && ~isempty(truth_pos_ned)
-        diff_pos = max(abs(truth_pos_ned(:) - truth_pos_ned_calc(:)));
+    % Convert GNSS measurements from ECEF to NED to guarantee a common frame
+    gnss_pos_ned_calc = (C_ECEF_to_NED * (gnss_pos_ecef' - ref_r0))';
+    gnss_vel_ned = (C_ECEF_to_NED * gnss_vel_ecef')';
+    if nargin >= 4 && ~isempty(gnss_pos_ned)
+        diff_pos = max(abs(gnss_pos_ned(:) - gnss_pos_ned_calc(:)));
         if diff_pos > 1e-3
-            warning('Provided truth\_pos\_ned differs from computed NED positions (max %.3f m); using computed values.', diff_pos);
-            truth_pos_ned = truth_pos_ned_calc;
+            warning('Provided gnss\_pos\_ned differs from computed NED positions (max %.3f m); using computed values.', diff_pos);
+            gnss_pos_ned = gnss_pos_ned_calc;
         end
     else
-        truth_pos_ned = truth_pos_ned_calc;
+        gnss_pos_ned = gnss_pos_ned_calc;
     end
-    dt_truth = diff(truth_time);
-    % Fallback: build Truth NED velocity from position diffs if velocity missing or near-zero
-    try
-        if ~exist('truth_vel_ned','var') || isempty(truth_vel_ned) || all(vecnorm(truth_vel_ned,2,2) < 1e-6)
-            vned = [ (truth_pos_ned(2:end,:) - truth_pos_ned(1:end-1,:)) ./ max(1e-6, dt_truth), [0 0 0] ];
-            vned = vned(1:size(truth_pos_ned,1),:);
-            truth_vel_ned = vned;
-            dprintf('[Task5] Built Truth NED velocity via finite differences.\n');
-        end
-    catch
-    end
-    truth_accel_ned  = [zeros(1,3); diff(truth_vel_ned) ./ dt_truth];
-    truth_accel_ecef = [zeros(1,3); diff(truth_vel_ecef) ./ dt_truth];
-    truth_speed = vecnorm(truth_vel_ned,2,2);
-    % Early Truth speed stats and yaw-aid tip (helps configuration)
-    try
-        spd_h = hypot(truth_vel_ned(:,1), truth_vel_ned(:,2));
-        smin = min(spd_h, [], 'omitnan'); smed = median(spd_h, 'omitnan'); smax = max(spd_h, [], 'omitnan');
-        dprintf('[Task5] Truth horizontal speed stats (m/s): min=%.3f  median=%.3f  max=%.3f\n', smin, smed, smax);
-        if isfield(cfg,'yawaid') && isfield(cfg.yawaid,'enabled') && cfg.yawaid.enabled && isfield(cfg.yawaid,'min_speed_mps')
-            if smed < cfg.yawaid.min_speed_mps
-                dprintf('[Task5] Tip: median speed < yaw-aid min_speed_mps (%.2f < %.2f). Consider lowering the gate.\n', smed, cfg.yawaid.min_speed_mps);
-            end
-        end
-    catch
-    end
+    dt_gnss = diff(gnss_time);
+    gnss_accel_ned  = [zeros(1,3); diff(gnss_vel_ned) ./ dt_gnss];
+    gnss_accel_ecef = [zeros(1,3); diff(gnss_vel_ecef) ./ dt_gnss];
 
     % Load IMU data
     imu_raw = readmatrix(imu_path);
@@ -310,7 +232,7 @@ end
     if isempty(accel_bias) || isempty(gyro_bias)
         % Fallback to Task 2
         task2_file = fullfile(results_dir, sprintf('Task2_body_%s_%s_%s.mat', ...
-            imu_name, truth_name, method));
+            imu_name, gnss_name, method));
         if isfile(task2_file)
             S2 = load(task2_file);
             bd = S2.body_data;
@@ -357,27 +279,27 @@ end
 % =========================================================================
 dprintf('\nSubtask 5.1-5.5: Configuring and Initializing 15-State Kalman Filter.\n');
 results4 = fullfile(results_dir, sprintf('Task4_results_%s.mat', pair_tag));
-if nargin < 4 || isempty(truth_pos_ned)
+if nargin < 4 || isempty(gnss_pos_ned)
     if evalin('base','exist(''task4_results'',''var'')')
-        truth_pos_ned = evalin('base','task4_results.truth_pos_ned');
+        gnss_pos_ned = evalin('base','task4_results.gnss_pos_ned');
     else
         if ~isfile(results4)
             error('Task_5:MissingResults', ...
-                  'Task 4 must run first and save truth_pos_ned.');
+                  'Task 4 must run first and save gnss_pos_ned.');
         end
-        S = load(results4,'truth_pos_ned');
-        if ~isfield(S,'truth_pos_ned')
+        S = load(results4,'gnss_pos_ned');
+        if ~isfield(S,'gnss_pos_ned')
             error('Task_5:BadMATfile', ...
-                  '''truth_pos_ned'' not found in %s', results4);
+                  '''gnss_pos_ned'' not found in %s', results4);
         end
-        truth_pos_ned = S.truth_pos_ned;
+        gnss_pos_ned = S.gnss_pos_ned;
     end
 end
 % State vector x: [pos; vel; euler; accel_bias; gyro_bias] (15x1)
 init_eul = quat_to_euler(rot_to_quaternion(C_B_N));
 x = zeros(15, 1);
-x(1:3)  = truth_pos_ned(1,:)';
-x(4:6)  = truth_vel_ned(1,:)';
+x(1:3)  = gnss_pos_ned(1,:)';
+x(4:6)  = gnss_vel_ned(1,:)';
 x(7:9)  = init_eul;
 x(10:12) = accel_bias(:);
 x(13:15) = gyro_bias(:);
@@ -388,14 +310,12 @@ P(10:15,10:15) = eye(6) * 1e-4;      % Bias uncertainty
 
 % Process/measurement noise (aligned with Python defaults)
 Q = eye(15) * 1e-4;
-q_base = 0.01 * vel_q_scale; % FIX: base velocity process noise
-Q(4:6,4:6) = eye(3) * q_base;
+Q(4:6,4:6) = eye(3) * 0.01 * vel_q_scale;
 Q(10:12,10:12) = eye(3) * accel_bias_noise;
 Q(13:15,13:15) = eye(3) * gyro_bias_noise;
-R_base = zeros(6);
-R_base(1:3,1:3) = eye(3) * pos_meas_noise^2;
-R_base(4:6,4:6) = eye(3) * vel_sigma_mps^2; % FIX: velocity meas covariance
-R = R_base; %#ok<NASGU>
+R = zeros(6);
+R(1:3,1:3) = eye(3) * pos_meas_noise^2;
+R(4:6,4:6) = eye(3) * 0.25;
 H = [eye(6), zeros(6,9)];
 
 % --- Attitude Initialization ---
@@ -514,31 +434,16 @@ vel_exceed_log   = zeros(0,2);  % [k,|v|] log for debugging
 innov_d2_total = nan(1, num_imu_samples);
 innov_d2_pos   = nan(1, num_imu_samples);
 innov_d2_vel   = nan(1, num_imu_samples);
-% Yaw-aiding diagnostics
-yaw_aid_flag         = zeros(1, num_imu_samples);   % 1 if yaw aiding applied at step
-yaw_aid_residual_deg = nan(1, num_imu_samples);     % innovation (meas - est) in deg
-    % Mahalanobis gates (slightly relaxed to reduce late-stage starvation)
-    % Be robust to different cfg schemas: prefer cfg.truth.reject_maha_prob,
-    % then cfg.gnss.reject_maha_prob, else default 0.999.
-    prob_gate = 0.999;
-    try
-        if isfield(cfg,'truth') && isfield(cfg.truth,'reject_maha_prob') && ~isempty(cfg.truth.reject_maha_prob)
-            prob_gate = cfg.truth.reject_maha_prob;
-        elseif isfield(cfg,'gnss') && isfield(cfg.gnss,'reject_maha_prob') && ~isempty(cfg.gnss.reject_maha_prob)
-            prob_gate = cfg.gnss.reject_maha_prob;
-        end
-    catch
-    end
+% Mahalanobis gates (slightly relaxed to reduce late-stage starvation)
 try
-    gate_chi2_total = chi2inv(prob_gate, 6);
-    gate_chi2_pos   = chi2inv(prob_gate, 3);
-    gate_chi2_vel   = chi2inv(prob_gate, 3);
+    gate_chi2_total = chi2inv(0.9999, 6);  % was ~16.81 at 0.99; ~27–35 at 0.9999
+    gate_chi2_pos   = chi2inv(0.9999, 3);  % was ~11.35 at 0.99; ~27.88 at 0.9999
+    gate_chi2_vel   = chi2inv(0.9999, 3);
 catch
     gate_chi2_total = 32.0;  % fallback approximations
     gate_chi2_pos   = 27.88;
     gate_chi2_vel   = 27.88;
 end
-chi2_gate3 = chi2inv(prob_gate,3); % single 3-dof gate reused
 dprintf('-> 15-State filter initialized.\n');
 dprintf('Subtask 5.4: Integrating IMU data for each method.\n');
 
@@ -547,63 +452,22 @@ dprintf('Subtask 5.4: Integrating IMU data for each method.\n');
 % =========================================================================
 dprintf('\nSubtask 5.6: Running Kalman Filter for sensor fusion for each method.\n');
 
-% Interpolate Truth measurements to IMU timestamps (optionally time-aligned)
-truth_time_eff = truth_time;
-dt_align = 0;
-try
-    if isfield(cfg,'time_align') && isfield(cfg.time_align,'apply') && cfg.time_align.apply
-        % Prefer auto-estimate file from Task-7; else cfg.time_align.dt_s
-        to_path = fullfile(results_dir, sprintf('%s_task7_timeoffset.mat', run_id));
-        if isfile(to_path)
-            Sdt = load(to_path);
-            if isfield(Sdt,'dt_est'); dt_align = Sdt.dt_est; end
-        else
-            if isfield(cfg.time_align,'dt_s'); dt_align = cfg.time_align.dt_s; end
-        end
-        truth_time_eff = truth_time + dt_align;
-        dprintf('[Task5] Applying Truth time shift dt = %+0.3f s for measurement alignment.\n', dt_align);
-    end
-catch
-end
-truth_pos_interp = zeros(num_imu_samples,3);
-truth_vel_interp = zeros(num_imu_samples,3);
+% Interpolate GNSS measurements to IMU timestamps
+gnss_pos_interp = zeros(num_imu_samples,3);
+gnss_vel_interp = zeros(num_imu_samples,3);
 for k = 1:3
-    truth_pos_interp(:,k) = interp1(truth_time_eff, truth_pos_ned(:,k), imu_time, 'linear', 'extrap');
-    truth_vel_interp(:,k) = interp1(truth_time_eff, truth_vel_ned(:,k), imu_time, 'linear', 'extrap');
-    % Clamp out-of-bounds values to nearest Truth sample to mirror np.interp
-    truth_pos_interp(imu_time < truth_time_eff(1),k) = truth_pos_ned(1,k);
-    truth_pos_interp(imu_time > truth_time_eff(end),k) = truth_pos_ned(end,k);
-    truth_vel_interp(imu_time < truth_time_eff(1),k) = truth_vel_ned(1,k);
-    truth_vel_interp(imu_time > truth_time_eff(end),k) = truth_vel_ned(end,k);
+    gnss_pos_interp(:,k) = interp1(gnss_time, gnss_pos_ned(:,k), imu_time, 'linear', 'extrap');
+    gnss_vel_interp(:,k) = interp1(gnss_time, gnss_vel_ned(:,k), imu_time, 'linear', 'extrap');
+    % Clamp out-of-bounds values to nearest GNSS sample to mirror np.interp
+    gnss_pos_interp(imu_time < gnss_time(1),k) = gnss_pos_ned(1,k);
+    gnss_pos_interp(imu_time > gnss_time(end),k) = gnss_pos_ned(end,k);
+    gnss_vel_interp(imu_time < gnss_time(1),k) = gnss_vel_ned(1,k);
+    gnss_vel_interp(imu_time > gnss_time(end),k) = gnss_vel_ned(end,k);
 end
-% Interpolate DOP and speed onto IMU timeline for adaptive R and liftoff
-if ~isempty(dop)
-    dop_interp = interp1(truth_time, dop, imu_time, 'linear', 'extrap');
-else
-    dop_interp = ones(size(imu_time));
-end
-truth_speed_interp = interp1(truth_time, truth_speed, imu_time, 'linear', 'extrap');
-
-% Liftoff detection for ZUPT gating (configurable thresholds)
-acc_norm = vecnorm(acc_body_raw,2,2);
-acc_movstd = movstd(acc_norm, 400);
-cond = (truth_speed_interp > cfg.zupt.speed_thresh_mps) | ...
-       (acc_movstd > cfg.zupt.acc_movstd_thresh);
-first_idx = find(cond,1,'first');
-min_samples = max(1, round(cfg.zupt.min_pre_lift_s / dt_imu));
-if isempty(first_idx)
-    liftoff_idx = min_samples;
-else
-    liftoff_idx = max(first_idx, min_samples);
-end
-zupt_mask = false(num_imu_samples,1);
-zupt_mask(1:liftoff_idx) = true;
-fprintf('[Task5] Liftoff at idx=%d t=%.3f s (pre-ZUPT samples=%d)\n', ...
-        liftoff_idx, imu_time(liftoff_idx), liftoff_idx);
-% Compare raw and interpolated Truth data
+% Compare raw and interpolated GNSS data
 if ~dryrun
-    task5_truth_interp_ned_plot(truth_time, truth_pos_ned, truth_vel_ned, imu_time, ...
-        truth_pos_interp, truth_vel_interp, run_id, results_dir, cfg);
+    task5_gnss_interp_ned_plot(gnss_time, gnss_pos_ned, gnss_vel_ned, imu_time, ...
+        gnss_pos_interp, gnss_vel_interp, run_id, results_dir, cfg);
 end
 
 % --- Main Filter Loop ---
@@ -621,42 +485,28 @@ end
 % warn only once for singular covariance matrices
 warned_S = false;
 warned_S_z = false;
-lever_notice_used_printed = false;
-lever_notice_invalid_printed = false;
-lever_arm_status = 'disabled'; % 'using-cfg' | 'using-estimate' | 'skipped-invalid' | 'disabled'
 dbg_kf_pre_msg = '';
 dbg_kf_postpred_msg = '';
 dbg_kf_postupdate_msg = '';
 dbg_zupt_msg = '';
 zupt_applied_msg = '';
 summary_loop_msg = '';
-% Diagnostics counters
-yaw_updates = 0; gaid_updates = 0; yaw_res_sum = 0; gaid_err_sum = 0;
-yaw_speed_reject = 0; yaw_rate_reject = 0; yaw_residual_reject = 0;
-% Truth chi-square gating breakdown (per block)
-truth_attempt = 0; truth_accept = 0; truth_reject_total = 0; truth_reject_pos = 0; truth_reject_vel = 0; truth_nan = 0;
-
 for i = 1:num_imu_samples
-    % Interpolate Truth to the current IMU timestamp so the measurement
+    % Interpolate GNSS to the current IMU timestamp so the measurement
     % aligns with the state about to be propagated.  This mirrors the
-    % Python helper ``interpolate_series`` used in Truth_IMU_Fusion.py.
-    truth_pos_i = truth_pos_interp(i,:)';
-    truth_vel_i = truth_vel_interp(i,:)';
-    R_k = R_base; % FIX: per-sample measurement covariance
-    dop_scale = max(1, dop_interp(i)^2);
-    R_k(4:6,4:6) = R_base(4:6,4:6) * dop_scale;
+    % Python helper ``interpolate_series`` used in GNSS_IMU_Fusion.py.
+    gnss_pos_i = gnss_pos_interp(i,:)';
+    gnss_vel_i = gnss_vel_interp(i,:)';
     dbg_kf_pre_msg = sprintf('[DBG-KF] k=%d pre-pred velN=%.1f velE=%.1f velD=%.1f norm=%.1f', i, x(4), x(5), x(6), norm(x(4:6)));
 
-    if mod(i, 50000) == 0
+    if mod(i, 1e5) == 0
         dprintf('[DBG-KF] k=%d   posN=%.1f  velN=%.2f  accN=%.2f\n', ...
             i, x(1), x(4), a_ned(1));
     end
     % --- 1. State Propagation (Prediction) ---
     F = eye(15);
     F(1:3, 4:6) = eye(3) * dt_imu;
-    % Adaptive process noise on velocity
-    q_scale = 1 + 10*max(0, acc_norm(i) - 9.81); % FIX: adaptive Q based on accel
-    Q(4:6,4:6) = eye(3) * (q_base * q_scale);
+    % Match Python: apply fixed process noise per step (no extra dt scaling)
     P = F * P * F' + Q;
 
     % --- 2. Attitude Propagation ---
@@ -671,7 +521,7 @@ for i = 1:num_imu_samples
     % The accelerometer measures specific force f = a - g. Recover inertial
     % acceleration via a = f + g (parity with Python pipeline).
     a_ned = C_B_N * corrected_accel + g_NED;
-    if mod(i, 50000) == 0
+    if mod(i, 1e5) == 0
         dprintf('[DBG-KF] k=%d   posN=%.1f  velN=%.2f  accN=%.2f\n', ...
             i, x(1), x(4), a_ned(1));
     end
@@ -709,98 +559,10 @@ for i = 1:num_imu_samples
     acc_log(:,i) = a_ned;
 
     % --- 3. Measurement Update (Correction) ---
-    % Build measurement with optional lever arm (IMU->Truth) in body
-    use_lever = false; r_b = [0;0;0];
-    if isfield(cfg,'lever_arm') && isfield(cfg.lever_arm,'enabled') && cfg.lever_arm.enabled
-        if isfield(cfg.lever_arm,'r_b') && numel(cfg.lever_arm.r_b)==3
-            r_b = cfg.lever_arm.r_b(:);
-            use_lever = true;
-            lever_arm_status = 'using-cfg';
-            if ~lever_notice_used_printed
-                dprintf('[Task5] Using lever arm from cfg: [%.3f %.3f %.3f] m.\n', r_b);
-                lever_notice_used_printed = true;
-            else
-                yaw_rate_reject = yaw_rate_reject + 1;
-            end
-        else
-            yaw_speed_reject = yaw_speed_reject + 1;
-        end
-    else
-        % Try auto-estimated lever arm from Task-7 results for this run
-        la_path = fullfile(results_dir, sprintf('%s_task7_lever_arm.mat', run_id));
-        if isfile(la_path)
-            try
-                LA = load(la_path);
-                if isfield(LA,'rb') && numel(LA.rb)==3
-                    % Only use if quality metrics present and valid
-                    valid_ok = false;
-                    if isfield(LA,'valid_la') && LA.valid_la
-                        valid_ok = true;
-                    elseif isfield(LA,'rms_la') && isfield(LA,'inl')
-                        valid_ok = isfinite(LA.rms_la) && (LA.rms_la < 0.2) && (LA.inl >= 0.6);
-                    end
-                    if valid_ok
-                        r_b = LA.rb(:); use_lever = true;
-                        if ~lever_notice_used_printed
-                            dprintf('[Task5] Using lever arm from Task-7: [%.3f %.3f %.3f] m.\n', r_b);
-                            lever_notice_used_printed = true;
-                        end
-                        lever_arm_status = 'using-estimate';
-                    else
-                        if ~lever_notice_invalid_printed
-                            dprintf('[Task5] Lever arm estimate present but not valid (RMS/inliers). Skipping.\n');
-                            lever_notice_invalid_printed = true;
-                        end
-                        lever_arm_status = 'skipped-invalid';
-                    end
-                end
-            catch
-            end
-        end
-    end
-
-    if use_lever
-        % Predicted measurement with lever arm
-        Rwb = C_B_N;                    % Body->NED
-        omega_b_la = corrected_gyro;    % body angular rate [rad/s]
-        h_pos = x(1:3) + Rwb * r_b;
-        h_vel = x(4:6) + Rwb * (cross(omega_b_la, r_b));
-        z = [truth_pos_i; truth_vel_i];
-        y = z - [h_pos; h_vel];
-        % Jacobian H_lever (6x15)
-        Hm = zeros(6,15);
-        % position wrt pos
-        Hm(1:3,1:3) = eye(3);
-        % position wrt attitude small-angle (BODY): -R * [r_b]_x
-        Hm(1:3,7:9) = - Rwb * [   0    -r_b(3)  r_b(2);
-                                   r_b(3)  0   -r_b(1);
-                                  -r_b(2) r_b(1)  0    ];
-        % velocity wrt vel
-        Hm(4:6,4:6) = eye(3);
-        % velocity wrt attitude: -R * [omega×r_b]_x
-        v_body = cross(omega_b_la, r_b);
-        Hm(4:6,7:9) = - Rwb * [   0      -v_body(3)  v_body(2);
-                                   v_body(3)  0     -v_body(1);
-                                  -v_body(2) v_body(1)  0      ];
-        % velocity wrt gyro bias: R * [r_b]_x (since omega = omega_meas - b_g)
-        Hm(4:6,13:15) = Rwb * [   0    -r_b(3)  r_b(2);
-                                  r_b(3)  0   -r_b(1);
-                                 -r_b(2) r_b(1)  0    ];
-        % Innovation covariance and gain
-        S = Hm * P * Hm' + R_k;
-    else
-        z = [truth_pos_i; truth_vel_i];
-        y = z - H * x;
-        S = H * P * H' + R_k;
-    end
-    % Innovation gating (chi-square) to reject outlier Truth updates
-    % FIX: Handle invalid measurements/covariance and account in counters
-    if any(~isfinite(z)) || any(~isfinite(y)) || any(~isfinite(S(:)))
-        truth_attempt = truth_attempt + 1;
-        truth_nan = truth_nan + 1;
-        innov_d2_total(i) = NaN; innov_d2_pos(i) = NaN; innov_d2_vel(i) = NaN;
-        continue;
-    end
+    z = [gnss_pos_i; gnss_vel_i];
+    y = z - H * x;
+    S = H * P * H' + R;
+    % Innovation gating (chi-square) to reject outlier GNSS updates
     do_update = true;
     try
         d2 = y' * (S \ y);
@@ -822,41 +584,24 @@ for i = 1:num_imu_samples
     innov_d2_total(i) = d2;
     innov_d2_pos(i)   = d2p;
     innov_d2_vel(i)   = d2v;
-    truth_attempt = truth_attempt + 1;
     if d2 > gate_chi2_total
         do_update = false;
-        truth_reject_total = truth_reject_total + 1;
         if mod(i, 10000) == 0
             dprintf('[GATE] k=%d reject update: d2=%.2f > %.2f\n', i, d2, gate_chi2_total);
         end
     end
-    if d2p > gate_chi2_pos, truth_reject_pos = truth_reject_pos + 1; end
-    if d2v > gate_chi2_vel, truth_reject_vel = truth_reject_vel + 1; end
     if do_update && rcond(S) <= eps
         if ~warned_S
             warning('Measurement covariance S is singular or ill-conditioned; using pinv.');
             warned_S = true;
         end
-        if use_lever
-            K = (P * Hm') * pinv(S);
-        else
-            K = (P * H') * pinv(S);
-        end
+        K = (P * H') * pinv(S);
     elseif do_update
-        if use_lever
-            K = (P * Hm') / S;
-        else
-            K = (P * H') / S;
-        end
+        K = (P * H') / S;
     end
     if do_update
         x = x + K * y;
-        truth_accept = truth_accept + 1;
-        if use_lever
-            P = (eye(15) - K * Hm) * P;
-        else
-            P = (eye(15) - K * H) * P;
-        end
+        P = (eye(15) - K * H) * P;
         if i <= trace_n
             trace.y(:,i) = y;
             trace.K(:,:,i) = K;
@@ -864,159 +609,6 @@ for i = 1:num_imu_samples
         end
     end
     dbg_kf_postupdate_msg = sprintf('[DBG-KF] k=%d post-update velN=%.1f velE=%.1f velD=%.1f norm=%.1f', i, x(4), x(5), x(6), norm(x(4:6)));
-
-    % --- 3b. Gravity-direction aiding (roll/pitch stabilisation) ---
-    % Uses low-passed body specific-force direction to correct attitude.
-    % Configuration: cfg.gaid.{enabled,fc_hz,sigma_dir_deg,max_dev_g,max_gyro_dps,min_speed_mps}
-    if isfield(cfg,'gaid') && isfield(cfg.gaid,'enabled') && cfg.gaid.enabled
-        % Persistent LPF state
-        persistent acc_lp_initialized acc_lp
-        if isempty(acc_lp_initialized), acc_lp_initialized = false; end
-
-        % Parameters
-        fc = cfg.gaid.fc_hz;                   % LPF cutoff [Hz]
-        sigma = deg2rad(cfg.gaid.sigma_dir_deg);
-        max_dev_g = cfg.gaid.max_dev_g;
-        max_gyro_dps = cfg.gaid.max_gyro_dps;
-        min_speed_mps = cfg.gaid.min_speed_mps;
-
-        % Sample time and current measurements in body
-        dt = dt_imu; % seconds
-        f_b = corrected_accel;                 % specific force (a - g) in BODY [m/s^2]
-        w_b = corrected_gyro;                  % gyro in BODY [rad/s]
-
-        % Gravity magnitude from init
-        g_mag = norm(g_NED);
-
-        % LPF the accelerometer to estimate gravity direction component
-        if ~acc_lp_initialized
-            acc_lp = f_b; acc_lp_initialized = true;
-        end
-        alpha = onepole_alpha(fc, dt);
-        acc_lp = (1-alpha) * acc_lp + alpha * f_b;
-
-        % Gates: reject strong linear accel or fast rotation
-        dev_g = abs(norm(acc_lp) - g_mag) / max(g_mag, 1e-6);
-        gyro_dps = abs(w_b) * 180/pi;
-        fast_rot = any(gyro_dps > max_gyro_dps);
-        fast_lin = dev_g > max_dev_g;
-        speed_ok = true;
-        if min_speed_mps > 0
-            speed_ok = norm(x(4:6)) >= min_speed_mps;
-        end
-
-        if ~(fast_rot || fast_lin) && speed_ok
-            % Measurement: unit gravity direction in BODY
-            % Accelerometer measures specific force f_b ≈ -g_b when static.
-            z = -acc_lp / max(norm(acc_lp), 1e-9); % make it align with body-down
-
-            % Predicted unit gravity direction in BODY: h = C_bn * e3, where e3=[0;0;1] down (NED)
-            e3 = [0;0;1];
-            C_bn = C_B_N';
-            h = C_bn * e3; h = h / max(norm(h), 1e-9);
-
-            % Innovation
-            y_g = z - h;                         % 3x1
-
-            % Jacobian wrt small attitude error delta-theta in BODY: -[h]_x
-            H_att = -skew(h);                    % 3x3
-            H_g = zeros(3,15); idx_att = 7:9;   % attitude block indices
-            H_g(:, idx_att) = H_att;
-
-            % Noise
-            R_g = (sigma^2) * eye(3);
-
-            % EKF update (Joseph form)
-            S_g = H_g * P * H_g' + R_g;
-            if rcond(S_g) <= eps, S_g = S_g + 1e-9*eye(3); end
-            K_g = (P * H_g') / S_g;
-            dx_g = K_g * y_g;
-            x = x + dx_g;
-            I_KH = eye(15) - K_g * H_g;
-            P = I_KH * P * I_KH' + K_g * R_g * K_g';
-
-            % Inject attitude correction into quaternion and reset attitude state
-            dtheta = x(idx_att);
-            dq = dtheta_to_quat(dtheta);    % 4x1, scalar-first
-            q_b_n = quat_multiply(dq, q_b_n);
-            q_b_n = q_b_n / norm(q_b_n);
-            C_B_N = quat_to_rot(q_b_n);
-            x(idx_att) = quat_to_euler(q_b_n);
-            % Diagnostics
-            gaid_updates = gaid_updates + 1;
-            ang_err = acos(max(-1,min(1, dot(z,h)))) * 180/pi; % deg
-            gaid_err_sum = gaid_err_sum + ang_err;
-        end
-    end
-
-    % --- 3c. Yaw aiding from Truth course-over-ground (when moving) ---
-    if isfield(cfg,'yawaid') && isfield(cfg.yawaid,'enabled') && cfg.yawaid.enabled
-        % Compute Truth-derived course and speed at this step
-        v_ned_meas = truth_vel_interp(i,:)';
-        speed = norm(v_ned_meas(1:2)); % horizontal speed [m/s]
-        if speed >= cfg.yawaid.min_speed_mps
-            % Heading from Truth (course over ground), radians in [-pi,pi]
-            psi_meas = atan2(v_ned_meas(2), v_ned_meas(1));
-            % Current yaw estimate from quaternion
-            eul_cur = quat_to_euler(q_b_n);
-            psi_est = eul_cur(3);
-            % Innovation with wrap to [-pi,pi]
-            y_psi = wrapToPi_local(psi_meas - psi_est);
-
-            % Gate on turn rate (body gyro) to avoid aiding during fast turns
-            gyro_dps = abs(corrected_gyro) * 180/pi;
-            if all(gyro_dps < cfg.yawaid.max_gyro_dps)
-                % Numerical Jacobian d(psi)/d(delta-theta_body) via small-angle injection
-                eps_num = 1e-6;
-                H_att = zeros(1,3);
-                for j=1:3
-                    dth = zeros(3,1); dth(j) = eps_num;
-                    dq = dtheta_to_quat(dth);
-                    qj = quat_multiply(dq, q_b_n);
-                    eul_j = quat_to_euler(qj);
-                    dpsi = wrapToPi_local(eul_j(3) - psi_est);
-                    H_att(j) = dpsi / eps_num;
-                end
-                % Full H matrix and noise
-                H_psi = zeros(1,15); H_psi(1,7:9) = H_att;
-                R_psi = deg2rad(cfg.yawaid.sigma_yaw_deg)^2;
-                % Residual gate on magnitude
-                if abs(rad2deg(y_psi)) > cfg.yawaid.gate_deg
-                    yaw_residual_reject = yaw_residual_reject + 1;
-                    continue;
-                end
-    % EKF update
-                S_psi = H_psi * P * H_psi' + R_psi;
-                if rcond(S_psi) <= eps, S_psi = S_psi + 1e-9; end
-                K_psi = (P * H_psi') / S_psi;
-                dx_psi = K_psi * y_psi;
-                x = x + dx_psi;
-                I_KH = eye(15) - K_psi * H_psi;
-                P = I_KH * P * I_KH' + K_psi * R_psi * K_psi';
-
-                % Inject attitude correction into quaternion and reset attitude state
-                dtheta = x(7:9);
-                dq = dtheta_to_quat(dtheta);
-                q_b_n = quat_multiply(dq, q_b_n);
-                q_b_n = q_b_n / norm(q_b_n);
-                C_B_N = quat_to_rot(q_b_n);
-                x(7:9) = quat_to_euler(q_b_n);
-
-                % Diagnostics and console trace
-                yaw_aid_flag(i) = 1;
-                yaw_aid_residual_deg(i) = rad2deg(y_psi);
-                yaw_updates = yaw_updates + 1;
-                yaw_res_sum = yaw_res_sum + abs(yaw_aid_residual_deg(i));
-                if ~dryrun
-                    fprintf('[YAW-AID] k=%d  res=% .2f deg  speed=%.2f m/s\n', i, yaw_aid_residual_deg(i), speed);
-                end
-            else
-                yaw_rate_reject = yaw_rate_reject + 1;
-            end
-        else
-            yaw_speed_reject = yaw_speed_reject + 1;
-        end
-    end
 
     % --- 4. Velocity magnitude check ---
     vel_norm = norm(x(4:6));
@@ -1033,48 +625,46 @@ for i = 1:num_imu_samples
     prev_a_ned = a_ned;
 
     % --- 5. Zero-Velocity Update (ZUPT) ---
-    if zupt_mask(i)
-        win_size = 80;
-        acc_win = acc_body_raw(max(1,i-win_size+1):i, :);
-        gyro_win = gyro_body_raw(max(1,i-win_size+1):i, :);
-        acc_std = max(std(acc_win,0,1));
-        gyro_std = max(std(gyro_win,0,1));
-        norm_acc = norm(acc_win(end,:));
-        dbg_zupt_msg = sprintf('[DBG-ZUPT] k=%d acc_norm=%.4f (threshold=%.4f)', i, norm_acc, accel_std_thresh);
-        if acc_std < accel_std_thresh && gyro_std < gyro_std_thresh && norm(x(4:6)) < vel_thresh
-            zupt_count = zupt_count + 1;
-            zupt_log(i) = 1;
-            H_z = [zeros(3,3), eye(3), zeros(3,9)];
-            R_z = eye(3) * 1e-6;
-            y_z = -H_z * x;
-            S_z = H_z * P * H_z' + R_z;
-            if rcond(S_z) <= eps
-                if ~warned_S_z
-                    warning('ZUPT covariance S_z is singular or ill-conditioned; using pinv.');
-                    warned_S_z = true;
-                end
-                K_z = (P * H_z') * pinv(S_z);
-            else
-                K_z = (P * H_z') / S_z;
+    win_size = 80;
+    acc_win = acc_body_raw(max(1,i-win_size+1):i, :);
+    gyro_win = gyro_body_raw(max(1,i-win_size+1):i, :);
+    acc_std = max(std(acc_win,0,1));
+    gyro_std = max(std(gyro_win,0,1));
+    norm_acc = norm(acc_win(end,:));
+    dbg_zupt_msg = sprintf('[DBG-ZUPT] k=%d acc_norm=%.4f (threshold=%.4f)', i, norm_acc, accel_std_thresh);
+    if acc_std < accel_std_thresh && gyro_std < gyro_std_thresh && norm(x(4:6)) < vel_thresh
+        zupt_count = zupt_count + 1;
+        zupt_log(i) = 1;
+        H_z = [zeros(3,3), eye(3), zeros(3,9)];
+        R_z = eye(3) * 1e-6;
+        y_z = -H_z * x;
+        S_z = H_z * P * H_z' + R_z;
+        if rcond(S_z) <= eps
+            if ~warned_S_z
+                warning('ZUPT covariance S_z is singular or ill-conditioned; using pinv.');
+                warned_S_z = true;
             end
-            x = x + K_z * y_z;
-            P = (eye(15) - K_z * H_z) * P;
-            zupt_vel_norm(i) = norm(x(4:6));
-            if zupt_vel_norm(i) > vel_thresh
-                zupt_fail_count = zupt_fail_count + 1;
-                dprintf('ZUPT clamp failure at k=%d (norm=%.3f)\n', i, zupt_vel_norm(i));
-            end
-            x(4:6) = 0;
-            zupt_applied_msg = sprintf('[ZUPT-APPLIED] k=%d reset vel to 0', i);
+            K_z = (P * H_z') * pinv(S_z);
+        else
+            K_z = (P * H_z') / S_z;
         end
-        if mod(i,100000) == 0
-            dprintf('ZUPT applied %d times so far\n', zupt_count);
+        x = x + K_z * y_z;
+        P = (eye(15) - K_z * H_z) * P;
+        zupt_vel_norm(i) = norm(x(4:6));
+        if zupt_vel_norm(i) > vel_thresh
+            zupt_fail_count = zupt_fail_count + 1;
+            dprintf('ZUPT clamp failure at k=%d (norm=%.3f)\n', i, zupt_vel_norm(i));
         end
+        x(4:6) = 0;
+        zupt_applied_msg = sprintf('[ZUPT-APPLIED] k=%d reset vel to 0', i);
+    end
+    if mod(i,100000) == 0
+        dprintf('ZUPT applied %d times so far\n', zupt_count);
     end
 
     % --- Log State and Attitude ---
     % Safety clamp: cap velocity norm to mitigate late-run blow-ups
-    vmax = Inf; % FIX: remove post-update velocity cap
+    vmax = 50; % m/s cap for this dataset
     vnorm = norm(x(4:6));
     if vnorm > vmax
         x(4:6) = x(4:6) * (vmax / vnorm);
@@ -1099,34 +689,6 @@ dprintf('Method %s: IMU data integrated.\n', method);
 dprintf('Method %s: Kalman Filter completed. ZUPTcnt=%d\n', method, zupt_count);
 dprintf('Method %s: velocity blow-up events=%d\n', method, vel_blow_count);
 dprintf('Method %s: ZUPT clamp failures=%d\n', method, zupt_fail_count);
-
-% Estimate Truth time shift via speed cross-correlation
-dt_shift = 0; truth_interp = struct();
-if ~isempty(truth_path) && isfile(truth_path)
-    try
-        truth_data = read_state_file(truth_path);
-        t_truth = truth_data(:,2);
-        pos_truth_ecef = truth_data(:,3:5);
-        vel_truth_ecef = truth_data(:,6:8);
-        pos_truth_ned = (C_ECEF_to_NED * (pos_truth_ecef - ref_r0')')';
-        vel_truth_ned = (C_ECEF_to_NED * vel_truth_ecef')';
-        speed_truth = vecnorm(vel_truth_ned,2,2);
-        speed_est = vecnorm(x_log(4:6,:)',2,2);
-        max_lag = min(5000, numel(speed_est)-1);
-        [c,lags] = xcorr(detrend(speed_truth), detrend(speed_est), max_lag, 'coeff');
-        [~,idx_max] = max(c);
-        lag = lags(idx_max);
-        dt_shift = lag * dt_imu;
-        fprintf('[Task5] Estimated truth time shift dt = %+0.3f s (lag %d)\n', dt_shift, lag);
-        t_truth_shifted = t_truth + dt_shift;
-        truth_interp.pos_ned = interp1(t_truth_shifted, pos_truth_ned, imu_time, 'linear','extrap');
-        truth_interp.vel_ned = interp1(t_truth_shifted, vel_truth_ned, imu_time, 'linear','extrap');
-    catch ME
-        warning('Time shift estimation failed: %s', ME.message);
-    end
-end
-spd = truth_speed_interp;
-fprintf('[Task5] Truth speed stats (m/s): min=%.3f  median=%.3f  max=%.3f\n', min(spd), median(spd), max(spd));
 
 % Optional end-window ZUPT: if last 10s are static, zero final velocities
 try
@@ -1161,12 +723,12 @@ if numel(imu_time) ~= size(x_log,2)
     quat_log  = quat_log(:,1:N);
     zupt_log = zupt_log(1:N);
 end
-if numel(truth_time) ~= size(truth_pos_ned,1)
-    N = min(numel(truth_time), size(truth_pos_ned,1));
-    truth_time = truth_time(1:N);
-    truth_pos_ned = truth_pos_ned(1:N,:);
-    truth_vel_ned = truth_vel_ned(1:N,:);
-    truth_accel_ned = truth_accel_ned(1:N,:);
+if numel(gnss_time) ~= size(gnss_pos_ned,1)
+    N = min(numel(gnss_time), size(gnss_pos_ned,1));
+    gnss_time = gnss_time(1:N);
+    gnss_pos_ned = gnss_pos_ned(1:N,:);
+    gnss_vel_ned = gnss_vel_ned(1:N,:);
+    gnss_accel_ned = gnss_accel_ned(1:N,:);
 end
 
 % Extract velocity states and derive acceleration from them
@@ -1194,14 +756,14 @@ if ~dryrun
     all_file = fullfile(results_dir, sprintf('%s_Task5_AllResults.pdf', run_id));
     if exist(all_file, 'file'); delete(all_file); end
     for i = 1:3
-        % Position (FUSED only; Truth removed)
+        % Position (FUSED only; GNSS removed)
         subplot(3,3,i); hold on;
         plot(imu_time, x_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'FUSED (TRIAD-KF)');
         hold off; grid on; legend({'FUSED (TRIAD-KF)'}, 'Location','best'); ylabel('[m]'); title(['Position ' labels{i}]);
         dprintf('Subtask 5.8.2: Plotted %s position %s: First = %.4f, Last = %.4f\n', ...
             method, labels{i}, x_log(i,1), x_log(i,end));
 
-        % Velocity (FUSED only; Truth removed)
+        % Velocity (FUSED only; GNSS removed)
         subplot(3,3,i+3); hold on;
         plot(imu_time, x_log(i+3,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'FUSED (TRIAD-KF)');
         zupt_indices = find(zupt_log);
@@ -1212,7 +774,7 @@ if ~dryrun
         dprintf('Subtask 5.8.2: Plotted %s velocity %s: First = %.4f, Last = %.4f\n', ...
             method, labels{i}, x_log(i+3,1), x_log(i+3,end));
 
-        % Acceleration (FUSED only; Truth removed)
+        % Acceleration (FUSED only; GNSS removed)
         subplot(3,3,i+6); hold on;
         plot(imu_time, acc_log(i,:), 'b-', 'LineWidth', 1.5, 'DisplayName', 'FUSED (TRIAD-KF)');
         hold off; grid on; legend({'FUSED (TRIAD-KF)'}, 'Location','best'); ylabel('[m/s^2]'); title(['Acceleration ' labels{i}]);
@@ -1263,7 +825,7 @@ if ~dryrun && ~isempty(zupt_indices)
     xlabel('Time (s)'); ylabel('|v| after ZUPT [m/s]');
     title('Velocity magnitude following each ZUPT');
     legend('|v|');
-    save_plot(fig_zupt, imu_name, truth_name, [method '_ZUPT'], 5, ...
+    save_plot(fig_zupt, imu_name, gnss_name, [method '_ZUPT'], 5, ...
               cfg.plots.save_pdf, cfg.plots.save_png);
     close(fig_zupt);
 end
@@ -1275,15 +837,15 @@ if ~dryrun
 
     dprintf('Plotting all data in NED frame.\n');
     plot_task5_ned_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-        truth_time, truth_pos_ned, truth_vel_ned, truth_accel_ned, method, run_id, cfg);
+        gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, run_id, cfg);
 
     dprintf('Plotting all data in ECEF frame.\n');
     plot_task5_ecef_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, ...
-        truth_time, truth_pos_ecef, truth_vel_ecef, truth_accel_ecef, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
+        gnss_time, gnss_pos_ecef, gnss_vel_ecef, gnss_accel_ecef, C_ECEF_to_NED, ref_r0, method, run_id, cfg);
 
     dprintf('Plotting all data in body frame.\n');
     plot_task5_body_frame(imu_time, x_log(1:3,:), x_log(4:6,:), acc_log, acc_body_raw, euler_log, ...
-        truth_time, truth_pos_ned, truth_vel_ned, truth_accel_ned, method, g_NED, run_id, cfg);
+        gnss_time, gnss_pos_ned, gnss_vel_ned, gnss_accel_ned, method, g_NED, run_id, cfg);
 
     state_file = fullfile(fileparts(imu_path), sprintf('STATE_%s.txt', imu_name));
     if exist(state_file, 'file')
@@ -1300,23 +862,23 @@ if ~dryrun
 end
 
 %% --- End-of-run summary statistics --------------------------------------
-% Interpolate filter estimates to Truth timestamps for residual analysis
+% Interpolate filter estimates to GNSS timestamps for residual analysis
 % The transpose on x_log ensures interp1 operates over rows (time). The
-% result should be Nx3 matching the Truth matrices, so avoid an extra
+% result should be Nx3 matching the GNSS matrices, so avoid an extra
 % transpose which previously produced a 3xN array and caused dimension
-% mismatches when subtracting from truth_pos_ned.
-pos_interp = interp1(imu_time, x_log(1:3,:)', truth_time, 'linear', 'extrap');
-vel_interp = interp1(imu_time, x_log(4:6,:)', truth_time, 'linear', 'extrap');
-res_pos = pos_interp - truth_pos_ned;
-res_vel = vel_interp - truth_vel_ned;
+% mismatches when subtracting from gnss_pos_ned.
+pos_interp = interp1(imu_time, x_log(1:3,:)', gnss_time, 'linear', 'extrap');
+vel_interp = interp1(imu_time, x_log(4:6,:)', gnss_time, 'linear', 'extrap');
+res_pos = pos_interp - gnss_pos_ned;
+res_vel = vel_interp - gnss_vel_ned;
 rmse_pos = sqrt(mean(sum(res_pos.^2,2)));
 rmse_vel = sqrt(mean(sum(res_vel.^2,2)));
 % Both vectors are 3x1 column vectors so avoid an extra transpose which
 % previously produced a 3x3 matrix due to implicit broadcasting.
-final_pos_err = norm(x_log(1:3,end) - truth_pos_ned(end,:)');
-final_vel_err = norm(vel_log(:,end) - truth_vel_ned(end,:)');
+final_pos_err = norm(x_log(1:3,end) - gnss_pos_ned(end,:)');
+final_vel_err = norm(vel_log(:,end) - gnss_vel_ned(end,:)');
 final_vel = norm(vel_log(:,end));
-final_acc_err = norm(accel_from_vel(:,end) - truth_accel_ned(end,:)');
+final_acc_err = norm(accel_from_vel(:,end) - gnss_accel_ned(end,:)');
 final_vel_mag = norm(x_log(4:6,end));
 % Be tolerant to hard clamp behaviour: warn instead of aborting
 if final_vel_mag > vel_limit
@@ -1340,10 +902,10 @@ if ~dryrun
     err_labels = {'N', 'E', 'D'};
     for i = 1:3
         subplot(3,1,i);
-        plot(truth_time, res_pos(:,i), 'b-');
+        plot(gnss_time, res_pos(:,i), 'b-');
         grid on; ylabel('[m]'); title(['Residual ' err_labels{i}]);
     end
-    xlabel('Time (s)'); sgtitle('Position Residuals (KF - Truth)');
+    xlabel('Time (s)'); sgtitle('Position Residuals (KF - GNSS)');
     fname = fullfile(results_dir, sprintf('%s_Task5_ErrorAnalysis', run_id));
     if cfg.plots.save_pdf
         print(fig_err, [fname '.pdf'], '-dpdf', '-bestfit');
@@ -1353,12 +915,12 @@ if ~dryrun
     end
     close(fig_err);
 end
-summary_line = sprintf(['[SUMMARY] method=%s imu=%s truth=%s rmse_pos=%8.2fm ' ...
+summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%8.2fm ' ...
     'final_pos=%8.2fm rms_vel=%8.2fm/s final_vel=%8.2fm/s ' ...
     'rms_resid_pos=%8.2fm max_resid_pos=%8.2fm ' ...
     'rms_resid_vel=%8.2fm max_resid_vel=%8.2fm accel_bias=%.4f gyro_bias=%.4f ' ...
     'grav_err_mean=%.4f grav_err_max=%.4f omega_err_mean=%.4f omega_err_max=%.4f ' ...
-    'ZUPT_count=%d'], method, imu_name, [truth_name '.csv'], rmse_pos, ...
+    'ZUPT_count=%d'], method, imu_name, [gnss_name '.csv'], rmse_pos, ...
     final_pos_err, rmse_vel, final_vel, rms_resid_pos, max_resid_pos, ...
     rms_resid_vel, max_resid_vel, norm(accel_bias), norm(gyro_bias), grav_err_mean, grav_err_max, ...
     omega_err_mean, omega_err_max, zupt_count);
@@ -1374,8 +936,8 @@ results = struct('method', method, 'rmse_pos', rmse_pos, 'rmse_vel', rmse_vel, .
     'grav_err_mean', grav_err_mean, 'grav_err_max', grav_err_max, ...
     'omega_err_mean', omega_err_mean, 'omega_err_max', omega_err_max, ...
     'vel_blow_events', vel_blow_count);
-perf_file = fullfile(results_dir, 'IMU_Truth_bias_and_performance.mat');
-summary_file = fullfile(results_dir, 'IMU_Truth_summary.txt');
+perf_file = fullfile(results_dir, 'IMU_GNSS_bias_and_performance.mat');
+summary_file = fullfile(results_dir, 'IMU_GNSS_summary.txt');
 if ~dryrun
     fid = fopen(fullfile(results_dir, [run_id '_summary.txt']), 'w');
     fprintf(fid, '%s\n', summary_line);
@@ -1393,9 +955,9 @@ if ~dryrun
 end
 
 % Persist core results for unit tests and further analysis
-% Persist IMU and Truth time vectors for Tasks 6 and 7
+% Persist IMU and GNSS time vectors for Tasks 6 and 7
 time      = imu_time; %#ok<NASGU>  used by Task_6
-truth_time = truth_time; %#ok<NASGU>
+gnss_time = gnss_time; %#ok<NASGU>
 t_est = (0:size(x_log,2)-1)' * dt_imu; %#ok<NASGU>
 dprintf('Saved t_est with length %d\n', length(t_est));
 dt = dt_imu; %#ok<NASGU> IMU sample interval
@@ -1408,10 +970,9 @@ states.pos_ned_m  = x_log(1:3,:);
 states.vel_ned_mps = x_log(4:6,:);
 ref_lat = deg2rad(lat_deg); %#ok<NASGU>
 ref_lon = deg2rad(lon_deg); %#ok<NASGU>
-dt_truth_shift = dt_shift; % legacy field name
 
     % Save using the same naming convention as the Python pipeline
-    % <IMU>_<Truth>_<METHOD>_task5_results.mat
+    % <IMU>_<GNSS>_<METHOD>_task5_results.mat
     if ~dryrun
         results_file = fullfile(results_dir, sprintf('%s_task5_results.mat', run_id));
         % Build estimator outputs in both NED and ECEF for downstream Tasks 6/7
@@ -1423,39 +984,15 @@ dt_truth_shift = dt_shift; % legacy field name
         vel_ecef_est = (C_N_E * vel_ned_est')';
         acc_ecef_est = (C_N_E * acc_ned_est')';
         fprintf('Task 5: Saving estimates | pos_ned_est=%dx%d pos_ecef_est=%dx%d\n', size(pos_ned_est));
-        % Prepare attitude outputs; keep raw estimator quaternion in Task-5
-        % FIX: Do not alter att_quat with Task-7 boresight here; save a separate
-        %      att_quat_boresight for downstream visualization if available.
-        att_quat_raw = quat_log';              % Nx4, raw estimator Body->NED
-        att_quat = att_quat_raw;               % remain raw in Task-5 outputs
-        att_quat_boresight = [];               % optional, for Task-6/7 plotting
-        try
-            bore_file = fullfile(results_dir, sprintf('%s_task7_boresight.mat', run_id));
-            if isfile(bore_file)
-                S_b = load(bore_file);
-                if isfield(S_b,'qbar') && numel(S_b.qbar)==4
-                    dq_boresight = S_b.qbar(:); % 1x4 or 4x1
-                    att_quat_boresight = zeros(size(att_quat_raw));
-                    for ii = 1:size(att_quat_raw,1)
-                        att_quat_boresight(ii,:) = quat_multiply(dq_boresight, att_quat_raw(ii,:)').';
-                    end
-                    fprintf('Task 5: Prepared boresight-adjusted attitude (separate output).\n');
-                end
-            end
-        catch
-            % ignore boresight application errors
-        end
-        %#ok<NASU> att_quat att_quat_boresight
-        save(results_file, 'truth_pos_ned', 'truth_vel_ned', 'truth_accel_ned', ...
-            'truth_pos_ecef', 'truth_vel_ecef', 'truth_accel_ecef', ...
-            'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'quat_log', 'att_quat', 'att_quat_raw', 'att_quat_boresight', 'zupt_log', 'zupt_vel_norm', ...
-            'time', 'truth_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
-            'dt_truth_shift', 'dt_shift', 'truth_interp', ...
+        att_quat = quat_log'; %#ok<NASGU> % Nx4 quaternion history (scalar-first)
+        save(results_file, 'gnss_pos_ned', 'gnss_vel_ned', 'gnss_accel_ned', ...
+            'gnss_pos_ecef', 'gnss_vel_ecef', 'gnss_accel_ecef', ...
+            'x_log', 'vel_log', 'accel_from_vel', 'euler_log', 'quat_log', 'att_quat', 'zupt_log', 'zupt_vel_norm', ...
+            'time', 'gnss_time', 'pos_ned', 'vel_ned', 'ref_lat', 'ref_lon', 'ref_r0', ...
             'pos_ned_est', 'vel_ned_est', 'acc_ned_est', ...
             'pos_ecef_est', 'vel_ecef_est', 'acc_ecef_est', ...
-            'states', 't_est', 'dt', 'imu_rate_hz', 'acc_body_raw', 'gyro_body_raw', 'trace', 'vel_blow_count', ...
+            'states', 't_est', 'dt', 'imu_rate_hz', 'acc_body_raw', 'trace', 'vel_blow_count', ...
             'vel_exceed_log', 'innov_d2_total', 'innov_d2_pos', 'innov_d2_vel', ...
-            'yaw_aid_flag', 'yaw_aid_residual_deg', ...
             'gate_chi2_total', 'gate_chi2_pos', 'gate_chi2_vel');
         % Log attitude details for downstream tasks and human readers
         try
@@ -1490,17 +1027,16 @@ dt_truth_shift = dt_shift; % legacy field name
     save(time_file, 't_est', 'dt', 'x_log');
     dprintf('Task 5: Saved time vector to %s\n', time_file);
 
-    method_struct = struct('truth_pos_ned', truth_pos_ned, 'truth_vel_ned', truth_vel_ned, ...
-        'truth_accel_ned', truth_accel_ned, 'truth_pos_ecef', truth_pos_ecef, ...
-        'truth_vel_ecef', truth_vel_ecef, 'truth_accel_ecef', truth_accel_ecef, ...
+    method_struct = struct('gnss_pos_ned', gnss_pos_ned, 'gnss_vel_ned', gnss_vel_ned, ...
+        'gnss_accel_ned', gnss_accel_ned, 'gnss_pos_ecef', gnss_pos_ecef, ...
+        'gnss_vel_ecef', gnss_vel_ecef, 'gnss_accel_ecef', gnss_accel_ecef, ...
         'x_log', x_log, 'vel_log', vel_log, 'accel_from_vel', accel_from_vel, ...
         'euler_log', euler_log, 'zupt_log', zupt_log, 'zupt_vel_norm', zupt_vel_norm, 'time', time, ...
-        'truth_time', truth_time, 'pos_ned', pos_ned, 'vel_ned', vel_ned, ...
-        'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0, ...
-        'dt_truth_shift', dt_truth_shift, 'dt_shift', dt_shift, 'truth_interp', truth_interp);
+        'gnss_time', gnss_time, 'pos_ned', pos_ned, 'vel_ned', vel_ned, ...
+        'ref_lat', ref_lat, 'ref_lon', ref_lon, 'ref_r0', ref_r0);
     % ``method`` already stores the algorithm name (e.g. 'TRIAD'). Use it
     % directly when saving so filenames match the Python pipeline.
-    save_task_results(method_struct, imu_name, truth_name, method, 5);
+    save_task_results(method_struct, imu_name, gnss_name, method, 5);
 end
 
 % Expose fused position for comparison plots across methods
@@ -1516,53 +1052,7 @@ assignin('base', 't_kf', imu_time);
         fclose(warn_fid);
     end
 
-    % Print aiding summaries and Truth speed stats / lever-arm status
-    try
-        if yaw_updates > 0
-            fprintf('[Task5] Yaw-aid: %d updates (mean |res|=%.2f deg).\n', yaw_updates, yaw_res_sum/max(1,yaw_updates));
-        else
-            fprintf('[Task5] Yaw-aid: 0 updates. Check speed/gating.\n');
-        end
-        if gaid_updates > 0
-            fprintf('[Task5] Gravity-aid: %d updates (mean angle err=%.2f deg).\n', gaid_updates, gaid_err_sum/max(1,gaid_updates));
-        else
-            fprintf('[Task5] Gravity-aid: 0 updates (likely high dynamics or gating).\n');
-        end
-        if abs(dt_align) > 1e-6
-            fprintf('[Task5] Time alignment applied: dt = %+0.3f s (Truth shifted).\n', dt_align);
-        end
-        % Truth chi-square gating breakdown
-        try
-            fprintf('[Task5] Truth chi-square gating: attempts=%d  accept=%d  reject_total=%d  reject_pos=%d  reject_vel=%d  nan=%d\n', ...
-                truth_attempt, truth_accept, truth_reject_total, truth_reject_pos, truth_reject_vel, truth_nan);
-        catch
-        end
-        % Truth speed stats (horizontal) on estimator timeline
-        try
-            spd = hypot(truth_vel_interp(:,1), truth_vel_interp(:,2));
-            smin = min(spd, [], 'omitnan'); smed = median(spd, 'omitnan'); smax = max(spd, [], 'omitnan');
-            fprintf('[Task5] Truth speed stats (m/s): min=%.3f  median=%.3f  max=%.3f\n', smin, smed, smax);
-            if yaw_updates == 0
-                fprintf('[Task5] Tip: Yaw-aid had 0 updates. If speeds are low, try cfg.yawaid.min_speed_mps=0.2.\n');
-            end
-        catch
-        end
-        % Truth speed stats on Truth timebase
-        try
-            spd_g = hypot(truth_vel_ned(:,1), truth_vel_ned(:,2));
-            gsmin = min(spd_g, [], 'omitnan'); gsmed = median(spd_g, 'omitnan'); gsmax = max(spd_g, [], 'omitnan');
-            fprintf('[Task5] Truth speed stats (Truth base, m/s): min=%.3f  median=%.3f  max=%.3f\n', gsmin, gsmed, gsmax);
-        catch
-        end
-        % Yaw-aid gating breakdown
-        fprintf('[Task5] Yaw-aid gating breakdown: accept=%d  speed_reject=%d  rate_reject=%d  residual_reject=%d.\n', ...
-            yaw_updates, yaw_speed_reject, yaw_rate_reject, yaw_residual_reject);
-        % Lever-arm summary
-        fprintf('[Task5] Lever arm status: %s.\n', lever_arm_status);
-    catch
-    end
-
-end
+end % End of main function
 
 %% ========================================================================
 %  LOCAL HELPER FUNCTIONS
@@ -1598,29 +1088,6 @@ end
                  w1*z2 + x1*y2 - y1*x2 + z1*w2];
     end
 
-    function S = skew(v)
-        %SKEW Skew-symmetric matrix from 3-vector
-        S = [   0   -v(3)  v(2);
-              v(3)    0   -v(1);
-             -v(2)  v(1)    0  ];
-    end
-
-    function dq = dtheta_to_quat(dth)
-        %DTHETA_TO_QUAT Convert small-angle delta-theta to quaternion [w;x;y;z]
-        ang = norm(dth);
-        if ang < 1e-12
-            dq = [1;0;0;0];
-            return;
-        end
-        axis = dth / ang;
-        dq = [cos(ang/2); axis(:) * sin(ang/2)];
-    end
-
-    function alpha = onepole_alpha(fc, dt)
-        %ONEPOLE_ALPHA Exact discretization coefficient for 1st-order LPF
-        alpha = 1 - exp(-2*pi*fc*dt);
-    end
-
     function euler = quat_to_euler(q)
         %QUAT_TO_EULER Convert quaternion to XYZ Euler angles.
         %   EULER = QUAT_TO_EULER(Q) returns [roll; pitch; yaw] in radians for
@@ -1641,11 +1108,6 @@ end
         cosy_cosp = 1 - 2 * (y * y + z * z);
         yaw = atan2(siny_cosp, cosy_cosp);
         euler = [roll; pitch; yaw];
-    end
-
-    function ang = wrapToPi_local(a)
-        %WRAPTOPI_LOCAL Wrap angle(s) in radians to [-pi, pi]
-        ang = mod(a + pi, 2*pi) - pi;
     end
 
     function R = quat_to_rot(q)
@@ -1775,8 +1237,8 @@ end
         close(fig);
     end
 
-    function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, t_truth, pos_truth, vel_truth, acc_truth, method, run_id, cfg)
-        %PLOT_TASK5_NED_FRAME Plot fused data in the NED frame (Truth removed).
+    function plot_task5_ned_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_gnss, vel_gnss, acc_gnss, method, run_id, cfg)
+        %PLOT_TASK5_NED_FRAME Plot fused data in the NED frame (GNSS removed).
         labels = {'North','East','Down'};
         visibleFlag = 'off';
         try
@@ -1813,8 +1275,8 @@ end
         close(gcf);
     end
 
-    function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, t_truth, pos_ecef, vel_ecef, acc_ecef, C_E_N, r0, method, run_id, cfg)
-        %PLOT_TASK5_ECEF_FRAME Plot fused data in the ECEF frame (Truth removed).
+    function plot_task5_ecef_frame(t, pos_ned, vel_ned, acc_ned, t_gnss, pos_ecef, vel_ecef, acc_ecef, C_E_N, r0, method, run_id, cfg)
+        %PLOT_TASK5_ECEF_FRAME Plot fused data in the ECEF frame (GNSS removed).
         labels = {'X','Y','Z'};
         visibleFlag = 'off';
         try
@@ -1854,8 +1316,8 @@ end
         close(gcf);
     end
 
-    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, acc_body_raw, eul_log, t_truth, pos_truth_ned, vel_truth_ned, acc_truth_ned, method, g_N, run_id, cfg)
-        %PLOT_TASK5_BODY_FRAME Plot fused results in body frame coordinates (Truth removed).
+    function plot_task5_body_frame(t, pos_ned, vel_ned, acc_ned, acc_body_raw, eul_log, t_gnss, pos_gnss_ned, vel_gnss_ned, acc_gnss_ned, method, g_N, run_id, cfg)
+        %PLOT_TASK5_BODY_FRAME Plot fused results in body frame coordinates (GNSS removed).
         labels = {'X','Y','Z'};
         visibleFlag = 'off';
         try
@@ -1873,7 +1335,7 @@ end
             vel_body(:,k) = C_B_N' * vel_ned(:,k);
             acc_body(:,k) = C_B_N' * (acc_ned(:,k) - g_N);
         end
-        % Truth body overlay removed per requirement; show only FUSED and IMU raw
+        % GNSS body overlay removed per requirement; show only FUSED and IMU raw
         figure('Name','Task5 Body Frame','Position',[100 100 1200 900], ...
             'Visible', visibleFlag);
         for j = 1:3

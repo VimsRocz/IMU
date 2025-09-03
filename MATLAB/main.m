@@ -16,7 +16,6 @@ format long g % mirror Python full-precision printing
 %   IMU_X002.dat <-> GNSS_X002.csv
 %   IMU_X003.dat <-> GNSS_X002.csv
 root_dir = fileparts(fileparts(mfilename('fullpath')));
-truth_path = fullfile(root_dir, 'DATA', 'Truth', 'STATE_X001.txt');
 imu_list = {
     fullfile(root_dir, 'IMU_X001.dat'), ...
     fullfile(root_dir, 'IMU_X002.dat'), ...
@@ -84,8 +83,7 @@ for dataIdx = 1:numel(imu_list)
             t2 = Task_2(imu_file, gnss_file, method);
             t3 = Task_3(imu_file, gnss_file, method);
             t4 = Task_4(imu_file, gnss_file, method);
-            % Task 5 expects Truth STATE file as 2nd argument
-            t5 = Task_5(imu_file, truth_path, method);
+            t5 = Task_5(imu_file, gnss_file, method);
             assignin('base','task1_results',t1);
             assignin('base','task2_results',t2);
             assignin('base','task3_results',t3);

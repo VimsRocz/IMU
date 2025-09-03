@@ -38,44 +38,11 @@ end
 if ~isfield(cfg.plots,'popup_figures'), cfg.plots.popup_figures = true; end
 if ~isfield(cfg.plots,'save_pdf'),      cfg.plots.save_pdf      = false; end
 if ~isfield(cfg.plots,'save_png'),      cfg.plots.save_png      = false; end
-% Figure/IO defaults
-if ~isfield(cfg,'save_fig'),        cfg.save_fig = false; end
-if ~isfield(cfg,'page_width_cm'),   cfg.page_width_cm  = 19; end
-if ~isfield(cfg,'page_height_cm'),  cfg.page_height_cm = 10; end
-if ~isfield(cfg,'png_dpi'),         cfg.png_dpi = 300; end
 % KF tuning defaults (safe if default_cfg not reloaded)
 if ~isfield(cfg,'vel_q_scale'), cfg.vel_q_scale = 1.0; end
-if ~isfield(cfg,'vel_sigma_mps'), cfg.vel_sigma_mps = 5; end % FIX: velocity meas sigma
-% Optional auto-tune flag and parameters
-if isfield(cfg,'autotune') && ~isfield(cfg,'auto_tune')
-    cfg.auto_tune = cfg.autotune; % backward compat
-end
-if ~isfield(cfg,'auto_tune'),         cfg.auto_tune = true; end
-if ~isfield(cfg,'auto_tune_decim'),   cfg.auto_tune_decim = 10; end
-if ~isfield(cfg,'auto_tune_tail_s'),  cfg.auto_tune_tail_s = 90; end
-% Yaw-aid configuration
-if ~isfield(cfg,'yawaid') || ~isstruct(cfg.yawaid)
-    cfg.yawaid = struct();
-end
-if ~isfield(cfg.yawaid,'enabled'),          cfg.yawaid.enabled = true; end
-if ~isfield(cfg.yawaid,'min_speed_mps'),    cfg.yawaid.min_speed_mps = 0.05; end
-if ~isfield(cfg.yawaid,'max_deg_residual'), cfg.yawaid.max_deg_residual = 25; end
-if ~isfield(cfg.yawaid,'R_deg2'),           cfg.yawaid.R_deg2 = 10^2; end
-% ZUPT configuration
-if ~isfield(cfg,'zupt') || ~isstruct(cfg.zupt)
-    cfg.zupt = struct();
-end
-if ~isfield(cfg.zupt,'acc_movstd_thresh'), cfg.zupt.acc_movstd_thresh = 0.15; end
-if ~isfield(cfg.zupt,'min_pre_lift_s'),    cfg.zupt.min_pre_lift_s = 5; end
-if ~isfield(cfg.zupt,'speed_thresh_mps'),  cfg.zupt.speed_thresh_mps = 0.30; end
-% GNSS configuration
-if ~isfield(cfg,'gnss') || ~isstruct(cfg.gnss)
-    cfg.gnss = struct();
-end
-if ~isfield(cfg.gnss,'vel_sigma_mps'),   cfg.gnss.vel_sigma_mps = 5.0; end
-if ~isfield(cfg.gnss,'vel_sigma_floor'), cfg.gnss.vel_sigma_floor = 3.0; end
-if ~isfield(cfg.gnss,'max_speed_mps'),   cfg.gnss.max_speed_mps = 60.0; end
-if ~isfield(cfg.gnss,'reject_maha_prob'), cfg.gnss.reject_maha_prob = 0.999; end
+if ~isfield(cfg,'vel_r'),       cfg.vel_r       = 0.25; end
+% Optional auto-tune flag
+if ~isfield(cfg,'autotune'),    cfg.autotune    = true; end
 % Optional trace capture (first N KF steps)
 if ~isfield(cfg,'trace_first_n'), cfg.trace_first_n = 0; end
 
@@ -116,33 +83,38 @@ Task_2(cfg.imu_path, cfg.gnss_path, cfg.method);
 Task_3(cfg.imu_path, cfg.gnss_path, cfg.method);
 Task_4(cfg.imu_path, cfg.gnss_path, cfg.method);
 % Optionally auto-tune Q/R on a small grid before the final full run
-if cfg.auto_tune
+if cfg.autotune
     fprintf('Auto-tune sweep over vel_q_scale and vel_r...\n');
-    q_list = [5 10 20 40];
-    r_list = [0.25 0.5 1.0];
-    best.rmse = inf;
-    % Include truth_path for Task_5; auto-tune runs on a short window
-    data = struct('imu_path',cfg.imu_path,'truth_path',cfg.truth_path,'method',cfg.method);
-    opts = struct('decimate',cfg.auto_tune_decim,'tail_s',cfg.auto_tune_tail_s);
-    for qi = 1:numel(q_list)
-        for ri = 1:numel(r_list)
-            params = struct('vel_q_scale', q_list(qi), 'vel_sigma_mps', r_list(ri));
-            rmse = run_kf_once(params, data, opts);
-            if rmse < best.rmse
-                best = struct('q',params.vel_q_scale,'r',params.vel_sigma_mps,'rmse',rmse);
-            end
+    grid_q = [5, 10, 20, 40];
+    grid_r = [0.25, 0.5, 1.0];
+    rows = zeros(numel(grid_q)*numel(grid_r), 3);
+    idx = 1;
+    for iq = 1:numel(grid_q)
+        for ir = 1:numel(grid_r)
+            qv = grid_q(iq); rv = grid_r(ir);
+            rmse = Task_5_try_once(cfg, qv, rv);
+            rows(idx,:) = [qv, rv, rmse];
+            idx = idx + 1;
         end
     end
-    cfg.vel_q_scale  = best.q;
-    cfg.vel_sigma_mps = best.r;
-    cfg.auto_tune = false;
-    fprintf('Auto-tune best: q=%g r=%g (RMSE_pos=%0.3f m)\n', best.q, best.r, best.rmse);
+    % Print table
+    fprintf('\n q_scale    vel_r    rmse_pos\n');
+    for i = 1:size(rows,1)
+        fprintf(' %7.3f  %7.3f  %8.3f\n', rows(i,1), rows(i,2), rows(i,3));
+    end
+    % Pick best (min rmse)
+    [~,j] = min(rows(:,3));
+    if isfinite(rows(j,3))
+        cfg.vel_q_scale = rows(j,1);
+        cfg.vel_r       = rows(j,2);
+        fprintf('Auto-tune best: vel_q_scale=%.3f  vel_r=%.3f  (RMSE_pos=%.3f m)\n', rows(j,1), rows(j,2), rows(j,3));
+    else
+        warning('Auto-tune produced no valid result; keeping defaults.');
+    end
 end
 
-% Run full Task 5 with the correct Truth path
-Task_5(cfg.imu_path, cfg.truth_path, cfg.method, [], ...
-       'vel_q_scale', cfg.vel_q_scale, 'vel_sigma_mps', cfg.vel_sigma_mps, ...
-       'trace_first_n', cfg.trace_first_n);
+Task_5(cfg.imu_path, cfg.gnss_path, cfg.method, [], ...
+       'vel_q_scale', cfg.vel_q_scale, 'vel_r', cfg.vel_r, 'trace_first_n', cfg.trace_first_n);
 
 runTag = rid; resultsDir = cfg.paths.matlab_results; dataTruthDir = truthDir;
 
@@ -424,36 +396,6 @@ function [P,V] = extractNED(T)
     if ~isempty(vn)&&~isempty(ve)&&~isempty(vd)
         V = [T.(vn), T.(ve), T.(vd)];
     end
-end
-
-function rmse = run_kf_once(params, data, opts)
-%RUN_KF_ONCE  Helper for auto-tuning: run Task_5 with limited window.
-%   PARAMS.vel_q_scale, PARAMS.vel_sigma_mps specify tuning.
-%   DATA must contain imu_path, truth_path, method.
-%   OPTS.tail_s and OPTS.decimate define a short window; this helper simply
-%   converts these to a max_steps value to avoid rerunning the full dataset.
-
-    arguments
-        params struct
-        data   struct
-        opts   struct = struct()
-    end
-
-    if ~isfield(opts, 'decimate'), opts.decimate = 1; end
-    if ~isfield(opts, 'tail_s'),  opts.tail_s  = 0; end
-
-    max_steps = inf;
-    if opts.tail_s > 0
-        % assume raw IMU at 400 Hz
-        max_steps = round((400/opts.decimate) * opts.tail_s);
-    end
-    % Pass Truth path (not GNSS) to Task_5 for the auto-tune window
-    res = Task_5(data.imu_path, data.truth_path, data.method, [], ...
-        'vel_q_scale',  params.vel_q_scale, ...
-        'vel_sigma_mps', params.vel_sigma_mps, ...
-        'max_steps',    max_steps, ...
-        'dryrun',       true);
-    rmse = res.rmse_pos;
 end
 
 function nm = findCol(T, cand)

@@ -63,7 +63,6 @@ fusion_results = struct('dataset',{},'method',{},'rmse_pos',{},'final_pos',{},..
 for k = 1:size(pairs,1)
     imu  = fullfile(root, pairs{k,1});
     gnss = fullfile(root, pairs{k,2});
-    truth = fullfile(root, 'DATA', 'Truth', 'STATE_X001.txt');
 
     for m = 1:numel(method_list)
         method = method_list{m};
@@ -74,8 +73,7 @@ for k = 1:size(pairs,1)
         Task_2(imu, gnss, method);
         Task_3(imu, gnss, method);
         Task_4(imu, gnss, method);
-        % Use Truth STATE file for Task 5
-        Task_5(imu, truth, method);
+        Task_5(imu, gnss, method);
         runtime = toc(start_t);
 
         [~, imuStem, ~]  = fileparts(pairs{k,1});
@@ -99,7 +97,7 @@ for k = 1:size(pairs,1)
             catch ME
                 warning('Parity check failed: %s', ME.message);
             end
-            cand = truth; % Truth STATE file location
+            cand = fullfile(root, 'STATE_X001.txt');
             if isfile(cand)
                 fprintf('Starting Task 6 for %s + %s ...\n', imuStem, gnssStem);
                 try

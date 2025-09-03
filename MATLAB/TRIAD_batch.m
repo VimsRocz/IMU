@@ -33,14 +33,12 @@ root_dir = fileparts(fileparts(mfilename('fullpath')));
 for k = 1:numel(imu_paths)
     imu_file  = fullfile(root_dir, imu_paths{k});
     gnss_file = fullfile(root_dir, gnss_paths{k});
-    truth_file = fullfile(root_dir, 'DATA', 'Truth', 'STATE_X001.txt');
 
     Task_1(imu_file, gnss_file, 'TRIAD');
     Task_2(imu_file, gnss_file, 'TRIAD');
     Task_3(imu_file, gnss_file, 'TRIAD');
     Task_4(imu_file, gnss_file, 'TRIAD');
-    % Task 5 expects Truth STATE file as 2nd arg
-    Task_5(imu_file, truth_file, 'TRIAD');
+    Task_5(imu_file, gnss_file, 'TRIAD');
 
     [~, imuName]  = fileparts(imu_file);
     [~, gnssName] = fileparts(gnss_file);

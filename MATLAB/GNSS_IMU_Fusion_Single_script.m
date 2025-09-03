@@ -1,6 +1,6 @@
 %% GNSS_IMU_Fusion_Single_script.m - MATLAB mirror of GNSS_IMU_Fusion_Single_script.py
 % Mirror of the Python script GNSS_IMU_Fusion_Single_script.py
-% This script performs IMU/Truth alignment, dead-reckoning and fusion
+% This script performs IMU/GNSS alignment, dead-reckoning and fusion
 % using the TRIAD method and two alternative Wahba solutions. Results and
 % plots are stored in the `results/` directory returned by
 % `get_results_dir()`.
@@ -21,26 +21,26 @@ root_dir   = fileparts(script_dir);
 % Dataset filenames relative to repository root
 % Multiple logs can be listed here and are loaded into workspace
 imu_files  = { 'IMU_X001.dat', 'IMU_X002.dat', 'IMU_X003.dat' };
-truth_files = { 'DATA/Truth/STATE_X001.txt', 'DATA/Truth/STATE_X002.txt', 'DATA/Truth/STATE_X003.txt' };
+gnss_files = { 'GNSS_X001.csv', 'GNSS_X002.csv', 'GNSS_X002.csv' };
 
 % Pre-load all logs for convenience.  Task 1--4 below use the first pair
 % by default, but the other tables are kept in memory for analysis.
 imu_data_all  = cell(size(imu_files));
-truth_data_all = cell(size(truth_files));
+gnss_data_all = cell(size(gnss_files));
 for i = 1:numel(imu_files)
     fname = fullfile(root_dir, imu_files{i});
     fprintf('Loaded IMU file %s\n', fname);
     imu_data_all{i}  = readmatrix(fname);
 end
-for i = 1:numel(truth_files)
-    fname = fullfile(root_dir, truth_files{i});
-    fprintf('Loaded Truth file %s\n', fname);
-    truth_data_all{i} = read_truth_file(fname);
+for i = 1:numel(gnss_files)
+    fname = fullfile(root_dir, gnss_files{i});
+    fprintf('Loaded GNSS file %s\n', fname);
+    gnss_data_all{i} = readtable(fname);
 end
 
 % Use the first dataset for the processing below
 imu_file  = fullfile(root_dir, imu_files{1});
-truth_file = fullfile(root_dir, truth_files{1});
+gnss_file = fullfile(root_dir, gnss_files{1});
 [~, imu_name, ~] = fileparts(imu_file);
 
 % Create results directory at repository root
@@ -55,16 +55,18 @@ addpath(script_dir);
 %% ========================================================================
 fprintf('\nTASK 1: Define reference vectors in NED\n');
 
-% Subtask 1.1: Load Truth state file and derive initial latitude/longitude
-fprintf('Subtask 1.1: Loading Truth file %s ...\n', truth_file);
-truth = read_truth_file(truth_file);
-state_data = read_state_file(truth_file);
-truth_time = truth.time;
-truth_pos_ned = truth.pos_ned;
-truth_vel_ned = truth.vel_ned;
-truth_pos_ecef = state_data(:,3:5);
-truth_vel_ecef = state_data(:,6:8);
-[x0,y0,z0] = deal(truth_pos_ecef(1,1), truth_pos_ecef(1,2), truth_pos_ecef(1,3));
+% Subtask 1.1: Load GNSS ECEF file and convert first valid row to lat/lon
+fprintf('Subtask 1.1: Loading GNSS file %s ...\n', gnss_file);
+try
+    gnss_tbl = readtable(gnss_file);
+catch ME
+    error('Failed to read %s: %s', gnss_file, ME.message);
+end
+idx = find(gnss_tbl.X_ECEF_m ~= 0 | gnss_tbl.Y_ECEF_m ~= 0 | ...
+            gnss_tbl.Z_ECEF_m ~= 0, 1, 'first');
+if isempty(idx); error('No valid ECEF row found in %s', gnss_file); end
+[x0,y0,z0] = deal(gnss_tbl.X_ECEF_m(idx), gnss_tbl.Y_ECEF_m(idx), ...
+                   gnss_tbl.Z_ECEF_m(idx));
 [lat0, lon0, ~] = ecef2geodetic(x0, y0, z0);
 fprintf(' -> lat0=%.6f deg, lon0=%.6f deg\n', lat0, lon0);
 
@@ -208,24 +210,24 @@ R_methods = {R_tri, R_dav, R_svd};
 method_colors = {'r','g','b'};
 
 %% ========================================================================
-%% Task 4: Truth + IMU dead-reckoning comparison
+%% Task 4: GNSS + IMU dead-reckoning comparison
 %% ========================================================================
-fprintf('\nTASK 4: Truth + IMU dead-reckoning comparison\n');
+fprintf('\nTASK 4: GNSS + IMU dead-reckoning comparison\n');
 
 % Subtask 4.1: Load DCM from Task 3 (TRIAD)
 R_nb = task3_results.TRIAD.R;
 
-% Subtask 4.2: Reload Truth and convert all ECEF to NED
- pos_ecef = truth_pos_ecef;
- vel_ecef = truth_vel_ecef;
+% Subtask 4.2: Reload GNSS and convert all ECEF to NED
+pos_ecef = [gnss_tbl.X_ECEF_m gnss_tbl.Y_ECEF_m gnss_tbl.Z_ECEF_m];
+vel_ecef = [gnss_tbl.VX_ECEF_mps gnss_tbl.VY_ECEF_mps gnss_tbl.VZ_ECEF_mps];
 C_e2n = compute_C_ECEF_to_NED(deg2rad(lat0), deg2rad(lon0));
 r0 = [x0; y0; z0];
 pos_ned = (C_e2n*(pos_ecef' - r0))';
 vel_ned = (C_e2n*vel_ecef')';
- dt_truth = [diff(truth_time); mean(diff(truth_time))];
-acc_ned_truth = [zeros(1,3); diff(vel_ned)./dt_truth(1:end-1)];
+dt_gnss = [diff(gnss_tbl.Posix_Time); mean(diff(gnss_tbl.Posix_Time))];
+acc_ned_gnss = [zeros(1,3); diff(vel_ned)./dt_gnss(1:end-1)];
 
-% Subtask 4.3 is Truth accel computed above
+% Subtask 4.3 is GNSS accel computed above
 
 % Subtask 4.4: Subtract biases and rotate accelerations for each method
 f_b = accel - accel_bias';
@@ -242,11 +244,11 @@ for m=1:numel(methods)
     end
 end
 
-% Subtask 4.5: Plot Truth vs INS for all methods (NED)
+% Subtask 4.5: Plot GNSS vs INS for all methods (NED)
 fprintf('Subtask 4.5: Plotting dead-reckoning comparison for all methods\n');
 t_imu = (0:size(f_b,1)-1)*dt_imu;
- t_truth = truth_time - truth_time(1);
-fprintf(' -> truth_time range: %.2f to %.2f s\n', min(t_truth), max(t_truth));
+t_gnss = gnss_tbl.Posix_Time - gnss_tbl.Posix_Time(1);
+fprintf(' -> gnss_time range: %.2f to %.2f s\n', min(t_gnss), max(t_gnss));
 fprintf(' -> imu_time  range: %.2f to %.2f s\n', t_imu(1), t_imu(end));
 fig = figure('Visible','off','Units','pixels','Position',[0 0 1200 900]);
 tl = tiledlayout(3,3,'TileSpacing','compact','Padding','compact');
@@ -254,20 +256,20 @@ labels = {'North [m]','East [m]','Down [m]'};
 rowTitle = {'Position','Velocity','Acceleration'};
 for j=1:3
     nexttile(j); hold on; grid on;
-    plot(t_truth, pos_ned(:,j),'k--','DisplayName','Truth');
+    plot(t_gnss, pos_ned(:,j),'k--','DisplayName','GNSS');
     for m=1:numel(methods)
         plot(t_imu, pos_ins{m}(:,j),'Color',method_colors{m},'DisplayName',methods{m});
     end
     if j==1, ylabel(rowTitle{1}); end
     title(labels{j}); if j==3, legend; end
     nexttile(3+j); hold on; grid on;
-    plot(t_truth, vel_ned(:,j),'k--');
+    plot(t_gnss, vel_ned(:,j),'k--');
     for m=1:numel(methods)
         plot(t_imu, vel_ins{m}(:,j),'Color',method_colors{m});
     end
     if j==1, ylabel(rowTitle{2}); end
     nexttile(6+j); hold on; grid on;
-    plot(t_truth, acc_ned_truth(:,j),'k--');
+    plot(t_gnss, acc_ned_gnss(:,j),'k--');
     for m=1:numel(methods)
         plot(t_imu, a_ned{m}(:,j),'Color',method_colors{m});
     end
@@ -285,7 +287,7 @@ end
 
 % Subtask 4.6: 2-D path plot (TRIAD only for legacy)
 fig = figure('Visible','off');
-plot(pos_ned(:,1), pos_ned(:,2),'k','DisplayName','Truth'); hold on;
+plot(pos_ned(:,1), pos_ned(:,2),'k','DisplayName','GNSS'); hold on;
 plot(pos_ins{1}(:,1), pos_ins{1}(:,2),'r','DisplayName','INS TRIAD');
 legend; xlabel('North [m]'); ylabel('East [m]'); axis equal; grid on;
 title('Dead-Reckoning Comparison');
@@ -298,15 +300,15 @@ save(fullfile(results_dir,'Task4_results.mat'), 'pos_ins', 'vel_ins', ...
      'pos_ned', 'vel_ned');
 
 %% ========================================================================
-%% Task 5: Truth/INS fusion with 9-state Kalman filter
+%% Task 5: GNSS/INS fusion with 9-state Kalman filter
 %% ========================================================================
-fprintf('\nTASK 5: Truth/INS fusion with 9-state Kalman filter\n');
+fprintf('\nTASK 5: GNSS/INS fusion with 9-state Kalman filter\n');
 
 % Subtask 5.1: Initialize covariance and process noise
 P0 = eye(9); Q = 1e-3*eye(9);
 
 % Subtask 5.2: Measurement models
-R_zupt = 1e-2*eye(3); R_truth = blkdiag(5^2*eye(3), 0.5^2*eye(3));
+R_zupt = 1e-2*eye(3); R_gnss = blkdiag(5^2*eye(3), 0.5^2*eye(3));
 
 % Storage for logs
 N = size(imu,1); x_log = cell(size(methods)); eul_log = cell(size(methods));
@@ -315,7 +317,7 @@ for m=1:numel(methods)
     x_log{m} = zeros(9,N);
     eul_log{m} = zeros(3,N);
     pos_f = zeros(3,1); vel_f = zeros(3,1); R_f = R_methods{m}; x = zeros(9,1); P = P0;
-    truth_idx = 1; truth_time_vec = truth_time;
+    gnss_idx = 1; gnss_time = gnss_tbl.Posix_Time;
     for k=2:N
         dt = dt_imu;
         w_ib = gyro(k,:)' - gyro_bias;
@@ -331,17 +333,17 @@ for m=1:numel(methods)
             [x,P] = kalman_update(x,P,z,H,R_zupt);
             vel_f = vel_f + x(4:6); pos_f = pos_f + x(1:3); R_f = (eye(3)-skew(x(7:9)))*R_f; x(:)=0;
         end
-        if truth_idx < length(truth_time_vec) && abs((k-1)*dt - (truth_time_vec(truth_idx+1)-truth_time_vec(1)))<dt/2
-            z = [pos_ned(truth_idx+1,:)'; vel_ned(truth_idx+1,:)'];
+        if gnss_idx < length(gnss_time) && abs((k-1)*dt - (gnss_time(gnss_idx+1)-gnss_time(1)))<dt/2
+            z = [pos_ned(gnss_idx+1,:)'; vel_ned(gnss_idx+1,:)'];
             H = [eye(3) zeros(3,6); zeros(3) eye(3) zeros(3)];
-            [x,P] = kalman_update(x,P,z-[pos_f;vel_f],H,R_truth);
+            [x,P] = kalman_update(x,P,z-[pos_f;vel_f],H,R_gnss);
             pos_f = pos_f + x(1:3); vel_f = vel_f + x(4:6); R_f = (eye(3)-skew(x(7:9)))*R_f; x(:)=0;
-            truth_idx = truth_idx + 1;
+            gnss_idx = gnss_idx + 1;
         end
         x_log{m}(:,k) = [pos_f; vel_f; zeros(3,1)];
         eul_log{m}(:,k) = quat2euler(dcm2quat_custom(R_f));
     end
-    rmse_pos(m) = sqrt(mean(vecnorm((x_log{m}(1:3,1:truth_idx) - pos_ned(1:truth_idx,:)').^2)));
+    rmse_pos(m) = sqrt(mean(vecnorm((x_log{m}(1:3,1:gnss_idx) - pos_ned(1:gnss_idx,:)').^2)));
     final_err(m) = norm(pos_f - pos_ned(end,:)');
 end
 
@@ -355,7 +357,7 @@ end
 % Subtask 5.6: Plot fused position
 fprintf('Subtask 5.6: Plotting fusion results for all methods\n');
 fig = figure('Visible','off');
-plot(pos_ned(:,1), pos_ned(:,2),'k','DisplayName','Truth'); hold on;
+plot(pos_ned(:,1), pos_ned(:,2),'k','DisplayName','GNSS'); hold on;
 for m=1:numel(methods)
     plot(x_log{m}(1,:), x_log{m}(2,:), method_colors{m}, 'DisplayName', methods{m});
 end
@@ -367,13 +369,13 @@ file_kf = fullfile(results_dir,'Task5_results_all_methods.pdf');
 saveas(fig, file_kf); close(fig);
 
 % Subtask 5.6b: Plot fused position, velocity and acceleration for all methods
-% together with the Truth measurements and the true trajectory if available.
+% together with the GNSS measurements and the true trajectory if available.
 fprintf('Subtask 5.6b: Plotting all methods with truth trajectory\n');
 
-% Interpolate Truth data to the IMU timeline
-truth_pos_i = interp1(t_truth, pos_ned, t_imu, 'linear', 'extrap');
-truth_vel_i = interp1(t_truth, vel_ned, t_imu, 'linear', 'extrap');
-truth_acc_i = interp1(t_truth, acc_ned_truth, t_imu, 'linear', 'extrap');
+% Interpolate GNSS data to the IMU timeline
+gnss_pos_i = interp1(t_gnss, pos_ned, t_imu, 'linear', 'extrap');
+gnss_vel_i = interp1(t_gnss, vel_ned, t_imu, 'linear', 'extrap');
+gnss_acc_i = interp1(t_gnss, acc_ned_gnss, t_imu, 'linear', 'extrap');
 
 % Pre-compute fused velocity and acceleration for each method
 fused_pos = cell(size(methods));
@@ -406,7 +408,7 @@ fig = figure('Visible','off');
 for j = 1:3
     % Position
     subplot(3,3,j); hold on; grid on;
-    plot(t_imu, truth_pos_i(:,j), 'k', 'DisplayName', 'Truth');
+    plot(t_imu, gnss_pos_i(:,j), 'k', 'DisplayName', 'GNSS');
     if ~isempty(truth_pos_i)
         plot(t_imu, truth_pos_i(:,j), 'm--', 'DisplayName', 'Truth');
     end
@@ -420,7 +422,7 @@ for j = 1:3
     end
     % Velocity
     subplot(3,3,3+j); hold on; grid on;
-    plot(t_imu, truth_vel_i(:,j), 'k', 'HandleVisibility','off');
+    plot(t_imu, gnss_vel_i(:,j), 'k', 'HandleVisibility','off');
     if ~isempty(truth_vel_i)
         plot(t_imu, truth_vel_i(:,j), 'm--', 'HandleVisibility','off');
     end
@@ -431,7 +433,7 @@ for j = 1:3
     title(['Velocity ' labels{j}]);
     % Acceleration
     subplot(3,3,6+j); hold on; grid on;
-    plot(t_imu, truth_acc_i(:,j), 'k', 'HandleVisibility','off');
+    plot(t_imu, gnss_acc_i(:,j), 'k', 'HandleVisibility','off');
     if ~isempty(truth_acc_i)
         plot(t_imu, truth_acc_i(:,j), 'm--', 'HandleVisibility','off');
     end
@@ -464,23 +466,23 @@ for mi = 1:numel(methods)
     pos_est = fused_pos{mi};
     vel_est = fused_vel{mi};
     acc_est = fused_acc{mi};
-    res_pos = pos_est - truth_pos_i;
-    res_vel = vel_est - truth_vel_i;
+    res_pos = pos_est - gnss_pos_i;
+    res_vel = vel_est - gnss_vel_i;
     rmse_pos_m  = sqrt(mean(sum(res_pos.^2,2)));
     rmse_vel_m  = sqrt(mean(sum(res_vel.^2,2)));
-    final_pos_m = norm(pos_est(end,:) - truth_pos_i(end,:));
-    final_vel_m = norm(vel_est(end,:) - truth_vel_i(end,:));
-    final_acc_m = norm(acc_est(end,:) - truth_acc_i(end,:));
+    final_pos_m = norm(pos_est(end,:) - gnss_pos_i(end,:));
+    final_vel_m = norm(vel_est(end,:) - gnss_vel_i(end,:));
+    final_acc_m = norm(acc_est(end,:) - gnss_acc_i(end,:));
     rms_resid_pos = sqrt(mean(res_pos.^2,'all'));
     rms_resid_vel = sqrt(mean(res_vel.^2,'all'));
     max_resid_pos = max(vecnorm(res_pos,2,2));
     max_resid_vel = max(vecnorm(res_vel,2,2));
     min_resid_pos = min(vecnorm(res_pos,2,2)); %#ok<NASGU>
     min_resid_vel = min(vecnorm(res_vel,2,2)); %#ok<NASGU>
-    summary_line = sprintf(['[SUMMARY] method=%s imu=%s truth=%s rmse_pos=%6.2fm ' ...
+    summary_line = sprintf(['[SUMMARY] method=%s imu=%s gnss=%s rmse_pos=%6.2fm ' ...
         'final_pos=%6.2fm rms_resid_pos=%6.2fm max_resid_pos=%6.2fm ' ...
         'rms_resid_vel=%6.2fm max_resid_vel=%6.2fm accel_bias=%.4f gyro_bias=%.4f ' ...
-        'ZUPT_count=%d'], methods{mi}, imu_files{1}, truth_files{1}, ...
+        'ZUPT_count=%d'], methods{mi}, imu_files{1}, gnss_files{1}, ...
         rmse_pos_m, final_pos_m, rms_resid_pos, max_resid_pos, ...
         rms_resid_vel, max_resid_vel, norm(accel_bias), norm(gyro_bias), sum(stat_mask));
     fprintf('%s\n', summary_line);

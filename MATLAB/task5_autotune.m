@@ -1,4 +1,4 @@
-function [best_q, best_r, report] = task5_autotune(imu_path, gnss_or_truth_path, method, grid_q, grid_r, verbose)
+function [best_q, best_r, report] = task5_autotune(imu_path, gnss_path, method, grid_q, grid_r, verbose)
 %TASK5_AUTOTUNE Grid-search vel_q_scale and vel_r to minimise RMSE_pos.
 %   [BEST_Q, BEST_R, REPORT] = TASK5_AUTOTUNE(IMU_PATH, GNSS_PATH, METHOD,
 %   GRID_Q, GRID_R) runs Task_5 over the Cartesian product of GRID_Q and
@@ -13,15 +13,7 @@ function [best_q, best_r, report] = task5_autotune(imu_path, gnss_or_truth_path,
 
     % Ensure paths are strings for Task_5 compatibility
     imu_path = string(imu_path);
-    gnss_or_truth_path = string(gnss_or_truth_path);
-
-    % Determine Truth path: accept a provided STATE path or fall back to default
-    root_dir = fileparts(fileparts(mfilename('fullpath')));
-    if ~isempty(gnss_or_truth_path) && (endsWith(gnss_or_truth_path,'.txt','IgnoreCase',true) || contains(gnss_or_truth_path,'STATE_','IgnoreCase',true))
-        truth_path = gnss_or_truth_path;
-    else
-        truth_path = string(fullfile(root_dir, 'DATA', 'Truth', 'STATE_X001.txt'));
-    end
+    gnss_path = string(gnss_path);
 
     results = [];
     k = 1;
@@ -34,7 +26,7 @@ function [best_q, best_r, report] = task5_autotune(imu_path, gnss_or_truth_path,
                 fprintf('[Autotune] Trying vel_q_scale=%.3f  vel_r=%.3f ...\n', q, r);
             end
             try
-                res = Task_5(imu_path, truth_path, method, [], 'vel_q_scale', q, 'vel_sigma_mps', r, ...
+                res = Task_5(imu_path, gnss_path, method, [], 'vel_q_scale', q, 'vel_r', r, ...
                     'trace_first_n', 0, 'max_steps', max_steps, 'dryrun', true);
                 rmse = res.rmse_pos;
                 results(k).vel_q_scale = q; %#ok<AGROW>

@@ -130,9 +130,7 @@ end
 function plot_residuals(t, res_pos, res_vel, ~, dataset, out_dir)
 %PLOT_RESIDUALS Plot residual components: 2x3 grid (pos/vel vs X/Y/Z).
 labels = {'X','Y','Z'};
-fig = figure('Visible','off');
-set(fig,'Units','centimeters','Position',[2 2 18 9]); % FIX: page width
-set(fig,'PaperPositionMode','auto');
+fig = figure('Visible','off','Position',[100 100 1000 550]);
 for j = 1:3
     subplot(2,3,j); hold on; plot(t, res_pos(:,j)); grid on;
     title(labels{j}); ylabel('Position Residual [m]');
@@ -143,18 +141,22 @@ for j = 1:3
     ylabel('Velocity Residual [m/s]'); xlabel('Time [s]');
 end
 sgtitle(sprintf('%s Task 7 NED Residuals (Pos/Vel)', dataset));
+set(fig,'PaperPositionMode','auto');
+pdf = fullfile(out_dir, sprintf('%s_task7_ned_residuals_pos_vel.pdf', dataset));
 png = fullfile(out_dir, sprintf('%s_task7_ned_residuals_pos_vel.png', dataset));
-exportgraphics(fig, png, 'Resolution',300);
+print(fig, pdf, '-dpdf', '-bestfit');
+print(fig, png, '-dpng', '-bestfit');
 close(fig);
 
 fig = figure('Visible','off');
-set(fig,'Units','centimeters','Position',[2 2 18 9]);
-set(fig,'PaperPositionMode','auto');
 plot(t, vecnorm(res_pos,2,2), 'DisplayName','|pos|'); hold on;
 plot(t, vecnorm(res_vel,2,2), 'DisplayName','|vel|');
 plot(t, vecnorm(res_acc,2,2), 'DisplayName','|acc|');
 xlabel('Time [s]'); ylabel('Residual Norm'); legend; grid on;
+set(fig,'PaperPositionMode','auto');
+pdfn = fullfile(out_dir, sprintf('%s_task7_ned_residual_norms.pdf', dataset));
 pngn = fullfile(out_dir, sprintf('%s_task7_ned_residual_norms.png', dataset));
-exportgraphics(fig, pngn, 'Resolution',300);
+print(fig, pdfn, '-dpdf', '-bestfit');
+print(fig, pngn, '-dpng', '-bestfit');
 close(fig);
 end

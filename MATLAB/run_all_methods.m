@@ -24,13 +24,10 @@ function run_all_methods()
     Task_2(imu_path, gnss_path, method);
     Task_3(imu_path, gnss_path, method);
     Task_4(imu_path, gnss_path, method);
-    % Use Truth STATE file for Task 5
-    truth_file = fullfile(root_dir, 'DATA', 'Truth', 'STATE_X001.txt');
-    Task_5(imu_path, truth_file, method);
+    Task_5(imu_path, gnss_path, method);
 
     res_file = fullfile(get_results_dir(), sprintf('IMU_X002_GNSS_X002_%s_task5_results.mat', method));
-    % Ensure Task 6/7 use the same Truth file location
-    truth_file = fullfile(root_dir, 'DATA', 'Truth', 'STATE_X001.txt');
+    truth_file = fullfile(root_dir, 'STATE_X001.txt');
     if isfile(res_file) && isfile(truth_file)
         [~, imu_name, ~]  = fileparts(dataset.imu);
         [~, gnss_name, ~] = fileparts(dataset.gnss);
