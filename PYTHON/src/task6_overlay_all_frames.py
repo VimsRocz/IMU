@@ -299,7 +299,7 @@ def load_truth(path: str) -> Dict[str, np.ndarray]:
     p = Path(path)
     out: Dict[str, np.ndarray] = {}
     if p.suffix.lower() == '.txt':
-        t, pos, vel = read_truth_txt(p)
+        t, pos, vel, quat = read_truth_txt(p)
         if t.size == 0 or pos.shape[0] == 0:
             raise ValueError(
                 f"Truth invalid: shapes t:{t.shape} pos:{pos.shape} vel:{vel.shape}"
@@ -307,6 +307,8 @@ def load_truth(path: str) -> Dict[str, np.ndarray]:
         out["time"] = t
         out["pos_ecef"] = pos
         out["vel_ecef"] = vel
+        if quat.size:
+            out["att_quat"] = quat
         return out
     try:
         df = pd.read_csv(p, sep=None, engine="python")
