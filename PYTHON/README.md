@@ -140,3 +140,10 @@ Use results in MATLAB
 addpath('PYTHON/MATLAB/utils');
 plot_from_mat('PYTHON/results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat');
 ```
+
+- To generate a fuller set of task plots (attitude, NED overlays, residuals, body-frame):
+
+```
+addpath('PYTHON/MATLAB/utils');
+plot_all_tasks_from_mat('PYTHON/results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat');
+```

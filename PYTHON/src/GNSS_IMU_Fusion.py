@@ -62,6 +62,7 @@ from utils import (
     ecef_to_geodetic,
     interpolate_series,
     zero_base_time,
+    save_mat,
 )
 from utils.interp_to import interp_to
 from utils.time_utils import compute_time_shift
@@ -256,6 +257,83 @@ def plot_task6_truth_overlay(
     Path(out_png).parent.mkdir(parents=True, exist_ok=True)
     from utils.matlab_fig_export import save_matlab_fig
     save_matlab_fig(fig, str(out_png.with_suffix('')))
+    plt.close(fig)
+
+
+def _save_tasks_overview(
+    out_stem: Path,
+    t: np.ndarray,
+    euler_deg: np.ndarray | None,
+    pos_ned: np.ndarray,
+    vel_ned: np.ndarray,
+    gnss_pos_ned: np.ndarray | None = None,
+    gnss_vel_ned: np.ndarray | None = None,
+    truth_pos_ned: np.ndarray | None = None,
+    truth_vel_ned: np.ndarray | None = None,
+    res_pos: np.ndarray | None = None,
+    res_vel: np.ndarray | None = None,
+) -> None:
+    import matplotlib.pyplot as plt
+    fig, axes = plt.subplots(4, 3, figsize=(14, 10), sharex=True)
+    labels = ["North", "East", "Down"]
+
+    # Row 1: Euler
+    if euler_deg is not None and euler_deg.size:
+        for i in range(3):
+            ax = axes[0, i]
+            ax.plot(t, euler_deg[:, i], label=["Roll","Pitch","Yaw"][i])
+            ax.set_ylabel(f"{['Roll','Pitch','Yaw'][i]} [deg]")
+            ax.grid(True)
+        axes[0,0].set_title("Task 3 — Attitude")
+
+    # Row 2: Position NED
+    for i in range(3):
+        ax = axes[1, i]
+        ax.plot(t, pos_ned[:, i], label="Fused")
+        if truth_pos_ned is not None and truth_pos_ned.size:
+            ax.plot(t, truth_pos_ned[:, i], '--', label="Truth")
+        if gnss_pos_ned is not None and gnss_pos_ned.size:
+            ax.plot(t, gnss_pos_ned[:, i], ':', label="GNSS")
+        ax.set_ylabel(f"{labels[i]} [m]")
+        ax.grid(True)
+    axes[1,0].set_title("Task 4/6 — Position NED")
+
+    # Row 3: Velocity NED
+    for i in range(3):
+        ax = axes[2, i]
+        ax.plot(t, vel_ned[:, i], label="Fused")
+        if truth_vel_ned is not None and truth_vel_ned.size:
+            ax.plot(t, truth_vel_ned[:, i], '--', label="Truth")
+        if gnss_vel_ned is not None and gnss_vel_ned.size:
+            ax.plot(t, gnss_vel_ned[:, i], ':', label="GNSS")
+        ax.set_ylabel(f"V{labels[i][0]} [m/s]")
+        ax.grid(True)
+    axes[2,0].set_title("Task 4/6 — Velocity NED")
+
+    # Row 4: Residuals (if available)
+    if res_pos is not None and res_pos.size:
+        for i in range(3):
+            ax = axes[3, i]
+            ax.plot(t[: res_pos.shape[0]], res_pos[:, i], label="Pos resid")
+            ax.set_ylabel(f"Res {labels[i]} [m]")
+            ax.grid(True)
+        axes[3,0].set_title("Residuals — Position")
+    elif res_vel is not None and res_vel.size:
+        for i in range(3):
+            ax = axes[3, i]
+            ax.plot(t[: res_vel.shape[0]], res_vel[:, i], label="Vel resid")
+            ax.set_ylabel(f"Res V{labels[i][0]} [m/s]")
+            ax.grid(True)
+        axes[3,0].set_title("Residuals — Velocity")
+
+    for ax in axes[-1, :]:
+        ax.set_xlabel("Time [s]")
+    handles, labels_ = axes[1,0].get_legend_handles_labels()
+    if handles:
+        axes[0,2].legend(handles, labels_, loc="upper right")
+    fig.tight_layout()
+    from utils.matlab_fig_export import save_matlab_fig
+    save_matlab_fig(fig, str(out_stem))
     plt.close(fig)
 
 def main():
@@ -2562,8 +2640,6 @@ def main():
     )
 
     # Also export results as MATLAB-compatible .mat for post-processing
-    from utils import save_mat
-
     save_mat(
         f"results/{tag}_kf_output.mat",
         {
@@ -2602,6 +2678,42 @@ def main():
         },
     )
 
+    # --- Per-task data bundle (MAT struct) --------------------------------
+    tasks_mat = {
+        'task1': {
+            'lat0_deg': np.array([lat_deg]),
+            'lon0_deg': np.array([lon_deg]),
+            'h0_m': np.array([alt if alt is not None else 0.0]),
+            'g_ned': g_NED,
+            'omega_ie_ned': omega_ie_NED,
+            'r0_ecef_m': ref_r0,
+        },
+        'task2': {
+            'dt_imu': np.array([dt_imu]),
+            'g_body': g_body,
+            'omega_ie_body': omega_ie_body,
+            'static_start': np.array([static_start]),
+            'static_end': np.array([static_end]),
+        },
+        'task3': {
+            'R_TRIAD': task3_results['TRIAD']['R'],
+            'R_Davenport': task3_results['Davenport']['R'],
+            'R_SVD': task3_results['SVD']['R'],
+            'grav_err_deg': np.array([grav_err_mean]),
+            'earth_rate_err_deg': np.array([omega_err_mean]),
+        },
+        'task4_6': {
+            'time': imu_time,
+            'pos_ned': fused_pos[method],
+            'vel_ned': fused_vel[method],
+            'pos_gnss_ned': gnss_pos_ned,
+            'vel_gnss_ned': gnss_vel_ned,
+            'residual_pos': res_pos_all[method],
+            'residual_vel': res_vel_all[method],
+        },
+    }
+    save_mat(f"results/{tag}_tasks.mat", tasks_mat)
+
     if measure_source == "truth" and truth_pos_ned is not None:
         plot_task6_truth_overlay(
             imu_time,
@@ -2611,6 +2723,21 @@ def main():
             truth_vel_ned,
             Path("results") / f"{tag}_task6_truth_vs_fused.png",
         )
+
+    # Compact overview figure with subplots (always saved)
+    _save_tasks_overview(
+        Path("results") / f"{tag}_tasks_overview",
+        imu_time,
+        euler_all.get(method, None),
+        fused_pos[method],
+        fused_vel[method],
+        gnss_pos_ned,
+        gnss_vel_ned,
+        truth_pos_ned if measure_source == 'truth' else None,
+        truth_vel_ned if measure_source == 'truth' else None,
+        res_pos_all.get(method, None),
+        res_vel_all.get(method, None),
+    )
 
     # --- Persist for cross-dataset comparison ------------------------------
     import pickle
