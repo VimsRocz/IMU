@@ -117,14 +117,35 @@ def main():
     parser.add_argument('--config', help='YAML configuration file')
     args = parser.parse_args()
 
+    init_override = {}
     if args.config:
         with open(args.config) as fh:
             cfg = yaml.safe_load(fh) or {}
         global DATASETS, METHODS
         if 'datasets' in cfg:
-            DATASETS = [(ds['imu'], ds['gnss']) for ds in cfg['datasets']]
+            # Allow each dataset entry to be either
+            #   - a pair: {imu, gnss}
+            #   - or include an 'init' dict for per-dataset overrides
+            pairs = []
+            for ds in cfg['datasets']:
+                if isinstance(ds, dict):
+                    imu = ds.get('imu')
+                    gnss = ds.get('gnss')
+                    if not imu or not gnss:
+                        raise ValueError("Each dataset in YAML must have 'imu' and 'gnss'")
+                    pairs.append((imu, gnss, ds.get('init', {})))
+                else:
+                    # backward-compatible: list/tuple of 2 strings
+                    imu, gnss = ds
+                    pairs.append((imu, gnss, {}))
+            DATASETS = [(p[0], p[1]) for p in pairs]
+            # Save any per-dataset init overrides in a map keyed by (imu,gnss)
+            init_override = { (p[0], p[1]): p[2] for p in pairs }
         if 'methods' in cfg:
             METHODS = cfg['methods']
+        # Global init override (used when per-dataset init not present)
+        if 'init' in cfg:
+            init_override['__global__'] = cfg['init']
 
     if args.datasets.upper() == "ALL":
         datasets = DATASETS
@@ -175,7 +196,49 @@ def main():
             pass
 
         start = time.time()
-        summaries = run_one(imu_path, gnss_path, method, verbose=args.verbose)
+        # Build optional CLI overrides for initial position
+        init_cli = []
+        # Prefer per-dataset override; fall back to global
+        ds_key = (str(imu), str(gnss))
+        ds_init = init_override.get(ds_key, init_override.get('__global__', {}))
+        if isinstance(ds_init, dict):
+            if 'lat_deg' in ds_init:
+                init_cli += ["--init-lat-deg", str(ds_init['lat_deg'])]
+            if 'lon_deg' in ds_init:
+                init_cli += ["--init-lon-deg", str(ds_init['lon_deg'])]
+            if 'alt_m' in ds_init:
+                init_cli += ["--init-alt-m", str(ds_init['alt_m'])]
+
+        # Inject overrides by temporarily wrapping run_one
+        def _run_with_overrides():
+            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            log = LOG_DIR / f"{imu_path.stem}_{gnss_path.stem}_{method}_{ts}.log"
+            cmd = [
+                sys.executable,
+                SCRIPT,
+                "--imu-file", str(imu_path),
+                "--gnss-file", str(gnss_path),
+                "--method", method,
+            ] + init_cli + (["--verbose"] if args.verbose else [])
+            summary_lines = []
+            with log.open("w") as fh:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+                for line in proc.stdout:
+                    print(line, end="")
+                    fh.write(line)
+                    m = SUMMARY_RE.search(line)
+                    if m:
+                        summary_lines.append(m.group(1))
+            if proc.wait() != 0:
+                raise RuntimeError(f"{cmd} failed, see {log}")
+            return summary_lines
+
+        summaries = _run_with_overrides()
         runtime = time.time() - start
         for summary in summaries:
             kv = dict(re.findall(r"(\w+)=\s*([^\s]+)", summary))

@@ -284,6 +284,25 @@ def main():
         required=False,
         help="Path to STATE_X001.txt (truth) for Task 6",
     )
+    # Optional initial position override (if GNSS doesn't contain a good first fix)
+    parser.add_argument(
+        "--init-lat-deg",
+        type=float,
+        default=None,
+        help="Override initial latitude in degrees (optional)",
+    )
+    parser.add_argument(
+        "--init-lon-deg",
+        type=float,
+        default=None,
+        help="Override initial longitude in degrees (optional)",
+    )
+    parser.add_argument(
+        "--init-alt-m",
+        type=float,
+        default=None,
+        help="Override initial altitude in meters (optional)",
+    )
     parser.add_argument(
         "--init-att-with-truth",
         action="store_true",
@@ -451,6 +470,28 @@ def main():
         ecef_origin,
         gnss_columns,
     ) = compute_reference_vectors(gnss_file, args.mag_file)
+
+    # If the user provides an explicit initial position, override the GNSS-derived one
+    if args.init_lat_deg is not None or args.init_lon_deg is not None or args.init_alt_m is not None:
+        lat_deg = float(args.init_lat_deg if args.init_lat_deg is not None else lat_deg)
+        lon_deg = float(args.init_lon_deg if args.init_lon_deg is not None else lon_deg)
+        alt = float(args.init_alt_m if args.init_alt_m is not None else (alt if alt is not None else 0.0))
+        lat = np.deg2rad(lat_deg)
+        _lon = np.deg2rad(lon_deg)
+        # Recompute reference vectors for the overridden geodetic position
+        from utils import validate_gravity_vector
+        from utils.ecef_llh import lla_to_ecef
+        g_NED = validate_gravity_vector(lat_deg, alt)
+        omega_ie_NED = EARTH_RATE * np.array([np.cos(lat), 0.0, -np.sin(lat)])
+        # Recompute origin in ECEF from the provided LLA so downstream NED conversions are consistent
+        x0, y0, z0 = lla_to_ecef(lat_deg, lon_deg, alt)
+        ecef_origin = np.array([float(x0), float(y0), float(z0)])
+        logging.info(
+            "Overriding initial position with user-provided values: lat=%.6f deg, lon=%.6f deg, alt=%.2f m",
+            lat_deg,
+            lon_deg,
+            alt,
+        )
     lat = np.deg2rad(lat_deg)
     _lon = np.deg2rad(lon_deg)
     logging.info(

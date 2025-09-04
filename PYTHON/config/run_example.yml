@@ -1,0 +1,18 @@
+methods: [TRIAD, Davenport, SVD]
+
+datasets:
+  - imu: DATA/IMU/IMU_X001.dat
+    gnss: DATA/GNSS/GNSS_X001.csv
+  - imu: DATA/IMU/IMU_X002.dat
+    gnss: DATA/GNSS/GNSS_X002.csv
+    init:        # optional per‑dataset initial position override
+      lat_deg: 47.3977
+      lon_deg: 8.5456
+      alt_m:  488.0
+
+# Optional global initial position override (used if per‑dataset is missing)
+init:
+  lat_deg: 47.3977
+  lon_deg: 8.5456
+  alt_m:  488.0
+

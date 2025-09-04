@@ -32,6 +32,7 @@ function rmse_pos = Task_5_try_once(cfg, vel_q_scale, vel_r)
     cfg_local.plots.save_png = false;
     cfg = cfg_local; %#ok<NASGU> ensure Task_5 sees modified cfg
     try
+        % For Task_5, pass the GNSS CSV path as the 2nd argument (MATLAB Task 5 uses GNSS as measurement source)
         res = Task_5(cfg_local.imu_path, cfg_local.gnss_path, cfg_local.method, [], ...
             'vel_q_scale', vel_q_scale, 'vel_r', vel_r, ...
             'trace_first_n', 0, 'max_steps', steps, 'dryrun', true); % dryrun suppresses plots/logging
@@ -45,4 +46,3 @@ function rmse_pos = Task_5_try_once(cfg, vel_q_scale, vel_r)
         rmse_pos = NaN;
     end
 end
-

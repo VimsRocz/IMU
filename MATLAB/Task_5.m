@@ -123,6 +123,8 @@ end
     else
         dprintf = @fprintf;
     end
+    % ZUPT acceleration magnitude threshold (||a|| - g)
+    zupt_acc_eps = 0.15; % default fallback [m/s^2]
 
     if ~isfile(gnss_path)
         error('Task_5:GNSSFileNotFound', ...
@@ -177,7 +179,20 @@ end
     dprintf('Subtask 5.3: Loading GNSS and IMU data.\n');
     % Load GNSS data to obtain time and velocity
     gnss_tbl = readtable(gnss_path);
-    gnss_time = zero_base_time(gnss_tbl.Posix_Time);
+    % Robust time extraction: prefer Posix_Time; fall back to common names or implicit index
+    tcol = find(strcmpi(gnss_tbl.Properties.VariableNames,'Posix_Time'),1);
+    if isempty(tcol)
+        cand = {'posix','time','sec','seconds','t'};
+        for c = 1:numel(cand)
+            tcol = find(strcmpi(gnss_tbl.Properties.VariableNames,cand{c}),1);
+            if ~isempty(tcol), break; end
+        end
+    end
+    if ~isempty(tcol)
+        gnss_time = zero_base_time(gnss_tbl{:,tcol});
+    else
+        gnss_time = (0:height(gnss_tbl)-1)'; % fallback seconds
+    end
     pos_cols = {'X_ECEF_m','Y_ECEF_m','Z_ECEF_m'};
     gnss_pos_ecef = gnss_tbl{:, pos_cols};
     vx = gnss_tbl.VX_ECEF_mps;
@@ -261,6 +276,15 @@ end
                 dprintf('[Task5] ZUPT thresholds auto-applied.\n');
             end
         catch
+        end
+        % Set effective ZUPT accel threshold for downstream use
+        zupt_acc_eps = acc_eps_suggest;
+    catch
+    end
+    % If cfg provides an explicit threshold, use it
+    try
+        if isfield(cfg,'zupt') && isfield(cfg.zupt,'acc_movstd_thresh') && ~isempty(cfg.zupt.acc_movstd_thresh)
+            zupt_acc_eps = cfg.zupt.acc_movstd_thresh;
         end
     catch
     end
@@ -681,6 +705,17 @@ for i = 1:num_imu_samples
     prev_a_ned = a_ned;
 
     % --- 5. Zero-Velocity Update (ZUPT) ---
+    % Enable only when requested; Python baseline uses no ZUPT (ZUPTcnt=0)
+    zupt_enabled = false;
+    try
+        if isfield(cfg,'zupt') && isfield(cfg.zupt,'enabled')
+            zupt_enabled = logical(cfg.zupt.enabled);
+        end
+    catch
+    end
+    if dryrun
+        zupt_enabled = false;
+    end
     % Robust detection: (||a||-g) < eps AND ||gyro|| small with dwell
     if i == 1
         g_scalar = abs(g_NED(3));
@@ -691,12 +726,12 @@ for i = 1:num_imu_samples
     gyro_win = gyro_body_raw(i0:i, :);
     acc_norm_err = abs(norm(acc_win(end,:)) - g_scalar);
     gyro_win_std = max(std(gyro_win,0,1));
-    zupt_cond = (acc_norm_err < cfg.zupt.acc_movstd_thresh) && ...
+    zupt_cond = (acc_norm_err < zupt_acc_eps) && ...
                 (gyro_win_std < gyro_std_thresh) && ...
                 (norm(x(4:6)) < vel_thresh);
     dbg_zupt_msg = sprintf('[DBG-ZUPT] k=%d |a|-g=%.4f (thr=%.4f) gyro_std=%.5f', ...
-                            i, acc_norm_err, cfg.zupt.acc_movstd_thresh, gyro_win_std);
-    if zupt_cond
+                            i, acc_norm_err, zupt_acc_eps, gyro_win_std);
+    if zupt_enabled && zupt_cond
         zupt_count = zupt_count + 1;
         zupt_log(i) = 1;
         H_z = [zeros(3,3), eye(3), zeros(3,9)];
@@ -722,7 +757,7 @@ for i = 1:num_imu_samples
         x(4:6) = 0;
         zupt_applied_msg = sprintf('[ZUPT-APPLIED] k=%d reset vel to 0', i);
     end
-    if mod(i,100000) == 0
+    if zupt_enabled && mod(i,100000) == 0
         dprintf('ZUPT applied %d times so far\n', zupt_count);
     end
 

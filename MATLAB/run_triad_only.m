@@ -55,6 +55,14 @@ if ~isfield(cfg,'vel_r'),         cfg.vel_r         = 0.25; end
 if ~isfield(cfg,'pos_meas_noise'),cfg.pos_meas_noise= 1.0; end
 if ~isfield(cfg,'vel_limit'),     cfg.vel_limit     = 500; end
 if ~isfield(cfg,'vmax_cap'),      cfg.vmax_cap      = 50; end
+% ZUPT configuration (default disabled to match Python baseline)
+if ~isfield(cfg,'zupt') || ~isstruct(cfg.zupt)
+    cfg.zupt = struct();
+end
+if ~isfield(cfg.zupt,'enabled'),            cfg.zupt.enabled = false; end
+if ~isfield(cfg.zupt,'acc_movstd_thresh'),  cfg.zupt.acc_movstd_thresh = 0.15; end
+if ~isfield(cfg.zupt,'min_pre_lift_s'),     cfg.zupt.min_pre_lift_s = 5; end
+if ~isfield(cfg.zupt,'speed_thresh_mps'),   cfg.zupt.speed_thresh_mps = 0.30; end
 % Optional auto-tune flag
 if ~isfield(cfg,'autotune'),    cfg.autotune    = true; end
 % Optional trace capture (first N KF steps)

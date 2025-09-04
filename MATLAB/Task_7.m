@@ -237,6 +237,33 @@ save(fullfile(resultsDir, sprintf('%s_task7_results.mat', runTag)), '-struct', '
 save(fullfile(resultsDir, sprintf('%s_task7_metrics.mat', runTag)), '-struct', 'metrics');
 assignin('base','task7_results', task7_results);
 
+% --- Task 7.5/7.6: parity filenames (NED) ---
+try
+    out_dir = fullfile(resultsDir, runTag);
+    if ~exist(out_dir,'dir'), mkdir(out_dir); end
+    % Task 7.5: diff truth-fused over time (NED)
+    fig75 = figure('Visible','off','Position',[100 100 1200 800]);
+    lbl = {'North','East','Down'};
+    for k=1:3
+        subplot(3,1,k); plot(t_est, Ptru(:,k) - E.pos_ned(:,k), 'b-'); grid on;
+        ylabel(sprintf('d%s [m]', lbl{k}(1))); if k==1, title('Task 7.5: Truth - Fused (NED)'); end
+    end
+    xlabel('Time [s]');
+    print(fig75, fullfile(out_dir, sprintf('%s_task7_5_diff_truth_fused_over_time_NED.png', runTag)), '-dpng','-r150');
+    close(fig75);
+    % Task 7.6: overlays truth vs fused (NED)
+    fig76 = figure('Visible','off','Position',[100 100 1200 800]);
+    for k=1:3
+        subplot(3,1,k); hold on; plot(t_est, Ptru(:,k), 'k:'); plot(t_est, E.pos_ned(:,k), 'b-'); grid on;
+        ylabel(lbl{k}); if k==1, title('Task 7.6: Truth vs Fused (NED)'); end
+    end
+    xlabel('Time [s]'); legend({'Truth','Fused'},'Location','best');
+    print(fig76, fullfile(out_dir, sprintf('%s_task7_6_truth_vs_fused_over_time_NED.png', runTag)), '-dpng','-r150');
+    close(fig76);
+catch ME
+    warning('Task 7.5/7.6 parity plots failed: %s', ME.message);
+end
+
 fprintf('[Task7] RMSE pos=%.3f m, RMSE vel=%.3f m/s, max|pos|=%.3f m\n', ...
     metrics.rmse_pos, metrics.rmse_vel, metrics.max_pos);
 

@@ -91,6 +91,23 @@ function body_data = Task_2(imu_path, gnss_path, method)
     if ratio > 90
         warning('Task_2:LargeStatic', ['Static interval covers %.1f%% of the ' ...
                 'dataset. Verify motion data or adjust detection thresholds.'], ratio);
+        % Adaptive tightening of thresholds to avoid misclassifying motion as static
+        accel_min = 1e-6; gyro_min = 1e-9;
+        tight_factor = 0.5; max_iter = 3; iter = 0;
+        a_thr = accel_var_thresh; g_thr = gyro_var_thresh;
+        while ratio > 85 && iter < max_iter && a_thr > accel_min && g_thr > gyro_min
+            a_thr = max(a_thr * tight_factor, accel_min);
+            g_thr = max(g_thr * tight_factor, gyro_min);
+            [s0, s1] = detect_static_interval(acc_filt, gyro_filt, [], a_thr, g_thr);
+            n_static  = s1 - s0 + 1;
+            static_dur = n_static * dt;
+            ratio = static_dur / total_dur * 100;
+            iter = iter + 1;
+        end
+        if iter > 0 && ratio < 95
+            fprintf('Task 2: tightened thresholds to accel_var=%.3e gyro_var=%.3e -> static=%.1f%%\n', a_thr, g_thr, ratio);
+            static_start = s0; static_end = s1;
+        end
     end
 
 
