@@ -1129,14 +1129,41 @@ def main(argv: Iterable[str] | None = None) -> None:
     else:
         gnss_path = _gnss_path_helper(args.dataset)
 
-    if args.truth:
+    # Resolve truth path:
+    # - If user supplied one, use it (and validate later)
+    # - Else, try to pick the matching STATE file for the dataset (e.g., X002)
+    # - If none found, leave as None to avoid PairGuard mismatches
+    user_supplied_truth = bool(args.truth)
+    if user_supplied_truth:
         truth_path = Path(args.truth)
     else:
-        truth_path = _truth_path_helper("STATE_X001.txt")
-    if not truth_path.exists():
-        alt = resolve_truth_path()
-        if alt:
-            truth_path = Path(alt)
+        # Try to infer dataset id from IMU/GNSS filenames
+        ds_match = None
+        for stem in (Path(imu_path).stem, Path(gnss_path).stem):
+            m = re.search(r"X\d{3}", stem)
+            if m:
+                ds_match = m.group(0)
+                break
+        truth_path = None
+        if ds_match:
+            for cand in (
+                _truth_path_helper(f"STATE_{ds_match}.txt"),
+                _truth_path_helper(f"STATE_{ds_match}_small.txt"),
+            ):
+                if cand.exists():
+                    truth_path = cand
+                    break
+        if truth_path is None:
+            # Best-effort legacy env/auto resolver, only if it matches dataset or nothing else exists
+            alt = resolve_truth_path()
+            if alt:
+                alt_p = Path(alt)
+                m2 = re.search(r"X\d{3}", alt_p.name)
+                if m2 and ds_match and m2.group(0) != ds_match:
+                    # Do not use a mismatched truth file; leave None
+                    pass
+                else:
+                    truth_path = alt_p if alt_p.exists() else None
     logger.info(
         "Resolved input files: imu=%s gnss=%s truth=%s", imu_path, gnss_path, truth_path
     )
@@ -1154,7 +1181,8 @@ def main(argv: Iterable[str] | None = None) -> None:
     for p in (imu_path, gnss_path):
         if not Path(p).exists():
             raise FileNotFoundError(f"Required input not found: {p}")
-    if truth_path and not Path(truth_path).exists():
+    if user_supplied_truth and truth_path and not Path(truth_path).exists():
+        # Only hard-fail if the user explicitly provided a path that does not exist
         raise FileNotFoundError(f"Truth file not found: {truth_path}")
 
     run_id = build_run_id(str(imu_path), str(gnss_path), method)
@@ -1163,14 +1191,13 @@ def main(argv: Iterable[str] | None = None) -> None:
     print(f"\u25b6 {run_id}")
 
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
-    print_timeline(run_id, str(imu_path), str(gnss_path), str(truth_path), out_dir=str(results_dir))
+    print_timeline(run_id, str(imu_path), str(gnss_path), str(truth_path) if truth_path else None, out_dir=str(results_dir))
 
-    # Use fallback only if provided truth is missing
-    base_dir = str(REPO_ROOT)
-    truth_fallback = os.path.join(base_dir, 'DATA', 'Truth', 'STATE_X001.txt')
-    if not os.path.isfile(str(truth_path)):
-        print(f"[INFO] Using fallback truth file: {truth_fallback}")
-        truth_path = Path(truth_fallback)
+    # Avoid forcing a mismatched fallback truth file.
+    # If no truth was found, continue without truth rather than defaulting to X001.
+    if truth_path is not None and not os.path.isfile(str(truth_path)):
+        print(f"[INFO] Truth file not found at {truth_path}; proceeding without truth.")
+        truth_path = None
 
     task_set = None
     if args.tasks:
@@ -1469,10 +1496,11 @@ def main(argv: Iterable[str] | None = None) -> None:
             dt = np.median(np.diff(t))
             return None if dt <= 0 else 1.0 / float(dt)
 
+        from pathlib import Path as _P
         meta = {
             "imu_file": str(imu_path),
             "gnss_file": str(gnss_path),
-            "truth_file": str(truth_path) if truth_path.exists() else None,
+            "truth_file": (str(truth_path) if (truth_path and _P(truth_path).exists()) else None),
             "imu_rate_hz": _infer_rate(t_imu) or args.imu_rate,
             "gnss_rate_hz": args.gnss_rate,
             "truth_rate_hz": args.truth_rate,
@@ -1484,7 +1512,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     # Task 6: Truth overlay plots
     # ----------------------------
     truth_file = truth_path
-    if truth_file.exists():
+    if truth_file and Path(truth_file).exists():
         overlay_cmd = [
             sys.executable,
             str(HERE / "task6_plot_truth.py"),
@@ -1547,14 +1575,16 @@ def main(argv: Iterable[str] | None = None) -> None:
     # Task 7.x: Inline truth validation (no external script)
     # ----------------------------
     try:
-        # Some generators preserve original IMU/GNSS stem case (e.g., 'small'). Try both run_id and alt.
-        kf_mat = os.path.join(str(results_dir), f"{run_id}_kf_output.mat")
-        if not os.path.isfile(kf_mat):
-            run_id_alt = f"{Path(imu_path).stem}_{Path(gnss_path).stem}_{method}"
-            kf_mat_alt = os.path.join(str(results_dir), f"{run_id_alt}_kf_output.mat")
-            if os.path.isfile(kf_mat_alt):
-                kf_mat = kf_mat_alt
-        _run_inline_truth_validation(str(results_dir), run_id, kf_mat, str(truth_path), args)
+        # Only run inline truth validation if a truth file is available
+        if truth_path and Path(truth_path).exists():
+            # Some generators preserve original IMU/GNSS stem case (e.g., 'small'). Try both run_id and alt.
+            kf_mat = os.path.join(str(results_dir), f"{run_id}_kf_output.mat")
+            if not os.path.isfile(kf_mat):
+                run_id_alt = f"{Path(imu_path).stem}_{Path(gnss_path).stem}_{method}"
+                kf_mat_alt = os.path.join(str(results_dir), f"{run_id_alt}_kf_output.mat")
+                if os.path.isfile(kf_mat_alt):
+                    kf_mat = kf_mat_alt
+            _run_inline_truth_validation(str(results_dir), run_id, kf_mat, str(truth_path), args)
     except Exception as e:
         print(f"[WARN] Inline validation failed: {e}")
 
