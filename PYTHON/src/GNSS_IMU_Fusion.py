@@ -2601,6 +2601,7 @@ def main():
     pos_body = (C_N_B @ fused_pos[method].T).T
     vel_body = (C_N_B @ fused_vel[method].T).T
 
+    # Persist a rich NPZ bundle for Python/Matlab interop
     np.savez_compressed(
         f"results/{tag}_kf_output.npz",
         summary=dict(
@@ -2612,22 +2613,40 @@ def main():
             earth_rate_err_max=omega_err_max,
             vel_blow_events=vel_blow_count,
         ),
+        tag=np.array([tag]),
+        method=np.array([method_tag]),
         time=imu_time,
         t=imu_time,
+        t_rel_imu=imu_time - float(imu_time[0]),
+        t_gnss=gnss_time,
+        t_gnss_shifted=gnss_time_shifted if 'gnss_time_shifted' in locals() else gnss_time,
         pos_ned=fused_pos[method],
         vel_ned=fused_vel[method],
         fused_pos=fused_pos[method],
         fused_vel=fused_vel[method],
+        fused_acc=fused_acc[method],
         pos_ecef=pos_ecef,
         vel_ecef=vel_ecef,
+        gnss_pos_ecef=gnss_pos_ecef,
+        gnss_vel_ecef=gnss_vel_ecef,
+        gnss_pos_ned=gnss_pos_ned,
+        gnss_vel_ned=gnss_vel_ned,
+        gnss_pos_ned_interp=gnss_pos_ned_interp,
+        gnss_vel_ned_interp=gnss_vel_ned_interp,
+        gnss_acc_ned_interp=gnss_acc_ned_interp,
         truth_pos_ecef=pos_truth_ecef if pos_truth_ecef is not None else np.array([]),
         truth_vel_ecef=vel_truth_ecef if vel_truth_ecef is not None else np.array([]),
         truth_time=t_truth if t_truth is not None else np.array([]),
+        truth_pos_ned=truth_pos_ned if truth_pos_ned is not None else np.array([]),
+        truth_vel_ned=truth_vel_ned if truth_vel_ned is not None else np.array([]),
+        truth_pos_ned_i=truth_pos_ned_i if 'truth_pos_ned_i' in locals() and truth_pos_ned_i is not None else np.array([]),
+        truth_vel_ned_i=truth_vel_ned_i if 'truth_vel_ned_i' in locals() and truth_vel_ned_i is not None else np.array([]),
         pos_body=pos_body,
         vel_body=vel_body,
         innov_pos=innov_pos_all[method],
         innov_vel=innov_vel_all[method],
         euler=euler_all[method],
+        euler_deg=np.rad2deg(euler_all[method]),
         residual_pos=res_pos_all[method],
         residual_vel=res_vel_all[method],
         time_residuals=time_res_all[method],
@@ -2640,6 +2659,7 @@ def main():
     )
 
     # Also export results as MATLAB-compatible .mat for post-processing
+    # MATLAB-friendly .mat bundle with all key series for downstream plotting
     save_mat(
         f"results/{tag}_kf_output.mat",
         {
@@ -2650,22 +2670,40 @@ def main():
             "earth_rate_err_mean": np.array([omega_err_mean]),
             "earth_rate_err_max": np.array([omega_err_max]),
             "vel_blow_events": np.array([vel_blow_count]),
+            "tag": np.array([tag], dtype=object),
+            "method": np.array([method_tag], dtype=object),
             "time": imu_time,
             "t": imu_time,
+            "t_rel_imu": imu_time - float(imu_time[0]),
+            "t_gnss": gnss_time,
+            "t_gnss_shifted": gnss_time_shifted if 'gnss_time_shifted' in locals() else gnss_time,
             "pos_ned": fused_pos[method],
             "vel_ned": fused_vel[method],
             "fused_pos": fused_pos[method],
             "fused_vel": fused_vel[method],
+            "fused_acc": fused_acc[method],
             "pos_ecef": pos_ecef,
             "vel_ecef": vel_ecef,
+            "gnss_pos_ecef": gnss_pos_ecef,
+            "gnss_vel_ecef": gnss_vel_ecef,
+            "gnss_pos_ned": gnss_pos_ned,
+            "gnss_vel_ned": gnss_vel_ned,
+            "gnss_pos_ned_interp": gnss_pos_ned_interp,
+            "gnss_vel_ned_interp": gnss_vel_ned_interp,
+            "gnss_acc_ned_interp": gnss_acc_ned_interp,
             "truth_pos_ecef": pos_truth_ecef if pos_truth_ecef is not None else np.empty((0, 3)),
             "truth_vel_ecef": vel_truth_ecef if vel_truth_ecef is not None else np.empty((0, 3)),
             "truth_time": t_truth if t_truth is not None else np.empty(0),
+            "truth_pos_ned": truth_pos_ned if truth_pos_ned is not None else np.empty((0, 3)),
+            "truth_vel_ned": truth_vel_ned if truth_vel_ned is not None else np.empty((0, 3)),
+            "truth_pos_ned_i": truth_pos_ned_i if 'truth_pos_ned_i' in locals() and truth_pos_ned_i is not None else np.empty((0, 3)),
+            "truth_vel_ned_i": truth_vel_ned_i if 'truth_vel_ned_i' in locals() and truth_vel_ned_i is not None else np.empty((0, 3)),
             "pos_body": pos_body,
             "vel_body": vel_body,
             "innov_pos": innov_pos_all[method],
             "innov_vel": innov_vel_all[method],
             "euler": euler_all[method],
+            "euler_deg": np.rad2deg(euler_all[method]),
             "residual_pos": res_pos_all[method],
             "residual_vel": res_vel_all[method],
             "time_residuals": time_res_all[method],
@@ -2676,6 +2714,10 @@ def main():
             "ref_lon": np.array([ref_lon]),
             "ref_r0": ref_r0,
         },
+    )
+    logging.info(
+        "Saved MATLAB bundle: results/%s_kf_output.mat (load in MATLAB and call MATLAB/plot_all_from_mat.m)",
+        tag,
     )
 
     # --- Per-task data bundle (MAT struct) --------------------------------
@@ -2918,6 +2960,17 @@ def main():
                 out_name = f"{imu_tag}_{gnss_tag}_{method}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion.png"
                 out_path = Path("results") / out_name
                 fig_q.savefig(out_path, dpi=200, bbox_inches="tight")
+                # Also save a MATLAB .mat bundle for plot_any compatibility
+                try:
+                    from scipy.io import savemat  # type: ignore
+                    n = min(len(imu_time), len(q_truth_i), len(q_est))
+                    savemat(str(out_path.with_suffix('.mat')), {
+                        't': np.asarray(imu_time[:n], float),
+                        'q_truth': np.asarray(q_truth_i[:n], float),
+                        'q_est': np.asarray(q_est[:n], float),
+                    })
+                except Exception:
+                    pass
                 _plt.close(fig_q)
             except Exception as ex:
                 logging.warning("Failed to save Task 7 attitude comparison: %s", ex)

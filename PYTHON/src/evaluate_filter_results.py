@@ -151,10 +151,12 @@ def run_evaluation(
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     out_path = save_plot(fig, out_dir, tag or "run", "task7", "3_residuals_position_velocity", ext="pdf")
     try:
-        from utils import save_plot_mat, save_plot_fig
+        from utils import save_plot_mat
+        from utils.matlab_fig_export import save_matlab_fig
         save_plot_mat(fig, str(out_path.with_suffix(".mat")))
-        save_plot_fig(fig, str(out_path.with_suffix(".fig")))
+        save_matlab_fig(fig, str(out_path.with_suffix("")))
     except Exception:
+        # If MATLAB engine not available, skip .fig entirely
         pass
     plt.close(fig)
 
@@ -170,9 +172,10 @@ def run_evaluation(
         fig.tight_layout(rect=[0, 0, 1, 0.95])
         hist_path = save_plot(fig, out_dir, tag or "run", "task7", f"hist_{name}_residuals", ext="pdf")
         try:
-            from utils import save_plot_mat, save_plot_fig
+            from utils import save_plot_mat
+            from utils.matlab_fig_export import save_matlab_fig
             save_plot_mat(fig, str(hist_path.with_suffix(".mat")))
-            save_plot_fig(fig, str(hist_path.with_suffix(".fig")))
+            save_matlab_fig(fig, str(hist_path.with_suffix("")))
         except Exception:
             pass
         plt.close(fig)
@@ -193,9 +196,10 @@ def run_evaluation(
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     att_out = save_plot(fig, out_dir, tag or "run", "task7", "4_attitude_angles_euler", ext="pdf")
     try:
-        from utils import save_plot_mat, save_plot_fig
+        from utils import save_plot_mat
+        from utils.matlab_fig_export import save_matlab_fig
         save_plot_mat(fig, str(att_out.with_suffix(".mat")))
-        save_plot_fig(fig, str(att_out.with_suffix(".fig")))
+        save_matlab_fig(fig, str(att_out.with_suffix("")))
     except Exception:
         pass
     plt.close(fig)
@@ -519,9 +523,10 @@ def subtask7_5_diff_plot(
         pdf = save_plot(fig, out_dir, run_id, "task7", base_label, ext="pdf")
         png = save_plot(fig, out_dir, run_id, "task7", base_label, ext="png")
         try:
-            from utils import save_plot_mat, save_plot_fig
+            from utils import save_plot_mat
+            from utils.matlab_fig_export import save_matlab_fig
             save_plot_mat(fig, str(pdf.with_suffix(".mat")))
-            save_plot_fig(fig, str(pdf.with_suffix(".fig")))
+            save_matlab_fig(fig, str(pdf.with_suffix("")))
         except Exception:
             pass
         plt.close(fig)
@@ -656,6 +661,22 @@ def subtask7_6_overlay_plot(
             fig.savefig(base.with_suffix('.png'), dpi=200, bbox_inches='tight')
             fig.savefig(base.with_suffix('.pdf'), dpi=200, bbox_inches='tight')
         except Exception:
+            pass
+        # Save MATLAB-friendly bundle with full-resolution series for interactive plotting
+        try:
+            from scipy.io import savemat  # type: ignore
+            data = {
+                'time': time.astype(float),
+                'pos_fused': np.asarray(arr_p_est, dtype=float),
+                'pos_truth': np.asarray(arr_p_tru, dtype=float),
+                'vel_fused': np.asarray(arr_v_est, dtype=float),
+                'vel_truth': np.asarray(arr_v_tru, dtype=float),
+                'frame': str(frame),
+                'labels': np.array(labels, dtype=object),
+            }
+            savemat(str(base.with_suffix('.mat')), {'data': data})
+        except Exception:
+            # Best-effort: if scipy is unavailable or writing fails, skip silently
             pass
         plt.close(fig)
 

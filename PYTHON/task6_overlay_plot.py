@@ -250,6 +250,21 @@ def plot_overlay(
     png_path = run_dir / f"{run_id}_task6_overlay_state_{frame}.png"
     fig.savefig(pdf_path)
     fig.savefig(png_path)
+    # Save MATLAB-compatible .mat bundle for interactive plotting
+    try:
+        from scipy.io import savemat  # type: ignore
+        mat_path = run_dir / f"{run_id}_task6_overlay_state_{frame}.mat"
+        data = {
+            'time': np.asarray(t_est, dtype=float),
+            'pos_fused': np.asarray(pos_est, dtype=float),
+            'pos_truth': np.asarray(pos_truth, dtype=float),
+            'vel_fused': np.asarray(vel_est, dtype=float),
+            'vel_truth': np.asarray(vel_truth, dtype=float),
+            'frame': str(frame),
+        }
+        savemat(str(mat_path), {'data': data})
+    except Exception:
+        pass
     plt.close(fig)
     print(f"Saved overlay figure to {pdf_path}")
     return pdf_path

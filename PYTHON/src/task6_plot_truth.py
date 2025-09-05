@@ -331,6 +331,24 @@ def main():
                 print(f"[PDF] {pdf}")
             except Exception as e:
                 eprint(f"WARN: failed to save raster/vector outputs for {outfile}: {e}")
+            # Also save MATLAB-compatible .mat with full-resolution series
+            try:
+                from scipy.io import savemat  # type: ignore
+                base = Path(outfile).with_suffix('')
+                payload = {
+                    'time': np.asarray(time_s, dtype=float),
+                    'pos_est': None if pos_est is None else np.asarray(pos_est, dtype=float),
+                    'vel_est': None if vel_est is None else np.asarray(vel_est, dtype=float),
+                    'pos_truth': None if pos_tru is None else np.asarray(pos_tru, dtype=float),
+                    'vel_truth': None if vel_tru is None else np.asarray(vel_tru, dtype=float),
+                    'frame': str(title),
+                }
+                # Remove None entries to keep .mat tidy
+                payload_clean = {k: v for k, v in payload.items() if v is not None}
+                savemat(str(base.with_suffix('.mat')), {'data': payload_clean})
+                print(f"[MAT] {base.with_suffix('.mat')}")
+            except Exception as e:
+                eprint(f"WARN: failed to save .mat for {outfile}: {e}")
             try:
                 # Save MATLAB .fig (plus PNG via helper) when engine is available
                 from utils.matlab_fig_export import save_matlab_fig, validate_fig_openable

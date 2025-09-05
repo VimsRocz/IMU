@@ -403,21 +403,12 @@ def _save_png_and_mat(path_png, arrays):
     except Exception as e:
         print(f"[WARN] Failed to save MAT {base + '.mat'}: {e}")
 
-    # 3) Save MATLAB-native .fig and optionally validate
+    # 3) Save MATLAB-native .fig and optionally validate (no non-native fallbacks)
     try:
         from utils.matlab_fig_export import save_matlab_fig, validate_fig_openable
         fig_path = save_matlab_fig(plt.gcf(), base)
         if fig_path:
-            # Best-effort validation (prints status)
             validate_fig_openable(str(fig_path))
-        else:
-            # Fallback to MAT-based .fig (convertible) if MATLAB engine missing
-            try:
-                from utils_legacy import save_plot_fig
-                save_plot_fig(plt.gcf(), base + '.fig')
-                print(f"[FIG-alt] Saved MAT-based .fig (convert with MATLAB/tools/convert_custom_figs): {base + '.fig'}")
-            except Exception:
-                pass
     except Exception as e:
         print(f"[WARN] .fig export/validation skipped: {e}")
 

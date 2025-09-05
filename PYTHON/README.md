@@ -133,17 +133,21 @@ Outputs
 - Plots: several `*.png` and MATLAB-compatible `*.fig` under `PYTHON/results/`
 
 Use results in MATLAB
-- Load the `.mat` file and plot basic NED states:
+- Quick view of all key plots (NED position/velocity/acceleration, innovations, residuals, attitude):
 
 ```
 % In MATLAB, from repo root or PYTHON/
-addpath('PYTHON/MATLAB/utils');
-plot_from_mat('PYTHON/results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat');
+addpath('PYTHON/MATLAB');
+plot_all_from_mat('PYTHON/results/IMU_X002_GNSS_X002_TRIAD_kf_output.mat');
 ```
 
-- To generate a fuller set of task plots (attitude, NED overlays, residuals, body-frame):
+- Save every generated figure as .fig and .png for sharing or post‑editing:
 
 ```
-addpath('PYTHON/MATLAB/utils');
-plot_all_tasks_from_mat('PYTHON/results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat');
+addpath('PYTHON/MATLAB');
+plot_all_from_mat('PYTHON/results/IMU_X002_GNSS_X002_TRIAD_kf_output.mat', 'PYTHON/MATLAB/results');
 ```
+
+Notes
+- The Python run already writes `*_kf_output.mat` with all time‑aligned series needed for MATLAB plotting.
+- If the MATLAB Engine for Python is available, Python also mirrors many Matplotlib figures to native `.fig` automatically; otherwise PNGs are saved. The `.mat` file above is sufficient to reproduce plots in MATLAB either way.

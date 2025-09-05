@@ -1277,13 +1277,26 @@ def main():
                     fig_q.savefig(f"{f_q_base}.png", dpi=200, bbox_inches='tight')
                 except Exception:
                     pass
-                from utils.matlab_fig_export import save_matlab_fig
-                if save_matlab_fig(fig_q, f_q_base) is None:
-                    try:
-                        from utils_legacy import save_plot_fig
-                        save_plot_fig(fig_q, f_q_base + '.fig')
-                    except Exception:
-                        pass
+                # Save MATLAB .mat bundle for interactive plotting in MATLAB
+                try:
+                    from scipy.io import savemat  # type: ignore
+                    # Align lengths conservatively to common minimum
+                    n = min(len(te_win), len(qt), len(qe))
+                    t_mat = np.asarray(te_win[:n], float)
+                    qt_mat = np.asarray(qt[:n], float)
+                    qe_mat = np.asarray(qe[:n], float)
+                    savemat(f"{f_q_base}.mat", {
+                        't': t_mat,
+                        'q_truth': qt_mat,
+                        'q_est': qe_mat,
+                    })
+                except Exception:
+                    pass
+                try:
+                    from utils.matlab_fig_export import save_matlab_fig
+                    save_matlab_fig(fig_q, f_q_base)
+                except Exception:
+                    pass
                 plt.close()
                 # Euler (Z-Y-X yaw/pitch/roll)
                 labels = ["Yaw [deg]", "Pitch [deg]", "Roll [deg]"]
@@ -1305,13 +1318,25 @@ def main():
                     fig_e.savefig(f"{f_e_base}.png", dpi=200, bbox_inches='tight')
                 except Exception:
                     pass
-                from utils.matlab_fig_export import save_matlab_fig
-                if save_matlab_fig(fig_e, f_e_base) is None:
-                    try:
-                        from utils_legacy import save_plot_fig
-                        save_plot_fig(fig_e, f_e_base + '.fig')
-                    except Exception:
-                        pass
+                # Save MATLAB .mat for Euler overlay (ZYX degrees)
+                try:
+                    from scipy.io import savemat  # type: ignore
+                    n = min(len(te_win), len(eul_truth), len(eul_est))
+                    t_mat = np.asarray(te_win[:n], float)
+                    et_mat = np.asarray(eul_truth[:n], float)
+                    ee_mat = np.asarray(eul_est[:n], float)
+                    savemat(f"{f_e_base}.mat", {
+                        't': t_mat,
+                        'e_truth_zyx_deg': et_mat,
+                        'e_est_zyx_deg': ee_mat,
+                    })
+                except Exception:
+                    pass
+                try:
+                    from utils.matlab_fig_export import save_matlab_fig
+                    save_matlab_fig(fig_e, f_e_base)
+                except Exception:
+                    pass
                 plt.close()
 
                 # Divergence detection on overlap only, with CLI threshold/persist
@@ -1430,13 +1455,12 @@ def main():
                         plt.gcf().savefig(f"{f_png_base}.png", dpi=200, bbox_inches='tight')
                     except Exception:
                         pass
-                    from utils.matlab_fig_export import save_matlab_fig
-                    if save_matlab_fig(plt.gcf(), f_png_base) is None:
-                        try:
-                            from utils_legacy import save_plot_fig
-                            save_plot_fig(plt.gcf(), f_png_base + '.fig')
-                        except Exception:
-                            pass
+                    try:
+                        from utils.matlab_fig_export import save_matlab_fig
+                        save_matlab_fig(plt.gcf(), f_png_base)
+                    except Exception:
+                        # Engine unavailable — skip .fig entirely
+                        pass
                     plt.close()
                     # Save MATLAB-friendly .mat with the arrays
                     try:

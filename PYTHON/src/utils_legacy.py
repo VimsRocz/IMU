@@ -313,15 +313,14 @@ def save_png_and_mat(fig: Figure, filename: str, **savefig_kwargs) -> tuple[Path
     png_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(png_path, **savefig_kwargs)
     save_plot_mat(fig, str(mat_path))
-    # Additionally try to save a MATLAB-native .fig via engine; else fallback
+    # Additionally try to save a MATLAB-native .fig via engine.
+    # Do NOT write MAT-based '.fig' fallbacks to avoid confusing non-native files.
     try:
         from utils.matlab_fig_export import save_matlab_fig
         save_matlab_fig(fig, str(stem))
     except Exception:
-        try:
-            save_plot_fig(fig, str(stem.with_suffix('.fig')))
-        except Exception:
-            pass
+        # Engine unavailable — skip .fig to prevent non-native '.fig' files.
+        pass
     return png_path, mat_path
 
 
