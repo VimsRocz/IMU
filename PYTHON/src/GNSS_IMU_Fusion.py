@@ -362,6 +362,14 @@ def main():
         required=False,
         help="Path to STATE_X001.txt (truth) for Task 6",
     )
+    parser.add_argument(
+        "--apply-time-shift-in-kf",
+        action="store_true",
+        help=(
+            "Apply the estimated GNSS-IMU time shift inside KF interpolation. "
+            "By default this is OFF to avoid spurious large offsets."
+        ),
+    )
     # Optional initial position override (if GNSS doesn't contain a good first fix)
     parser.add_argument(
         "--init-lat-deg",
@@ -509,6 +517,20 @@ def main():
 
     args = parser.parse_args()
     lever_arm = np.array(args.lever_arm, dtype=float)
+
+    # Enforce single IMU–GNSS–Truth pair by dataset ID (e.g., X001/X002/X003)
+    import re
+    def _tag_id(p):
+        m = re.search(r"X(\d{3})", str(p), flags=re.IGNORECASE)
+        return m.group(1) if m else None
+    imu_id = _tag_id(args.imu_file)
+    gnss_id = _tag_id(args.gnss_file)
+    truth_id = _tag_id(args.truth_file) if args.truth_file else None
+    if imu_id and gnss_id and truth_id and not (imu_id == gnss_id == truth_id):
+        raise ValueError(
+            f"[PairGuard] Mismatched dataset IDs: IMU=X{imu_id}, GNSS=X{gnss_id}, TRUTH=X{truth_id}. "
+            f"Use files from the same simulation version (e.g., all X002)."
+        )
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -1074,9 +1096,33 @@ def main():
     pos_cols = ["X_ECEF_m", "Y_ECEF_m", "Z_ECEF_m"]
     vel_cols = ["VX_ECEF_mps", "VY_ECEF_mps", "VZ_ECEF_mps"]
     gnss_time = zero_base_time(gnss_data[time_col].values)
-    gnss_pos_ecef = gnss_data[pos_cols].values
-    gnss_vel_ecef = gnss_data[vel_cols].values
+    gnss_pos_ecef = gnss_data[pos_cols].values.astype(float)
+    gnss_vel_ecef_cols = gnss_data[vel_cols].values.astype(float)
     logging.info(f"GNSS data shape: {gnss_pos_ecef.shape}")
+    # Prefer GNSS velocity columns if present and finite; fallback to d/dt(pos)
+    if np.isfinite(gnss_vel_ecef_cols).all():
+        spd = np.linalg.norm(gnss_vel_ecef_cols, axis=1)
+        p50, p95 = np.nanpercentile(spd, [50, 95])
+        scale = 1.0
+        if 10.0 <= p95 < 100.0:
+            scale = 0.1
+        elif 100.0 <= p95 < 1000.0:
+            scale = 0.01
+        gnss_vel_ecef = gnss_vel_ecef_cols * scale
+        vel_source = "columns"
+        logging.info(
+            "Using GNSS velocity columns %s (scale %.2f). p50=%.3f, p95=%.3f m/s",
+            vel_cols,
+            scale,
+            p50 * scale,
+            p95 * scale,
+        )
+    else:
+        gnss_vel_ecef = np.gradient(gnss_pos_ecef, gnss_time, axis=0)
+        vel_source = "pos-derivative"
+        logging.warning(
+            "Velocity columns missing/unusable -> using d/dt(pos_ecef). Expect higher noise."
+        )
 
     lat_series = []
     lon_series = []
@@ -1115,7 +1161,9 @@ def main():
 
     gnss_pos_ned = ecef_to_ned(gnss_pos_ecef, ref_lat, ref_lon, ref_r0)
     gnss_vel_ned = np.array([C_ECEF_to_NED @ v for v in gnss_vel_ecef])
-    logging.info(f"GNSS velocity incorporated: {gnss_vel_ned[0]}")
+    logging.info(
+        f"GNSS velocity ({vel_source}) first sample: {gnss_vel_ned[0]}"
+    )
     logging.info("GNSS data transformed to NED frame.")
 
     # --------------------------------
@@ -1718,6 +1766,22 @@ def main():
     else:
         meas_R_pos = np.eye(3)
         meas_R_vel = np.eye(3) * args.vel_r
+        # Robust auto-tune of R from GNSS self-noise (stationary diffs)
+        try:
+            pos_step = np.abs(np.diff(gnss_pos_ned, axis=0))
+            pos_sigma = 1.4826 * np.nanmedian(pos_step, axis=0)
+            pos_sigma = np.clip(pos_sigma, 0.2, 10.0)
+            meas_R_pos = np.diag((pos_sigma ** 2).astype(float))
+            vel_sigma = np.nanstd(gnss_vel_ned, axis=0)
+            vel_sigma = np.clip(vel_sigma, 0.05, 5.0)
+            meas_R_vel = np.diag((vel_sigma ** 2).astype(float))
+            logging.info(
+                "Auto R set: R_pos diag=%s, R_vel diag=%s",
+                np.round(np.diag(meas_R_pos), 4),
+                np.round(np.diag(meas_R_vel), 4),
+            )
+        except Exception:
+            pass
 
     # Load IMU data
     imu_time = np.arange(len(imu_data)) * dt_imu
@@ -1747,6 +1811,48 @@ def main():
         acc_body_corrected[m] = scale * (acc_body - bias)
         logging.info(f"Method {m}: Bias computed: {bias}")
         logging.info(f"Method {m}: Scale factor: {scale:.4f}")
+
+    # Build a conservative ZUPT mask from static noise estimates (fallback to rolling-window ZUPT)
+    try:
+        # Reference gyro for thresholds
+        gyro_ref = gyro_body_corrected.get(methods[0], gyro_body)
+        # Use the first N_static samples as the static window
+        a_body_static = acc_body[:N_static]
+        g_body_static = gyro_ref[:N_static]
+        # Accel magnitude residual |a|-|g|
+        a_mag = np.linalg.norm(a_body_static, axis=1)
+        g_mag = float(np.linalg.norm(g_NED))
+        resid = a_mag - g_mag
+        resid = resid[np.isfinite(resid)]
+        if resid.size:
+            sig_a = 1.4826 * float(np.median(np.abs(resid - np.median(resid))))
+        else:
+            sig_a = 0.05
+        a_thr = max(3.0 * sig_a, 0.05)   # m/s^2 floor
+        # Gyro threshold via robust MAD on axes combined
+        g_body_static = g_body_static[np.all(np.isfinite(g_body_static), axis=1)]
+        if g_body_static.size:
+            mad_axes = []
+            for ax in range(3):
+                arr = g_body_static[:, ax]
+                med = np.median(arr)
+                mad_axes.append(1.4826 * np.median(np.abs(arr - med)))
+            sig_g = float(np.nanmax(mad_axes)) if mad_axes else 0.005
+        else:
+            sig_g = 0.005
+        g_thr = max(3.0 * sig_g, 0.005)
+        # Build runtime mask
+        acc_mag_full = np.linalg.norm(acc_body, axis=1)
+        gyro_mag_full = np.linalg.norm(gyro_ref, axis=1)
+        zupt_mask_fallback = (np.abs(acc_mag_full - g_mag) < a_thr) & (gyro_mag_full < g_thr)
+        logging.info(
+            "ZUPT thresholds: a_thr=%.3f m/s^2  g_thr=%.4f rad/s (static frac=%.1f%%)",
+            a_thr,
+            g_thr,
+            100.0 * np.mean(zupt_mask_fallback),
+        )
+    except Exception:
+        zupt_mask_fallback = np.zeros(len(imu_time), dtype=bool)
 
     # --------------------------------
     # Subtask 5.4: Integrate IMU Data for Each Method
@@ -1795,7 +1901,21 @@ def main():
     logging.info(
         "Estimated GNSS-IMU time shift: %.3f s (lag %d samples)", t_shift, lag
     )
-    gnss_time_shifted = gnss_time - t_shift
+    # Protect against spurious large shifts from cross-correlation
+    MAX_SHIFT_S = 5.0
+    if not np.isfinite(t_shift) or abs(t_shift) > MAX_SHIFT_S:
+        raw_shift = t_shift
+        t_shift = 0.0
+        logging.warning(
+            "Time shift %.3fs looks implausible -> clamped to %.1fs",
+            raw_shift,
+            t_shift,
+        )
+    # By default, avoid applying large cross-correlation shifts inside KF
+    if args.apply_time_shift_in_kf:
+        gnss_time_shifted = gnss_time - t_shift
+    else:
+        gnss_time_shifted = gnss_time
 
     # Resample GNSS series onto IMU timestamps using the aligned time vector
     lat_interp = interp_to(gnss_time_shifted, lat_series, imu_time)
@@ -1825,8 +1945,34 @@ def main():
     zupt_counts = {}
     zupt_events_all = {}
 
+    # Default to position-only updates; enable velocity aiding if GNSS velocity looks sane
+    vnorm = np.linalg.norm(gnss_vel_ned, axis=1)
+    v95 = float(np.nanpercentile(vnorm, 95)) if vnorm.size else float("inf")
+    use_gnss_velocity = np.isfinite(gnss_vel_ned).all() and (v95 < 50.0)
+    logging.info(
+        "Velocity aiding: %s (p95|v_gnss|=%.3f m/s)",
+        "ON" if use_gnss_velocity else "OFF",
+        v95,
+    )
+    # Adaptive default gate for velocity measurements (can still be overridden later)
+    vel_gate_max_default = max(10.0, 3.0 * v95 + 5.0) if np.isfinite(v95) else 100.0
+
     for m in methods:
         kf = init_bias_kalman(dt_imu, meas_R_pos, meas_R_vel, args.vel_q_scale)
+        # Auto-tune Q pos/vel blocks from IMU noise proxy (static window)
+        try:
+            acc_std_axes = np.std(acc_body_corrected[m][:N_static], axis=0)
+            acc_sigma = float(np.nanmean(acc_std_axes))
+        except Exception:
+            acc_sigma = 0.05
+        q_vel = max(0.01, (acc_sigma ** 2) * dt_imu)
+        q_pos = max(0.001, q_vel * dt_imu)
+        try:
+            kf.Q[0:3, 0:3] = np.eye(3) * q_pos
+            kf.Q[3:6, 3:6] = np.eye(3) * q_vel
+            logging.info("Auto Q set: q_pos=%.4g q_vel=%.4g", q_pos, q_vel)
+        except Exception:
+            pass
         initial_quats = {"TRIAD": q_tri, "Davenport": q_dav, "SVD": q_svd}
         chosen_init = None
         # Optionally override initial attitude with truth quaternion at IMU start
@@ -1911,7 +2057,7 @@ def main():
         gyro_win = []
         zupt_count = 0
         zupt_events = []
-        vel_blow_count = 0  # track number of velocity blow-ups
+        high_speed_events = 0  # count of velocity samples scaled down to plausible cap
         vel_blow_warn_interval = 0  # set >0 to re-warn every N events
         P_hist = [kf.P.copy()]
 
@@ -1928,6 +2074,25 @@ def main():
         x_log[:, 0] = kf.x
 
         # Run Kalman Filter
+        # Accumulators for concise velocity measurement summary
+        vel_gate_max = vel_gate_max_default  # m/s; adapted from GNSS speed stats
+        # Scenario-aware plausible speed cap (computed once per method)
+        try:
+            gnss_speed_p99 = float(np.percentile(np.linalg.norm(gnss_vel_ned, axis=1), 99))
+        except Exception:
+            gnss_speed_p99 = 0.0
+        try:
+            dv_norm = np.linalg.norm(imu_acc[m] * dt_imu, axis=1)
+            imu_dv_sigma = float(np.percentile(dv_norm, 99))
+        except Exception:
+            imu_dv_sigma = 0.0
+        plausible_speed_cap = max(300.0, 5.0 * gnss_speed_p99, 200.0 + 2000.0 * imu_dv_sigma)
+        plausible_speed_cap = min(plausible_speed_cap, 1500.0)
+        n_meas = 0
+        used_cnt = 0
+        gated_cnt = 0
+        sumsq_innov_vel = 0.0
+        sumsq_z_vel = 0.0
         for i in range(1, len(imu_time)):
             dt = imu_time[i] - imu_time[i - 1]
 
@@ -1975,19 +2140,30 @@ def main():
             kf.F[0:3, 3:6] = np.eye(3) * dt
             kf.B[0:3] = 0.5 * dt * dt * np.eye(3)
             kf.B[3:6] = dt * np.eye(3)
-            kf.predict(u=imu_acc[m][i])
+            # Clip per-sample Δv to a physical limit (e.g., 3g)
+            u = imu_acc[m][i]
+            dv = dt * u
+            dv_max = 3.0 * 9.81 * max(dt, 1e-3)
+            n_dv = float(np.linalg.norm(dv))
+            if n_dv > dv_max and n_dv > 0:
+                u = u * (dv_max / n_dv)
+            kf.predict(u=u)
 
-            if np.linalg.norm(kf.x[3:6]) > 500:
-                vel_blow_count += 1
-                if vel_blow_count == 1 or (
-                    vel_blow_warn_interval > 0
-                    and vel_blow_count % vel_blow_warn_interval == 0
+            # Guard against unphysical velocity magnitude: softly clamp instead of zeroing
+            v_mag = float(np.linalg.norm(kf.x[3:6]))
+            if v_mag > plausible_speed_cap:
+                high_speed_events += 1
+                v_cap = plausible_speed_cap
+                if high_speed_events == 1 or (
+                    vel_blow_warn_interval > 0 and high_speed_events % vel_blow_warn_interval == 0
                 ):
                     logging.warning(
-                        "Velocity blew up (%.1f m/s); zeroing Δv and continuing.",
-                        np.linalg.norm(kf.x[3:6]),
+                        "Velocity high (%.1f m/s); scaling to %.1f m/s.",
+                        v_mag,
+                        v_cap,
                     )
-                kf.x[3:6] = 0.0
+                if v_mag > 0:
+                    kf.x[3:6] *= (v_cap / v_mag)
 
             # ---------- save attitude BEFORE measurement update ----------
             attitude_q.append(q_cur)
@@ -2005,7 +2181,57 @@ def main():
 
             # Update step
             z = np.hstack((gnss_pos_ned_interp[i], gnss_vel_ned_interp[i]))
-            kf.update(z)
+            # Velocity measurement gating: ignore clearly spurious magnitudes and Mahalanobis outliers
+            # Compute innovation covariance for current update
+            try:
+                S = kf.H @ kf.P @ kf.H.T + kf.R
+                Svv = S[3:6, 3:6]
+                # Guard against singular Svv
+                Svv_inv = np.linalg.inv(Svv + 1e-9 * np.eye(3))
+                d2_vel = float(innov[3:6].T @ Svv_inv @ innov[3:6])
+            except Exception:
+                d2_vel = 0.0
+            allow_vel = (
+                use_gnss_velocity
+                and np.isfinite(z[3:6]).all()
+                and (np.linalg.norm(z[3:6]) < vel_gate_max)
+                and (d2_vel < 25.0)
+            )
+            # Accumulate velocity stats for end-of-run summary
+            n_meas += 1
+            sumsq_z_vel += float(np.dot(z[3:6], z[3:6]))
+            sumsq_innov_vel += float(np.dot(innov[3:6], innov[3:6]))
+            if allow_vel:
+                used_cnt += 1
+            else:
+                gated_cnt += 1
+            # Optional periodic debug print to confirm velocity measurement usage
+            if getattr(args, 'kf_vel_periodic', False):
+                if i % max(1, int(round(1.0 / max(1e-9, 10.0 * dt)))) == 0:
+                    try:
+                        log(
+                            f"[KF] z_vel_ned=[{z[3]:+0.02f} {z[4]:+0.02f} {z[5]:+0.02f}] m/s, "
+                            f"x_vel_pred=[{pred[3]:+0.02f} {pred[4]:+0.02f} {pred[5]:+0.02f}]"
+                            + (" (GATED)" if not allow_vel else "")
+                        )
+                    except Exception:
+                        pass
+            if allow_vel:
+                kf.update(z)
+            else:
+                # Use only position block for this update
+                H_pos = kf.H.copy(); H_pos[3:6, :] = 0.0
+                R_pos = kf.R.copy(); R_pos[3:6, 3:6] = np.eye(3) * 1e6
+                kf.update(z, H=H_pos, R=R_pos)
+            # Optional post-update print (periodic)
+            if getattr(args, 'kf_vel_periodic', False):
+                if i % max(1, int(round(1.0 / max(1e-9, 10.0 * dt)))) == 0:
+                    try:
+                        log(
+                            f"[KF] x_vel_post=[{kf.x[3]:+0.02f} {kf.x[4]:+0.02f} {kf.x[5]:+0.02f}] m/s"
+                        )
+                    except Exception:
+                        pass
 
             # Optional: fuse GNSS-derived yaw to correct quaternion drift
             if args.fuse_yaw:
@@ -2032,7 +2258,7 @@ def main():
                     if euler_list:
                         euler_list[-1] = [roll, pitch, yaw]
 
-            # --- ZUPT check with rolling variance ---
+            # --- ZUPT check with rolling variance, then fallback mask ---
             acc_win.append(acc_body_corrected[m][i])
             gyro_win.append(gyro_body_corrected[m][i])
             if len(acc_win) > win:
@@ -2054,6 +2280,11 @@ def main():
                 logging.debug(
                     f"ZUPT applied at {imu_time[i]:.2f}s (window {i-win+1}-{i})"
                 )
+            elif not args.no_zupt and bool(zupt_mask_fallback[i]):
+                inject_zupt(kf)
+                zupt_count += 1
+                zupt_events.append((i, i))
+                # Keep this quiet unless debugging
 
             fused_pos[m][i] = kf.x[0:3]
             fused_vel[m][i] = kf.x[3:6]
@@ -2061,11 +2292,17 @@ def main():
             P_hist.append(kf.P.copy())
             x_log[:, i] = kf.x
 
+        # One-line velocity measurement summary (important info only)
+        rms_z = np.sqrt(sumsq_z_vel / max(n_meas, 1))
+        rms_innov = np.sqrt(sumsq_innov_vel / max(n_meas, 1))
+        final_vel_mag = float(np.linalg.norm(fused_vel[m][-1]))
+        used_pct = 100.0 * used_cnt / max(n_meas, 1)
         logging.info(
-            f"Method {m}: Kalman Filter completed. ZUPTcnt={zupt_count}"
+            f"[KF] Velocity summary ({m}): N={n_meas}, used={used_cnt} ({used_pct:.1f}%), "
+            f"rms|z_vel|={rms_z:.2f} m/s, rms|innov_vel|={rms_innov:.2f} m/s, final|x_vel|={final_vel_mag:.2f} m/s"
         )
         logging.info(
-            f"Method {m}: velocity blow-up events={vel_blow_count}"
+            f"Method {m}: Kalman Filter completed. ZUPTcnt={zupt_count} high_speed_events={high_speed_events}"
         )
         with open("triad_init_log.txt", "a") as logf:
             for s, e in zupt_events:
@@ -2602,6 +2839,17 @@ def main():
     vel_body = (C_N_B @ fused_vel[method].T).T
 
     # Persist a rich NPZ bundle for Python/Matlab interop
+    # Ensure a continuity-enforced attitude quaternion series is available to consumers
+    def _quat_make_continuous(q_wxyz: np.ndarray) -> np.ndarray:
+        q = np.asarray(q_wxyz, float).copy()
+        if q.ndim != 2 or q.shape[1] != 4:
+            return q
+        for i in range(1, len(q)):
+            if np.dot(q[i], q[i - 1]) < 0.0:
+                q[i] *= -1.0
+        return q
+    att_q_raw = attitude_q_all[method]
+    att_q_h = _quat_make_continuous(att_q_raw)
     np.savez_compressed(
         f"results/{tag}_kf_output.npz",
         summary=dict(
@@ -2611,7 +2859,7 @@ def main():
             grav_err_max=grav_err_max,
             earth_rate_err_mean=omega_err_mean,
             earth_rate_err_max=omega_err_max,
-            vel_blow_events=vel_blow_count,
+        vel_blow_events=high_speed_events,
         ),
         tag=np.array([tag]),
         method=np.array([method_tag]),
@@ -2650,7 +2898,8 @@ def main():
         residual_pos=res_pos_all[method],
         residual_vel=res_vel_all[method],
         time_residuals=time_res_all[method],
-        attitude_q=attitude_q_all[method],
+        attitude_q=att_q_raw,
+        attitude_q_harmonized=att_q_h,
         P_hist=P_hist_all[method],
         x_log=x_log_all[method],
         ref_lat=np.array([ref_lat]),
@@ -2669,7 +2918,7 @@ def main():
             "grav_err_max": np.array([grav_err_max]),
             "earth_rate_err_mean": np.array([omega_err_mean]),
             "earth_rate_err_max": np.array([omega_err_max]),
-            "vel_blow_events": np.array([vel_blow_count]),
+            "vel_blow_events": np.array([high_speed_events]),
             "tag": np.array([tag], dtype=object),
             "method": np.array([method_tag], dtype=object),
             "time": imu_time,
@@ -2707,7 +2956,8 @@ def main():
             "residual_pos": res_pos_all[method],
             "residual_vel": res_vel_all[method],
             "time_residuals": time_res_all[method],
-            "attitude_q": attitude_q_all[method],
+            "attitude_q": att_q_raw,
+            "attitude_q_harmonized": att_q_h,
             "P_hist": P_hist_all[method],
             "x_log": x_log_all[method],
             "ref_lat": np.array([ref_lat]),

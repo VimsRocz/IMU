@@ -147,6 +147,20 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
         )
         return None, None, None, None, None, None
 
+    # PairGuard: ensure dataset IDs match (IMU/GNSS/Truth). For this validator,
+    # we at least check the truth file matches the dataset tag if present.
+    try:
+        import re
+        did = re.search(r"X(\d{3})", str(truth_file), flags=re.IGNORECASE)
+        if did and isinstance(dataset, str):
+            dd = re.search(r"X(\d{3})", dataset, flags=re.IGNORECASE)
+            if dd and did.group(1) != dd.group(1):
+                print(
+                    f"[PairGuard] WARN: dataset tag ({dataset}) and truth file ({truth_file}) IDs differ."
+                )
+    except Exception:
+        pass
+
     # load_estimate returns a dictionary with time, pos, vel and quaternion
     est = load_estimate(estimate_file)
     est_pos = np.asarray(est.get("pos"))
@@ -238,26 +252,47 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
         vel_err = est_vel_ecef - truth[:, 5:8]
     else:
         # default: convert truth to NED and compare in NED frame
+        # Derive truth velocity from ECEF position at native 10 Hz, then rotate
         ref_ecef = truth[0, 2:5]
         lat_deg, lon_deg, _ = ecef_to_geodetic(*ref_ecef)
         C = compute_C_ECEF_to_NED(np.deg2rad(lat_deg), np.deg2rad(lon_deg))
         C_NED_to_ECEF = C.T
-        truth_pos_ned = np.array([C @ (p - ref_ecef) for p in truth[:, 2:5]])
-        # Smooth truth position and differentiate for a cleaner velocity
-        from scipy.signal import savgol_filter
+        pos_ecef_truth = truth[:, 2:5]
+        # Prefer truth velocity columns when non-trivial; fallback to smoothed derivative of position
+        use_cols = truth.shape[1] >= 8
+        if use_cols:
+            vel_cols = truth[:, 5:8]
+            try:
+                p95 = float(np.percentile(np.linalg.norm(vel_cols, axis=1), 95))
+            except Exception:
+                p95 = 0.0
+            use_cols = p95 > 0.10
+        if use_cols:
+            vel_ecef = vel_cols
+            logging.info(
+                "[Truth] velocity source: columns; p95|v|=%.3f m/s", float(np.percentile(np.linalg.norm(vel_ecef, axis=1), 95))
+            )
+        else:
+            try:
+                from scipy.signal import savgol_filter
+                # Derivative via Savitzky–Golay; infer dt from truth_time median
+                dt = float(np.median(np.diff(truth_time))) if truth_time.size > 1 else 0.1
+                win = 21 if len(truth_time) >= 21 else max(5, (len(truth_time) // 2) * 2 + 1)
+                pos_s = savgol_filter(pos_ecef_truth, win, 3, axis=0, mode="interp")
+                vel_ecef = np.gradient(pos_s, dt, axis=0)
+                src = "d/dt(pos) (Savitzky–Golay)"
+            except Exception:
+                vel_ecef = np.gradient(pos_ecef_truth, truth_time, axis=0)
+                src = "d/dt(pos)"
+            try:
+                p95v = float(np.percentile(np.linalg.norm(vel_ecef, axis=1), 95))
+                logging.info("[Truth] velocity source: %s; p95|v|=%.3f m/s", src, p95v)
+            except Exception:
+                pass
+        truth_pos_ned = np.array([C @ (p - ref_ecef) for p in pos_ecef_truth])
+        truth_vel_ned = np.array([C @ v for v in vel_ecef])
 
-        window_length = 11
-        polyorder = 2
-        pos_sm = savgol_filter(truth_pos_ned, window_length, polyorder, axis=0)
-        dt_truth = np.diff(truth_time)
-        truth_vel_ned = np.zeros_like(pos_sm)
-        truth_vel_ned[1:-1] = (
-            pos_sm[2:] - pos_sm[:-2]
-        ) / (dt_truth[1:, None] + dt_truth[:-1, None])
-        truth_vel_ned[0] = (pos_sm[1] - pos_sm[0]) / dt_truth[0]
-        truth_vel_ned[-1] = (pos_sm[-1] - pos_sm[-2]) / dt_truth[-1]
-
-        pos_err = pos_interp - pos_sm
+        pos_err = pos_interp - truth_pos_ned
         vel_err = vel_interp - truth_vel_ned
 
     truth_quat = truth[:, 8:12]
@@ -305,7 +340,7 @@ def validate_ecef_only(est_file, truth_file, debug=False):
     truth = np.loadtxt(truth_file)
     t_truth = truth[:, 1]
     pos_truth = truth[:, 2:5]
-    vel_truth = truth[:, 5:8]
+    vel_truth_cols = truth[:, 5:8]
 
     if est_file.endswith(".mat"):
         data = loadmat(est_file)
@@ -340,6 +375,23 @@ def validate_ecef_only(est_file, truth_file, debug=False):
 
     pos_i = np.vstack([np.interp(t_truth, t_est, pos_est[:, i]) for i in range(3)]).T
     vel_i = np.vstack([np.interp(t_truth, t_est, vel_est[:, i]) for i in range(3)]).T
+    # Truth velocity: prefer columns if non-trivial, else smoothed derivative
+    use_cols = True
+    try:
+        p95 = float(np.percentile(np.linalg.norm(vel_truth_cols, axis=1), 95))
+        use_cols = p95 > 0.10
+    except Exception:
+        use_cols = False
+    if not use_cols:
+        try:
+            from scipy.signal import savgol_filter
+            dt = float(np.median(np.diff(t_truth))) if t_truth.size > 1 else 0.1
+            pos_s = savgol_filter(pos_truth, 21 if len(t_truth) >= 21 else max(5, (len(t_truth)//2)*2+1), 3, axis=0, mode="interp")
+            vel_truth = np.gradient(pos_s, dt, axis=0)
+        except Exception:
+            vel_truth = np.gradient(pos_truth, t_truth, axis=0)
+    else:
+        vel_truth = vel_truth_cols
 
     pos_err = pos_i - pos_truth
     vel_err = vel_i - vel_truth
@@ -792,7 +844,8 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
             truth = np.loadtxt(truth_file, comments="#")
             t_truth = zero_base_time(truth[:, 1])
             pos_truth_ecef = truth[:, 2:5]
-            vel_truth_ecef = truth[:, 5:8]
+            # Derive truth velocity from truth position at native rate
+            vel_truth_ecef = np.gradient(pos_truth_ecef, t_truth, axis=0)
         except Exception as e:
             print(f"Failed to load truth file {truth_file}: {e}")
             truth_file = None

@@ -213,12 +213,48 @@ def main():
 
     # Interpolate truth into estimator timebase
     if t_truth.size and t_est.size:
-        pos_ned_truth = ecef_to_ned(pos_ecef_truth, ref_lat_rad, ref_lon_rad, ref_r0_m)
-        vel_ned_truth = ecef_to_ned_vec(vel_ecef_truth, ref_lat_rad, ref_lon_rad)
+        # Prefer truth velocity columns when non-trivial; fallback to smoothed derivative of position
+        pos_ned_truth_10hz = ecef_to_ned(pos_ecef_truth, ref_lat_rad, ref_lon_rad, ref_r0_m)
+        def _robust_p95(v):
+            s = np.linalg.norm(v, axis=1)
+            s = s[np.isfinite(s)]
+            return float(np.percentile(s, 95)) if s.size else 0.0
+        use_cols = False
+        if vel_ecef_truth is not None and np.all(np.isfinite(vel_ecef_truth)):
+            p95_cols = _robust_p95(vel_ecef_truth)
+            if p95_cols > 0.10:  # > 10 cm/s treated as informative
+                use_cols = True
+        if use_cols:
+            vel_ecef_src = vel_ecef_truth
+            src = 'columns'
+        else:
+            t_truth = t_truth.astype(float)
+            dt_truth = np.gradient(t_truth)
+            v_raw = np.gradient(pos_ecef_truth, axis=0) / dt_truth[:, None]
+            try:
+                from scipy.signal import savgol_filter
+                # ~5 s window for typical 10 Hz logs; ensure odd length
+                win = 51 if (len(t_truth) >= 51) else max(5, (len(t_truth)//2)*2 + 1)
+                vel_ecef_src = savgol_filter(v_raw, win, 3, axis=0, mode='interp')
+                src = 'd/dt(position) (Savitzky–Golay)'
+            except Exception:
+                k = 21 if len(t_truth) >= 21 else max(5, (len(t_truth)//2)*2 + 1)
+                kern = np.ones(k) / k
+                vel_ecef_src = np.vstack([
+                    np.convolve(v_raw[:, i], kern, mode='same') for i in range(3)
+                ]).T
+                src = 'd/dt(position) (moving-average)'
+        vel_ned_truth_10hz = ecef_to_ned_vec(vel_ecef_src, ref_lat_rad, ref_lon_rad)
         interp = lambda X: np.column_stack([
-            interp1d(t_truth, X[:,i], bounds_error=False, fill_value="extrapolate")(t_est) for i in range(3)
+            interp1d(t_truth, X[:, i], bounds_error=False, fill_value="extrapolate")(t_est) for i in range(3)
         ])
-        pos_ned_truth_interp = interp(pos_ned_truth)
+        pos_ned_truth_interp = interp(pos_ned_truth_10hz)
+        _vel_tmp = interp(vel_ned_truth_10hz)
+        try:
+            p95 = float(np.percentile(np.linalg.norm(_vel_tmp, axis=1), 95))
+            print(f"[Task6][Truth] velocity source: {src}; interp. p95(|v|)={p95:.3f} m/s")
+        except Exception:
+            pass
         print(
             f"[Task6] interp truth -> t_est: in={len(t_truth)} out={len(t_est)} NaNs_pos={np.isnan(pos_ned_truth_interp).sum()}"
         )
@@ -471,17 +507,19 @@ def main():
             # Zero-base truth time for consistent interpolation
             t_truth = t_truth - t_truth[0]
             if pos_ecef_truth.size:
-                pos_ned_truth = ecef_to_ned(pos_ecef_truth, ref_lat_rad, ref_lon_rad, ref_r0_m)
-                vel_ned_truth = ecef_to_ned_vec(vel_ecef_truth, ref_lat_rad, ref_lon_rad)
+                pos_ned_truth_10hz = ecef_to_ned(pos_ecef_truth, ref_lat_rad, ref_lon_rad, ref_r0_m)
+                vel_ecef_from_pos_10hz = np.gradient(pos_ecef_truth, t_truth, axis=0)
+                vel_ned_truth_10hz = ecef_to_ned_vec(vel_ecef_from_pos_10hz, ref_lat_rad, ref_lon_rad)
                 # interp to t_est
                 def _interp(X):
                     return np.column_stack([
                         interp1d(t_truth, X[:, i], bounds_error=False, fill_value="extrapolate")(t_est) for i in range(3)
                     ])
-                pos_ned_truth = _interp(pos_ned_truth)
-                vel_ned_truth = _interp(vel_ned_truth)
+                pos_ned_truth = _interp(pos_ned_truth_10hz)
+                vel_ned_truth = _interp(vel_ned_truth_10hz)
                 pos_ecef_truth_i = _interp(pos_ecef_truth)
-                vel_ecef_truth_i = _interp(vel_ecef_truth)
+                # Provide derived ECEF velocity for ECEF overlay
+                vel_ecef_truth_i = _interp(vel_ecef_from_pos_10hz)
                 # BODY truth: use quaternion when available; otherwise mirror NED
                 pos_body_truth_i = pos_ned_truth
                 vel_body_truth_i = vel_ned_truth

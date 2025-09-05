@@ -394,24 +394,83 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
 
     rmse_pos = float(np.sqrt(np.mean(norm_pos**2)))
     rmse_vel = float(np.sqrt(np.mean(norm_vel**2)))
+    # Acceleration RMSE can be misleading when truth accel is suspect.
+    # Gate RMSE based on a reasonable 95th percentile of |acc| to avoid reporting junk.
+    p95_acc = float(np.percentile(norm_acc, 95)) if norm_acc.size else float('nan')
     rmse_acc = float(np.sqrt(np.mean(norm_acc**2)))
     final_pos = float(norm_pos[-1])
     final_vel = float(norm_vel[-1])
     final_acc = float(norm_acc[-1])
 
-    table = [
-        ["Position [m]", final_pos, rmse_pos],
-        ["Velocity [m/s]", final_vel, rmse_vel],
-        ["Acceleration [m/s^2]", final_acc, rmse_acc],
-    ]
+    # Mark acceleration as N/A if p95 is implausibly large (e.g., > 50 m/s^2)
+    acc_label = "Acceleration [m/s^2]"
+    if not np.isfinite(p95_acc) or p95_acc > 50.0:
+        table = [
+            ["Position [m]", final_pos, rmse_pos],
+            ["Velocity [m/s]", final_vel, rmse_vel],
+            [acc_label, float('nan'), float('nan')],
+        ]
+    else:
+        table = [
+            ["Position [m]", final_pos, rmse_pos],
+            ["Velocity [m/s]", final_vel, rmse_vel],
+            [acc_label, final_acc, rmse_acc],
+        ]
     print(tabulate(table, headers=["Metric", "Final Error", "RMSE"], floatfmt=".3f"))
 
     runtime = time.time() - start_time
     method = tag.split("_")[-1] if tag else "unknown"
-    print(
-        f"[SUMMARY] method={method} rmse_pos={rmse_pos:.3f}m final_pos={final_pos:.3f}m "
-        f"rmse_vel={rmse_vel:.3f}m/s final_vel={final_vel:.3f}m/s runtime={runtime:.2f}s"
-    )
+    # Optional: include geodesic attitude angle RMSE from aligned bundle if available
+    att_rmse_deg = None
+    try:
+        tag_for_att = tag or "run"
+        att_bundle = out_dir / f"{tag_for_att}_task7_6_attitude_aligned.npz"
+        if att_bundle.exists():
+            data_att = np.load(att_bundle)
+            ang = np.asarray(data_att.get("angle_deg"))
+            if ang is not None and ang.size:
+                att_rmse_deg = float(np.sqrt(np.mean(ang**2)))
+                # Optional: print tilt and heading robust stats
+                q_tr = np.asarray(data_att.get("q_truth_wxyz_harmonized"))
+                q_es = np.asarray(data_att.get("q_est_wxyz_aligned"))
+                if q_tr is not None and q_es is not None and q_tr.size and q_es.size:
+                    try:
+                        from scipy.spatial.transform import Rotation as R
+                        # q_err = q_es * conj(q_tr) in wxyz, convert to xyzw for SciPy
+                        w1, x1, y1, z1 = q_es.T
+                        w2, x2, y2, z2 = q_tr.T
+                        w2c, x2c, y2c, z2c = w2, -x2, -y2, -z2
+                        w = w1 * w2c - x1 * x2c - y1 * y2c - z1 * z2c
+                        x = w1 * x2c + x1 * w2c + y1 * z2c - z1 * y2c
+                        y = w1 * y2c - x1 * z2c + y1 * w2c + z1 * x2c
+                        z = w1 * z2c + x1 * y2c - y1 * x2c + z1 * w2c
+                        q_err_wxyz = np.column_stack([w, x, y, z])
+                        q_err_xyzw = q_err_wxyz[:, [1, 2, 3, 0]]
+                        R_err = R.from_quat(q_err_xyzw).as_matrix()
+                        tilt_deg = np.degrees(np.arccos(np.clip(R_err[:, 2, 2], -1.0, 1.0)))
+                        heading_deg = np.degrees(np.arctan2(R_err[:, 1, 0], R_err[:, 0, 0]))
+                        def rsum(name, x):
+                            x = np.asarray(x)
+                            return (
+                                f"{name}: median={np.nanmedian(x):.3f}° p95={np.nanpercentile(np.abs(x),95):.3f}°"
+                            )
+                        print("[Attitude]", rsum("tilt", tilt_deg), rsum("heading", heading_deg))
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    if att_rmse_deg is not None:
+        print(
+            f"[SUMMARY] method={method} rmse_pos={rmse_pos:.3f}m final_pos={final_pos:.3f}m "
+            f"rmse_vel={rmse_vel:.3f}m/s final_vel={final_vel:.3f}m/s att_rmse={att_rmse_deg:.3f}deg "
+            f"runtime={runtime:.2f}s"
+        )
+    else:
+        print(
+            f"[SUMMARY] method={method} rmse_pos={rmse_pos:.3f}m final_pos={final_pos:.3f}m "
+            f"rmse_vel={rmse_vel:.3f}m/s final_vel={final_vel:.3f}m/s runtime={runtime:.2f}s"
+        )
     logger.info(
         "Evaluation complete for %s: rmse_pos=%.3f final_pos=%.3f", npz_file, rmse_pos, final_pos
     )

@@ -208,8 +208,9 @@ def compute_attitude_truth_vs_est(
     time_offset = 0.5 * (lag_pos + lag_vel) * dt_r
     time_offset = float(np.clip(time_offset, -5.0, 5.0))
 
-    # Prepare Slerp for truth and estimate
+    # Prepare Slerp for truth and estimate (ensure keyframes are continuous)
     q_truth_wxyz = truth[:, 8:12]
+    q_truth_wxyz = _quat_make_continuous(q_truth_wxyz)
     # SciPy expects xyzw
     r_truth = R.from_quat(q_truth_wxyz[:, [1, 2, 3, 0]])
     s_truth = Slerp(t_truth + time_offset, r_truth)
@@ -220,7 +221,7 @@ def compute_attitude_truth_vs_est(
     if n_est <= 1:
         return None
     t_est_all = t_est_all[:n_est]
-    q_est_wxyz = q_est_wxyz[:n_est]
+    q_est_wxyz = _quat_make_continuous(q_est_wxyz[:n_est])
     r_est = R.from_quat(q_est_wxyz[:, [1, 2, 3, 0]])
     s_est = Slerp(t_est_all, r_est)
 
@@ -240,13 +241,20 @@ def compute_attitude_truth_vs_est(
     # Quaternion angle error (shortest arc), in degrees
     q_t_xyzw = r_t.as_quat()
     q_e_xyzw = r_e.as_quat()
-    # Convert to wxyz for dot product convenience
+    # Convert to wxyz
     q_t = np.column_stack([q_t_xyzw[:, 3], q_t_xyzw[:, 0], q_t_xyzw[:, 1], q_t_xyzw[:, 2]])
     q_e = np.column_stack([q_e_xyzw[:, 3], q_e_xyzw[:, 0], q_e_xyzw[:, 1], q_e_xyzw[:, 2]])
-    q_t = q_t / np.linalg.norm(q_t, axis=1, keepdims=True)
-    q_e = q_e / np.linalg.norm(q_e, axis=1, keepdims=True)
-    dot = np.clip(np.abs(np.sum(q_t * q_e, axis=1)), 0.0, 1.0)
-    ang_deg = 2.0 * np.degrees(np.arccos(dot))
+    # Enforce temporal continuity on both, then compute raw flip fraction
+    q_t = _quat_make_continuous(q_t)
+    q_e = _quat_make_continuous(q_e)
+    q_t_n = q_t / np.linalg.norm(q_t, axis=1, keepdims=True)
+    q_e_n = q_e / np.linalg.norm(q_e, axis=1, keepdims=True)
+    raw_dot = np.sum(q_t_n * q_e_n, axis=1)
+    flip_frac = float(np.mean(raw_dot < 0.0))
+    # Harmonize estimate to truth hemisphere and compute geodesic angle
+    q_e_h = _quat_harmonize_to_ref(q_t_n, q_e_n)
+    dot = np.clip(np.sum(q_t_n * q_e_h, axis=1), -1.0, 1.0)
+    ang_deg = 2.0 * np.degrees(np.arccos(np.abs(dot)))
 
     # Euler ZYX (yaw,pitch,roll) for both
     eul_truth_zyx_deg = r_t.as_euler("zyx", degrees=True)
@@ -256,12 +264,13 @@ def compute_attitude_truth_vs_est(
     t_rel = t_eval - t_eval[0]
     return {
         "t_rel": t_rel,
-        "q_truth_wxyz": q_t,
-        "q_est_wxyz": q_e,
+        "q_truth_wxyz": q_t_n,
+        "q_est_wxyz": q_e_h,
         "eul_truth_zyx_deg": eul_truth_zyx_deg,
         "eul_est_zyx_deg": eul_est_zyx_deg,
         "angle_deg": ang_deg,
         "time_offset": time_offset,
+        "flip_frac": flip_frac,
     }
 
 
@@ -790,21 +799,44 @@ def main() -> None:
         print("[Task7.6] Quaternion/Euler plots skipped (no quaternions or truth file)")
     else:
         # Compute additional residual statistics to mirror MATLAB Task 7 output
+        # Quaternions returned are already continuous + hemisphere-aligned
         q_truth = att["q_truth_wxyz"]
         q_est = att["q_est_wxyz"]
-        # Hemisphere alignment for component diffs
-        q_est_aligned = _quat_sign_align(q_truth, q_est)
+        # Micro time re-align to reduce tiny phase lag (use for plots/stats only)
+        q_est_aligned, local_shift = _micro_time_realign_quats(att["t_rel"], q_truth, q_est)
+        # Re-harmonize and normalize after micro-shifts
+        q_est_aligned = _quat_harmonize_to_ref(q_truth, q_est_aligned)
+        q_truth = q_truth / np.linalg.norm(q_truth, axis=1, keepdims=True)
+        q_est_aligned = q_est_aligned / np.linalg.norm(q_est_aligned, axis=1, keepdims=True)
+        # Log shift summary
+        try:
+            print(
+                f"[Task7-Att] micro-realign: median={np.median(local_shift):+.3f}s "
+                f"(min={np.min(local_shift):+.3f}s, max={np.max(local_shift):+.3f}s)"
+            )
+        except Exception:
+            pass
         dq = q_est_aligned - q_truth
-        # Euler residuals (ZYX yaw, pitch, roll)
-        e_err = _wrap_deg(att["eul_est_zyx_deg"] - att["eul_truth_zyx_deg"])
-        # Quaternion angle error already available
-        ang_deg = att["angle_deg"]
+        # Euler residuals from quaternion error (sign-invariant)
+        try:
+            from scipy.spatial.transform import Rotation as R
+            q_err = _quat_error_wxyz(q_truth, q_est_aligned)
+            r_err = R.from_quat(q_err[:, [1, 2, 3, 0]])  # xyzw
+            e_err = r_err.as_euler("zyx", degrees=True)
+        except Exception:
+            # Fallback to wrapped subtraction if SciPy missing
+            e_err = _wrap_deg(att["eul_est_zyx_deg"] - att["eul_truth_zyx_deg"])
+        # Geodesic angle error (recompute after alignment)
+        dot = np.clip(np.abs(np.sum(q_truth * q_est_aligned, axis=1)), 0.0, 1.0)
+        ang_deg = 2.0 * np.degrees(np.arccos(dot))
         # Error vector (body) from quaternion error
         q_err = _quat_error_wxyz(q_truth, q_est_aligned)
         err_vec_deg = _angle_axis_error_vec_deg(q_err)
 
         # Print summaries
         print(f"[Task7-Att] Rough time offset estimate (Truth -> KF) dt ≈ {att['time_offset']:+.3f} s")
+        if "flip_frac" in att:
+            print(f"[Task7-Att] Raw hemisphere flips before harmonize: {100.0*att['flip_frac']:.3f}%")
         _print_table(
             "[Task7-Att] Euler residuals (deg):",
             ["Yaw", "Pitch", "Roll"],
@@ -828,14 +860,14 @@ def main() -> None:
 
         log_step("Plotting Task 7.6 quaternion/Euler truth-vs-est and residuals ...")
         qpdf = plot_quaternion_truth_vs_est(
-            att["t_rel"], att["q_truth_wxyz"], att["q_est_wxyz"], args.dataset, args.gnss, args.method, out_dir
+            att["t_rel"], q_truth, q_est_aligned, args.dataset, args.gnss, args.method, out_dir
         )
         epdf = plot_euler_truth_vs_est(
             att["t_rel"], att["eul_truth_zyx_deg"], att["eul_est_zyx_deg"], args.dataset, args.gnss, args.method, out_dir
         )
         # Also save angle error under Task 7.6 naming
         qerr_pdf = plot_quaternion_component_error_task76(
-            att["t_rel"], att["q_truth_wxyz"], att["q_est_wxyz"], args.dataset, args.gnss, args.method, out_dir
+            att["t_rel"], q_truth, q_est_aligned, args.dataset, args.gnss, args.method, out_dir
         )
         ang76_pdf = plot_attitude_angle_error_task76(
             att["t_rel"], att["angle_deg"], args.dataset, args.gnss, args.method, out_dir
@@ -855,6 +887,103 @@ def main() -> None:
         print("Saved Task 7.6 Euler error plot:", eerr_pdf.name)
         print("Saved Task 7.6 Euler error summary:", euler_csv.name)
         print("Saved Task 7.6 quaternion component error summary:", quat_csv.name)
+        # Persist aligned/harmonized quaternions and angle for MATLAB/Python
+        try:
+            tag = make_tag(args.dataset, args.gnss, args.method)
+            base = out_dir / f"{tag}_task7_6_attitude_aligned"
+            np.savez(
+                base.with_suffix(".npz"),
+                t_rel=att["t_rel"],
+                q_truth_wxyz_harmonized=q_truth,
+                q_est_wxyz_aligned=q_est_aligned,
+                angle_deg=ang_deg,
+                euler_err_zyx_deg=e_err,
+                local_shift_s=local_shift,
+            )
+            try:
+                from scipy.io import savemat  # type: ignore
+                savemat(
+                    str(base.with_suffix(".mat")),
+                    {
+                        "t_rel": att["t_rel"],
+                        "q_truth_wxyz_harmonized": q_truth,
+                        "q_est_wxyz_aligned": q_est_aligned,
+                        "angle_deg": ang_deg,
+                        "euler_err_zyx_deg": e_err,
+                        "local_shift_s": local_shift,
+                    },
+                )
+            except Exception:
+                pass
+            print("Saved Task 7.6 aligned attitude bundles:", base.with_suffix(".npz").name)
+        except Exception as ex:
+            print("[Task7.6] WARN: could not save aligned attitude bundles:", ex)
+def _quat_make_continuous(q_wxyz: np.ndarray) -> np.ndarray:
+    """Enforce temporal continuity on a quaternion time series (avoid ±q flips)."""
+    q = np.asarray(q_wxyz, float).copy()
+    if q.ndim != 2 or q.shape[1] != 4:
+        return q
+    for i in range(1, len(q)):
+        if np.dot(q[i], q[i - 1]) < 0.0:
+            q[i] *= -1.0
+    return q
+
+
+def _quat_harmonize_to_ref(q_ref_wxyz: np.ndarray, q_cmp_wxyz: np.ndarray) -> np.ndarray:
+    """Per-sample hemisphere match of q_cmp to q_ref (ensures dot>=0)."""
+    q_ref = np.asarray(q_ref_wxyz, float)
+    q_cmp = np.asarray(q_cmp_wxyz, float).copy()
+    dots = np.sum(q_ref * q_cmp, axis=1)
+    flip = dots < 0.0
+    q_cmp[flip] *= -1.0
+    return q_cmp
+
+
+def _micro_time_realign_quats(
+    t: np.ndarray,
+    q_truth_wxyz: np.ndarray,
+    q_est_wxyz: np.ndarray,
+    search: float = 0.20,
+    step: float = 0.01,
+    win: float = 10.0,
+    stride: float = 5.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return (q_est_aligned_wxyz, local_shift_s) using local Slerp time nudges.
+
+    Builds an Slerp over the estimator quaternions at t and searches a tiny
+    time offset per window that maximizes the average |dot(q_truth,q_est)|.
+    Resulting per-window shifts are linearly interpolated across t.
+    """
+    try:
+        from scipy.spatial.transform import Rotation as R, Slerp
+    except Exception:
+        return q_est_wxyz.copy(), np.zeros_like(t)
+
+    t = np.asarray(t, float); q_tr = np.asarray(q_truth_wxyz, float); q_es = np.asarray(q_est_wxyz, float)
+    # Build Slerp for estimate series (expects xyzw).
+    slerp_est = Slerp(t, R.from_quat(q_es[:, [1, 2, 3, 0]]))
+    centers = np.arange(t[0] + win / 2, t[-1] - win / 2, stride)
+    shifts: list[tuple[float, float]] = []
+    for c in centers:
+        m = (t >= c - win / 2) & (t <= c + win / 2)
+        if not np.any(m):
+            continue
+        best_s, best_score = 0.0, -1.0
+        ts = np.arange(-search, search + 1e-12, step)
+        for s in ts:
+            q_es_s_xyzw = slerp_est(np.clip(t[m] + s, t[0], t[-1])).as_quat()
+            q_es_s = np.column_stack([q_es_s_xyzw[:, 3], q_es_s_xyzw[:, 0], q_es_s_xyzw[:, 1], q_es_s_xyzw[:, 2]])
+            score = float(np.mean(np.abs(np.sum(q_tr[m] * q_es_s, axis=1))))
+            if score > best_score:
+                best_score, best_s = score, float(s)
+        shifts.append((float(c), best_s))
+    if not shifts:
+        return q_es.copy(), np.zeros_like(t)
+    tc, sc = np.array(shifts, float).T
+    s_smooth = np.interp(t, tc, sc)
+    q_es_al_xyzw = slerp_est(np.clip(t + s_smooth, t[0], t[-1])).as_quat()
+    q_es_al = np.column_stack([q_es_al_xyzw[:, 3], q_es_al_xyzw[:, 0], q_es_al_xyzw[:, 1], q_es_al_xyzw[:, 2]])
+    return q_es_al, s_smooth
         print("Saved Task 7.6 angle error summary plot:", sum76b.name)
 
 

@@ -60,4 +60,12 @@ def compute_time_shift(
     corr = np.correlate(est, truth, mode="full")
     lag = int(np.argmax(corr) - (est.size - 1))
     t_shift = lag * dt
+    # Sanity clamp: do not return implausible shifts
+    try:
+        total = float(est.size * dt)
+        max_shift = float(min(5.0, 0.25 * total))
+        if not np.isfinite(t_shift) or abs(t_shift) > max_shift:
+            return 0, 0.0
+    except Exception:
+        pass
     return lag, t_shift
