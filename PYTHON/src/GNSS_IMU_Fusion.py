@@ -2725,16 +2725,18 @@ def main():
         )
 
     # Compact overview figure with subplots (always saved)
+    # Use GNSS and Truth series already aligned/interpolated to the IMU timebase
+    # to avoid plotting shape mismatches (IMU has many more samples than GNSS).
     _save_tasks_overview(
         Path("results") / f"{tag}_tasks_overview",
         imu_time,
         euler_all.get(method, None),
         fused_pos[method],
         fused_vel[method],
-        gnss_pos_ned,
-        gnss_vel_ned,
-        truth_pos_ned if measure_source == 'truth' else None,
-        truth_vel_ned if measure_source == 'truth' else None,
+        gnss_pos_ned_interp,
+        gnss_vel_ned_interp,
+        truth_pos_ned_i if measure_source == 'truth' else None,
+        truth_vel_ned_i if measure_source == 'truth' else None,
         res_pos_all.get(method, None),
         res_vel_all.get(method, None),
     )
