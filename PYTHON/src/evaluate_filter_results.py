@@ -325,6 +325,22 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     att_path = save_plot(fig, out_dir, tag or "run", "task7", "4_attitude_angles_euler", ext="pdf")
     plt.close(fig)
 
+    # Quaternion components (estimate only, W,X,Y,Z)
+    try:
+        fig, axs = plt.subplots(4, 1, figsize=(8, 7), sharex=True)
+        comps = ["w", "x", "y", "z"]
+        for i, name in enumerate(comps):
+            axs[i].plot(t_rel, quat[:, i])
+            axs[i].set_ylabel(f"q_{name}")
+            axs[i].grid(True)
+        axs[-1].set_xlabel("Time [s]")
+        fig.suptitle("Task 7 – Attitude Quaternion Components (estimate)")
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        save_plot(fig, out_dir, tag or "run", "task7", "4_attitude_quaternion_components", ext="pdf")
+        plt.close(fig)
+    except Exception:
+        pass
+
     # Error norm plots
     norm_pos = np.linalg.norm(res_pos, axis=1)
     norm_vel = np.linalg.norm(res_vel, axis=1)
@@ -392,30 +408,24 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     else:
         print("Subtask 7.5 skipped: missing fused or truth data")
 
-    rmse_pos = float(np.sqrt(np.mean(norm_pos**2)))
-    rmse_vel = float(np.sqrt(np.mean(norm_vel**2)))
-    # Acceleration RMSE can be misleading when truth accel is suspect.
-    # Gate RMSE based on a reasonable 95th percentile of |acc| to avoid reporting junk.
-    p95_acc = float(np.percentile(norm_acc, 95)) if norm_acc.size else float('nan')
-    rmse_acc = float(np.sqrt(np.mean(norm_acc**2)))
-    final_pos = float(norm_pos[-1])
-    final_vel = float(norm_vel[-1])
-    final_acc = float(norm_acc[-1])
+    def _finite_rmse(x):
+        x = np.asarray(x)
+        x = x[np.isfinite(x)]
+        return float(np.sqrt(np.mean(x**2))) if x.size else float('nan')
 
-    # Mark acceleration as N/A if p95 is implausibly large (e.g., > 50 m/s^2)
+    rmse_pos = _finite_rmse(norm_pos)
+    rmse_vel = _finite_rmse(norm_vel)
+    rmse_acc = _finite_rmse(norm_acc)
+    final_pos = float(norm_pos[np.isfinite(norm_pos)][-1]) if np.any(np.isfinite(norm_pos)) else float('nan')
+    final_vel = float(norm_vel[np.isfinite(norm_vel)][-1]) if np.any(np.isfinite(norm_vel)) else float('nan')
+    final_acc = float(norm_acc[np.isfinite(norm_acc)][-1]) if np.any(np.isfinite(norm_acc)) else float('nan')
+
     acc_label = "Acceleration [m/s^2]"
-    if not np.isfinite(p95_acc) or p95_acc > 50.0:
-        table = [
-            ["Position [m]", final_pos, rmse_pos],
-            ["Velocity [m/s]", final_vel, rmse_vel],
-            [acc_label, float('nan'), float('nan')],
-        ]
-    else:
-        table = [
-            ["Position [m]", final_pos, rmse_pos],
-            ["Velocity [m/s]", final_vel, rmse_vel],
-            [acc_label, final_acc, rmse_acc],
-        ]
+    table = [
+        ["Position [m]", final_pos, rmse_pos],
+        ["Velocity [m/s]", final_vel, rmse_vel],
+        [acc_label, final_acc, rmse_acc],
+    ]
     print(tabulate(table, headers=["Metric", "Final Error", "RMSE"], floatfmt=".3f"))
 
     runtime = time.time() - start_time
@@ -435,7 +445,6 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
                 q_es = np.asarray(data_att.get("q_est_wxyz_aligned"))
                 if q_tr is not None and q_es is not None and q_tr.size and q_es.size:
                     try:
-                        from scipy.spatial.transform import Rotation as R
                         # q_err = q_es * conj(q_tr) in wxyz, convert to xyzw for SciPy
                         w1, x1, y1, z1 = q_es.T
                         w2, x2, y2, z2 = q_tr.T
@@ -619,6 +628,34 @@ def subtask7_5_diff_plot(
     _plot(diff_pos_ned, diff_vel_ned, ["North", "East", "Down"], "NED")
     _print_and_save_summary(_compute_frame_summary(diff_pos_ned, diff_vel_ned, time), "NED", out_dir, run_id)
 
+    # Altitude difference (Truth - Fused), Up is -Down in NED
+    try:
+        alt_diff = -diff_pos_ned[:, 2]
+        fig, ax = plt.subplots(figsize=(8, 3))
+        ax.plot(time, alt_diff)
+        ax.set_xlabel("Time [s]")
+        ax.set_ylabel("Altitude Diff [m] (Truth - Fused)")
+        ax.grid(True)
+        fig.tight_layout()
+        base = out_dir / f"{run_id}_task7_5_diff_truth_fused_altitude_NED"
+        try:
+            fig.savefig(base.with_suffix('.png'), dpi=200, bbox_inches='tight')
+            fig.savefig(base.with_suffix('.pdf'), dpi=200, bbox_inches='tight')
+        except Exception:
+            pass
+        try:
+            from scipy.io import savemat  # type: ignore
+            savemat(str(base.with_suffix('.mat')), {
+                'time': time.astype(float),
+                'alt_diff_up_m': alt_diff.astype(float),
+                'frame': 'NED',
+            })
+        except Exception:
+            pass
+        plt.close(fig)
+    except Exception:
+        pass
+
     # ECEF frame
     if ref_lat is not None and ref_lon is not None:
         C = compute_C_ECEF_to_NED(ref_lat, ref_lon).T
@@ -767,6 +804,38 @@ def subtask7_6_overlay_plot(
         fused_pos_body, truth_pos_body, fused_vel_body, truth_vel_body, ["X", "Y", "Z"], "Body"
     )
     print("Saved Task 7.6 truth-vs-fused overlays (NED/ECEF/Body) under:", out_dir)
+
+    # Altitude overlay (Truth vs Fused) in NED (Up = -Down)
+    try:
+        alt_fused = -fused_pos_ned[:, 2]
+        alt_truth = -truth_pos_ned[:, 2]
+        fig, ax = plt.subplots(figsize=(8, 3))
+        ax.plot(time, alt_fused, label="Fused")
+        ax.plot(time, alt_truth, '--', label="Truth")
+        ax.set_xlabel("Time [s]")
+        ax.set_ylabel("Altitude [m]")
+        ax.grid(True)
+        ax.legend(loc='upper right')
+        fig.suptitle("Task 7.6 – Truth vs Fused Altitude (NED)")
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        base = out_dir / f"{run_id}_task7_6_overlay_Altitude_NED"
+        try:
+            fig.savefig(base.with_suffix('.png'), dpi=200, bbox_inches='tight')
+            fig.savefig(base.with_suffix('.pdf'), dpi=200, bbox_inches='tight')
+        except Exception:
+            pass
+        try:
+            from scipy.io import savemat  # type: ignore
+            savemat(str(base.with_suffix('.mat')), {
+                'time': time.astype(float),
+                'alt_fused_up_m': alt_fused.astype(float),
+                'alt_truth_up_m': alt_truth.astype(float),
+            })
+        except Exception:
+            pass
+        plt.close(fig)
+    except Exception:
+        pass
 
     # Persist overlay series for downstream analysis
     try:

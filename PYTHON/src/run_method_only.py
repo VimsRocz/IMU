@@ -36,6 +36,8 @@ from validate_with_truth import load_estimate, assemble_frames
 from evaluate_filter_results import run_evaluation_npz
 from utils import ensure_dependencies
 from pyproj import Transformer
+import os
+import subprocess as _subprocess
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -51,18 +53,26 @@ EXPECTED_LAT = -32.026554
 
 
 def load_truth_data(truth_file: Path):
-    """Load the common truth trajectory."""
+    """Load the common truth trajectory.
+
+    Accept both whitespace- and comma-separated formats. Return
+    (time_vector, full_matrix) on success or (None, None) on failure.
+    """
     logger.debug(f"Loading truth file: {truth_file}")
     if not truth_file.exists():
         logger.error(f"Truth file {truth_file} not found")
         return None, None
-    try:
-        truth = np.loadtxt(truth_file, delimiter=",", comments="#")
-        logger.debug(f"Truth data shape: {truth.shape}")
-        return truth[:, 1], truth
-    except Exception as e:  # pragma: no cover - sanity check
-        logger.error(f"Failed to load truth file: {e}")
-        return None, None
+    # Try robust load without forcing a delimiter; fall back to comma if needed
+    for kwargs in ({"comments": "#"}, {"delimiter": ",", "comments": "#"}):
+        try:
+            truth = np.loadtxt(truth_file, **kwargs)
+            logger.debug(f"Truth data shape: {truth.shape}")
+            return truth[:, 1], truth
+        except Exception as e:  # pragma: no cover - try next
+            last_err = e
+            continue
+    logger.error(f"Failed to load truth file: {last_err}")
+    return None, None
 
 
 def trim_truth_to_estimate(truth_time, truth_data, est_time):
@@ -288,6 +298,52 @@ def main(argv=None):
                     'Pyy': P0[1],
                     'Pzz': P0[2],
                 })
+            # --- Task 6 overlay (match TRIAD file convention) ---
+            try:
+                # Build run_id like TRIAD helper uses
+                run_id = f"{pathlib.Path(mat).stem.replace('_kf_output','')}"
+                est_npz = mat.with_suffix('.npz')
+                if est_npz.exists() and truth and pathlib.Path(truth).exists():
+                    cmd_t6 = [
+                        sys.executable,
+                        str(HERE / "task6_plot_truth.py"),
+                        "--est-file", str(mat),  # task6 accepts .mat too
+                        "--gnss-file", str(gnss_file),
+                        "--truth-file", str(truth),
+                        "--output", str(results),
+                        "--decimate-maxpoints", "200000",
+                        "--ylim-percentile", "99.5",
+                    ]
+                    print("Starting Task 6 overlay:", cmd_t6)
+                    _subprocess.run(cmd_t6, check=True)
+            except Exception as ex:
+                print(f"Task 6 overlay failed: {ex}")
+
+            # --- Attitude comparison plots (KF vs truth, DR vs truth) ---
+            try:
+                est_npz = mat.with_suffix('.npz')
+                if est_npz.exists() and truth and pathlib.Path(truth).exists():
+                    cmd_att = [
+                        sys.executable,
+                        str(HERE / "../scripts/plot_attitude_kf_vs_no_kf.py"),
+                        "--imu-file", str(imu_file),
+                        "--est-file", str(est_npz),
+                        "--truth-file", str(truth),
+                        "--out-dir", str(results),
+                        "--true-init",
+                    ]
+                    env = os.environ.copy()
+                    # Ensure 'src' is importable when running the script directly
+                    try:
+                        env["PYTHONPATH"] = str(ROOT) + os.pathsep + str(HERE) + os.pathsep + env.get("PYTHONPATH", "")
+                    except Exception:
+                        pass
+                    print("Running attitude comparison plots:", cmd_att)
+                    _subprocess.run(cmd_att, check=True, env=env)
+                    print("Generated attitude comparison plots (KF vs truth, DR vs truth).")
+            except Exception as ex:
+                print(f"Attitude comparison plotting failed: {ex}")
+
         except Exception as e:
             print(f"Overlay plot failed: {e}")
 

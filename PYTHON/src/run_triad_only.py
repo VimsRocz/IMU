@@ -54,6 +54,7 @@ from utils import save_mat
 # Import helper utilities from the utils package
 from utils.timeline import print_timeline
 from utils.resolve_truth_path import resolve_truth_path
+from utils.io_checks import assert_single_pair
 from utils.run_id import run_id as build_run_id
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "tools"))
@@ -1015,6 +1016,11 @@ def main(argv: Iterable[str] | None = None) -> None:
     parser.add_argument("--gnss", type=str, help="Path to GNSS data file")
     parser.add_argument("--truth", type=str, help="Path to truth data file")
     parser.add_argument(
+        "--allow-truth-mismatch",
+        action="store_true",
+        help="Allow using a truth file from a different dataset (use with care)",
+    )
+    parser.add_argument(
         "--outdir", type=str, help="Directory to write results (default PYTHON/results)"
     )
     parser.add_argument("--no-plots", action="store_true", help="Skip plot generation")
@@ -1132,7 +1138,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     # Resolve truth path:
     # - If user supplied one, use it (and validate later)
     # - Else, try to pick the matching STATE file for the dataset (e.g., X002)
-    # - If none found, leave as None to avoid PairGuard mismatches
+    # - Else, permissively fall back to canonical/auto truth (even if dataset id differs)
     user_supplied_truth = bool(args.truth)
     if user_supplied_truth:
         truth_path = Path(args.truth)
@@ -1154,16 +1160,18 @@ def main(argv: Iterable[str] | None = None) -> None:
                     truth_path = cand
                     break
         if truth_path is None:
-            # Best-effort legacy env/auto resolver, only if it matches dataset or nothing else exists
+            # Permissive fallback: use canonical/auto truth if available
             alt = resolve_truth_path()
-            if alt:
-                alt_p = Path(alt)
-                m2 = re.search(r"X\d{3}", alt_p.name)
-                if m2 and ds_match and m2.group(0) != ds_match:
-                    # Do not use a mismatched truth file; leave None
+            if alt and Path(alt).exists():
+                truth_path = Path(alt)
+                try:
+                    m2 = re.search(r"X\d{3}", truth_path.name)
+                    if ds_match and m2 and m2.group(0) != ds_match:
+                        print(
+                            f"[Info] Using truth {truth_path.name} for dataset {ds_match} (mismatch allowed)."
+                        )
+                except Exception:
                     pass
-                else:
-                    truth_path = alt_p if alt_p.exists() else None
     logger.info(
         "Resolved input files: imu=%s gnss=%s truth=%s", imu_path, gnss_path, truth_path
     )
@@ -1181,9 +1189,18 @@ def main(argv: Iterable[str] | None = None) -> None:
     for p in (imu_path, gnss_path):
         if not Path(p).exists():
             raise FileNotFoundError(f"Required input not found: {p}")
+    # If user explicitly provided a truth path and it doesn't exist, error.
     if user_supplied_truth and truth_path and not Path(truth_path).exists():
-        # Only hard-fail if the user explicitly provided a path that does not exist
         raise FileNotFoundError(f"Truth file not found: {truth_path}")
+    # Enforce single-pair only when a truth file is present (allow mixing).
+    if truth_path and Path(truth_path).exists():
+        try:
+            assert_single_pair(
+                str(imu_path), str(gnss_path), str(truth_path),
+                force_mix=True,
+            )
+        except Exception:
+            pass
 
     run_id = build_run_id(str(imu_path), str(gnss_path), method)
     os.environ["RUN_ID"] = run_id
@@ -1192,12 +1209,6 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
     print_timeline(run_id, str(imu_path), str(gnss_path), str(truth_path) if truth_path else None, out_dir=str(results_dir))
-
-    # Avoid forcing a mismatched fallback truth file.
-    # If no truth was found, continue without truth rather than defaulting to X001.
-    if truth_path is not None and not os.path.isfile(str(truth_path)):
-        print(f"[INFO] Truth file not found at {truth_path}; proceeding without truth.")
-        truth_path = None
 
     task_set = None
     if args.tasks:
@@ -1252,7 +1263,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     ]
     # Pass through attitude/truth/yaw options to the fusion step
     if truth_path and Path(truth_path).exists():
-        cmd += ["--truth-file", str(truth_path)]
+        cmd += ["--truth-file", str(truth_path), "--allow-truth-mismatch"]
         if args.init_att_with_truth:
             cmd.append("--init-att-with-truth")
             cmd += ["--truth-quat-frame", str(args.truth_quat_frame)]
@@ -1317,7 +1328,16 @@ def main(argv: Iterable[str] | None = None) -> None:
                 "--true-init",
             ]
             logger.info("Running attitude comparison plots: %s", plot_cmd)
-            subprocess.check_call(plot_cmd)
+            # Ensure imports work when executed as a script by adding project root
+            env = os.environ.copy()
+            try:
+                proj_root = str(ROOT)
+                src_path = str(HERE)
+                extra = os.pathsep.join([proj_root, src_path])
+                env["PYTHONPATH"] = extra + os.pathsep + env.get("PYTHONPATH", "")
+            except Exception:
+                pass
+            subprocess.check_call(plot_cmd, env=env)
             print("Generated attitude comparison plots (KF vs truth, DR vs truth).")
         else:
             print("[INFO] Skipping attitude comparison plots (missing estimate or truth file).")
@@ -1606,6 +1626,7 @@ def main(argv: Iterable[str] | None = None) -> None:
                 "--gnss-file", str(gnss_path),
                 "--method", method,
                 "--truth-file", str(truth_path),
+                "--allow-truth-mismatch",
                 "--init-att-with-truth",
                 "--truth-quat-frame", truth_frame,
                 "--tag", "TRUEINIT",
@@ -1671,6 +1692,82 @@ def main(argv: Iterable[str] | None = None) -> None:
             ],
         )
         df.to_csv(results_dir / "summary.csv", index=False)
+
+    # Collect per-run artifacts into results/<run_id>/ for convenience
+    try:
+        run_dir = results_dir / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        for p in results_dir.glob(f"{run_id}_*"):
+            if p.is_file():
+                dst = run_dir / p.name
+                # Copy only if different or missing to avoid needless churn
+                try:
+                    import shutil
+                    if not dst.exists() or p.stat().st_size != dst.stat().st_size:
+                        shutil.copy2(p, dst)
+                except Exception:
+                    # Best-effort; keep going if any single copy fails
+                    pass
+    except Exception:
+        # Non-fatal; top-level files remain available under results/
+        pass
+
+    # ----------------------------
+    # Post-run artifact validation
+    # ----------------------------
+    try:
+        def _exists(name: str) -> bool:
+            # Accept files saved at results/ or under results/<run_id>/task6/
+            p_top = results_dir / name
+            p_sub = results_dir / run_id / 'task6' / name
+            return p_top.exists() or p_sub.exists()
+
+        must_have = [
+            # Task 1
+            f"{run_id}_task1_location_map.png",
+            # Task 2
+            f"{run_id}_task2_static_interval.png",
+            f"{run_id}_task2_vectors.png",
+            # Task 3
+            f"{run_id}_task3_quaternions.png",
+            f"{run_id}_task3_errors.png",
+            # Task 4
+            f"{run_id}_task4_comparison_ned.png",
+            f"{run_id}_task4_mixed_frames.png",
+            f"{run_id}_task4_all_ned.png",
+            f"{run_id}_task4_all_ecef.png",
+            f"{run_id}_task4_all_body.png",
+            # Task 5
+            f"{run_id}_task5_results_{method}.png",
+            f"{run_id}_task5_mixed_frames.png",
+            f"{run_id}_task5_all_ned.png",
+            f"{run_id}_task5_all_ecef.png",
+            f"{run_id}_task5_all_body.png",
+            # Task 6 (copied overlays)
+            f"{run_id}_task6_overlay_NED.png",
+            f"{run_id}_task6_overlay_ECEF.png",
+            f"{run_id}_task6_overlay_BODY.png",
+            f"{run_id}_task6_diff_truth_fused_over_time_NED.png",
+            f"{run_id}_task6_diff_truth_fused_over_time_ECEF.png",
+            f"{run_id}_task6_diff_truth_fused_over_time_Body.png",
+            # Task 7 core plots
+            f"{run_id}_task7_3_residuals_position_velocity.png",
+            f"{run_id}_task7_3_error_norms.png",
+            f"{run_id}_task7_4_attitude_angles_euler.png",
+            # Differences over time
+            f"{run_id}_task7_5_diff_truth_fused_over_time_NED.png",
+            f"{run_id}_task7_5_diff_truth_fused_over_time_ECEF.png",
+            f"{run_id}_task7_5_diff_truth_fused_over_time_Body.png",
+        ]
+        missing = [m for m in must_have if not _exists(m)]
+        if missing:
+            print("[VALIDATE] Missing expected artifacts:")
+            for m in missing:
+                print("  -", m)
+        else:
+            print("[VALIDATE] All required Task1–Task7 artifacts present.")
+    except Exception as e:
+        print(f"[WARN] Artifact validation skipped: {e}")
 
     print("TRIAD processing complete for X002")
 

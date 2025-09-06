@@ -2,6 +2,7 @@
 
 import matplotlib.pyplot as plt
 from utils.matlab_fig_export import save_matlab_fig
+from utils.plot_saver import save_png_and_mat
 import numpy as np
 from typing import Optional, List, Dict
 from naming import plot_path
@@ -39,8 +40,9 @@ def save_zupt_variance(
     plt.ylabel("Variance")
     plt.tight_layout()
     plt.title("ZUPT Detection and Accelerometer Variance")
-    filename = f"results/IMU_{dataset_id}_ZUPT_variance.pdf"
-    save_matlab_fig(plt.gcf(), str(Path(filename).with_suffix('')))
+    base = Path(f"results/IMU_{dataset_id}_ZUPT_variance")
+    save_png_and_mat(plt.gcf(), str(base), arrays=dict(t=t, var=var, zupt=zupt_mask.astype(int)))
+    save_matlab_fig(plt.gcf(), str(base))
     plt.close()
 
 
@@ -72,8 +74,9 @@ def save_euler_angles(
     plt.legend(loc="best")
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) vs. Time")
-    filename = f"results/{dataset_id}_{method}_attitude_angles_over_time.pdf"
-    save_matlab_fig(plt.gcf(), str(Path(filename).with_suffix('')))
+    base = Path(f"results/{dataset_id}_{method}_attitude_angles_over_time")
+    save_png_and_mat(plt.gcf(), str(base), arrays=dict(t=t, euler=euler_angles))
+    save_matlab_fig(plt.gcf(), str(base))
     plt.close()
 
 
@@ -114,8 +117,9 @@ def save_residual_plots(
     plt.title("Position Residuals vs. Time")
     plt.legend(loc="best")
     plt.tight_layout()
-    filename = plot_path("results", tag, 5, "residuals", "position_residuals")
-    save_matlab_fig(plt.gcf(), str(Path(filename).with_suffix('')))
+    base = Path(plot_path("results", tag, 5, "residuals", "position_residuals")).with_suffix("")
+    save_png_and_mat(plt.gcf(), str(base), arrays=dict(t=t, resid=residual_pos))
+    save_matlab_fig(plt.gcf(), str(base))
     plt.close()
 
     plt.figure(figsize=(10, 5))
@@ -126,8 +130,9 @@ def save_residual_plots(
     plt.title("Velocity Residuals vs. Time")
     plt.legend(loc="best")
     plt.tight_layout()
-    filename = plot_path("results", tag, 5, "residuals", "velocity_residuals")
-    save_matlab_fig(plt.gcf(), str(Path(filename).with_suffix('')))
+    base = Path(plot_path("results", tag, 5, "residuals", "velocity_residuals")).with_suffix("")
+    save_png_and_mat(plt.gcf(), str(base), arrays=dict(t=t, resid=residual_vel))
+    save_matlab_fig(plt.gcf(), str(base))
     plt.close()
 
 
@@ -159,8 +164,9 @@ def save_attitude_over_time(
     plt.legend(loc="best")
     plt.tight_layout()
     plt.title("Attitude Angles (Roll/Pitch/Yaw) Over Time")
-    filename = f"results/{dataset_id}_{method}_attitude_angles_over_time.pdf"
-    save_matlab_fig(plt.gcf(), str(Path(filename).with_suffix('')))
+    base = Path(f"results/{dataset_id}_{method}_attitude_angles_over_time")
+    save_png_and_mat(plt.gcf(), str(base), arrays=dict(t=t, euler=euler_angles))
+    save_matlab_fig(plt.gcf(), str(base))
     plt.close()
 
 
@@ -226,5 +232,16 @@ def plot_all_methods(
                 ax.legend()
 
     plt.tight_layout()
-    save_matlab_fig(plt.gcf(), str(Path(savefile).with_suffix('')))
+    base = Path(savefile).with_suffix("")
+    # Flatten dicts into a MAT-friendly structure
+    arrays = {"imu_time": imu_time}
+    try:
+        arrays.update({"gnss_pos": gnss_pos_ned_interp, "gnss_vel": gnss_vel_ned_interp, "gnss_acc": gnss_acc_ned_interp})
+        for name, d in [("pos", fused_pos), ("vel", fused_vel), ("acc", fused_acc)]:
+            for k, v in d.items():
+                arrays[f"{name}_{k}"] = v
+    except Exception:
+        pass
+    save_png_and_mat(plt.gcf(), str(base), arrays=arrays)
+    save_matlab_fig(plt.gcf(), str(base))
     plt.close(fig)

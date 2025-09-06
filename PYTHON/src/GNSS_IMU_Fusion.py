@@ -46,6 +46,7 @@ import datetime
 
 from .scripts.plot_utils import save_plot as _legacy_save_plot, plot_attitude
 from utils.plot_save import save_plot, task_summary
+from utils.plot_saver import save_png_and_mat
 from paths import (
     imu_path as _imu_path_helper,
     gnss_path as _gnss_path_helper,
@@ -170,7 +171,12 @@ def task3_plot_quaternions_and_errors(
     ax.legend(loc="upper left", bbox_to_anchor=(1, 1))
     fig.tight_layout()
 
-    save_plot(fig, RESULTS_DIR, RUN_ID, "task3", "quaternions", ext="png", dpi=200, bbox_inches="tight")
+    base = RESULTS_DIR / f"{RUN_ID}_task3_quaternions"
+    try:
+        arrays = {k: np.asarray(v) for k, v in quaternions_dict.items()}
+    except Exception:
+        arrays = None
+    save_png_and_mat(fig, str(base), arrays=arrays)
     plt.close(fig)
 
     # Attitude error comparison ------------------------------------------
@@ -196,7 +202,13 @@ def task3_plot_quaternions_and_errors(
 
     if not grav_vals or not earth_vals or (np.allclose(grav_vals, 0) and np.allclose(earth_vals, 0)):
         raise ValueError("Task3 arrays all zero or empty")
-    save_plot(fig, RESULTS_DIR, RUN_ID, "task3", "errors", ext="png", dpi=200, bbox_inches="tight")
+    base = RESULTS_DIR / f"{RUN_ID}_task3_errors"
+    arrays = {
+        "methods": np.array(methods, dtype=object),
+        "grav_err_deg": np.array(grav_vals, float),
+        "earth_err_deg": np.array(earth_vals, float),
+    }
+    save_png_and_mat(fig, str(base), arrays=arrays)
     plt.close(fig)
     task_summary("task3")
 
@@ -363,6 +375,14 @@ def main():
         help="Path to STATE_X001.txt (truth) for Task 6",
     )
     parser.add_argument(
+        "--allow-truth-mismatch",
+        action="store_true",
+        help=(
+            "Permit IMU/GNSS and TRUTH dataset IDs to differ (e.g., use STATE_X001.txt "
+            "with X002 data). PairGuard will warn but not abort."
+        ),
+    )
+    parser.add_argument(
         "--apply-time-shift-in-kf",
         action="store_true",
         help=(
@@ -508,6 +528,41 @@ def main():
         action="store_true",
         help="Skip matplotlib savefig to speed up CI runs",
     )
+    # (Output size/format controls defined below)
+    # Output size and content controls
+    parser.add_argument(
+        "--no-npz",
+        action="store_true",
+        help="Skip saving the large NPZ results bundle",
+    )
+    parser.add_argument(
+        "--no-mat",
+        action="store_true",
+        help="Skip saving the MATLAB .mat results bundle",
+    )
+    parser.add_argument(
+        "--lite-output",
+        action="store_true",
+        help=(
+            "Save reduced outputs: downsample time series, cast to float32, and omit very large arrays (P_hist, x_log, residuals, innovations)."
+        ),
+    )
+    parser.add_argument(
+        "--downsample",
+        type=int,
+        default=1,
+        help="Keep every Nth sample in saved time series (default 1 = keep all)",
+    )
+    parser.add_argument(
+        "--fp32-output",
+        action="store_true",
+        help="Cast floating-point arrays to float32 in saved outputs to reduce size",
+    )
+    parser.add_argument(
+        "--disable-triad-log",
+        action="store_true",
+        help="Do not append per-run info to triad_init_log.txt",
+    )
     parser.add_argument(
         "-v",
         "--verbose",
@@ -519,18 +574,16 @@ def main():
     lever_arm = np.array(args.lever_arm, dtype=float)
 
     # Enforce single IMU–GNSS–Truth pair by dataset ID (e.g., X001/X002/X003)
-    import re
-    def _tag_id(p):
-        m = re.search(r"X(\d{3})", str(p), flags=re.IGNORECASE)
-        return m.group(1) if m else None
-    imu_id = _tag_id(args.imu_file)
-    gnss_id = _tag_id(args.gnss_file)
-    truth_id = _tag_id(args.truth_file) if args.truth_file else None
-    if imu_id and gnss_id and truth_id and not (imu_id == gnss_id == truth_id):
-        raise ValueError(
-            f"[PairGuard] Mismatched dataset IDs: IMU=X{imu_id}, GNSS=X{gnss_id}, TRUTH=X{truth_id}. "
-            f"Use files from the same simulation version (e.g., all X002)."
-        )
+    from utils.io_checks import assert_single_pair
+    # Only enforce when a truth file is supplied; allow runs without truth
+    if args.truth_file:
+        if args.allow_truth_mismatch:
+            try:
+                assert_single_pair(args.imu_file, args.gnss_file, args.truth_file, force_mix=True)
+            except Exception as ex:  # pragma: no cover — permissive path
+                logging.info(f"[PairGuard] Mismatch allowed: {ex}")
+        else:
+            assert_single_pair(args.imu_file, args.gnss_file, args.truth_file)
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -904,8 +957,9 @@ def main():
     logging.info(
         f"TRIAD initial attitude (deg): roll={euler_tri[0]:.3f} pitch={euler_tri[1]:.3f} yaw={euler_tri[2]:.3f}"
     )
-    with open("triad_init_log.txt", "a") as logf:
-        logf.write(f"{imu_file}: init_euler_deg={euler_tri}\n")
+    if not args.disable_triad_log:
+        with open("triad_init_log.txt", "a") as logf:
+            logf.write(f"{imu_file}: init_euler_deg={euler_tri}\n")
     logging.info(f"Quaternion (SVD, Case 1): {q_svd}")
     logging.debug(f"Quaternion (SVD, Case 1): {q_svd}")
     logging.info(f"Quaternion (TRIAD, Case 2): {q_tri_doc}")
@@ -1103,20 +1157,29 @@ def main():
     if np.isfinite(gnss_vel_ecef_cols).all():
         spd = np.linalg.norm(gnss_vel_ecef_cols, axis=1)
         p50, p95 = np.nanpercentile(spd, [50, 95])
-        scale = 1.0
-        if 10.0 <= p95 < 100.0:
-            scale = 0.1
-        elif 100.0 <= p95 < 1000.0:
-            scale = 0.01
-        gnss_vel_ecef = gnss_vel_ecef_cols * scale
-        vel_source = "columns"
-        logging.info(
-            "Using GNSS velocity columns %s (scale %.2f). p50=%.3f, p95=%.3f m/s",
-            vel_cols,
-            scale,
-            p50 * scale,
-            p95 * scale,
-        )
+        # If columns are essentially zero, fall back to d/dt(position)
+        if p95 < 1e-3:
+            gnss_vel_ecef = np.gradient(gnss_pos_ecef, gnss_time, axis=0)
+            vel_source = "pos-derivative"
+            logging.info(
+                "GNSS velocity columns ~0 (p95=%.3f m/s); using d/dt(pos_ecef) fallback.",
+                p95,
+            )
+        else:
+            scale = 1.0
+            if 10.0 <= p95 < 100.0:
+                scale = 0.1
+            elif 100.0 <= p95 < 1000.0:
+                scale = 0.01
+            gnss_vel_ecef = gnss_vel_ecef_cols * scale
+            vel_source = "columns"
+            logging.info(
+                "Using GNSS velocity columns %s (scale %.2f). p50=%.3f, p95=%.3f m/s",
+                vel_cols,
+                scale,
+                p50 * scale,
+                p95 * scale,
+            )
     else:
         gnss_vel_ecef = np.gradient(gnss_pos_ecef, gnss_time, axis=0)
         vel_source = "pos-derivative"
@@ -2304,9 +2367,10 @@ def main():
         logging.info(
             f"Method {m}: Kalman Filter completed. ZUPTcnt={zupt_count} high_speed_events={high_speed_events}"
         )
-        with open("triad_init_log.txt", "a") as logf:
-            for s, e in zupt_events:
-                logf.write(f"{imu_file}: ZUPT {s}-{e}\n")
+        if not args.disable_triad_log:
+            with open("triad_init_log.txt", "a") as logf:
+                for s, e in zupt_events:
+                    logf.write(f"{imu_file}: ZUPT {s}-{e}\n")
         zupt_counts[m] = zupt_count
         zupt_events_all[m] = list(zupt_events)
 
@@ -2850,125 +2914,179 @@ def main():
         return q
     att_q_raw = attitude_q_all[method]
     att_q_h = _quat_make_continuous(att_q_raw)
-    np.savez_compressed(
-        f"results/{tag}_kf_output.npz",
-        summary=dict(
-            rmse_pos=rmse_pos,
-            final_pos=final_pos,
-            grav_err_mean=grav_err_mean,
-            grav_err_max=grav_err_max,
-            earth_rate_err_mean=omega_err_mean,
-            earth_rate_err_max=omega_err_max,
-        vel_blow_events=high_speed_events,
-        ),
-        tag=np.array([tag]),
-        method=np.array([method_tag]),
-        time=imu_time,
-        t=imu_time,
-        t_rel_imu=imu_time - float(imu_time[0]),
-        t_gnss=gnss_time,
-        t_gnss_shifted=gnss_time_shifted if 'gnss_time_shifted' in locals() else gnss_time,
-        pos_ned=fused_pos[method],
-        vel_ned=fused_vel[method],
-        fused_pos=fused_pos[method],
-        fused_vel=fused_vel[method],
-        fused_acc=fused_acc[method],
-        pos_ecef=pos_ecef,
-        vel_ecef=vel_ecef,
-        gnss_pos_ecef=gnss_pos_ecef,
-        gnss_vel_ecef=gnss_vel_ecef,
-        gnss_pos_ned=gnss_pos_ned,
-        gnss_vel_ned=gnss_vel_ned,
-        gnss_pos_ned_interp=gnss_pos_ned_interp,
-        gnss_vel_ned_interp=gnss_vel_ned_interp,
-        gnss_acc_ned_interp=gnss_acc_ned_interp,
-        truth_pos_ecef=pos_truth_ecef if pos_truth_ecef is not None else np.array([]),
-        truth_vel_ecef=vel_truth_ecef if vel_truth_ecef is not None else np.array([]),
-        truth_time=t_truth if t_truth is not None else np.array([]),
-        truth_pos_ned=truth_pos_ned if truth_pos_ned is not None else np.array([]),
-        truth_vel_ned=truth_vel_ned if truth_vel_ned is not None else np.array([]),
-        truth_pos_ned_i=truth_pos_ned_i if 'truth_pos_ned_i' in locals() and truth_pos_ned_i is not None else np.array([]),
-        truth_vel_ned_i=truth_vel_ned_i if 'truth_vel_ned_i' in locals() and truth_vel_ned_i is not None else np.array([]),
-        pos_body=pos_body,
-        vel_body=vel_body,
-        innov_pos=innov_pos_all[method],
-        innov_vel=innov_vel_all[method],
-        euler=euler_all[method],
-        euler_deg=np.rad2deg(euler_all[method]),
-        residual_pos=res_pos_all[method],
-        residual_vel=res_vel_all[method],
-        time_residuals=time_res_all[method],
-        attitude_q=att_q_raw,
-        attitude_q_harmonized=att_q_h,
-        P_hist=P_hist_all[method],
-        x_log=x_log_all[method],
-        ref_lat=np.array([ref_lat]),
-        ref_lon=np.array([ref_lon]),
-        ref_r0=ref_r0,
-    )
+
+    # Helpers for reducing output size
+    ds = max(1, int(args.downsample))
+    use_fp32 = bool(args.fp32_output or args.lite_output)
+
+    def _prep(a: np.ndarray) -> np.ndarray:
+        if isinstance(a, np.ndarray):
+            b = a[::ds] if a.ndim >= 1 and ds > 1 else a
+            if use_fp32 and b.dtype.kind == 'f':
+                return b.astype(np.float32)
+            return b
+        return a
+
+    if not args.no_npz:
+        out_npz = RESULTS_DIR / f"{tag}_kf_output.npz"
+        if args.lite_output:
+            # Minimal bundle: omit extremely large arrays
+            np.savez_compressed(
+                out_npz,
+                summary=dict(
+                    rmse_pos=rmse_pos,
+                    final_pos=final_pos,
+                    grav_err_mean=grav_err_mean,
+                    grav_err_max=grav_err_max,
+                    earth_rate_err_mean=omega_err_mean,
+                    earth_rate_err_max=omega_err_max,
+                    vel_blow_events=high_speed_events,
+                ),
+                tag=np.array([tag]),
+                method=np.array([method_tag]),
+                time=_prep(imu_time),
+                t=_prep(imu_time),
+                t_rel_imu=_prep(imu_time - float(imu_time[0])),
+                t_gnss=_prep(gnss_time),
+                t_gnss_shifted=_prep(gnss_time_shifted if 'gnss_time_shifted' in locals() else gnss_time),
+                pos_ned=_prep(fused_pos[method]),
+                vel_ned=_prep(fused_vel[method]),
+                fused_pos=_prep(fused_pos[method]),
+                fused_vel=_prep(fused_vel[method]),
+                fused_acc=_prep(fused_acc[method]),
+                euler=_prep(euler_all[method]),
+                euler_deg=_prep(np.rad2deg(euler_all[method])),
+                attitude_q=_prep(att_q_raw),
+                attitude_q_harmonized=_prep(att_q_h),
+                ref_lat=np.array([ref_lat], dtype=np.float32 if use_fp32 else float),
+                ref_lon=np.array([ref_lon], dtype=np.float32 if use_fp32 else float),
+                ref_r0=_prep(ref_r0),
+            )
+        else:
+            np.savez_compressed(
+                out_npz,
+                summary=dict(
+                    rmse_pos=rmse_pos,
+                    final_pos=final_pos,
+                    grav_err_mean=grav_err_mean,
+                    grav_err_max=grav_err_max,
+                    earth_rate_err_mean=omega_err_mean,
+                    earth_rate_err_max=omega_err_max,
+                    vel_blow_events=high_speed_events,
+                ),
+                tag=np.array([tag]),
+                method=np.array([method_tag]),
+                time=_prep(imu_time),
+                t=_prep(imu_time),
+                t_rel_imu=_prep(imu_time - float(imu_time[0])),
+                t_gnss=_prep(gnss_time),
+                t_gnss_shifted=_prep(gnss_time_shifted if 'gnss_time_shifted' in locals() else gnss_time),
+                pos_ned=_prep(fused_pos[method]),
+                vel_ned=_prep(fused_vel[method]),
+                fused_pos=_prep(fused_pos[method]),
+                fused_vel=_prep(fused_vel[method]),
+                fused_acc=_prep(fused_acc[method]),
+                pos_ecef=_prep(pos_ecef),
+                vel_ecef=_prep(vel_ecef),
+                gnss_pos_ecef=_prep(gnss_pos_ecef),
+                gnss_vel_ecef=_prep(gnss_vel_ecef),
+                gnss_pos_ned=_prep(gnss_pos_ned),
+                gnss_vel_ned=_prep(gnss_vel_ned),
+                gnss_pos_ned_interp=_prep(gnss_pos_ned_interp),
+                gnss_vel_ned_interp=_prep(gnss_vel_ned_interp),
+                gnss_acc_ned_interp=_prep(gnss_acc_ned_interp),
+                truth_pos_ecef=_prep(pos_truth_ecef if pos_truth_ecef is not None else np.array([])),
+                truth_vel_ecef=_prep(vel_truth_ecef if vel_truth_ecef is not None else np.array([])),
+                truth_time=_prep(t_truth if t_truth is not None else np.array([])),
+                truth_pos_ned=_prep(truth_pos_ned if truth_pos_ned is not None else np.array([])),
+                truth_vel_ned=_prep(truth_vel_ned if truth_vel_ned is not None else np.array([])),
+                truth_pos_ned_i=_prep(truth_pos_ned_i if 'truth_pos_ned_i' in locals() and truth_pos_ned_i is not None else np.array([])),
+                truth_vel_ned_i=_prep(truth_vel_ned_i if 'truth_vel_ned_i' in locals() and truth_vel_ned_i is not None else np.array([])),
+                pos_body=_prep(pos_body),
+                vel_body=_prep(vel_body),
+                innov_pos=_prep(innov_pos_all[method]),
+                innov_vel=_prep(innov_vel_all[method]),
+                euler=_prep(euler_all[method]),
+                euler_deg=_prep(np.rad2deg(euler_all[method])),
+                residual_pos=_prep(res_pos_all[method]),
+                residual_vel=_prep(res_vel_all[method]),
+                time_residuals=_prep(time_res_all[method]),
+                attitude_q=_prep(att_q_raw),
+                attitude_q_harmonized=_prep(att_q_h),
+                P_hist=_prep(P_hist_all[method]),
+                x_log=_prep(x_log_all[method]),
+                ref_lat=np.array([ref_lat], dtype=np.float32 if use_fp32 else float),
+                ref_lon=np.array([ref_lon], dtype=np.float32 if use_fp32 else float),
+                ref_r0=_prep(ref_r0),
+            )
 
     # Also export results as MATLAB-compatible .mat for post-processing
     # MATLAB-friendly .mat bundle with all key series for downstream plotting
-    save_mat(
-        f"results/{tag}_kf_output.mat",
-        {
-            "rmse_pos": np.array([rmse_pos]),
-            "final_pos": np.array([final_pos]),
-            "grav_err_mean": np.array([grav_err_mean]),
-            "grav_err_max": np.array([grav_err_max]),
-            "earth_rate_err_mean": np.array([omega_err_mean]),
-            "earth_rate_err_max": np.array([omega_err_max]),
-            "vel_blow_events": np.array([high_speed_events]),
-            "tag": np.array([tag], dtype=object),
-            "method": np.array([method_tag], dtype=object),
-            "time": imu_time,
-            "t": imu_time,
-            "t_rel_imu": imu_time - float(imu_time[0]),
-            "t_gnss": gnss_time,
-            "t_gnss_shifted": gnss_time_shifted if 'gnss_time_shifted' in locals() else gnss_time,
-            "pos_ned": fused_pos[method],
-            "vel_ned": fused_vel[method],
-            "fused_pos": fused_pos[method],
-            "fused_vel": fused_vel[method],
-            "fused_acc": fused_acc[method],
-            "pos_ecef": pos_ecef,
-            "vel_ecef": vel_ecef,
-            "gnss_pos_ecef": gnss_pos_ecef,
-            "gnss_vel_ecef": gnss_vel_ecef,
-            "gnss_pos_ned": gnss_pos_ned,
-            "gnss_vel_ned": gnss_vel_ned,
-            "gnss_pos_ned_interp": gnss_pos_ned_interp,
-            "gnss_vel_ned_interp": gnss_vel_ned_interp,
-            "gnss_acc_ned_interp": gnss_acc_ned_interp,
-            "truth_pos_ecef": pos_truth_ecef if pos_truth_ecef is not None else np.empty((0, 3)),
-            "truth_vel_ecef": vel_truth_ecef if vel_truth_ecef is not None else np.empty((0, 3)),
-            "truth_time": t_truth if t_truth is not None else np.empty(0),
-            "truth_pos_ned": truth_pos_ned if truth_pos_ned is not None else np.empty((0, 3)),
-            "truth_vel_ned": truth_vel_ned if truth_vel_ned is not None else np.empty((0, 3)),
-            "truth_pos_ned_i": truth_pos_ned_i if 'truth_pos_ned_i' in locals() and truth_pos_ned_i is not None else np.empty((0, 3)),
-            "truth_vel_ned_i": truth_vel_ned_i if 'truth_vel_ned_i' in locals() and truth_vel_ned_i is not None else np.empty((0, 3)),
-            "pos_body": pos_body,
-            "vel_body": vel_body,
-            "innov_pos": innov_pos_all[method],
-            "innov_vel": innov_vel_all[method],
-            "euler": euler_all[method],
-            "euler_deg": np.rad2deg(euler_all[method]),
-            "residual_pos": res_pos_all[method],
-            "residual_vel": res_vel_all[method],
-            "time_residuals": time_res_all[method],
-            "attitude_q": att_q_raw,
-            "attitude_q_harmonized": att_q_h,
-            "P_hist": P_hist_all[method],
-            "x_log": x_log_all[method],
-            "ref_lat": np.array([ref_lat]),
-            "ref_lon": np.array([ref_lon]),
-            "ref_r0": ref_r0,
-        },
-    )
-    logging.info(
-        "Saved MATLAB bundle: results/%s_kf_output.mat (load in MATLAB and call MATLAB/plot_all_from_mat.m)",
-        tag,
-    )
+    if not args.no_mat:
+        save_mat(
+            str(RESULTS_DIR / f"{tag}_kf_output.mat"),
+            {
+                "rmse_pos": np.array([rmse_pos]),
+                "final_pos": np.array([final_pos]),
+                "grav_err_mean": np.array([grav_err_mean]),
+                "grav_err_max": np.array([grav_err_max]),
+                "earth_rate_err_mean": np.array([omega_err_mean]),
+                "earth_rate_err_max": np.array([omega_err_max]),
+                "vel_blow_events": np.array([high_speed_events]),
+                "tag": np.array([tag], dtype=object),
+                "method": np.array([method_tag], dtype=object),
+                "time": _prep(imu_time),
+                "t": _prep(imu_time),
+                "t_rel_imu": _prep(imu_time - float(imu_time[0])),
+                "t_gnss": _prep(gnss_time),
+                "t_gnss_shifted": _prep(gnss_time_shifted if 'gnss_time_shifted' in locals() else gnss_time),
+                "pos_ned": _prep(fused_pos[method]),
+                "vel_ned": _prep(fused_vel[method]),
+                "fused_pos": _prep(fused_pos[method]),
+                "fused_vel": _prep(fused_vel[method]),
+                "fused_acc": _prep(fused_acc[method]),
+                **({} if args.lite_output else {
+                    "pos_ecef": _prep(pos_ecef),
+                    "vel_ecef": _prep(vel_ecef),
+                    "gnss_pos_ecef": _prep(gnss_pos_ecef),
+                    "gnss_vel_ecef": _prep(gnss_vel_ecef),
+                    "gnss_pos_ned": _prep(gnss_pos_ned),
+                    "gnss_vel_ned": _prep(gnss_vel_ned),
+                    "gnss_pos_ned_interp": _prep(gnss_pos_ned_interp),
+                    "gnss_vel_ned_interp": _prep(gnss_vel_ned_interp),
+                    "gnss_acc_ned_interp": _prep(gnss_acc_ned_interp),
+                }),
+                "truth_pos_ecef": _prep(pos_truth_ecef if pos_truth_ecef is not None else np.empty((0, 3))),
+                "truth_vel_ecef": _prep(vel_truth_ecef if vel_truth_ecef is not None else np.empty((0, 3))),
+                "truth_time": _prep(t_truth if t_truth is not None else np.empty(0)),
+                "truth_pos_ned": _prep(truth_pos_ned if truth_pos_ned is not None else np.empty((0, 3))),
+                "truth_vel_ned": _prep(truth_vel_ned if truth_vel_ned is not None else np.empty((0, 3))),
+                "truth_pos_ned_i": _prep(truth_pos_ned_i if 'truth_pos_ned_i' in locals() and truth_pos_ned_i is not None else np.empty((0, 3))),
+                "truth_vel_ned_i": _prep(truth_vel_ned_i if 'truth_vel_ned_i' in locals() and truth_vel_ned_i is not None else np.empty((0, 3))),
+                "pos_body": _prep(pos_body),
+                "vel_body": _prep(vel_body),
+                **({} if args.lite_output else {
+                    "innov_pos": _prep(innov_pos_all[method]),
+                    "innov_vel": _prep(innov_vel_all[method]),
+                    "residual_pos": _prep(res_pos_all[method]),
+                    "residual_vel": _prep(res_vel_all[method]),
+                    "time_residuals": _prep(time_res_all[method]),
+                    "P_hist": _prep(P_hist_all[method]),
+                    "x_log": _prep(x_log_all[method]),
+                }),
+                "euler": _prep(euler_all[method]),
+                "euler_deg": _prep(np.rad2deg(euler_all[method])),
+                "attitude_q": _prep(att_q_raw),
+                "attitude_q_harmonized": _prep(att_q_h),
+                "ref_lat": np.array([ref_lat]),
+                "ref_lon": np.array([ref_lon]),
+                "ref_r0": _prep(ref_r0),
+            },
+        )
+        logging.info(
+            "Saved MATLAB bundle: %s (load in MATLAB and call MATLAB/plot_all_from_mat.m)",
+            str(RESULTS_DIR / f"{tag}_kf_output.mat"),
+        )
 
     # --- Per-task data bundle (MAT struct) --------------------------------
     tasks_mat = {
@@ -3004,7 +3122,7 @@ def main():
             'residual_vel': res_vel_all[method],
         },
     }
-    save_mat(f"results/{tag}_tasks.mat", tasks_mat)
+    save_mat(str(RESULTS_DIR / f"{tag}_tasks.mat"), tasks_mat)
 
     if measure_source == "truth" and truth_pos_ned is not None:
         plot_task6_truth_overlay(

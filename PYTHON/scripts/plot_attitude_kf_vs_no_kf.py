@@ -24,6 +24,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 
+import sys
+import os
+from pathlib import Path as _Path
+
+# Ensure the project root (parent of this scripts dir) is on sys.path so that
+# `import src...` works when running this file directly.
+_HERE = _Path(__file__).resolve().parent
+_ROOT = _HERE.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 from src.validate_with_truth import load_estimate
 
 

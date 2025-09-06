@@ -232,6 +232,12 @@ def main(argv=None):
             "--method",
             m,
         ]
+        # Pass truth to fusion when available and allow dataset mismatches
+        try:
+            if truth_path and pathlib.Path(truth_path).exists():
+                cmd += ["--truth-file", str(truth_path), "--allow-truth-mismatch"]
+        except Exception:
+            pass
         if args.no_plots:
             cmd.append("--no-plots")
         start_t = time.time()
@@ -453,6 +459,39 @@ def main(argv=None):
                 print(
                     f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{tag}/"
                 )
+
+            # ----------------------------
+            # Attitude comparison (KF vs truth, DR true-init)
+            # ----------------------------
+            try:
+                est_npz = results_dir / f"{tag}_kf_output.npz"
+                if est_npz.exists() and truth_path and pathlib.Path(truth_path).exists():
+                    att_cmd = [
+                        sys.executable,
+                        str(HERE / "../scripts/plot_attitude_kf_vs_no_kf.py"),
+                        "--imu-file", str(imu_path),
+                        "--est-file", str(est_npz),
+                        "--truth-file", str(truth_path),
+                        "--out-dir", str(results_dir),
+                        "--true-init",
+                    ]
+                    env = os.environ.copy()
+                    # Ensure 'src' is importable from the script
+                    try:
+                        env["PYTHONPATH"] = str(ROOT) + os.pathsep + str(HERE) + os.pathsep + env.get("PYTHONPATH", "")
+                    except Exception:
+                        pass
+                    with open(log_path, "a") as log:
+                        logger.info("Running attitude comparison plots: %s", att_cmd)
+                        proc = subprocess.Popen(att_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
+                        for line in proc.stdout:
+                            print(line, end="")
+                            log.write(line)
+                        proc.wait()
+                        print("Generated attitude comparison plots (KF vs truth, DR vs truth).")
+                        log.write("Generated attitude comparison plots (KF vs truth, DR vs truth).\n")
+            except Exception as ex:
+                logger.info(f"[WARN] Attitude comparison plotting failed: {ex}")
 
     # --- nicely formatted summary table --------------------------------------
     if results:

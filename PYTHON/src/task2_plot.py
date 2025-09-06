@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import uuid
 import os
 from utils.plot_save import save_plot, task_summary
+from utils.plot_saver import save_png_and_mat
 
 
 def save_task2_summary_png(
@@ -75,7 +76,21 @@ def save_task2_summary_png(
     fig.suptitle("Task 2 – Body-frame vector summary")
     fig.tight_layout(rect=[0, 0, 1, 0.95])
 
-    out_png = save_plot(fig, out_dir, run_id, "task2", "static_interval", ext="png", dpi=300)
+    base = out_dir / f"{run_id}_task2_static_interval"
+    save_png_and_mat(
+        fig,
+        str(base),
+        arrays=dict(
+            t=t,
+            acc_norm=acc_norm,
+            gyro_norm=gyro_norm,
+            static_start=np.array([static_start]),
+            static_end=np.array([static_end]),
+            g_body=g_body,
+            omega_ie_body=omega_ie_body,
+        ),
+    )
+    out_png = base.with_suffix('.png')
     plt.close(fig)
     task_summary("task2")
     return out_png
@@ -153,7 +168,13 @@ def task2_measure_body_vectors(
         )
 
     fig.tight_layout()
-    out_png = save_plot(fig, out_dir, run_id, "task2", "vectors", ext="png", dpi=300)
+    base = out_dir / f"{run_id}_task2_vectors"
+    save_png_and_mat(
+        fig,
+        str(base),
+        arrays=dict(g_body=g_body, omega_ie_body=omega_ie_body, errors=errors),
+    )
+    out_png = base.with_suffix('.png')
     plt.close(fig)
     task_summary("task2")
     return out_png

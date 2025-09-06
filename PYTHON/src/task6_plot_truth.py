@@ -583,18 +583,35 @@ def main():
             eprint(f"WARN: flat results copy failed: {ex}")
         # Difference plots (Truth - Fused) in all frames
         try:
+            diff_pngs = []
             if pos_ned is not None and vel_ned is not None and pos_ned_truth is not None and vel_ned_truth is not None:
                 diff_pos_ned = pos_ned_truth - pos_ned
                 diff_vel_ned = vel_ned_truth - vel_ned
-                _plot_diff_2x3(t_rel, diff_pos_ned, diff_vel_ned, ['North','East','Down'], 'NED', str(out_dir / f"{run_id}_task6_diff_truth_fused_over_time_NED"))
+                p = out_dir / f"{run_id}_task6_diff_truth_fused_over_time_NED"
+                _plot_diff_2x3(t_rel, diff_pos_ned, diff_vel_ned, ['North','East','Down'], 'NED', str(p))
+                diff_pngs.append(p.with_suffix('.png'))
             if pos_ecef_est is not None and vel_ecef_est is not None and pos_ecef_truth_i is not None and vel_ecef_truth_i is not None:
                 diff_pos_ecef = pos_ecef_truth_i - pos_ecef_est
                 diff_vel_ecef = vel_ecef_truth_i - vel_ecef_est
-                _plot_diff_2x3(t_rel, diff_pos_ecef, diff_vel_ecef, ['X','Y','Z'], 'ECEF', str(out_dir / f"{run_id}_task6_diff_truth_fused_over_time_ECEF"))
+                p = out_dir / f"{run_id}_task6_diff_truth_fused_over_time_ECEF"
+                _plot_diff_2x3(t_rel, diff_pos_ecef, diff_vel_ecef, ['X','Y','Z'], 'ECEF', str(p))
+                diff_pngs.append(p.with_suffix('.png'))
             if pos_body is not None and vel_body is not None and pos_body_truth_i is not None and vel_body_truth_i is not None:
                 diff_pos_body = pos_body_truth_i - pos_body
                 diff_vel_body = vel_body_truth_i - vel_body
-                _plot_diff_2x3(t_rel, diff_pos_body, diff_vel_body, ['X','Y','Z'], 'Body', str(out_dir / f"{run_id}_task6_diff_truth_fused_over_time_Body"))
+                p = out_dir / f"{run_id}_task6_diff_truth_fused_over_time_Body"
+                _plot_diff_2x3(t_rel, diff_pos_body, diff_vel_body, ['X','Y','Z'], 'Body', str(p))
+                diff_pngs.append(p.with_suffix('.png'))
+            # Copy diff PNGs to results root for convenience
+            try:
+                res_root = ensure_results_dir()
+                for p in diff_pngs:
+                    if p.exists():
+                        dst = res_root / p.name
+                        shutil.copy2(p, dst)
+                        print(f"[SAVE] Copied {p.name} -> {dst}")
+            except Exception as ex:
+                eprint(f"WARN: flat diff results copy failed: {ex}")
         except Exception as ex:
             eprint(f"WARN: failed to create Task 6 diff plots: {ex}")
     else:

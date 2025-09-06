@@ -56,6 +56,57 @@ __all__ = [
     "run_debug_checks",
 ]
 
+# ------------------------------------------------------------------
+# PairGuard and velocity source helpers
+# ------------------------------------------------------------------
+# PairGuard import robust to different entry points (package vs script)
+try:
+    from utils.io_checks import assert_single_pair  # type: ignore
+except Exception:  # pragma: no cover - package-relative fallback
+    from .utils.io_checks import assert_single_pair  # type: ignore
+
+import numpy as _np
+
+def _p95_speed(v):
+    spd = _np.linalg.norm(_np.asarray(v), axis=1)
+    spd = spd[_np.isfinite(spd)]
+    return float(_np.nanpercentile(spd, 95)) if spd.size else float("nan")
+
+
+def choose_truth_vel(t_truth, pos_ecef_truth, vel_ecef_cols, speed_p95_thr=0.10, have_savgol=True):
+    """Choose truth velocity source between provided columns and d/dt(pos).
+
+    Returns ECEF velocity (Nx3) and prints the chosen source.
+    """
+    use_cols = False
+    p95_cols = _np.nan
+    if vel_ecef_cols is not None:
+        arr = _np.asarray(vel_ecef_cols)
+        if arr.ndim == 2 and arr.shape[1] == 3 and _np.all(_np.isfinite(arr)):
+            p95_cols = _p95_speed(arr)
+            use_cols = bool(p95_cols > speed_p95_thr)
+
+    if use_cols:
+        src = f"columns; p95|v|={p95_cols:.3f} m/s"
+        vel_ecef = _np.asarray(vel_ecef_cols)
+    else:
+        t_truth = _np.asarray(t_truth, dtype=float)
+        dt = _np.gradient(t_truth)
+        if have_savgol:
+            from scipy.signal import savgol_filter
+            win = 51 if (t_truth.size >= 51) else max(5, (t_truth.size // 2) * 2 + 1)
+            pos_s = savgol_filter(_np.asarray(pos_ecef_truth), win, 3, axis=0, mode="interp")
+            vel_ecef = _np.gradient(pos_s, dt, axis=0)
+            src = "d/dt(pos) (Savitzky–Golay)"
+        else:
+            vel_ecef = _np.column_stack([
+                _np.gradient(_np.asarray(pos_ecef_truth)[:, k], dt) for k in range(3)
+            ])
+            src = "d/dt(pos) (gradient)"
+        p95_cols = _p95_speed(vel_ecef)
+    print(f"[Truth] velocity source: {src}")
+    return vel_ecef
+
 
 def _ned_to_ecef(pos_ned, ref_lat, ref_lon, ref_ecef, vel_ned=None, debug=False):
     """Convert NED positions (and optionally velocities) to ECEF."""
@@ -252,43 +303,13 @@ def validate_with_truth(estimate_file, truth_file, dataset, convert_est_to_ecef=
         vel_err = est_vel_ecef - truth[:, 5:8]
     else:
         # default: convert truth to NED and compare in NED frame
-        # Derive truth velocity from ECEF position at native 10 Hz, then rotate
         ref_ecef = truth[0, 2:5]
         lat_deg, lon_deg, _ = ecef_to_geodetic(*ref_ecef)
         C = compute_C_ECEF_to_NED(np.deg2rad(lat_deg), np.deg2rad(lon_deg))
         C_NED_to_ECEF = C.T
         pos_ecef_truth = truth[:, 2:5]
-        # Prefer truth velocity columns when non-trivial; fallback to smoothed derivative of position
-        use_cols = truth.shape[1] >= 8
-        if use_cols:
-            vel_cols = truth[:, 5:8]
-            try:
-                p95 = float(np.percentile(np.linalg.norm(vel_cols, axis=1), 95))
-            except Exception:
-                p95 = 0.0
-            use_cols = p95 > 0.10
-        if use_cols:
-            vel_ecef = vel_cols
-            logging.info(
-                "[Truth] velocity source: columns; p95|v|=%.3f m/s", float(np.percentile(np.linalg.norm(vel_ecef, axis=1), 95))
-            )
-        else:
-            try:
-                from scipy.signal import savgol_filter
-                # Derivative via Savitzky–Golay; infer dt from truth_time median
-                dt = float(np.median(np.diff(truth_time))) if truth_time.size > 1 else 0.1
-                win = 21 if len(truth_time) >= 21 else max(5, (len(truth_time) // 2) * 2 + 1)
-                pos_s = savgol_filter(pos_ecef_truth, win, 3, axis=0, mode="interp")
-                vel_ecef = np.gradient(pos_s, dt, axis=0)
-                src = "d/dt(pos) (Savitzky–Golay)"
-            except Exception:
-                vel_ecef = np.gradient(pos_ecef_truth, truth_time, axis=0)
-                src = "d/dt(pos)"
-            try:
-                p95v = float(np.percentile(np.linalg.norm(vel_ecef, axis=1), 95))
-                logging.info("[Truth] velocity source: %s; p95|v|=%.3f m/s", src, p95v)
-            except Exception:
-                pass
+        vel_cols = truth[:, 5:8] if truth.shape[1] >= 8 else None
+        vel_ecef = choose_truth_vel(truth_time, pos_ecef_truth, vel_cols)
         truth_pos_ned = np.array([C @ (p - ref_ecef) for p in pos_ecef_truth])
         truth_vel_ned = np.array([C @ v for v in vel_ecef])
 
@@ -375,23 +396,8 @@ def validate_ecef_only(est_file, truth_file, debug=False):
 
     pos_i = np.vstack([np.interp(t_truth, t_est, pos_est[:, i]) for i in range(3)]).T
     vel_i = np.vstack([np.interp(t_truth, t_est, vel_est[:, i]) for i in range(3)]).T
-    # Truth velocity: prefer columns if non-trivial, else smoothed derivative
-    use_cols = True
-    try:
-        p95 = float(np.percentile(np.linalg.norm(vel_truth_cols, axis=1), 95))
-        use_cols = p95 > 0.10
-    except Exception:
-        use_cols = False
-    if not use_cols:
-        try:
-            from scipy.signal import savgol_filter
-            dt = float(np.median(np.diff(t_truth))) if t_truth.size > 1 else 0.1
-            pos_s = savgol_filter(pos_truth, 21 if len(t_truth) >= 21 else max(5, (len(t_truth)//2)*2+1), 3, axis=0, mode="interp")
-            vel_truth = np.gradient(pos_s, dt, axis=0)
-        except Exception:
-            vel_truth = np.gradient(pos_truth, t_truth, axis=0)
-    else:
-        vel_truth = vel_truth_cols
+    # Truth velocity: robust selection
+    vel_truth = choose_truth_vel(t_truth, pos_truth, vel_truth_cols)
 
     pos_err = pos_i - pos_truth
     vel_err = vel_i - vel_truth
@@ -1188,6 +1194,18 @@ def main():
 
     # Robust quaternion truth vs estimate comparison and divergence detection
     tag = (m_truth.group(1) if m_truth else (m_est.group(1) if m_est else "DATA"))
+    # Prefer a full method-specific tag when the estimate filename matches the
+    # canonical pattern IMU_*_GNSS_*_{Method}_kf_output.{mat|npz}
+    tag_method = tag
+    try:
+        m_full = re.match(
+            r"(IMU_\w+)_(GNSS_\w+)_([A-Za-z]+)_kf_output",
+            os.path.basename(args.est_file),
+        )
+        if m_full:
+            tag_method = f"{m_full.group(1)}_{m_full.group(2)}_{m_full.group(3)}"
+    except Exception:
+        pass
     if est.get("quat") is not None and truth.shape[1] >= 12:
         # Build shared time window
         t_est = np.asarray(est.get("time")).squeeze()
@@ -1307,8 +1325,8 @@ def main():
                 eul_truth = best["eul_truth"]
                 eul_est = best["eul_est"]
 
-                # Plots with TAG in filename
-                tag_prefix = os.path.join(args.output, f"{tag}")
+                # Plots with method-specific TAG in filename when available
+                tag_prefix = os.path.join(args.output, f"{tag_method}")
                 # Quaternion components (w,x,y,z)
                 comps = ["w", "x", "y", "z"]
                 plt.figure(figsize=(10, 7))
@@ -1347,9 +1365,15 @@ def main():
                     pass
                 try:
                     from utils.matlab_fig_export import save_matlab_fig
-                    save_matlab_fig(fig_q, f_q_base)
+                    ok = save_matlab_fig(fig_q, f_q_base)
                 except Exception:
-                    pass
+                    ok = None
+                if ok is None:
+                    try:
+                        from utils_legacy import save_plot_fig
+                        save_plot_fig(fig_q, f_q_base + '.fig')
+                    except Exception:
+                        pass
                 plt.close()
                 # Euler (Z-Y-X yaw/pitch/roll)
                 labels = ["Yaw [deg]", "Pitch [deg]", "Roll [deg]"]
@@ -1387,9 +1411,15 @@ def main():
                     pass
                 try:
                     from utils.matlab_fig_export import save_matlab_fig
-                    save_matlab_fig(fig_e, f_e_base)
+                    ok = save_matlab_fig(fig_e, f_e_base)
                 except Exception:
-                    pass
+                    ok = None
+                if ok is None:
+                    try:
+                        from utils_legacy import save_plot_fig
+                        save_plot_fig(fig_e, f_e_base + '.fig')
+                    except Exception:
+                        pass
                 plt.close()
 
                 # Divergence detection on overlap only, with CLI threshold/persist
@@ -1589,9 +1619,19 @@ def main():
             plt.ylabel(f"{lbl} error")
             plt.legend()
             plt.tight_layout()
-            from utils.matlab_fig_export import save_matlab_fig
-            from utils.matlab_fig_export import save_matlab_fig
-            save_matlab_fig(fig, os.path.join(args.output, f"{prefix}_{lbl}"))
+            # Save PNG and MATLAB .fig (if available)
+            out_base = os.path.join(args.output, f"{prefix}_{lbl}")
+            fig = plt.gcf()
+            try:
+                fig.savefig(f"{out_base}.png", dpi=200, bbox_inches='tight')
+            except Exception:
+                pass
+            try:
+                from utils.matlab_fig_export import save_matlab_fig
+                save_matlab_fig(fig, out_base)
+            except Exception:
+                # MATLAB engine unavailable or exporter not present — skip .fig
+                pass
             plt.close()
 
     plot_err(dist_truth, err_pos, sigma_pos, ["X", "Y", "Z"], "pos_err", "Distance [m]")

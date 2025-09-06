@@ -53,4 +53,9 @@ def task_summary(task_label: str) -> None:
     """Print a summary of saved plots for *task_label*."""
     files = _saved.get(task_label, [])
     n = task_label.replace("task", "")
-    print(f"[TASK {n}] Plots saved to results/: {files}")
+    if not files:
+        print(f"[TASK {n}] No plots saved.")
+        return
+    print(f"[TASK {n}] Plots saved to results/:")
+    for name in files:
+        print(f"  {name}")

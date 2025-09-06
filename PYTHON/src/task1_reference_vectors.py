@@ -7,8 +7,15 @@ from utils.plot_save import save_plot, task_summary
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-import plotly.io as pio
+# Plotly is optional; fall back to matplotlib when unavailable
+try:  # pragma: no cover - environment dependent
+    import plotly.graph_objects as go
+    import plotly.io as pio
+    PLOTLY_AVAILABLE = True
+except Exception:  # pragma: no cover - graceful degradation
+    go = None
+    pio = None
+    PLOTLY_AVAILABLE = False
 
 from utils import ecef_to_geodetic
 
@@ -67,30 +74,43 @@ def task1_reference_vectors(gnss_data: pd.DataFrame, output_dir: str | Path, run
 
     lat_deg, lon_deg = ensure_deg_latlon(lat_raw, lon_raw)
 
-    fig = go.Figure()
-    fig.add_scattergeo(
-        lon=[lon_deg], lat=[lat_deg], mode="markers", marker=dict(size=10, color="red")
-    )
-    fig.update_layout(
-        title="Task 1 — Initial GNSS location",
-        geo=dict(
-            projection_type="equirectangular",
-            showcountries=True,
-            showcoastlines=True,
-            showland=True,
-            lataxis=dict(showgrid=True, dtick=15),
-            lonaxis=dict(showgrid=True, dtick=30),
-        ),
-    )
-
     png_path = output_dir / f"{run_id}_task1_location_map.png"
-    try:
-        chrome = getattr(pio.kaleido.scope, "chromium", "unknown")
-        print(f"[Task1] Kaleido chromium={chrome}")
-        pio.write_image(fig, png_path, width=1200, height=800, scale=2)
-        print(f"[SAVE] {png_path}")
-    except Exception as ex:
-        print(f"[Task1] Kaleido export failed: {ex}; using Matplotlib fallback")
+    if PLOTLY_AVAILABLE:
+        fig = go.Figure()
+        fig.add_scattergeo(
+            lon=[lon_deg], lat=[lat_deg], mode="markers", marker=dict(size=10, color="red")
+        )
+        fig.update_layout(
+            title="Task 1 — Initial GNSS location",
+            geo=dict(
+                projection_type="equirectangular",
+                showcountries=True,
+                showcoastlines=True,
+                showland=True,
+                lataxis=dict(showgrid=True, dtick=15),
+                lonaxis=dict(showgrid=True, dtick=30),
+            ),
+        )
+        try:
+            chrome = getattr(pio.kaleido.scope, "chromium", "unknown")
+            print(f"[Task1] Kaleido chromium={chrome}")
+            pio.write_image(fig, png_path, width=1200, height=800, scale=2)
+            print(f"[SAVE] {png_path}")
+        except Exception as ex:
+            print(f"[Task1] Kaleido export failed: {ex}; using Matplotlib fallback")
+            import matplotlib.pyplot as plt
+
+            fig2, ax = plt.subplots(figsize=(8, 4))
+            ax.set_xlim(-180, 180)
+            ax.set_ylim(-90, 90)
+            ax.scatter([lon_deg], [lat_deg], color="red")
+            ax.set_xlabel("Lon [deg]")
+            ax.set_ylabel("Lat [deg]")
+            ax.set_title("Task 1 — Initial GNSS location (fallback)")
+            save_plot(fig2, output_dir, run_id, "task1", "location_map")
+            plt.close(fig2)
+    else:
+        # No plotly available — directly use matplotlib fallback
         import matplotlib.pyplot as plt
 
         fig2, ax = plt.subplots(figsize=(8, 4))

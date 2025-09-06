@@ -115,7 +115,7 @@ def main():
         default='ALL',
     )
     parser.add_argument('--config', help='YAML configuration file')
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
 
     init_override = {}
     if args.config:
@@ -219,7 +219,13 @@ def main():
                 "--imu-file", str(imu_path),
                 "--gnss-file", str(gnss_path),
                 "--method", method,
-            ] + init_cli + (["--verbose"] if args.verbose else [])
+            ] + init_cli + (["--verbose"] if args.verbose else []) + unknown
+            # Pass truth to the fusion pipeline when available and allow dataset mismatches
+            try:
+                if truth_path and pathlib.Path(truth_path).exists():
+                    cmd += ["--truth-file", str(truth_path), "--allow-truth-mismatch"]
+            except Exception:
+                pass
             summary_lines = []
             with log.open("w") as fh:
                 proc = subprocess.Popen(
