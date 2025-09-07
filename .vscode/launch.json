@@ -1,13 +1,51 @@
 {
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Run Script",
-      "type": "python",
-      "request": "launch",
-      "program": "${workspaceFolder}/run_all_datasets.py",
-      "console": "integratedTerminal",
-      "args": ["--verbose"]
-    }
-  ]
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run All Methods (Full Data)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/PYTHON/src/run_all_methods.py",
+            "args": ["--config", "config_full.yml", "--debug"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "python": "${workspaceFolder}/.venv/bin/python"
+        },
+        {
+            "name": "Run All Methods (Small Data)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/PYTHON/src/run_all_methods.py",
+            "args": ["--config", "config_small.yml", "--debug"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "python": "${workspaceFolder}/.venv/bin/python"
+        },
+        {
+            "name": "GNSS IMU Fusion (Single)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/PYTHON/src/GNSS_IMU_Fusion.py",
+            "args": [
+                "--imu-file", "DATA/IMU/IMU_X001.dat",
+                "--gnss-file", "DATA/GNSS/GNSS_X001.csv", 
+                "--method", "TRIAD",
+                "--truth-file", "DATA/Truth/STATE_X001.txt"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "python": "${workspaceFolder}/.venv/bin/python"
+        },
+        {
+            "name": "Run Legacy Script",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_all_datasets.py",
+            "console": "integratedTerminal",
+            "args": ["--verbose"]
+        }
+    ]
 }
