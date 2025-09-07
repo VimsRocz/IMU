@@ -123,6 +123,317 @@ def run_case(cmd, log_path):
     return proc.returncode, summary_lines
 
 
+# ---------------------------------------------------------------------------
+# Task7 Attitude plotting helpers (mirrors logic from run_triad_only.py)
+# ---------------------------------------------------------------------------
+from typing import Dict, Any, List, Tuple
+
+
+def _save_png_and_mat(base_png_path: str, data_dict: Dict[str, Any]):
+    """Save current matplotlib figure to PNG and accompanying MAT file.
+
+    The MAT filename mirrors the PNG but with .mat extension. Failures are
+    logged but non-fatal.
+    """
+    try:
+        import matplotlib.pyplot as plt  # local import to avoid global dependency if never used
+        png_path = pathlib.Path(base_png_path)
+        png_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.gcf().savefig(png_path, dpi=150, bbox_inches="tight")
+        print(f"[PNG] {png_path}")
+    except Exception as e:  # pragma: no cover - best-effort
+        logger.warning(f"Failed to save PNG {base_png_path}: {e}")
+    try:
+        from scipy.io import savemat
+        mat_path = str(pathlib.Path(base_png_path).with_suffix(".mat"))
+        savemat(mat_path, {k: (np.asarray(v) if not isinstance(v, (int, float)) else v) for k, v in data_dict.items()})
+        print(f"[MAT] {mat_path}")
+    except Exception as e:  # pragma: no cover
+        logger.warning(f"Failed to save MAT for {base_png_path}: {e}")
+    return pathlib.Path(base_png_path)
+
+
+def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: str, results_dir: pathlib.Path,
+                          div_threshold_deg: float = 30.0, div_persist_sec: float = 10.0,
+                          length_scan: str = "60,120,300,600,900,1200",
+                          subdir: str = "task7_attitude") -> None:
+    """Replicate Task7 attitude plots produced by run_triad_only for batch runs.
+
+    Generates quaternion/euler truth-vs-estimate plots, component residuals,
+    angle error over time, divergence summary and divergence-vs-length study.
+    Safe to call even if inputs are incomplete (will silently skip).
+    """
+    try:
+        import matplotlib.pyplot as plt  # local import
+    except Exception as e:  # pragma: no cover
+        logger.warning(f"Matplotlib unavailable; skipping Task7 attitude plots: {e}")
+        return
+
+    if not est_npz.exists() or not truth_file or not truth_file.exists():
+        return
+    try:
+        data = np.load(est_npz, allow_pickle=True)
+    except Exception as e:
+        logger.warning(f"Failed loading estimate NPZ for attitude plots: {e}")
+        return
+
+    # Extract time + quaternion (wxyz) from estimator
+    time_s = data.get("time_s") or data.get("time")
+    quat = data.get("att_quat") or data.get("attitude_q") or data.get("quat_log") or data.get("quat")
+    if quat is None or time_s is None:
+        logger.info("Estimator NPZ missing quaternion/time; skipping Task7 attitude plots")
+        return
+    time_s = np.asarray(time_s).ravel()
+    quat = np.asarray(quat)
+    if quat.shape[0] != time_s.shape[0]:
+        n = min(len(time_s), len(quat))
+        time_s = time_s[:n]
+        quat = quat[:n]
+
+    # Load truth (STATE_X...) flexible parsing similar to run_triad_only _read_state_x001
+    try:
+        M = np.loadtxt(truth_file, dtype=float)
+        if M.ndim != 2 or M.shape[1] < 10:
+            raise ValueError("truth file unexpected shape")
+        q_truth = M[:, -4:]  # assume qw qx qy qz
+        # Determine time column (prefer one whose span < 2e4s)
+        cand_cols = [0, 1] if M.shape[1] > 1 else [0]
+        t_candidates = []
+        for c in cand_cols:
+            tcol = M[:, c]
+            span = tcol.max() - tcol.min()
+            t_candidates.append((abs(span), c, tcol))
+        t_candidates.sort(key=lambda x: x[0])
+        t_truth = t_candidates[0][2]
+        # Zero-base if starts at a large offset
+        if t_truth[0] > 1000:
+            t_truth = t_truth - t_truth[0]
+    except Exception as e:
+        logger.warning(f"Failed loading truth for attitude: {e}")
+        return
+
+    # Helper functions (minimal subset)
+    def q_norm(q: np.ndarray) -> np.ndarray:
+        q = np.asarray(q, float)
+        n = np.linalg.norm(q, axis=1, keepdims=True)
+        n[n == 0] = 1.0
+        return q / n
+
+    def q_conj(q: np.ndarray) -> np.ndarray:
+        q = np.asarray(q, float)
+        return np.column_stack([q[:, 0], -q[:, 1], -q[:, 2], -q[:, 3]])
+
+    def quat_angle_deg(qA: np.ndarray, qB: np.ndarray) -> np.ndarray:
+        # angle between orientations represented by qA (estimate) and qB (truth)
+        qA = q_norm(qA)
+        qB = q_norm(qB)
+        dots = np.sum(qA * qB, axis=1)
+        dots = np.clip(np.abs(dots), 0.0, 1.0)
+        return 2 * np.arccos(dots) * 180.0 / np.pi
+
+    def fix_hemisphere(q_ref: np.ndarray, q: np.ndarray) -> np.ndarray:
+        q = np.asarray(q, float)
+        d = np.sum(q * q_ref, axis=1) < 0
+        q[d] = -q[d]
+        return q
+
+    # Align truth / estimate to common timebase (nearest neighbor for simplicity)
+    # Build index mapping estimate times to truth (assume truth has >= coverage)
+    try:
+        # Use numpy searchsorted for speed
+        idx = np.searchsorted(t_truth, time_s)
+        idx[idx >= len(t_truth)] = len(t_truth) - 1
+        qT = q_truth[idx]
+    except Exception:
+        # Fallback: truncate to min length
+        n = min(len(q_truth), len(quat))
+        qT = q_truth[:n]
+        quat = quat[:n]
+        time_s = time_s[:n]
+
+    qT = q_norm(qT)
+    qE = q_norm(quat)
+    qE = fix_hemisphere(qT, qE)
+    ang = quat_angle_deg(qE, qT)
+
+    generated: List[pathlib.Path] = []
+
+    # Quaternion components (truth vs est)
+    plt.figure(figsize=(10, 6))
+    labels = ['w', 'x', 'y', 'z']
+    for i, lab in enumerate(labels):
+        ax = plt.subplot(2, 2, i + 1)
+        ax.plot(time_s, qT[:, i], '-', label='Truth')
+        ax.plot(time_s, qE[:, i], '--', label='KF')
+        ax.set_title(f'q_{lab}')
+        ax.grid(True)
+    plt.legend(loc='upper right')
+    plt.suptitle(f'{tag} Task7 (Body→NED): Quaternion Truth vs KF')
+    generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion.png'),
+                                       {'t': time_s, 'q_truth': qT, 'q_kf': qE}))
+
+    # Quaternion component residuals
+    dq = qE - qT
+    plt.figure(figsize=(10, 6))
+    for i, lab in enumerate(labels):
+        ax = plt.subplot(2, 2, i + 1)
+        ax.plot(time_s, dq[:, i], '-', label='Δq est − truth')
+        ax.set_title(f'Δq_{lab}')
+        ax.grid(True)
+        if i == 0:
+            ax.legend(loc='upper right')
+    plt.suptitle(f'{tag} Task7.6 (Body→NED): Quaternion Component Error')
+    generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_BodyToNED_attitude_quaternion_error_components.png'),
+                                       {'t': time_s, 'dq_wxyz': dq}))
+
+    # Euler angles (ZYX) using scipy for consistency
+    try:
+        rotT = R.from_quat(qT[:, [1, 2, 3, 0]])
+        rotE = R.from_quat(qE[:, [1, 2, 3, 0]])
+        eT = rotT.as_euler('zyx', degrees=True)  # yaw pitch roll
+        eE = rotE.as_euler('zyx', degrees=True)
+    except Exception as e:
+        logger.warning(f"Failed Euler conversion: {e}")
+        return
+    plt.figure(figsize=(10, 6))
+    e_labels = ['Yaw(Z)', 'Pitch(Y)', 'Roll(X)']
+    for i, lab in enumerate(e_labels):
+        ax = plt.subplot(3, 1, i + 1)
+        ax.plot(time_s, eT[:, i], '-', label='Truth')
+        ax.plot(time_s, eE[:, i], '--', label='KF')
+        ax.set_ylabel(lab + ' [deg]')
+        ax.grid(True)
+        if i == 0:
+            ax.legend()
+    plt.xlabel('Time [s]')
+    plt.suptitle(f'{tag} Task7 (Body→NED): Euler (ZYX) Truth vs KF')
+    generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_euler.png'),
+                                       {'t': time_s, 'e_truth_zyx_deg': eT, 'e_kf_zyx_deg': eE}))
+
+    def _wrap_deg(x: np.ndarray) -> np.ndarray:
+        x = (x + 180.0) % 360.0 - 180.0
+        x[x == -180.0] = 180.0
+        return x
+    e_err = _wrap_deg(eE - eT)
+    plt.figure(figsize=(10, 6))
+    for i, lab in enumerate(e_labels):
+        ax = plt.subplot(3, 1, i + 1)
+        ax.plot(time_s, e_err[:, i], '-', label='Estimate − Truth')
+        ax.set_ylabel(lab + ' err [deg]')
+        ax.grid(True)
+        if i == 0:
+            ax.legend(loc='upper right')
+    plt.xlabel('Time [s]')
+    plt.suptitle(f'{tag} Task7.6 (Body→NED): Euler Error (ZYX) vs Time')
+    generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_BodyToNED_attitude_euler_error_over_time.png'),
+                                       {'t': time_s, 'e_error_zyx_deg': e_err}))
+
+    # Quaternion angle error over time (Task7.6 + back-compat Task7)
+    plt.figure(figsize=(10, 3))
+    plt.plot(time_s, ang, '-')
+    plt.grid(True)
+    plt.xlabel('Time [s]')
+    plt.ylabel('Angle Error [deg]')
+    plt.title(f'{tag} Task7.6: Quaternion Error (angle) vs Time')
+    generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_attitude_error_angle_over_time.png'),
+                                       {'t': time_s, 'att_err_deg': ang}))
+    generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_attitude_error_angle_over_time.png'),
+                                       {'t': time_s, 'att_err_deg': ang}))
+
+    # Divergence detection utilities
+    def _divergence_time(t: np.ndarray, err: np.ndarray, thresh_deg: float, persist_s: float) -> float:
+        t = np.asarray(t)
+        err = np.asarray(err)
+        dt = np.median(np.diff(t)) if t.size > 1 else 0.0
+        if dt <= 0:
+            return np.nan
+        above = err >= thresh_deg
+        need = max(1, int(round(persist_s / dt)))
+        i = 0
+        while i < above.size:
+            if above[i]:
+                j = i
+                while j < above.size and above[j]:
+                    j += 1
+                if (j - i) >= need:
+                    return t[i]
+                i = j
+            else:
+                i += 1
+        return np.nan
+
+    div_t = _divergence_time(time_s, ang, div_threshold_deg, div_persist_sec)
+    with open(results_dir / f'{tag}_Task7_divergence_summary.csv', 'w') as f:
+        f.write('threshold_deg,persist_s,divergence_s\n')
+        f.write(f"{div_threshold_deg},{div_persist_sec},{'' if np.isnan(div_t) else f'{div_t:.6f}'}\n")
+
+    # Divergence vs length scan
+    Ls = [float(x) for x in str(length_scan).split(',') if x.strip()]
+    rows = []
+    for L in Ls:
+        tend = min(time_s[0] + L, time_s[-1])
+        m = time_s <= tend
+        dv = _divergence_time(time_s[m], ang[m], div_threshold_deg, div_persist_sec)
+        rows.append((L, np.nan if (dv != dv) else dv))
+    with open(results_dir / f'{tag}_Task7_divergence_vs_length.csv', 'w') as f:
+        f.write('tmax_s,divergence_s\n')
+        for L, dv in rows:
+            f.write(f"{L},{'' if (dv != dv) else dv}\n")
+    plt.figure(figsize=(6, 4))
+    plt.plot([r[0] for r in rows], [np.nan if (r[1] != r[1]) else r[1] for r in rows], '-o')
+    plt.grid(True)
+    plt.xlabel('Dataset length used [s]')
+    plt.ylabel('Divergence time [s]')
+    plt.title(f'{tag} Task7: Divergence vs Length')
+    generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_divergence_vs_length.png'),
+                                       {'tmax_s': np.array([r[0] for r in rows], float),
+                                        'divergence_s': np.array([np.nan if (r[1] != r[1]) else r[1] for r in rows], float)}))
+    logger.info("Generated Task7 attitude plots for %s", tag)
+    # Copy into per-run subdirectory and create manifest
+    try:
+        import json, shutil
+        subdir_path = results_dir / tag / subdir
+        subdir_path.mkdir(parents=True, exist_ok=True)
+        unified_task7 = results_dir / tag / 'task7'
+        unified_task7.mkdir(parents=True, exist_ok=True)
+        manifest = []
+        for p in generated:
+            for ext in ('.png', '.mat'):
+                src = p.with_suffix(ext)
+                if src.exists():
+                    dst = subdir_path / src.name
+                    try:
+                        shutil.copy2(src, dst)
+                    except Exception:
+                        pass
+                    # also copy into unified task7 folder
+                    try:
+                        shutil.copy2(src, unified_task7 / src.name)
+                    except Exception:
+                        pass
+            manifest.append(p.name)
+        manifest_path = subdir_path / 'task7_attitude_manifest.json'
+        with open(manifest_path, 'w') as f:
+            json.dump({
+                'tag': tag,
+                'generated_pngs': [p.with_suffix('.png').name for p in generated],
+                'generated_mats': [p.with_suffix('.mat').name for p in generated],
+                'count': len(generated)
+            }, f, indent=2)
+        logger.info('[TASK 7] Attitude plots (truth vs estimate + errors):')
+        for p in generated:
+            logger.info('  %s', p.with_suffix('.png').name)
+        logger.info('[TASK 7] Attitude manifest: %s', manifest_path)
+    except Exception as e:  # pragma: no cover
+        logger.warning('Failed to create Task7 attitude manifest: %s', e)
+    # close any excess figures to avoid memory leak
+    try:
+        import matplotlib.pyplot as plt
+        plt.close('all')
+    except Exception:
+        pass
+
+
 def main(argv=None):
     results_dir = _ensure_results()
     logger.info("Ensured '%s' directory exists.", results_dir)
@@ -459,6 +770,15 @@ def main(argv=None):
                 print(
                     f"Saved Task 7.5 diff-truth plots (NED/ECEF/Body) under: results/{tag}/"
                 )
+
+            # ----------------------------
+            # Task 7.6 Attitude plots (match run_triad_only output set)
+            # ----------------------------
+            try:
+                if 'truth_file' in locals() and truth_file is not None and pathlib.Path(truth_file).exists():
+                    _task7_attitude_plots(npz_path, pathlib.Path(truth_file), tag, results_dir)
+            except Exception as ex:
+                logger.info(f"[WARN] Task7 attitude plots failed for {tag}: {ex}")
 
             # ----------------------------
             # Attitude comparison (KF vs truth, DR true-init)

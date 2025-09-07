@@ -272,6 +272,12 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         print(f"Final truth_vel_ned: {truth_vel[-1]}")
         res_pos = pos_interp - truth_pos
         res_vel = vel_interp - truth_vel
+    # Record list of task7 plots we save so we can augment later with inline validation attitude plots
+    # We reuse the internal registry from utils.plot_save if available.
+    try:  # Lazy import to avoid circular import at module import time
+        from utils.plot_save import _saved as _saved_registry  # type: ignore
+    except Exception:  # pragma: no cover - best effort
+        _saved_registry = None
 
     mean_pos = res_pos.mean(axis=0)
     std_pos = res_pos.std(axis=0)
@@ -407,6 +413,38 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         )
     else:
         print("Subtask 7.5 skipped: missing fused or truth data")
+
+    # After generating residual/euler/quat component/error plots (and optional 7.5/7.6),
+    # attempt to detect additional attitude validation plots produced later in the pipeline
+    # (inline validation / alignment). If they already exist in results, append to listing
+    # so that the main Task 7 summary block includes them.
+    try:
+        if _saved_registry is not None:
+            # Patterns to look for (PNG form; .fig/.pdf/.mat variants may also exist)
+            patterns = [
+                f"{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion.png" if tag else None,
+                f"{tag}_Task7_6_BodyToNED_attitude_quaternion_error_components.png" if tag else None,
+                f"{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_euler.png" if tag else None,
+                f"{tag}_Task7_6_BodyToNED_attitude_euler_error_over_time.png" if tag else None,
+                f"{tag}_Task7_6_attitude_error_angle_over_time.png" if tag else None,
+                f"{tag}_Task7_attitude_error_angle_over_time.png" if tag else None,
+                f"{tag}_Task7_divergence_vs_length.png" if tag else None,
+            ]
+            # Remove None entries (if tag not provided)
+            patterns = [p for p in patterns if p]
+            existing = set(_saved_registry.get("task7", []))
+            for pat in patterns:
+                candidate = out_dir / pat
+                if candidate.exists() and pat not in existing:
+                    _saved_registry["task7"].append(pat)
+                    existing.add(pat)
+            # Re-print augmented summary (clearly marked) so user sees quaternion plots inline
+            if patterns:
+                print("[TASK 7] Plots saved to results/ (augmented):")
+                for name in _saved_registry.get("task7", []):
+                    print(f"  {name}")
+    except Exception:
+        pass
 
     def _finite_rmse(x):
         x = np.asarray(x)
@@ -588,8 +626,8 @@ def subtask7_5_diff_plot(
         fig.suptitle(f"Truth - Fused Differences ({frame} Frame)")
         fig.tight_layout(rect=[0, 0, 1, 0.95])
         base_label = f"5_diff_truth_fused_over_time_{frame}"
+        # Single registration via save_plot (already writes PNG sibling); avoid duplicate entries in summary
         pdf = save_plot(fig, out_dir, run_id, "task7", base_label, ext="pdf")
-        png = save_plot(fig, out_dir, run_id, "task7", base_label, ext="png")
         try:
             from utils import save_plot_mat
             from utils.matlab_fig_export import save_matlab_fig
@@ -805,35 +843,101 @@ def subtask7_6_overlay_plot(
     )
     print("Saved Task 7.6 truth-vs-fused overlays (NED/ECEF/Body) under:", out_dir)
 
-    # Altitude overlay (Truth vs Fused) in NED (Up = -Down)
+    # Register overlay plots & altitude overlays in Task 7 summary registry
+    try:
+        from utils.plot_save import _saved as _saved_registry  # type: ignore
+        overlay_names = [
+            f"{run_id}_task7_6_overlay_NED.png",
+            f"{run_id}_task7_6_overlay_ECEF.png",
+            f"{run_id}_task7_6_overlay_BODY.png",
+            f"{run_id}_task7_6_overlay_Position_NorthEastAltitude_NED.png",
+            f"{run_id}_task7_6_overlay_Altitude_NED.png",
+            f"{run_id}_task7_5_diff_truth_fused_altitude_NED.png",
+        ]
+        for nm in overlay_names:
+            if (out_dir / nm).exists() and nm not in _saved_registry["task7"]:
+                _saved_registry["task7"].append(nm)
+    except Exception:
+        pass
+
+    # Altitude + Horizontal components overlay (Truth vs Fused) in NED (Up = -Down)
+    # NEW: 3-panel plot (North, East, Altitude) replacing/augmenting single altitude plot.
     try:
         alt_fused = -fused_pos_ned[:, 2]
         alt_truth = -truth_pos_ned[:, 2]
-        fig, ax = plt.subplots(figsize=(8, 3))
-        ax.plot(time, alt_fused, label="Fused")
-        ax.plot(time, alt_truth, '--', label="Truth")
-        ax.set_xlabel("Time [s]")
-        ax.set_ylabel("Altitude [m]")
-        ax.grid(True)
-        ax.legend(loc='upper right')
-        fig.suptitle("Task 7.6 – Truth vs Fused Altitude (NED)")
-        fig.tight_layout(rect=[0, 0, 1, 0.95])
-        base = out_dir / f"{run_id}_task7_6_overlay_Altitude_NED"
+        north_fused = fused_pos_ned[:, 0]
+        north_truth = truth_pos_ned[:, 0]
+        east_fused = fused_pos_ned[:, 1]
+        east_truth = truth_pos_ned[:, 1]
+
+        # 3-panel figure
+        fig3, axes = plt.subplots(3, 1, figsize=(9, 7), sharex=True)
+        # North
+        axes[0].plot(time, north_fused, label="Fused")
+        axes[0].plot(time, north_truth, '--', label="Truth")
+        axes[0].set_ylabel("North [m]")
+        axes[0].grid(True)
+        axes[0].legend(loc='upper right')
+        # East
+        axes[1].plot(time, east_fused, label="Fused")
+        axes[1].plot(time, east_truth, '--', label="Truth")
+        axes[1].set_ylabel("East [m]")
+        axes[1].grid(True)
+        # Altitude (Up)
+        axes[2].plot(time, alt_fused, label="Fused")
+        axes[2].plot(time, alt_truth, '--', label="Truth")
+        axes[2].set_ylabel("Altitude [m]")
+        axes[2].set_xlabel("Time [s]")
+        axes[2].grid(True)
+        fig3.suptitle("Task 7.6 – Truth vs Fused Position (North/East/Altitude)")
+        fig3.tight_layout(rect=[0, 0, 1, 0.95])
+        base3 = out_dir / f"{run_id}_task7_6_overlay_Position_NorthEastAltitude_NED"
         try:
-            fig.savefig(base.with_suffix('.png'), dpi=200, bbox_inches='tight')
-            fig.savefig(base.with_suffix('.pdf'), dpi=200, bbox_inches='tight')
+            fig3.savefig(base3.with_suffix('.png'), dpi=200, bbox_inches='tight')
+            fig3.savefig(base3.with_suffix('.pdf'), dpi=200, bbox_inches='tight')
         except Exception:
             pass
         try:
             from scipy.io import savemat  # type: ignore
-            savemat(str(base.with_suffix('.mat')), {
+            savemat(str(base3.with_suffix('.mat')), {
+                'time': time.astype(float),
+                'north_fused_m': north_fused.astype(float),
+                'north_truth_m': north_truth.astype(float),
+                'east_fused_m': east_fused.astype(float),
+                'east_truth_m': east_truth.astype(float),
+                'alt_fused_up_m': alt_fused.astype(float),
+                'alt_truth_up_m': alt_truth.astype(float),
+            })
+        except Exception:
+            pass
+        plt.close(fig3)
+
+        # Retain legacy single-altitude figure for backward compatibility
+        fig_alt, ax_alt = plt.subplots(figsize=(8, 3))
+        ax_alt.plot(time, alt_fused, label="Fused")
+        ax_alt.plot(time, alt_truth, '--', label="Truth")
+        ax_alt.set_xlabel("Time [s]")
+        ax_alt.set_ylabel("Altitude [m]")
+        ax_alt.grid(True)
+        ax_alt.legend(loc='upper right')
+        fig_alt.suptitle("Task 7.6 – Truth vs Fused Altitude (NED)")
+        fig_alt.tight_layout(rect=[0, 0, 1, 0.95])
+        base_alt = out_dir / f"{run_id}_task7_6_overlay_Altitude_NED"
+        try:
+            fig_alt.savefig(base_alt.with_suffix('.png'), dpi=200, bbox_inches='tight')
+            fig_alt.savefig(base_alt.with_suffix('.pdf'), dpi=200, bbox_inches='tight')
+        except Exception:
+            pass
+        try:
+            from scipy.io import savemat  # type: ignore
+            savemat(str(base_alt.with_suffix('.mat')), {
                 'time': time.astype(float),
                 'alt_fused_up_m': alt_fused.astype(float),
                 'alt_truth_up_m': alt_truth.astype(float),
             })
         except Exception:
             pass
-        plt.close(fig)
+        plt.close(fig_alt)
     except Exception:
         pass
 
@@ -857,8 +961,6 @@ def subtask7_6_overlay_plot(
         )
     except Exception:
         pass
-
-
 if __name__ == "__main__":
     import argparse
 

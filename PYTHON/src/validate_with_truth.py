@@ -1422,6 +1422,84 @@ def main():
                         pass
                 plt.close()
 
+                # Quaternion component residuals (estimate - truth)
+                try:
+                    dq = qe - qt
+                    plt.figure(figsize=(10, 6))
+                    for i, lab in enumerate(["w", "x", "y", "z"]):
+                        ax = plt.subplot(2, 2, i + 1)
+                        ax.plot(te_win, dq[:, i], '-', label='Δq = est − truth')
+                        ax.set_title(f'Δq_{lab}')
+                        ax.grid(True)
+                        if i == 0:
+                            ax.legend(loc='upper right')
+                    plt.suptitle('Task7.6 (Body→NED): Quaternion Component Error')
+                    plt.tight_layout()
+                    f_dq_base = f"{tag_prefix}_Task7_6_BodyToNED_attitude_quaternion_error_components"
+                    fig_dq = plt.gcf()
+                    try:
+                        fig_dq.savefig(f"{f_dq_base}.png", dpi=200, bbox_inches='tight')
+                    except Exception:
+                        pass
+                    try:
+                        from scipy.io import savemat  # type: ignore
+                        n = min(len(te_win), len(dq))
+                        savemat(f"{f_dq_base}.mat", {'t': np.asarray(te_win[:n], float), 'dq_wxyz': np.asarray(dq[:n], float)})
+                    except Exception:
+                        pass
+                    try:
+                        from utils.matlab_fig_export import save_matlab_fig
+                        if save_matlab_fig(fig_dq, f_dq_base) is None:
+                            from utils_legacy import save_plot_fig
+                            save_plot_fig(fig_dq, f_dq_base + '.fig')
+                    except Exception:
+                        pass
+                    plt.close()
+                except Exception:
+                    pass
+
+                # Euler error (estimate - truth) wrapped to [-180,180]
+                try:
+                    def _wrap_deg(x):
+                        x = (x + 180.0) % 360.0 - 180.0
+                        x[x == -180.0] = 180.0
+                        return x
+                    e_err = _wrap_deg(eul_est - eul_truth)
+                    plt.figure(figsize=(10, 6))
+                    for i, lab in enumerate(["Yaw(Z)", "Pitch(Y)", "Roll(X)"]):
+                        ax = plt.subplot(3, 1, i + 1)
+                        ax.plot(te_win, e_err[:, i], '-', label='Estimate − Truth')
+                        ax.set_ylabel(lab + ' err [deg]')
+                        ax.grid(True)
+                        if i == 0:
+                            ax.legend(loc='upper right')
+                        if i == 2:
+                            ax.set_xlabel('Time [s]')
+                    plt.suptitle('Task7.6 (Body→NED): Euler Error (ZYX) vs Time')
+                    plt.tight_layout()
+                    f_eerr_base = f"{tag_prefix}_Task7_6_BodyToNED_attitude_euler_error_over_time"
+                    fig_eerr = plt.gcf()
+                    try:
+                        fig_eerr.savefig(f"{f_eerr_base}.png", dpi=200, bbox_inches='tight')
+                    except Exception:
+                        pass
+                    try:
+                        from scipy.io import savemat  # type: ignore
+                        n = min(len(te_win), len(e_err))
+                        savemat(f"{f_eerr_base}.mat", {'t': np.asarray(te_win[:n], float), 'e_error_zyx_deg': np.asarray(e_err[:n], float)})
+                    except Exception:
+                        pass
+                    try:
+                        from utils.matlab_fig_export import save_matlab_fig
+                        if save_matlab_fig(fig_eerr, f_eerr_base) is None:
+                            from utils_legacy import save_plot_fig
+                            save_plot_fig(fig_eerr, f_eerr_base + '.fig')
+                    except Exception:
+                        pass
+                    plt.close()
+                except Exception:
+                    pass
+
                 # Divergence detection on overlap only, with CLI threshold/persist
                 thr = float(args.div_threshold_deg)
                 persist = float(args.div_persist_sec)
