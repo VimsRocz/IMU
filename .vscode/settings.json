@@ -1,7 +1,8 @@
 {
-    "python.defaultInterpreterPath": "./.venv/bin/python",
+    "python.defaultInterpreterPath": "/Users/vimalchawda/Desktop/IMU/.venv/bin/python",
+    "python.pythonPath": "/Users/vimalchawda/Desktop/IMU/.venv/bin/python",
     "python.terminal.activateEnvironment": true,
-    "terminal.integrated.defaultProfile.osx": "zsh",
+    "terminal.integrated.defaultProfile.osx": "zsh", 
     "terminal.integrated.cwd": "${workspaceFolder}",
     "python.linting.enabled": true,
     "python.linting.pylintEnabled": false,

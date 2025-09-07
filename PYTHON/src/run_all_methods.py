@@ -30,7 +30,7 @@ import os
 import pathlib
 import subprocess
 import sys
-from typing import Iterable, Tuple, Dict, Any, List
+from typing import Iterable, Tuple, Dict, Any, List, Optional
 import logging
 import re
 import time
@@ -38,15 +38,19 @@ import zipfile
 import pandas as pd
 from tabulate import tabulate
 import numpy as np
-from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Rotation as R  # type: ignore
 from utils import save_mat
 from contextlib import redirect_stdout
 import io
-import json
-import shutil
 from evaluate_filter_results import run_evaluation_npz
 
 from utils import compute_C_ECEF_to_NED
+
+# Type aliases to improve type checking
+YamlData = Dict[str, Any]
+CandidateType = Tuple[int, float, np.ndarray]
+ScoreType = Tuple[float, str]
+QuatCandidateType = Tuple[str, np.ndarray]
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -87,14 +91,14 @@ SMALL_DATASETS: Iterable[Tuple[str, str]] = [
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
 
 
-def load_config(path: str):
+def load_config(path: str) -> Tuple[List[Tuple[str, str]], List[str]]:
     """Return (datasets, methods) from a YAML config file."""
     if yaml is None:
         raise RuntimeError("PyYAML is required to use --config")
     with open(path) as fh:
-        data = yaml.safe_load(fh) or {}
+        data: YamlData = yaml.safe_load(fh) or {}
     datasets = [
-        (item["imu"], item["gnss"]) for item in data.get("datasets", [])
+        (str(item["imu"]), str(item["gnss"])) for item in data.get("datasets", [])
     ] or list(DEFAULT_DATASETS)
     methods = data.get("methods", DEFAULT_METHODS)
     return datasets, methods
@@ -105,7 +109,7 @@ def compute_C_NED_to_ECEF(lat: float, lon: float) -> np.ndarray:
     return compute_C_ECEF_to_NED(lat, lon).T
 
 
-def run_case(cmd, log_path):
+def run_case(cmd: List[str], log_path: pathlib.Path) -> Tuple[int, List[str]]:
     """Run a single fusion command and log output live to console and file."""
     logger.info("Executing fusion command: %s", cmd)
     with open(log_path, "w") as log:
@@ -115,13 +119,14 @@ def run_case(cmd, log_path):
             stderr=subprocess.STDOUT,
             text=True,
         )
-        summary_lines = []
-        for line in proc.stdout:
-            print(line, end="")
-            log.write(line)
-            m = SUMMARY_RE.search(line)
-            if m:
-                summary_lines.append(m.group(1))
+        summary_lines: List[str] = []
+        if proc.stdout:
+            for line in proc.stdout:
+                print(line, end="")
+                log.write(line)
+                m = SUMMARY_RE.search(line)
+                if m:
+                    summary_lines.append(m.group(1))
         proc.wait()
     logger.info("Fusion command completed with return code %s", proc.returncode)
     return proc.returncode, summary_lines
@@ -140,17 +145,17 @@ def _save_png_and_mat(base_png_path: str, data_dict: Dict[str, Any]):
     logged but non-fatal.
     """
     try:
-        import matplotlib.pyplot as plt  # local import to avoid global dependency if never used
+        import matplotlib.pyplot as plt  # type: ignore  # local import to avoid global dependency if never used
         png_path = pathlib.Path(base_png_path)
         png_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.gcf().savefig(png_path, dpi=150, bbox_inches="tight")
+        plt.gcf().savefig(png_path, dpi=150, bbox_inches="tight")  # type: ignore
         print(f"[PNG] {png_path}")
     except Exception as e:  # pragma: no cover - best-effort
         logger.warning(f"Failed to save PNG {base_png_path}: {e}")
     try:
-        from scipy.io import savemat
+        from scipy.io import savemat  # type: ignore
         mat_path = str(pathlib.Path(base_png_path).with_suffix(".mat"))
-        savemat(mat_path, {k: (np.asarray(v) if not isinstance(v, (int, float)) else v) for k, v in data_dict.items()})
+        savemat(mat_path, {k: (np.asarray(v) if not isinstance(v, (int, float)) else v) for k, v in data_dict.items()})  # type: ignore
         print(f"[MAT] {mat_path}")
     except Exception as e:  # pragma: no cover
         logger.warning(f"Failed to save MAT for {base_png_path}: {e}")
@@ -168,7 +173,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
     Uses the same sophisticated quaternion processing as run_triad_only.py.
     """
     try:
-        import matplotlib.pyplot as plt  # local import
+        import matplotlib.pyplot as plt  # type: ignore  # local import
     except Exception as e:  # pragma: no cover
         logger.warning(f"Matplotlib unavailable; skipping Task7 attitude plots: {e}")
         return
@@ -204,7 +209,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
         q_truth = M[:, -4:]  # assume (qw,qx,qy,qz)
         
         # Candidate time columns: prefer one whose range overlaps small window (seconds)
-        candidates = []
+        candidates: List[CandidateType] = []
         for c in range(min(3, M.shape[1])):  # probe first up to 3 cols
             t_try = M[:, c].astype(float)
             if np.all(np.isfinite(t_try)):
@@ -214,9 +219,9 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
             raise ValueError("No finite time-like column found in truth file.")
         
         # Choose the candidate with the smallest positive span >= 1.0 sec
-        candidates = [(c, s, tcol) for (c, s, tcol) in candidates if s > 0]
-        candidates.sort(key=lambda x: x[1])
-        c_best, span_best, t_raw = candidates[0]
+        positive_candidates = [(c, s, tcol) for (c, s, tcol) in candidates if s > 0]
+        positive_candidates.sort(key=lambda x: x[1])
+        _, _, t_raw = positive_candidates[0]
         
         # Zero-base time if it appears offset (e.g., starts >> 0 and span looks reasonable)
         t0 = float(np.nanmin(t_raw))
@@ -235,35 +240,47 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
         return
 
     # Advanced quaternion processing functions from run_triad_only.py
-    def _norm_quat(q):
+    def _norm_quat(q: np.ndarray) -> np.ndarray:
         q = np.asarray(q, float)
         n = np.linalg.norm(q, axis=-1, keepdims=True)
         n[n == 0] = 1.0
         return q / n
 
-    def _fix_hemisphere(qt, qe):
+    def _fix_hemisphere(qt: np.ndarray, qe: np.ndarray) -> np.ndarray:
         dot = np.sum(qt * qe, axis=1)
         s = np.sign(dot)
         s[s == 0] = 1.0
         return qe * s[:, None]
 
-    def _quat_angle_deg(qt, qe):
+    def _quat_angle_deg(qt: np.ndarray, qe: np.ndarray) -> np.ndarray:
         d = np.clip(np.abs(np.sum(qt * qe, axis=1)), 0.0, 1.0)
         return 2.0 * np.degrees(np.arccos(d))
 
-    def _quat_to_euler_zyx_deg(q):  # yaw, pitch, roll from [w,x,y,z]
-        w, x, y, z = q.T
-        yaw = np.degrees(np.arctan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)))
-        s = np.clip(2 * (w * y - z * x), -1.0, 1.0)
-        pitch = np.degrees(np.arcsin(s))
-        roll = np.degrees(np.arctan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y)))
-        return np.vstack([yaw, pitch, roll]).T
+    # Utility function for future use - currently not called
+    # def _quat_to_euler_zyx_deg(q: np.ndarray) -> np.ndarray:  # yaw, pitch, roll from [w,x,y,z]
+    #     """Convert quaternion to Euler angles (ZYX order) in degrees. Helper function for potential future use."""
+    #     w, x, y, z = q.T
+    #     yaw = np.degrees(np.arctan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)))
+    #     s = np.clip(2 * (w * y - z * x), -1.0, 1.0)
+    #     pitch = np.degrees(np.arcsin(s))
+    #     roll = np.degrees(np.arctan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y)))
+    #     return np.vstack([yaw, pitch, roll]).T
 
-    def q_conj(q):
+    # Utility function for potential future use - currently not called
+    # def _align_to_same_len(x: np.ndarray, *ys: np.ndarray) -> Tuple[np.ndarray, Tuple[np.ndarray, ...]]:
+    #     """Helper to align x and multiple y-arrays to the shortest common length. Utility function for future use."""
+    #     n = int(min(len(x), *[len(y) for y in ys]))
+    #     if n <= 0:
+    #         return x, ys
+    #     x2 = x[:n]
+    #     ys2 = tuple(y[:n] for y in ys)
+    #     return x2, ys2
+
+    def q_conj(q: np.ndarray) -> np.ndarray:
         q = np.asarray(q, float)
         return np.column_stack([q[:, 0], -q[:, 1], -q[:, 2], -q[:, 3]])
 
-    def q_mul(a, b):
+    def q_mul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         a = np.asarray(a, float)
         b = np.asarray(b, float)
         w1, x1, y1, z1 = a.T
@@ -275,66 +292,66 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
             w1*z2 + x1*y2 - y1*x2 + z1*w2,
         ])
 
-    def dcm_to_quat(C):
-        C = np.asarray(C, float)
-        t = np.trace(C)
+    def dcm_to_quat(C: np.ndarray) -> np.ndarray:
+        dcm = np.asarray(C, float)
+        t = np.trace(dcm)
         if t <= 0:
-            i = int(np.argmax(np.diag(C)))
+            i = int(np.argmax(np.diag(dcm)))
             if i == 0:
-                s = 2.0 * np.sqrt(max(1e-12, 1 + C[0, 0] - C[1, 1] - C[2, 2]))
-                w = (C[2, 1] - C[1, 2]) / s
+                s = 2.0 * np.sqrt(max(1e-12, 1 + dcm[0, 0] - dcm[1, 1] - dcm[2, 2]))
+                w = (dcm[2, 1] - dcm[1, 2]) / s
                 x = 0.25 * s
-                y = (C[0, 1] + C[1, 0]) / s
-                z = (C[0, 2] + C[2, 0]) / s
+                y = (dcm[0, 1] + dcm[1, 0]) / s
+                z = (dcm[0, 2] + dcm[2, 0]) / s
             elif i == 1:
-                s = 2.0 * np.sqrt(max(1e-12, 1 + C[1, 1] - C[0, 0] - C[2, 2]))
-                w = (C[0, 2] - C[2, 0]) / s
-                x = (C[0, 1] + C[1, 0]) / s
+                s = 2.0 * np.sqrt(max(1e-12, 1 + dcm[1, 1] - dcm[0, 0] - dcm[2, 2]))
+                w = (dcm[0, 2] - dcm[2, 0]) / s
+                x = (dcm[0, 1] + dcm[1, 0]) / s
                 y = 0.25 * s
-                z = (C[1, 2] + C[2, 1]) / s
+                z = (dcm[1, 2] + dcm[2, 1]) / s
             else:
-                s = 2.0 * np.sqrt(max(1e-12, 1 + C[2, 2] - C[0, 0] - C[1, 1]))
-                w = (C[1, 0] - C[0, 1]) / s
-                x = (C[0, 2] + C[2, 0]) / s
-                y = (C[1, 2] + C[2, 1]) / s
+                s = 2.0 * np.sqrt(max(1e-12, 1 + dcm[2, 2] - dcm[0, 0] - dcm[1, 1]))
+                w = (dcm[1, 0] - dcm[0, 1]) / s
+                x = (dcm[0, 2] + dcm[2, 0]) / s
+                y = (dcm[1, 2] + dcm[2, 1]) / s
                 z = 0.25 * s
         else:
             s = 0.5 / np.sqrt(max(1e-12, t + 1.0))
             w = 0.25 / s
-            x = (C[2, 1] - C[1, 2]) * s
-            y = (C[0, 2] - C[2, 0]) * s
-            z = (C[1, 0] - C[0, 1]) * s
+            x = (dcm[2, 1] - dcm[1, 2]) * s
+            y = (dcm[0, 2] - dcm[2, 0]) * s
+            z = (dcm[1, 0] - dcm[0, 1]) * s
         q = np.array([w, x, y, z], float)
         q = q / (np.linalg.norm(q) + 1e-12)
         if q[0] < 0:
             q = -q
         return q
 
-    def quat_err_angle_deg(q_est_b2n, q_truth_b2n):
+    def quat_err_angle_deg(q_est_b2n: np.ndarray, q_truth_b2n: np.ndarray) -> np.ndarray:
         q_err = q_mul(q_est_b2n, q_conj(q_truth_b2n))
         q_err = _norm_quat(q_err)
         ang = 2*np.arccos(np.clip(np.abs(q_err[:, 0]), 0.0, 1.0)) * 180.0 / np.pi
         return ang
 
-    def ned_to_enu_quat():
+    def ned_to_enu_quat() -> np.ndarray:
         C_ne = np.array([[0.0, 1.0, 0.0],
                          [1.0, 0.0, 0.0],
                          [0.0, 0.0, -1.0]])
         return dcm_to_quat(C_ne)
 
-    def ecef_to_ned_quat(lat_rad, lon_rad):
+    def ecef_to_ned_quat(lat_rad: float, lon_rad: float) -> np.ndarray:
         sL, cL = np.sin(lat_rad), np.cos(lat_rad)
         sO, cO = np.sin(lon_rad), np.cos(lon_rad)
         C_ne = np.array([[-sL*cO, -sL*sO,  cL],
-                         [    -sO,     cO,  0.],
-                         [-cL*cO, -cL*sO, -sL]])
+                         [    -sO,     cO,  0.0],
+                         [-cL*cO, -cL*sO, -sL]], dtype=float)
         C_en = C_ne.T
         return dcm_to_quat(C_en)
 
-    def wrap_world(q_b2W, q_W2N, q_N2W):
+    def wrap_world(q_b2W: np.ndarray, q_W2N: np.ndarray, q_N2W: np.ndarray) -> np.ndarray:
         return q_mul(np.tile(q_W2N, (q_b2W.shape[0], 1)), q_mul(q_b2W, np.tile(q_N2W, (q_b2W.shape[0], 1))))
 
-    def average_quat(q):
+    def average_quat(q: np.ndarray) -> np.ndarray:
         M = (q[:, :, None] @ q[:, None, :]).sum(axis=0)
         w, v = np.linalg.eigh(M)
         q_mean = v[:, np.argmax(w)]
@@ -377,7 +394,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
     q_ne_ecef = q_conj(np.atleast_2d(q_en_ecef))[0]
 
     # Candidate interpretations of truth (same logic as run_triad_only.py)
-    cands = []
+    cands: List[QuatCandidateType] = []
     cands.append(("truth b2NED", qT_raw))
     cands.append(("truth NED2b (conj)", q_conj(qT_raw)))
     cands.append(("truth b2ENU → b2NED", wrap_world(qT_raw, q_en, q_ne)))
@@ -390,7 +407,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
     idx = np.where((time_s >= t0) & (time_s <= t1))[0]
     if idx.size < 100:
         idx = np.arange(min(1000, time_s.size))
-    scores = []
+    scores: List[ScoreType] = []
     for name, qT in cands:
         ang = quat_err_angle_deg(q_est[idx], qT[idx])
         scores.append((float(np.nanmean(ang)), name))
@@ -414,94 +431,86 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
     # Angle error between aligned truth and estimate across full timeline
     ang = _quat_angle_deg(qT, qE)
 
-    # Helper to align x and multiple y-arrays to the shortest common length
-    def _align_to_same_len(x, *ys):
-        n = int(min(len(x), *[len(y) for y in ys]))
-        if n <= 0:
-            return x, ys
-        x2 = x[:n]
-        ys2 = tuple(y[:n] for y in ys)
-        return x2, ys2
-
     generated: List[pathlib.Path] = []
 
     # Quaternion components (truth vs est)
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(10, 6))  # type: ignore
     labels = ['w', 'x', 'y', 'z']
     for i, lab in enumerate(labels):
-        ax = plt.subplot(2, 2, i + 1)
-        ax.plot(time_s, qT[:, i], '-', label='Truth')
-        ax.plot(time_s, qE[:, i], '--', label='KF')
-        ax.set_title(f'q_{lab}')
-        ax.grid(True)
-    plt.legend(loc='upper right')
-    plt.suptitle(f'{tag} Task7 (Body→NED): Quaternion Truth vs KF')
+        ax = plt.subplot(2, 2, i + 1)  # type: ignore
+        ax.plot(time_s, qT[:, i], '-', label='Truth')  # type: ignore
+        ax.plot(time_s, qE[:, i], '--', label='KF')  # type: ignore
+        ax.set_title(f'q_{lab}')  # type: ignore
+        ax.grid(True)  # type: ignore
+    plt.legend(loc='upper right')  # type: ignore
+    plt.suptitle(f'{tag} Task7 (Body→NED): Quaternion Truth vs KF')  # type: ignore
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion.png'),
                                        {'t': time_s, 'q_truth': qT, 'q_kf': qE}))
 
     # Quaternion component residuals
     dq = qE - qT
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(10, 6))  # type: ignore
     for i, lab in enumerate(labels):
-        ax = plt.subplot(2, 2, i + 1)
-        ax.plot(time_s, dq[:, i], '-', label='Δq est − truth')
-        ax.set_title(f'Δq_{lab}')
-        ax.grid(True)
+        ax = plt.subplot(2, 2, i + 1)  # type: ignore
+        ax.plot(time_s, dq[:, i], '-', label='Δq est − truth')  # type: ignore
+        ax.set_title(f'Δq_{lab}')  # type: ignore
+        ax.grid(True)  # type: ignore
         if i == 0:
-            ax.legend(loc='upper right')
-    plt.suptitle(f'{tag} Task7.6 (Body→NED): Quaternion Component Error')
+            ax.legend(loc='upper right')  # type: ignore
+    plt.suptitle(f'{tag} Task7.6 (Body→NED): Quaternion Component Error')  # type: ignore
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_BodyToNED_attitude_quaternion_error_components.png'),
                                        {'t': time_s, 'dq_wxyz': dq}))
 
     # Euler angles (ZYX) using scipy for consistency
     try:
-        rotT = R.from_quat(qT[:, [1, 2, 3, 0]])
-        rotE = R.from_quat(qE[:, [1, 2, 3, 0]])
-        eT = rotT.as_euler('zyx', degrees=True)  # yaw pitch roll
-        eE = rotE.as_euler('zyx', degrees=True)
+        rotT = R.from_quat(qT[:, [1, 2, 3, 0]])  # type: ignore
+        rotE = R.from_quat(qE[:, [1, 2, 3, 0]])  # type: ignore
+        eT: np.ndarray = rotT.as_euler('zyx', degrees=True)  # type: ignore  # yaw pitch roll
+        eE: np.ndarray = rotE.as_euler('zyx', degrees=True)  # type: ignore
     except Exception as e:
         logger.warning(f"Failed Euler conversion: {e}")
         return
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(10, 6))  # type: ignore
     e_labels = ['Yaw(Z)', 'Pitch(Y)', 'Roll(X)']
     for i, lab in enumerate(e_labels):
-        ax = plt.subplot(3, 1, i + 1)
-        ax.plot(time_s, eT[:, i], '-', label='Truth')
-        ax.plot(time_s, eE[:, i], '--', label='KF')
-        ax.set_ylabel(lab + ' [deg]')
-        ax.grid(True)
+        ax = plt.subplot(3, 1, i + 1)  # type: ignore
+        ax.plot(time_s, eT[:, i], '-', label='Truth')  # type: ignore
+        ax.plot(time_s, eE[:, i], '--', label='KF')  # type: ignore
+        ax.set_ylabel(lab + ' [deg]')  # type: ignore
+        ax.grid(True)  # type: ignore
         if i == 0:
-            ax.legend()
-    plt.xlabel('Time [s]')
-    plt.suptitle(f'{tag} Task7 (Body→NED): Euler (ZYX) Truth vs KF')
+            ax.legend()  # type: ignore
+    plt.xlabel('Time [s]')  # type: ignore
+    plt.suptitle(f'{tag} Task7 (Body→NED): Euler (ZYX) Truth vs KF')  # type: ignore
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_euler.png'),
                                        {'t': time_s, 'e_truth_zyx_deg': eT, 'e_kf_zyx_deg': eE}))
 
     def _wrap_deg(x: np.ndarray) -> np.ndarray:
+        x = np.asarray(x, dtype=float)
         x = (x + 180.0) % 360.0 - 180.0
         x[x == -180.0] = 180.0
         return x
-    e_err = _wrap_deg(eE - eT)
-    plt.figure(figsize=(10, 6))
+    e_err: np.ndarray = _wrap_deg(eE - eT)  # type: ignore  # scipy types not fully available
+    plt.figure(figsize=(10, 6))  # type: ignore
     for i, lab in enumerate(e_labels):
-        ax = plt.subplot(3, 1, i + 1)
-        ax.plot(time_s, e_err[:, i], '-', label='Estimate − Truth')
-        ax.set_ylabel(lab + ' err [deg]')
-        ax.grid(True)
+        ax = plt.subplot(3, 1, i + 1)  # type: ignore
+        ax.plot(time_s, e_err[:, i], '-', label='Estimate − Truth')  # type: ignore
+        ax.set_ylabel(lab + ' err [deg]')  # type: ignore
+        ax.grid(True)  # type: ignore
         if i == 0:
-            ax.legend(loc='upper right')
-    plt.xlabel('Time [s]')
-    plt.suptitle(f'{tag} Task7.6 (Body→NED): Euler Error (ZYX) vs Time')
+            ax.legend(loc='upper right')  # type: ignore
+    plt.xlabel('Time [s]')  # type: ignore
+    plt.suptitle(f'{tag} Task7.6 (Body→NED): Euler Error (ZYX) vs Time')  # type: ignore
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_BodyToNED_attitude_euler_error_over_time.png'),
                                        {'t': time_s, 'e_error_zyx_deg': e_err}))
 
     # Quaternion angle error over time (Task7.6 + back-compat Task7)
-    plt.figure(figsize=(10, 3))
-    plt.plot(time_s, ang, '-')
-    plt.grid(True)
-    plt.xlabel('Time [s]')
-    plt.ylabel('Angle Error [deg]')
-    plt.title(f'{tag} Task7.6: Quaternion Error (angle) vs Time')
+    plt.figure(figsize=(10, 3))  # type: ignore
+    plt.plot(time_s, ang, '-')  # type: ignore
+    plt.grid(True)  # type: ignore
+    plt.xlabel('Time [s]')  # type: ignore
+    plt.ylabel('Angle Error [deg]')  # type: ignore
+    plt.title(f'{tag} Task7.6: Quaternion Error (angle) vs Time')  # type: ignore
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_attitude_error_angle_over_time.png'),
                                        {'t': time_s, 'att_err_deg': ang}))
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_attitude_error_angle_over_time.png'),
@@ -535,23 +544,23 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
         f.write(f"{div_threshold_deg},{div_persist_sec},{'' if np.isnan(div_t) else f'{div_t:.6f}'}\n")
 
     # Divergence vs length scan
-    Ls = [float(x) for x in str(length_scan).split(',') if x.strip()]
-    rows = []
-    for L in Ls:
-        tend = min(time_s[0] + L, time_s[-1])
+    lengths = [float(x) for x in str(length_scan).split(',') if x.strip()]
+    rows: List[Tuple[float, float]] = []
+    for length in lengths:
+        tend = min(time_s[0] + length, time_s[-1])
         m = time_s <= tend
         dv = _divergence_time(time_s[m], ang[m], div_threshold_deg, div_persist_sec)
-        rows.append((L, np.nan if (dv != dv) else dv))
+        rows.append((length, np.nan if (dv != dv) else dv))
     with open(results_dir / f'{tag}_Task7_divergence_vs_length.csv', 'w') as f:
         f.write('tmax_s,divergence_s\n')
         for L, dv in rows:
             f.write(f"{L},{'' if (dv != dv) else dv}\n")
-    plt.figure(figsize=(6, 4))
-    plt.plot([r[0] for r in rows], [np.nan if (r[1] != r[1]) else r[1] for r in rows], '-o')
-    plt.grid(True)
-    plt.xlabel('Dataset length used [s]')
-    plt.ylabel('Divergence time [s]')
-    plt.title(f'{tag} Task7: Divergence vs Length')
+    plt.figure(figsize=(6, 4))  # type: ignore
+    plt.plot([r[0] for r in rows], [np.nan if (r[1] != r[1]) else r[1] for r in rows], '-o')  # type: ignore
+    plt.grid(True)  # type: ignore
+    plt.xlabel('Dataset length used [s]')  # type: ignore
+    plt.ylabel('Divergence time [s]')  # type: ignore
+    plt.title(f'{tag} Task7: Divergence vs Length')  # type: ignore
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_divergence_vs_length.png'),
                                        {'tmax_s': np.array([r[0] for r in rows], float),
                                         'divergence_s': np.array([np.nan if (r[1] != r[1]) else r[1] for r in rows], float)}))
@@ -563,7 +572,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
         subdir_path.mkdir(parents=True, exist_ok=True)
         unified_task7 = results_dir / tag / 'task7'
         unified_task7.mkdir(parents=True, exist_ok=True)
-        manifest = []
+        manifest: List[str] = []
         for p in generated:
             for ext in ('.png', '.mat'):
                 src = p.with_suffix(ext)
@@ -595,13 +604,13 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
         logger.warning('Failed to create Task7 attitude manifest: %s', e)
     # close any excess figures to avoid memory leak
     try:
-        import matplotlib.pyplot as plt
-        plt.close('all')
+        import matplotlib.pyplot as plt  # type: ignore
+        plt.close('all')  # type: ignore
     except Exception:
         pass
 
 
-def main(argv=None):
+def main(argv: Optional[List[str]] = None) -> None:
     results_dir = _ensure_results()
     logger.info("Ensured '%s' directory exists.", results_dir)
     parser = argparse.ArgumentParser(
@@ -667,7 +676,8 @@ def main(argv=None):
     logger.debug(f"Datasets: {cases}")
     logger.debug(f"Methods: {methods}")
 
-    results = []
+    # Type-annotated results list for better type inference
+    results: List[Dict[str, Any]] = []
     for (imu, gnss), m in itertools.product(cases, methods):
         imu_path = _imu_path_helper(imu)
         gnss_path = _gnss_path_helper(gnss)
@@ -803,15 +813,15 @@ def main(argv=None):
             if quat is None:
                 quat = data.get("quat_log")
             if quat is not None:
-                rot = R.from_quat(quat[:, [1, 2, 3, 0]])
-                C_B_N = rot.as_matrix()
-                pos_body = np.einsum("nij,nj->ni", C_B_N.transpose(0, 2, 1), pos_ned)
-                vel_body = np.einsum("nij,nj->ni", C_B_N.transpose(0, 2, 1), vel_ned)
+                rot = R.from_quat(quat[:, [1, 2, 3, 0]])  # type: ignore
+                C_B_N: np.ndarray = rot.as_matrix()  # type: ignore
+                pos_body = np.einsum("nij,nj->ni", C_B_N.transpose(0, 2, 1), pos_ned)  # type: ignore
+                vel_body = np.einsum("nij,nj->ni", C_B_N.transpose(0, 2, 1), vel_ned)  # type: ignore
             else:
                 pos_body = np.zeros_like(pos_ned)
                 vel_body = np.zeros_like(vel_ned)
 
-            mat_out = {
+            mat_out: Dict[str, Any] = {
                 "time_s": time_s,
                 "pos_ned_m": pos_ned,
                 "vel_ned_ms": vel_ned,
@@ -910,9 +920,10 @@ def main(argv=None):
                     stderr=subprocess.STDOUT,
                     text=True,
                 )
-                for line in proc.stdout:
-                    print(line, end="")
-                    log.write(line)
+                if proc.stdout:
+                    for line in proc.stdout:
+                        print(line, end="")
+                        log.write(line)
                 proc.wait()
 
             # ----------------------------
@@ -975,9 +986,10 @@ def main(argv=None):
                     with open(log_path, "a") as log:
                         logger.info("Running attitude comparison plots: %s", att_cmd)
                         proc = subprocess.Popen(att_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
-                        for line in proc.stdout:
-                            print(line, end="")
-                            log.write(line)
+                        if proc.stdout:
+                            for line in proc.stdout:
+                                print(line, end="")
+                                log.write(line)
                         proc.wait()
                         print("Generated attitude comparison plots (KF vs truth, DR vs truth).")
                         log.write("Generated attitude comparison plots (KF vs truth, DR vs truth).\n")
@@ -991,7 +1003,7 @@ def main(argv=None):
     if results:
         logger.info("📊 Final Summary: IMU/GNSS Fusion Results (Tasks 1-7.6 Complete)")
         key_order = {m: i for i, m in enumerate(methods)}
-        # Explicitly type the lambda argument for better type inference
+        # Fix type annotation: explicitly type the lambda argument as Dict[str, Any]
         results.sort(key=lambda r: (str(r["dataset"]), int(key_order.get(str(r["method"]), 0))))
         rows = [
             [

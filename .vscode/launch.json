@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Run All Methods (Full Data)",
+            "name": "Run All Methods (Full Data) - FIXED",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/PYTHON/src/run_all_methods.py",
@@ -10,7 +10,7 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "env": {},
-            "python": "${workspaceFolder}/.venv/bin/python"
+            "python": "/Users/vimalchawda/Desktop/IMU/.venv/bin/python"
         },
         {
             "name": "Run All Methods (Small Data)",
