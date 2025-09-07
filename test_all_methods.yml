@@ -1,0 +1,44 @@
+# Test configuration for all three methods
+datasets:
+  - imu: X001
+    gnss: X001
+
+methods:
+  - TRIAD
+  - SVD
+  - Davenport
+
+output_dir: PYTHON/results
+results_format:
+  save_matlab: true
+  save_plots: true
+
+# Processing tasks  
+tasks:
+  task1_bias: true
+  task2_noise: true
+  task3_static: true
+  task4_body_vectors: true
+  task5_attitude_estimation: true
+  task6_truth_plotting: true
+  task7_fusion_and_analysis: true
+
+# Filter settings
+filter_settings:
+  butterworth_order: 4
+  cutoff_freq_accel: 10.0
+  cutoff_freq_gyro: 10.0
+
+# Kalman filter settings
+kalman_settings:
+  process_noise_accel: 0.01
+  process_noise_gyro: 0.001
+  measurement_noise_accel: 0.1
+  measurement_noise_gnss: 5.0
+
+# Plotting settings
+plotting:
+  save_plots: true
+  show_plots: false
+  plot_format: png
+  dpi: 300

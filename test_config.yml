@@ -1,0 +1,4 @@
+datasets:
+  - imu: IMU_X001.dat
+    gnss: GNSS_X001.csv
+methods: [TRIAD]
