@@ -2022,7 +2022,6 @@ def main():
 
     for m in methods:
         kf = init_bias_kalman(dt_imu, meas_R_pos, meas_R_vel, args.vel_q_scale)
-<<<<<<< ours
         # Auto-tune Q pos/vel blocks from IMU noise proxy (static window)
         try:
             acc_std_axes = np.std(acc_body_corrected[m][:N_static], axis=0)
@@ -2037,8 +2036,6 @@ def main():
             logging.info("Auto Q set: q_pos=%.4g q_vel=%.4g", q_pos, q_vel)
         except Exception:
             pass
-=======
->>>>>>> theirs
         initial_quats = {"TRIAD": q_tri, "Davenport": q_dav, "SVD": q_svd}
         chosen_init = None
         # Optionally override initial attitude with truth quaternion at IMU start
@@ -2206,7 +2203,6 @@ def main():
             kf.F[0:3, 3:6] = np.eye(3) * dt
             kf.B[0:3] = 0.5 * dt * dt * np.eye(3)
             kf.B[3:6] = dt * np.eye(3)
-<<<<<<< ours
             # Clip per-sample Δv to a physical limit (e.g., 3g)
             u = imu_acc[m][i]
             dv = dt * u
@@ -2223,15 +2219,6 @@ def main():
                 v_cap = plausible_speed_cap
                 if high_speed_events == 1 or (
                     vel_blow_warn_interval > 0 and high_speed_events % vel_blow_warn_interval == 0
-=======
-            kf.predict(u=imu_acc[m][i])
-
-            if np.linalg.norm(kf.x[3:6]) > 500:
-                vel_blow_count += 1
-                if vel_blow_count == 1 or (
-                    vel_blow_warn_interval > 0
-                    and vel_blow_count % vel_blow_warn_interval == 0
->>>>>>> theirs
                 ):
                     logging.warning(
                         "Velocity high (%.1f m/s); scaling to %.1f m/s.",
