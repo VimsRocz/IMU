@@ -1213,23 +1213,113 @@ def main(argv: Iterable[str] | None = None) -> None:
     task_set = None
     if args.tasks:
         task_set = {int(x) for x in re.split(r"[,\s]+", args.tasks) if x}
-    if task_set == {6}:
-        est_file = results_dir / f"{run_id}_kf_output.npz"
-        cmd = [
-            sys.executable,
-            str(HERE / "task6_plot_truth.py"),
-            "--est-file",
-            str(est_file),
-            "--truth-file",
-            str(truth_path),
-            "--gnss-file",
-            str(gnss_path),
-        ]
-        # Apply Task 6 plotting defaults (decimation + y-limit sync)
-        cmd += ["--decimate-maxpoints", "200000", "--ylim-percentile", "99.5"]
-        if args.debug:
-            cmd.append("--debug-task6")
-        subprocess.check_call(cmd)
+    
+    # Handle independent task execution (tasks 6, 7, or 6,7)
+    if task_set and task_set.issubset({6, 7}):
+        # Find existing output files for the run_id
+        npz_file = results_dir / f"{run_id}_kf_output.npz"
+        mat_file = results_dir / f"{run_id}_kf_output.mat"
+        log_path = results_dir / f"{run_id}.log"
+        
+        # Check if required files exist
+        if not npz_file.exists():
+            msg = f"[ERROR] Required output file not found: {npz_file}"
+            print(msg)
+            logger.error(msg)
+            print(f"[INFO] Run the full pipeline first (without --tasks) to generate required files")
+            return
+            
+        if 6 in task_set:
+            msg = f"[INFO] Running Task 6 with existing output: {mat_file}"
+            print(msg)
+            logger.info(msg)
+            
+            if not mat_file.exists():
+                msg = f"[ERROR] Required MAT file not found: {mat_file}"
+                print(msg)
+                logger.error(msg)
+                print(f"[INFO] Run the full pipeline first to generate required .mat files")
+                return
+                
+            cmd = [
+                sys.executable,
+                str(HERE / "task6_plot_truth.py"),
+                "--est-file",
+                str(mat_file),
+                "--truth-file",
+                str(truth_path),
+                "--gnss-file",
+                str(gnss_path),
+                "--output",
+                str(results_dir),
+            ]
+            # Apply Task 6 plotting defaults (decimation + y-limit sync)
+            cmd += ["--decimate-maxpoints", "200000", "--ylim-percentile", "99.5"]
+            if args.debug:
+                cmd.append("--debug-task6")
+                
+            with open(log_path, "a") as log:
+                log.write("\nTASK 6 (Independent): Overlay fused output with truth\n")
+                msg = f"Starting Task 6 overlay: cmd={cmd}"
+                logger.info(msg)
+                log.write(msg + "\n")
+                
+                try:
+                    proc = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                    )
+                    for line in proc.stdout:
+                        print(line, end="")
+                        log.write(line)
+                    proc.wait()
+                    
+                    if proc.returncode == 0:
+                        msg = "[INFO] Task 6 completed successfully"
+                        print(msg)
+                        logger.info(msg)
+                        log.write(msg + "\n")
+                    else:
+                        msg = f"[ERROR] Task 6 failed with return code {proc.returncode}"
+                        print(msg)
+                        logger.error(msg)
+                        log.write(msg + "\n")
+                except Exception as e:
+                    msg = f"[ERROR] Task 6 execution failed: {e}"
+                    print(msg)
+                    logger.error(msg)
+                    log.write(msg + "\n")
+                
+        if 7 in task_set:
+            msg = f"[INFO] Running Task 7 with existing output: {npz_file}"
+            print(msg)
+            logger.info(msg)
+            
+            with open(log_path, "a") as log:
+                log.write("\nTASK 7 (Independent): Evaluate residuals\n")
+                msg = "Running Task 7 evaluation ..."
+                logger.info(msg)
+                log.write(msg + "\n")
+                
+                buf = io.StringIO()
+                with redirect_stdout(buf):
+                    try:
+                        from evaluate_filter_results import run_evaluation_npz
+                        run_evaluation_npz(str(npz_file), str(results_dir), run_id)
+                        msg = "[INFO] Task 7 completed successfully"
+                        print(msg)
+                        logger.info(msg)
+                    except Exception as e:
+                        msg = f"[ERROR] Task 7 failed: {e}"
+                        print(msg)
+                        logger.error(msg)
+                        
+                output = buf.getvalue()
+                print(output, end="")
+                log.write(output)
+        
         return
 
     if logger.isEnabledFor(logging.DEBUG):
