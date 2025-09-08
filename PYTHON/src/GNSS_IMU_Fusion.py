@@ -161,7 +161,7 @@ def task3_plot_quaternions_and_errors(
     fig, ax = plt.subplots(figsize=(10, 5))
     for i, comp in enumerate(components):
         vals = [quaternions_dict[label][i] for label in labels]
-        ax.bar(x + (i - 1.5) * width, vals, width, label=comp, color=colors[i])
+        ax.bar(x + (i - 1.5) * width, vals, width, label=comp, color=colors[i], alpha=0.7)
 
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=45, ha="right")
