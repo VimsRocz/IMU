@@ -8,9 +8,15 @@ from pathlib import Path
 METHODS = ['TRIAD','Davenport','SVD']
 
 def run_fusion(imu, gnss, truth, method, log_widget):
-    cmd = [sys.executable, str(Path(__file__).resolve().parent / 'PYTHON' / 'src' / 'GNSS_IMU_Fusion.py'), '--imu-file', imu, '--gnss-file', gnss, '--method', method]
+    cmd = [
+        sys.executable,
+        str(Path(__file__).resolve().parent / 'PYTHON' / 'src' / 'GNSS_IMU_Fusion.py'),
+        '--imu-file', imu,
+        '--gnss-file', gnss,
+        '--method', method,
+    ]
     if truth:
-        cmd += ['--truth-file', truth]
+        cmd += ['--truth-file', truth, '--allow-truth-mismatch']
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     for line in process.stdout:
         log_widget.insert(tk.END, line)
