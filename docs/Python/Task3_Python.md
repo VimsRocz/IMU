@@ -25,8 +25,7 @@ The vectors are fed to `triad_svd()`, which forms the Wahba matrix and
 solves for the optimal rotation with a singular value decomposition.
 This is numerically more robust than the classic cross-product formula.
 The file `init_vectors.py` also defines a placeholder `triad_basis()`
-function, mirroring the MATLAB helper of the same name for future
-cross-language alignment.
+function for potential cross-language alignment in the future.
 
 ### 3.3 Quaternion Output
 - Convert `R_tri` to a quaternion with `rot_to_quaternion()` and enforce a positive scalar component.

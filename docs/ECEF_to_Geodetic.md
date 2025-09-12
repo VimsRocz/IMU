@@ -2,14 +2,8 @@
 
 This note describes the algorithm used throughout the repository to convert
 Earth‑Centred Earth‑Fixed (ECEF) coordinates to geodetic latitude,
-longitude and altitude. The implementation is shared between the Python
-code (`src/utils.py`) and the MATLAB helpers `ecef_to_geodetic.m` and
-`ecef2geodetic.m`.
-
-`ecef_to_geodetic.m` automatically delegates to MATLAB's Mapping
-Toolbox function `ecef2geodetic` when available and otherwise executes
-the lightweight `ecef2geodetic.m` implementation bundled with this
-repository. Both variants yield identical results.
+longitude and altitude. The implementation resides in the Python helper
+`src/utils.py`.
 
 ## Algorithm
 
@@ -32,6 +26,6 @@ semi‑major axis `a = 6378137.0 m` and first eccentricity squared
 6. Altitude is `p / cos(lat) − N`.
 7. Convert latitude and longitude to degrees for output.
 
-Both implementations follow these steps exactly so the results match to
+The implementation follows these steps exactly so the results match to
 machine precision.
 

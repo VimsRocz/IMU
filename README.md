@@ -1,12 +1,10 @@
-# IMU — GNSS + IMU Data Processing (Python & MATLAB)
+# IMU — GNSS + IMU Data Processing (Python)
 
-This repository hosts parallel Python and MATLAB implementations for IMU/GNSS initialization and analysis. Each language is self-contained; data are shared via `DATA/`.
 
 [![GitHub release](https://img.shields.io/github/v/release/VimsRocz/IMU?logo=github)](https://github.com/VimsRocz/IMU/releases) [![GitHub stars](https://img.shields.io/github/stars/VimsRocz/IMU?style=social)](https://github.com/VimsRocz/IMU/stargazers) [![GitHub forks](https://img.shields.io/github/forks/VimsRocz/IMU?style=social)](https://github.com/VimsRocz/IMU/network/members) [![Follow on GitHub](https://img.shields.io/github/followers/VimsRocz?style=social)](https://github.com/VimsRocz) [![License](https://img.shields.io/github/license/VimsRocz/IMU)](LICENSE) [![Python CI](https://github.com/VimsRocz/IMU/actions/workflows/python-ci.yml/badge.svg)](https://github.com/VimsRocz/IMU/actions/workflows/python-ci.yml) [![PyPI](https://img.shields.io/pypi/v/imu_gnss_fusion)](https://pypi.org/project/imu_gnss_fusion/) [![CodeQL](https://github.com/VimsRocz/IMU/actions/workflows/codeql.yml/badge.svg)](https://github.com/VimsRocz/IMU/actions/workflows/codeql.yml)
 
 ### Table of Contents
 - [Installation](#installation)
-- [MATLAB Requirements](#matlab-requirements)
 - [Usage](#usage)
 - [Quick Start](#quick-start)
 - [Running the Pipeline](#running-the-pipeline)
@@ -14,7 +12,6 @@ This repository hosts parallel Python and MATLAB implementations for IMU/GNSS in
   - [run_all_datasets.py](#run_all_datasetspy)
   - [run_triad_only.py](#run_triad_onlypy)
   - [run_method_only.py](#run_method_onlypy)
-  - [run_triad_method.m](#run_triad_methodm)
   - [GNSS_IMU_Fusion_single](#gnss_imu_fusion_singleimu_file-gnss_file)
   - [FINAL.py](#finalpy)
 - [Per-Task Overview](#per-task-overview)
@@ -110,9 +107,7 @@ pip3 install cython
 pip3 install filterpy
 ```
 
-### MATLAB Requirements
 
-The MATLAB scripts mirror the Python pipeline. We recommend MATLAB R2023a with the Signal Processing Toolbox installed. Without this toolbox, Task 2 uses a fallback moving-average filter and manual variance computation, which can degrade accuracy and slow down processing. Install the toolbox via MATLAB’s Add-On Manager and verify with:
 
 ```matlab
 ver('signal')
@@ -127,7 +122,6 @@ Repository Structure (Simple View)
 - `DATA/IMU`: raw IMU logs (IMU_X00{1,2,3}.dat, + `_small`)
 - `DATA/GNSS`: raw GNSS logs (GNSS_X00{1,2}.csv, + `_small`)
 - `DATA/Truth`: reference trajectory (STATE_X001.txt, STATE_X001_small.txt)
-- `MATLAB`: MATLAB code; outputs in `MATLAB/results/`
 - `PYTHON/src`: Python helpers and library code
 - `PYTHON`: top-level Python runner scripts and utilities
 - `PYTHON/results`: Python outputs
@@ -138,41 +132,31 @@ Run — Python (from repo root)
 python PYTHON/src/run_triad_only.py   # uses DATA/... and writes to PYTHON/results/
 ```
 
-Run — MATLAB (from repo root)
 
 ```matlab
-addpath('MATLAB'); addpath('MATLAB/src');
 run_triad_only(struct('dataset_id','X002','method','TRIAD'));
-% uses DATA/... and writes to MATLAB/results/
 ```
 
 Task 1 outputs are cached for reuse:
 
 - Python Task 1 saves an interactive HTML map under `PYTHON/results/`.
-- MATLAB Task 1 opens a popup and saves a `.fig` under `MATLAB/results/`.
-- Both stacks persist Task 1 inputs/outputs. Reload them via `PYTHON/src/task1_cache.py` (Python) or by loading the `.mat` file (MATLAB).
 
 Notes
 
-- Python saves to `PYTHON/results/` and MATLAB saves to `MATLAB/results/` on purpose.
 - Older scripts assumed data in the repo root; all data now lives under `DATA/`.
 
 ### Usage
 
-Run the MATLAB batch runner from the repository root so all data paths resolve correctly:
 
 ```matlab
-addpath('MATLAB'); addpath('MATLAB/src');     % from repository root
 run_all_datasets_matlab;                      % all methods
 % or
 run_all_datasets_matlab('TRIAD');
 ```
 
-Python reads inputs from `DATA/IMU`, `DATA/GNSS`, and the truth file from `DATA/Truth/STATE_X001.txt`. Outputs go to `PYTHON/results/`. MATLAB uses the same inputs but writes figures and MAT-files to `MATLAB/results/`. The two directories are independent so results do not overwrite each other.
 
 ### Per-Task Overview
 
-The pipeline tasks correspond to steps in the MATLAB implementation. Each task produces intermediate results that feed into the next one:
 
 | Task/Subtask | Input | Output | Link |
 |--------------|-------|--------|------|
@@ -182,7 +166,6 @@ The pipeline tasks correspond to steps in the MATLAB implementation. Each task p
 | Task 4 – IMU-Only Integration | Corrected IMU data and initial attitude | Integrated trajectory compared with GNSS solution | [docs/TRIAD_Task4_Wiki.md](docs/TRIAD_Task4_Wiki.md) |
 | Task 5 – Kalman Fusion | IMU-only trajectory and GNSS updates | Fused trajectory from a simple Kalman filter | [docs/TRIAD_Task5_Wiki.md](docs/TRIAD_Task5_Wiki.md) |
 | Task 6 – Truth Overlay | Task 5 results and recorded reference trajectory | Figures with truth overlaid on fused trajectory | [docs/TRIAD_Task6_Wiki.md](docs/TRIAD_Task6_Wiki.md) |
-| Task 7 – Evaluation | Data and results from previous tasks | Analysis of filter residuals and attitude stability | [docs/Python/Task7_Python.md](docs/Python/Task7_Python.md), [docs/MATLAB/Task7_MATLAB.md](docs/MATLAB/Task7_MATLAB.md) |
 
 ### Datasets
 
@@ -304,7 +287,6 @@ Passing `--show-measurements` adds the raw IMU and GNSS curves. Figures are writ
 
 ### Task 7: Evaluation of Filter Results
 
-This task analyzes the filter’s prediction accuracy. See `docs/Python/Task7_Python.md` and `docs/MATLAB/Task7_MATLAB.md`.
 
 Includes:
 
@@ -370,10 +352,8 @@ Run only the TRIAD initialization across datasets:
 python PYTHON/src/run_triad_only.py
 ```
 
-MATLAB equivalent:
 
 ```matlab
-addpath('MATLAB'); addpath('MATLAB/src');
 run_triad_only('TRIAD')
 ```
 
@@ -385,39 +365,20 @@ Select a single method via CLI:
 python PYTHON/src/run_method_only.py --method SVD
 ```
 
-MATLAB equivalent:
 
 ```matlab
-addpath('MATLAB'); addpath('MATLAB/src');
 run_method_only('SVD')
 ```
 
 Wrappers:
 
 - Python: `PYTHON/src/run_triad_only.py`, `PYTHON/src/run_svd_only.py`, `PYTHON/src/run_davenport_only.py`
-- MATLAB: `MATLAB/run_triad_only.m`, `MATLAB/run_svd_only.m`, `MATLAB/run_davenport_only.m`
 
-#### run_triad_method.m
-
-Run TRIAD-based Tasks 1–5 on a single dataset:
-
-```matlab
-addpath('MATLAB'); addpath('MATLAB/src');
-run_triad_method('IMU_X002.dat', 'GNSS_X002.csv')
-```
-
-Bundled pairs are:
-
-- `DATA/IMU/IMU_X001.dat` with `DATA/GNSS/GNSS_X001.csv`
-- `DATA/IMU/IMU_X002.dat` with `DATA/GNSS/GNSS_X002.csv`
-- `DATA/IMU/IMU_X003.dat` with `DATA/GNSS/GNSS_X002.csv` (shared GNSS log)
 
 #### GNSS_IMU_Fusion_single(imu_file, gnss_file)
 
-`MATLAB/GNSS_IMU_Fusion_single.m` contains Task 1–5 and writes plots to `MATLAB/results/`:
 
 ```matlab
-addpath('MATLAB'); addpath('MATLAB/src');
 GNSS_IMU_Fusion_single('IMU_X001.dat', 'GNSS_X001.csv')
 ```
 
@@ -504,12 +465,10 @@ These utilities are optional and not exercised by the unit tests.
 - Logging: Consider adding the `rich` console handler for colorful status messages.
 - Documentation: Generate API docs with Sphinx or MkDocs as desired.
 - CI: See `.github/workflows/python-ci.yml` for the Python workflow.
-- Debugging: If the MATLAB pipeline drifts, see `docs/DebuggingDrift.md`.
 - Security: See `docs/disable-default-codeql.md`.
 
 ### Appendix: Advanced Topics
 
-See `docs/AdvancedTopics.md` for GitHub Codespaces instructions and MATLAB usage.
 
 ### Documentation
 
@@ -520,7 +479,6 @@ See `docs/AdvancedTopics.md` for GitHub Codespaces instructions and MATLAB usage
 - [docs/TRIAD_Task5_Wiki.md](docs/TRIAD_Task5_Wiki.md) – Kalman filter fusion
 - [docs/TRIAD_Task6_Wiki.md](docs/TRIAD_Task6_Wiki.md) – truth overlay plots
 - [docs/Python/Task7_Python.md](docs/Python/Task7_Python.md) – evaluation pipeline (Python)
-- [docs/MATLAB/Task7_MATLAB.md](docs/MATLAB/Task7_MATLAB.md) – evaluation pipeline (MATLAB)
 - [Report/](Report/) – summary of a typical run
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) – list of recent features
 
@@ -534,11 +492,9 @@ IMU/
 │   ├── results/          # generated artifacts
 │   ├── config/           # YAML/JSON configs
 │   └── docs/             # (empty placeholder; see top-level docs/)
-└── MATLAB/               # MATLAB environment
     ├── src/              # utils
     ├── results/          # generated artifacts
     ├── config/           # configs (if any)
-    └── docs/             # MATLAB-specific docs (see top-level docs/MATLAB)
 ```
 
 ## Troubleshooting
