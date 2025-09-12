@@ -340,6 +340,37 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_attitude_error_angle_over_time.png'),
                                        {'t': time_s, 'att_err_deg': ang}))
 
+    # Console summary tables matching run_triad_only.py
+    def _metrics(vec: np.ndarray):
+        vec = np.asarray(vec).ravel()
+        mean = float(np.mean(vec))
+        rmse = float(np.sqrt(np.mean(vec ** 2)))
+        p95 = float(np.percentile(np.abs(vec), 95))
+        p99 = float(np.percentile(np.abs(vec), 99))
+        vmax = float(np.max(np.abs(vec)))
+        final = float(vec[-1]) if vec.size else float('nan')
+        return mean, rmse, p95, p99, vmax, final
+
+    headers = ["metric", "w", "x", "y", "z"]
+    stats_q = {k: _metrics(dq[:, i]) for i, k in enumerate(['w', 'x', 'y', 'z'])}
+    rows = []
+    for label, idx in [("mean", 0), ("rmse", 1), ("p95_abs", 2), ("p99_abs", 3), ("max_abs", 4), ("final", 5)]:
+        rows.append([label] + [f"{stats_q[k][idx]:.6f}" for k in ['w','x','y','z']])
+    print("\n===== Task7.6 Quaternion Component Error Summary (est − truth) =====")
+    print(" ".join(f"{h:>12s}" for h in headers))
+    for r in rows:
+        print(" ".join(f"{c:>12s}" for c in r))
+
+    headers_e = ["metric", "yaw", "pitch", "roll"]
+    stats_e = {k: _metrics(e_err[:, i]) for i, k in enumerate(['yaw', 'pitch', 'roll'])}
+    rows_e = []
+    for label, idx in [("mean", 0), ("rmse", 1), ("p95_abs", 2), ("p99_abs", 3), ("max_abs", 4), ("final", 5)]:
+        rows_e.append([label] + [f"{stats_e[k][idx]:.6f}" for k in ['yaw','pitch','roll']])
+    print("\n===== Task7.6 Euler Error Summary (est − truth) [deg] =====")
+    print(" ".join(f"{h:>12s}" for h in headers_e))
+    for r in rows_e:
+        print(" ".join(f"{c:>12s}" for c in r))
+
     # Divergence detection utilities
     def _divergence_time(t: np.ndarray, err: np.ndarray, thresh_deg: float, persist_s: float) -> float:
         t = np.asarray(t)
@@ -363,6 +394,10 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
         return np.nan
 
     div_t = _divergence_time(time_s, ang, div_threshold_deg, div_persist_sec)
+    if np.isnan(div_t):
+        print("Estimated divergence start time (attitude): none")
+    else:
+        print(f"Estimated divergence start time (attitude): {div_t:.3f} s")
     with open(results_dir / f'{tag}_Task7_divergence_summary.csv', 'w') as f:
         f.write('threshold_deg,persist_s,divergence_s\n')
         f.write(f"{div_threshold_deg},{div_persist_sec},{'' if np.isnan(div_t) else f'{div_t:.6f}'}\n")
