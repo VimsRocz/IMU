@@ -169,7 +169,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
         logger.warning(f"Matplotlib unavailable; skipping Task7 attitude plots: {e}")
         return
 
-    if not est_npz.exists() or not truth_file or not truth_file.exists():
+    if not est_npz.exists():
         return
     try:
         data = np.load(est_npz, allow_pickle=True)
@@ -190,27 +190,32 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
         time_s = time_s[:n]
         quat = quat[:n]
 
-    # Load truth (STATE_X...) flexible parsing similar to run_triad_only _read_state_x001
-    try:
-        M = np.loadtxt(truth_file, dtype=float)
-        if M.ndim != 2 or M.shape[1] < 10:
-            raise ValueError("truth file unexpected shape")
-        q_truth = M[:, -4:]  # assume qw qx qy qz
-        # Determine time column (prefer one whose span < 2e4s)
-        cand_cols = [0, 1] if M.shape[1] > 1 else [0]
-        t_candidates = []
-        for c in cand_cols:
-            tcol = M[:, c]
-            span = tcol.max() - tcol.min()
-            t_candidates.append((abs(span), c, tcol))
-        t_candidates.sort(key=lambda x: x[0])
-        t_truth = t_candidates[0][2]
-        # Zero-base if starts at a large offset
-        if t_truth[0] > 1000:
-            t_truth = t_truth - t_truth[0]
-    except Exception as e:
-        logger.warning(f"Failed loading truth for attitude: {e}")
-        return
+    truth_available = bool(truth_file and truth_file.exists())
+    qT = None
+    t_truth = None
+    if truth_available:
+        # Load truth (STATE_X...) flexible parsing similar to run_triad_only _read_state_x001
+        try:
+            M = np.loadtxt(truth_file, dtype=float)
+            if M.ndim != 2 or M.shape[1] < 10:
+                raise ValueError("truth file unexpected shape")
+            q_truth = M[:, -4:]  # assume qw qx qy qz
+            # Determine time column (prefer one whose span < 2e4s)
+            cand_cols = [0, 1] if M.shape[1] > 1 else [0]
+            t_candidates = []
+            for c in cand_cols:
+                tcol = M[:, c]
+                span = tcol.max() - tcol.min()
+                t_candidates.append((abs(span), c, tcol))
+            t_candidates.sort(key=lambda x: x[0])
+            t_truth = t_candidates[0][2]
+            # Zero-base if starts at a large offset
+            if t_truth[0] > 1000:
+                t_truth = t_truth - t_truth[0]
+        except Exception as e:
+            logger.warning(f"Failed loading truth for attitude: {e}")
+            truth_available = False
+
 
     # Helper functions (minimal subset)
     def q_norm(q: np.ndarray) -> np.ndarray:
@@ -251,26 +256,53 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
         quat = quat[:n]
         time_s = time_s[:n]
 
-    qT = q_norm(qT)
     qE = q_norm(quat)
-    qE = fix_hemisphere(qT, qE)
-    ang = quat_angle_deg(qE, qT)
+    if truth_available and t_truth is not None:
+        try:
+            idx = np.searchsorted(t_truth, time_s)
+            idx[idx >= len(t_truth)] = len(t_truth) - 1
+            qT = q_truth[idx]
+        except Exception:
+            n = min(len(q_truth), len(quat))
+            qT = q_truth[:n]
+            quat = quat[:n]
+            time_s = time_s[:n]
+        qT = q_norm(qT)
+        qE = fix_hemisphere(qT, qE)
+        ang = quat_angle_deg(qE, qT)
+    else:
+        ang = None
 
     generated: List[pathlib.Path] = []
 
-    # Quaternion components (truth vs est)
+    # Quaternion components plot (always generated)
     plt.figure(figsize=(10, 6))
     labels = ['w', 'x', 'y', 'z']
     for i, lab in enumerate(labels):
         ax = plt.subplot(2, 2, i + 1)
-        ax.plot(time_s, qT[:, i], '-', label='Truth')
-        ax.plot(time_s, qE[:, i], '--', label='KF')
+        if truth_available and qT is not None:
+            ax.plot(time_s, qT[:, i], '-', label='Truth')
+            ax.plot(time_s, qE[:, i], '--', label='KF')
+        else:
+            ax.plot(time_s, qE[:, i], '-', label='KF')
         ax.set_title(f'q_{lab}')
         ax.grid(True)
     plt.legend(loc='upper right')
-    plt.suptitle(f'{tag} Task7.6 (Body→NED): Quaternion Truth vs KF')
-    generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png'),
-                                       {'t': time_s, 'q_truth': qT, 'q_kf': qE}))
+    title = f'{tag} Task7.6 (Body→NED): Quaternion Truth vs KF' if truth_available else f'{tag} Task7.6: Quaternion Components'
+    plt.suptitle(title)
+    data_dict = {'t': time_s, 'q_kf': qE}
+    if truth_available and qT is not None:
+        data_dict['q_truth'] = qT
+    generated.append(
+        _save_png_and_mat(
+            str(results_dir / f'{tag}_Task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png'),
+            data_dict,
+        )
+    )
+
+    if not truth_available or qT is None:
+        logger.info('Generated Task7 attitude plot for %s (no truth available)', tag)
+        return
 
     # Quaternion component residuals
     dq = qE - qT
@@ -290,7 +322,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
     try:
         rotT = R.from_quat(qT[:, [1, 2, 3, 0]])
         rotE = R.from_quat(qE[:, [1, 2, 3, 0]])
-        eT = rotT.as_euler('zyx', degrees=True)  # yaw pitch roll
+        eT = rotT.as_euler('zyx', degrees=True)
         eE = rotE.as_euler('zyx', degrees=True)
     except Exception as e:
         logger.warning(f"Failed Euler conversion: {e}")
