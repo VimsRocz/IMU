@@ -41,13 +41,7 @@ Optional magnetic field if a magnetometer file is provided
 
 ## Running the Script
 
-Invoke Task 1 directly from the repository root to verify a GNSS/IMU pair:
 
-```bash
-python PYTHON/src/run_method_only.py --task 1 --imu IMU_X001.dat --gnss GNSS_X001.csv
-```
-
-The command prints the derived latitude/longitude together with the gravity and
 Earth‑rate vectors.  Use `--no-plots` to suppress map generation during batch
 runs.
 

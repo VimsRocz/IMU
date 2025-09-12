@@ -29,6 +29,25 @@ Residual position and velocity are compared with the GNSS data. When a truth tra
 - Figures are saved as `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf` for
   all frames (NED, ECEF and Body).
 
+## Running the Script
+
+Run the evaluation helper after Task 5 to generate residual and attitude plots:
+
+```bash
+python PYTHON/src/run_all_methods.py --task 7
+```
+
+The script searches `PYTHON/results/` for `*_kf_output.npz` files and prints mean
+residual statistics for each dataset.
+
+## Output Files
+
+All figures are stored in `PYTHON/results/` using the dataset and method tag:
+
+- `<tag>_task7_3_residuals_position_velocity.pdf`
+- `<tag>_task7_4_attitude_angles_euler.pdf`
+- `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf`
+
 ## Result
 
 Task 7 produces residual and attitude plots that summarise the filter performance for each data set.

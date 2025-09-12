@@ -38,6 +38,28 @@ GNSS ECEF → NED → comparison plots
 - Save the PNGs to `results/<tag>_task4_*.png` and record them in `plot_summary.md`.
 - Consult the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) when labelling GNSS, IMU and fused traces.
 
+## Running the Script
+
+Task 4 follows the attitude computation automatically.  Run the fusion script
+for a dataset:
+
+```bash
+python PYTHON/src/GNSS_IMU_Fusion.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
+```
+
+The pipeline integrates the corrected specific force and prints summary
+statistics of the resulting trajectory.
+
+## Output Files
+
+The IMU-only trajectory plots are stored under `PYTHON/results/`:
+
+- `<tag>_task4_ned.png`
+- `<tag>_task4_body.png`
+- `<tag>_task4_ecef.png`
+
+`plot_summary.md` is updated with links to these figures.
+
 ## Result
 
 Task 4 yields an IMU-only trajectory and diagnostic figures that feed into the Kalman filter of **Task 5**.

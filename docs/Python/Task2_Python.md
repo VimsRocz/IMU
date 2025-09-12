@@ -40,6 +40,26 @@ Body-frame gravity g_body and Earth rate ω_ie_body
 - Check vector shapes and magnitudes and print them to the console.
 - Warn if gravity differs from `9.81 m/s²` or rotation from `7.292e‑5 rad/s` by more than a few percent.
 
+## Running the Script
+
+Task 2 executes as part of the main fusion pipeline.  From the repository root run:
+
+```bash
+python PYTHON/src/GNSS_IMU_Fusion.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
+```
+
+The console lists the detected static interval and prints the mean accelerometer
+and gyroscope vectors.  Add `--no-plots` to suppress figure generation during
+batch processing.
+
+## Output Files
+
+`PYTHON/results/` receives the ZUPT variance plot and the log of the static
+interval:
+
+- `<tag>_ZUPT_variance.pdf`
+- `triad_init_log.txt`
+
 ## Result
 
 Task 2 outputs gravity and Earth‑rate vectors in the sensor frame.  Together with the reference vectors from Task 1 they form the input to the TRIAD attitude solution in **Task 3**.
