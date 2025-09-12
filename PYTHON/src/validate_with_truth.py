@@ -1342,7 +1342,7 @@ def main():
                         plt.xlabel("Time [s]")
                 plt.tight_layout()
                 # Save PNG and MATLAB .fig with Task/Frame in filename
-                f_q_base = f"{tag_prefix}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion"
+                f_q_base = f"{tag_prefix}_Task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion"
                 fig_q = plt.gcf()
                 try:
                     fig_q.savefig(f"{f_q_base}.png", dpi=200, bbox_inches='tight')
