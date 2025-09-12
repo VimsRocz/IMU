@@ -31,20 +31,40 @@ def save_plot(fig, results_dir: str | Path, run_id: str, task_label: str, plot_l
     """
     results_dir = Path(results_dir)
     results_dir.mkdir(parents=True, exist_ok=True)
-    # Save as native MATLAB .fig when possible; otherwise fall back to PNG+MAT
+    # Base path without suffix; actual files created below.
     stem_path = results_dir / f"{run_id}_{task_label}_{plot_label}"
+
+    # Try to save as a native MATLAB .fig (returned path includes extension).
     fig_path = save_matlab_fig(fig, str(stem_path))
     if fig_path is not None:
-        # Ensure PNG sibling exists as well
+        # Always create a PNG sibling for quick viewing.
         try:
-            png_path = stem_path.with_suffix('.png')
-            fig.savefig(png_path, **kwargs)
-        except Exception:
+            fig.savefig(stem_path.with_suffix(".png"), **kwargs)
+        except Exception:  # pragma: no cover - best effort
             pass
+        # Additionally honour requested extension if different from PNG.
+        if ext != "png":
+            try:
+                alt_path = stem_path.with_suffix(f".{ext}")
+                fig.savefig(alt_path, **kwargs)
+                _saved[task_label].append(alt_path.name)
+                return alt_path
+            except Exception:  # pragma: no cover - best effort
+                _saved[task_label].append(fig_path.name)
+                return fig_path
         _saved[task_label].append(fig_path.name)
         return fig_path
+
     # Fallback: save PNG + MAT (+ MAT-based FIG via utils_legacy)
     png_path, _ = save_png_and_mat(fig, str(stem_path), **kwargs)
+    if ext != "png":
+        try:
+            alt_path = stem_path.with_suffix(f".{ext}")
+            fig.savefig(alt_path, **kwargs)
+            _saved[task_label].append(alt_path.name)
+            return alt_path
+        except Exception:  # pragma: no cover - best effort
+            pass
     _saved[task_label].append(png_path.name)
     return png_path
 

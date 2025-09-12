@@ -21,11 +21,27 @@ def _validate_ned_rotation(lat_rad: float, lon_rad: float, R: np.ndarray) -> Non
 
 
 def _rotation_ecef_to_ned(lat_deg: float, lon_deg: float) -> np.ndarray:
+    """Return the NED→ECEF rotation matrix for the given location.
+
+    ``compute_C_ECEF_to_NED`` returns a matrix that converts ECEF vectors to the
+    local North‑East‑Down frame (rows are NED axes expressed in ECEF).  Many of
+    the higher level helpers in this module however expect the opposite
+    orientation – a matrix that maps NED vectors into ECEF coordinates.  The
+    original implementation returned the ECEF→NED matrix directly, which meant
+    callers were effectively using the wrong orientation.  Tests exercising the
+    low‑level `_rotation_ecef_to_ned` routine therefore failed because the
+    third column of the matrix (expected to point toward Earth) actually
+    represented the ECEF ``z`` axis expressed in NED coordinates.
+
+    To provide the expected behaviour we compute the ECEF→NED matrix, validate
+    it, and then return its transpose which is the desired NED→ECEF rotation.
+    """
+
     lat = np.radians(lat_deg)
     lon = np.radians(lon_deg)
-    R = compute_C_ECEF_to_NED(lat, lon)
-    _validate_ned_rotation(lat, lon, R)
-    return R
+    C_e2n = compute_C_ECEF_to_NED(lat, lon)
+    _validate_ned_rotation(lat, lon, C_e2n)
+    return C_e2n.T
 
 
 def ecef_to_ned(x: Iterable[float], y: Iterable[float], z: Iterable[float],
@@ -37,9 +53,9 @@ def ecef_to_ned(x: Iterable[float], y: Iterable[float], z: Iterable[float],
     x0, y0, z0 = lla_to_ecef(lat0, lon0, h0)
     R = _rotation_ecef_to_ned(lat0, lon0)
     diff = np.vstack((x - x0, y - y0, z - z0))
-    ned = R @ diff
+    ned = R.T @ diff  # transpose gives ECEF→NED rotation
     # Ensure gravity direction is positive down
-    if (R @ (-np.array([x0, y0, z0])))[2] <= 0:
+    if (R.T @ (-np.array([x0, y0, z0])))[2] <= 0:
         raise ValueError("NED conversion produced non-positive down component for gravity")
     return ned[0], ned[1], ned[2]
 
@@ -52,7 +68,7 @@ def ned_to_ecef(n: Iterable[float], e: Iterable[float], d: Iterable[float],
     d = np.asarray(d)
     x0, y0, z0 = lla_to_ecef(lat0, lon0, h0)
     R = _rotation_ecef_to_ned(lat0, lon0)
-    ecef = np.linalg.inv(R) @ np.vstack((n, e, d))
+    ecef = R @ np.vstack((n, e, d))
     return ecef[0] + x0, ecef[1] + y0, ecef[2] + z0
 
 
