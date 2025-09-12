@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "imu_gnss_fusion"
-version = "1.0.0"
+version = "1.0.1"
 description = "Python GNSS-IMU fusion and orientation estimation"
-authors = [{ name = "Your Name", email = "you@example.com" }]
+authors = [{ name = "VimsRocz" }]
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"

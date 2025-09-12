@@ -41,13 +41,7 @@ Optional magnetic field if a magnetometer file is provided
 
 ## Running the Script
 
-Execute the full pipeline for a single GNSS/IMU pair from the repository root:
 
-```bash
-python PYTHON/src/GNSS_IMU_Fusion.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
-```
-
-The script prints the derived latitude/longitude together with the gravity and
 Earth‑rate vectors.  Use `--no-plots` to suppress map generation during batch
 runs.
 
