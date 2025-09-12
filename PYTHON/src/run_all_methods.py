@@ -126,7 +126,7 @@ def run_case(cmd, log_path):
 # ---------------------------------------------------------------------------
 # Task7 Attitude plotting helpers (mirrors logic from run_triad_only.py)
 # ---------------------------------------------------------------------------
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 
 
 def _save_png_and_mat(base_png_path: str, data_dict: Dict[str, Any]):
@@ -153,9 +153,9 @@ def _save_png_and_mat(base_png_path: str, data_dict: Dict[str, Any]):
     return pathlib.Path(base_png_path)
 
 
-def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: str, results_dir: pathlib.Path,
-                          div_threshold_deg: float = 30.0, div_persist_sec: float = 10.0,
-                          length_scan: str = "60,120,300,600,900,1200",
+def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Path], tag: str,
+                          results_dir: pathlib.Path, div_threshold_deg: float = 30.0,
+                          div_persist_sec: float = 10.0, length_scan: str = "60,120,300,600,900,1200",
                           subdir: str = "task7_attitude") -> None:
     """Replicate Task7 attitude plots produced by run_triad_only for batch runs.
 
@@ -268,8 +268,8 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: pathlib.Path, tag: 
         ax.set_title(f'q_{lab}')
         ax.grid(True)
     plt.legend(loc='upper right')
-    plt.suptitle(f'{tag} Task7 (Body→NED): Quaternion Truth vs KF')
-    generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion.png'),
+    plt.suptitle(f'{tag} Task7.6 (Body→NED): Quaternion Truth vs KF')
+    generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png'),
                                        {'t': time_s, 'q_truth': qT, 'q_kf': qE}))
 
     # Quaternion component residuals
@@ -810,8 +810,8 @@ def main(argv=None):
             # Task 7.6 Attitude plots (match run_triad_only output set)
             # ----------------------------
             try:
-                if 'truth_file' in locals() and truth_file is not None and pathlib.Path(truth_file).exists():
-                    _task7_attitude_plots(npz_path, pathlib.Path(truth_file), tag, results_dir)
+                truth_path_obj = pathlib.Path(truth_file) if 'truth_file' in locals() and truth_file else None
+                _task7_attitude_plots(npz_path, truth_path_obj, tag, results_dir)
             except Exception as ex:
                 logger.info(f"[WARN] Task7 attitude plots failed for {tag}: {ex}")
 
