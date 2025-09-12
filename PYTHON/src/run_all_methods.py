@@ -306,8 +306,8 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
         if i == 0:
             ax.legend()
     plt.xlabel('Time [s]')
-    plt.suptitle(f'{tag} Task7 (Body→NED): Euler (ZYX) Truth vs KF')
-    generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_euler.png'),
+    plt.suptitle(f'{tag} Task7.6 (Body→NED): Euler (ZYX) Truth vs KF')
+    generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_BodyToNED_attitude_truth_vs_estimate_euler.png'),
                                        {'t': time_s, 'e_truth_zyx_deg': eT, 'e_kf_zyx_deg': eE}))
 
     def _wrap_deg(x: np.ndarray) -> np.ndarray:

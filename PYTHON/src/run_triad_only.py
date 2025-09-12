@@ -787,9 +787,9 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
         if i == 0:
             ax.legend()
     plt.xlabel('Time [s]')
-    plt.suptitle(f'{tag} Task7 (Body→NED): Euler (ZYX) Truth vs KF')
+    plt.suptitle(f'{tag} Task7.6 (Body→NED): Euler (ZYX) Truth vs KF')
     _save_png_and_mat(
-        os.path.join(results_dir, f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_euler.png'),
+        os.path.join(results_dir, f'{tag}_Task7_6_BodyToNED_attitude_truth_vs_estimate_euler.png'),
         {'t': t_plot, 'e_truth_zyx_deg': eT, 'e_kf_zyx_deg': eE}
     )
 
