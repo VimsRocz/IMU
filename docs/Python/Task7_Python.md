@@ -29,6 +29,14 @@ Residual position and velocity are compared with the GNSS data. When a truth tra
 - Figures are saved as `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf` for
   all frames (NED, ECEF and Body).
 
+### 7.6 Attitude Truth vs Estimate
+- Generate quaternion plots comparing truth and Kalman filter estimates.
+- Save `<tag>_task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png`.
+- Plot quaternion component errors and Euler angle errors over time.
+- Additional files include `<tag>_task7_6_BodyToNED_attitude_quaternion_error_components.png`,
+  `<tag>_task7_6_BodyToNED_attitude_euler_error_over_time.png` and
+  `<tag>_task7_6_attitude_error_angle_over_time.png`.
+
 ## Running the Script
 
 Run the evaluation helper after Task 5 to generate residual and attitude plots:
@@ -47,6 +55,10 @@ All figures are stored in `PYTHON/results/` using the dataset and method tag:
 - `<tag>_task7_3_residuals_position_velocity.pdf`
 - `<tag>_task7_4_attitude_angles_euler.pdf`
 - `<tag>_task7_5_diff_truth_fused_over_time_<frame>.pdf`
+- `<tag>_task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png`
+- `<tag>_task7_6_BodyToNED_attitude_quaternion_error_components.png`
+- `<tag>_task7_6_BodyToNED_attitude_euler_error_over_time.png`
+- `<tag>_task7_6_attitude_error_angle_over_time.png`
 
 ## Result
 
