@@ -3325,7 +3325,7 @@ def main():
                 # Save with the requested filename pattern
                 imu_tag = Path(imu_file).stem
                 gnss_tag = Path(gnss_file).stem
-                out_name = f"{imu_tag}_{gnss_tag}_{method}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion.png"
+                out_name = f"{imu_tag}_{gnss_tag}_{method}_Task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png"
                 out_path = Path("results") / out_name
                 fig_q.savefig(out_path, dpi=200, bbox_inches="tight")
                 # Also save a MATLAB .mat bundle for plot_any compatibility

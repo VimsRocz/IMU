@@ -752,9 +752,9 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
         ax.set_title(f'q_{lab}')
         ax.grid(True)
     plt.legend(loc='upper right')
-    plt.suptitle(f'{tag} Task7 (Body→NED): Quaternion Truth vs KF')
+    plt.suptitle(f'{tag} Task7_6 (Body→NED): Quaternion Truth vs KF')
     _save_png_and_mat(
-        os.path.join(results_dir, f'{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion.png'),
+        os.path.join(results_dir, f'{tag}_Task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png'),
         {'t': t_plot, 'q_truth': qT_plot, 'q_kf': qE_plot}
     )
 

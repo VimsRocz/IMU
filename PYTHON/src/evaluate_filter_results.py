@@ -422,7 +422,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         if _saved_registry is not None:
             # Patterns to look for (PNG form; .fig/.pdf/.mat variants may also exist)
             patterns = [
-                f"{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_quaternion.png" if tag else None,
+                f"{tag}_Task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png" if tag else None,
                 f"{tag}_Task7_6_BodyToNED_attitude_quaternion_error_components.png" if tag else None,
                 f"{tag}_Task7_BodyToNED_attitude_truth_vs_estimate_euler.png" if tag else None,
                 f"{tag}_Task7_6_BodyToNED_attitude_euler_error_over_time.png" if tag else None,
