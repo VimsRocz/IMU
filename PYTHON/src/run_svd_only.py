@@ -1201,8 +1201,8 @@ def main(argv: Iterable[str] | None = None) -> None:
                 cmd_t6.append("--show-measurements")
             print("Starting Task 6 overlay:", cmd_t6)
             subprocess.run(cmd_t6, check=True)
-    # Task 7
-    print("Running Task 7 evaluation …")
+            # Task 7
+            print("Running Task 7 evaluation …")
             try:
                 est_npz_for_t7 = est_npz if est_npz.exists() else est_npz_legacy
                 run_evaluation_npz(str(est_npz_for_t7), str(results_dir), run_id)

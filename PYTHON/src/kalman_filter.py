@@ -45,12 +45,14 @@ def init_bias_kalman(
 def inject_zupt(kf: KalmanFilter) -> None:
     """Inject Zero-Velocity pseudo-measurement."""
     # Measurement model: z = H x + v, here z = [0,0,0] for velocity components
+    # Use flat shapes to keep KalmanFilter.x as a 1D vector
     H = np.hstack([np.zeros((3, 3)), np.eye(3), np.zeros((3, 7))])  # (3,13)
     R = np.eye(3) * 1e-4
-    z = np.zeros((3, 1))
-    x = kf.x.reshape(-1, 1)
-    y = z - H @ x
+    z = np.zeros(3)  # (3,)
+    x = np.ravel(kf.x)  # (13,)
+    y = z - H @ x       # (3,)
     S = H @ kf.P @ H.T + R
-    K = kf.P @ H.T @ np.linalg.inv(S)
-    kf.x = (x + K @ y)
+    K = kf.P @ H.T @ np.linalg.inv(S)  # (13,3)
+    x_new = x + K @ y   # (13,)
+    kf.x = x_new
     kf.P = (np.eye(kf.dim_x) - K @ H) @ kf.P

@@ -2134,7 +2134,7 @@ def main():
 
         # State history log (states x time)
         x_log = np.zeros((kf.dim_x, len(imu_time)))
-        x_log[:, 0] = kf.x
+        x_log[:, 0] = np.ravel(kf.x)
 
         # Run Kalman Filter
         # Accumulators for concise velocity measurement summary
@@ -2162,7 +2162,11 @@ def main():
             # propagate quaternion using gyro measurement with Earth+transport rate correction
             # Effective body rate relative to NED: omega_bn^b = omega_ib^b - C_n^b * (omega_ie^n + omega_en^n)
             try:
-                lat_i = float(lat_interp[i]) if 'lat_interp' in locals() else float(ref_lat)
+                if 'lat_interp' in locals():
+                    _lat_val = lat_interp[i]
+                    lat_i = float(_lat_val.item() if hasattr(_lat_val, 'item') else _lat_val)
+                else:
+                    lat_i = float(ref_lat)
             except Exception:
                 lat_i = float(ref_lat)
             # Earth rate in NED
@@ -2172,7 +2176,8 @@ def main():
                 -EARTH_RATE * np.sin(lat_i),
             ])
             # Transport rate in NED from current nav velocity and latitude
-            vN, vE, vD = kf.x[3:6]
+            _vel_slice = np.ravel(kf.x[3:6])
+            vN, vE, vD = float(_vel_slice[0]), float(_vel_slice[1]), float(_vel_slice[2])
             # WGS-84 radii of curvature
             a_wgs = 6378137.0
             e2 = 6.6943799901413165e-3
@@ -2192,7 +2197,7 @@ def main():
             C_b_n = R.from_quat([q_cur[1], q_cur[2], q_cur[3], q_cur[0]]).as_matrix()
             C_n_b = C_b_n.T
             omega_in_b = C_n_b @ omega_in_n
-            omega_eff_b = gyro_body_corrected[m][i] - kf.x[10:13] - omega_in_b
+            omega_eff_b = gyro_body_corrected[m][i] - np.ravel(kf.x[10:13]) - omega_in_b
             dq = quat_from_rate(omega_eff_b, dt)
             q_cur = quat_multiply(q_cur, dq)
             q_cur /= np.linalg.norm(q_cur)
@@ -2213,7 +2218,7 @@ def main():
             kf.predict(u=u)
 
             # Guard against unphysical velocity magnitude: softly clamp instead of zeroing
-            v_mag = float(np.linalg.norm(kf.x[3:6]))
+            v_mag = float(np.linalg.norm(np.ravel(kf.x[3:6])))
             if v_mag > plausible_speed_cap:
                 high_speed_events += 1
                 v_cap = plausible_speed_cap
@@ -2349,11 +2354,11 @@ def main():
                 zupt_events.append((i, i))
                 # Keep this quiet unless debugging
 
-            fused_pos[m][i] = kf.x[0:3]
-            fused_vel[m][i] = kf.x[3:6]
+            fused_pos[m][i, :] = np.ravel(kf.x[0:3])
+            fused_vel[m][i, :] = np.ravel(kf.x[3:6])
             fused_acc[m][i] = imu_acc[m][i]  # Use integrated acceleration
             P_hist.append(kf.P.copy())
-            x_log[:, i] = kf.x
+            x_log[:, i] = np.ravel(kf.x)
 
         # One-line velocity measurement summary (important info only)
         rms_z = np.sqrt(sumsq_z_vel / max(n_meas, 1))
