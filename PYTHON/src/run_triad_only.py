@@ -768,7 +768,7 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
         ax.grid(True)
         if i == 0:
             ax.legend(loc='upper right')
-    plt.suptitle(f'{tag} Task7.6 (Body→NED): Quaternion Component Error')
+    plt.suptitle(f'{tag} Task7_6 (Body→NED): Quaternion Component Error')
     _save_png_and_mat(
         os.path.join(results_dir, f'{tag}_Task7_6_BodyToNED_attitude_quaternion_error_components.png'),
         {'t': t_plot, 'dq_wxyz': dq}
@@ -787,7 +787,7 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
         if i == 0:
             ax.legend()
     plt.xlabel('Time [s]')
-    plt.suptitle(f'{tag} Task7.6 (Body→NED): Euler (ZYX) Truth vs KF')
+    plt.suptitle(f'{tag} Task7_6 (Body→NED): Euler (ZYX) Truth vs KF')
     _save_png_and_mat(
         os.path.join(results_dir, f'{tag}_Task7_6_BodyToNED_attitude_truth_vs_estimate_euler.png'),
         {'t': t_plot, 'e_truth_zyx_deg': eT, 'e_kf_zyx_deg': eE}
@@ -809,7 +809,7 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
         if i == 0:
             ax.legend(loc='upper right')
     plt.xlabel('Time [s]')
-    plt.suptitle(f'{tag} Task7.6 (Body→NED): Euler Error (ZYX) vs Time')
+    plt.suptitle(f'{tag} Task7_6 (Body→NED): Euler Error (ZYX) vs Time')
     _save_png_and_mat(
         os.path.join(results_dir, f"{tag}_Task7_6_BodyToNED_attitude_euler_error_over_time.png"),
         {'t': t_plot, 'e_error_zyx_deg': e_err}
@@ -835,7 +835,7 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
     plt.grid(True)
     plt.xlabel('Time [s]')
     plt.ylabel('Angle Error [deg]')
-    plt.title(f'{tag} Task7.6: Quaternion Error (angle) vs Time')
+    plt.title(f'{tag} Task7_6: Quaternion Error (angle) vs Time')
     _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_6_attitude_error_angle_over_time.png'),
                       {'t': t_plot, 'att_err_deg': ang_plot})
     # Back-compat save under previous Task7 filename
@@ -859,7 +859,7 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
     stats_q = {k: _metrics(dq[:, i]) for i, k in enumerate(['w', 'x', 'y', 'z'])}
     for label, idx in [("mean", 0), ("rmse", 1), ("p95_abs", 2), ("p99_abs", 3), ("max_abs", 4), ("final", 5)]:
         rows.append([label] + [f"{stats_q[k][idx]:.6f}" for k in ['w','x','y','z']])
-    print("\n===== Task7.6 Quaternion Component Error Summary (est − truth) =====")
+    print("\n===== Task7_6 Quaternion Component Error Summary (est − truth) =====")
     print(" ".join(f"{h:>12s}" for h in headers))
     for r in rows:
         print(" ".join(f"{c:>12s}" for c in r))
@@ -870,7 +870,7 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
     stats_e = {k: _metrics(e_err[:, i]) for i, k in enumerate(['yaw', 'pitch', 'roll'])}
     for label, idx in [("mean", 0), ("rmse", 1), ("p95_abs", 2), ("p99_abs", 3), ("max_abs", 4), ("final", 5)]:
         rows_e.append([label] + [f"{stats_e[k][idx]:.6f}" for k in ['yaw','pitch','roll']])
-    print("\n===== Task7.6 Euler Error Summary (est − truth) [deg] =====")
+    print("\n===== Task7_6 Euler Error Summary (est − truth) [deg] =====")
     print(" ".join(f"{h:>12s}" for h in headers_e))
     for r in rows_e:
         print(" ".join(f"{c:>12s}" for c in r))
