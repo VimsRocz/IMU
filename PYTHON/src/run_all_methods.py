@@ -104,12 +104,18 @@ def compute_C_NED_to_ECEF(lat: float, lon: float) -> np.ndarray:
 def run_case(cmd, log_path):
     """Run a single fusion command and log output live to console and file."""
     logger.info("Executing fusion command: %s", cmd)
+    # Ensure child Python processes flush their output so logs appear in real time
+    env = os.environ.copy()
+    env.setdefault("PYTHONUNBUFFERED", "1")
+    # ``bufsize=1`` requests line-buffered behaviour when possible
     with open(log_path, "w") as log:
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            bufsize=1,
+            env=env,
         )
         summary_lines = []
         for line in proc.stdout:
