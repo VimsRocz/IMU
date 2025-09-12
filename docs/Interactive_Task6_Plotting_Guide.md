@@ -1,6 +1,5 @@
 # Interactive Task 6 Plotting User Guide
 
-This document describes the new interactive plotting capabilities for Task 6 in both Python and MATLAB environments.
 
 ## Overview
 
@@ -108,7 +107,6 @@ create_comparison_dashboard(
 - **Static PDF**: Vector format for presentations
 - **Dashboard HTML**: Navigation interface for all plots
 
-## MATLAB Interactive Plotting
 
 ### Features
 
@@ -134,8 +132,6 @@ create_comparison_dashboard(
 #### Basic Interactive Plotting
 
 ```matlab
-% Add MATLAB paths
-addpath('MATLAB');
 
 % Basic usage with interactive features enabled (default)
 pdf_path = task6_overlay_plot(est_file, truth_file, method, frame, ...
@@ -158,13 +154,11 @@ pdf_path = task6_overlay_plot_interactive(est_file, truth_file, method, ...
 
 ```matlab
 % Set up paths and parameters
-addpath('MATLAB');
 est_file = 'PYTHON/results/IMU_X002_GNSS_X002_TRIAD_kf_output.mat';
 truth_file = 'DATA/Truth/STATE_X001.txt';
 method = 'TRIAD';
 frame = 'ECEF';
 dataset = 'IMU_X002_GNSS_X002';
-output_dir = 'MATLAB/results/';
 
 % Create interactive plot
 pdf_path = task6_overlay_plot_interactive(est_file, truth_file, method, ...
@@ -193,7 +187,6 @@ pdf_path = task6_overlay_plot_interactive(est_file, truth_file, method, ...
 
 ### File Outputs
 
-- **Interactive MATLAB Figure**: `.fig` file preserving all interactive features
 - **Static PDF**: Vector format for publications  
 - **Static PNG**: High-resolution raster format
 - **RMSE Analysis**: Separate interactive RMSE plot
@@ -205,14 +198,10 @@ pdf_path = task6_overlay_plot_interactive(est_file, truth_file, method, ...
 - **Memory usage**: ~5-6MB per interactive HTML plot
 - **Loading time**: <5 seconds for typical datasets
 
-### MATLAB
 - **Figure memory**: Interactive figures use more memory than static plots
 - **Performance**: Smooth interaction with datasets up to 100k points
-- **Compatibility**: Requires MATLAB R2016b or later for full functionality
 
-## Comparison: Python vs MATLAB
 
-| Feature | Python (Plotly) | MATLAB (Enhanced) |
 |---------|-----------------|-------------------|
 | **Layout** | 3×3 subplots | 3×3 subplots |
 | **Interactivity** | Web-based | Desktop application |
@@ -220,7 +209,6 @@ pdf_path = task6_overlay_plot_interactive(est_file, truth_file, method, ...
 | **Hover tooltips** | ✓ | ✓ (data cursor) |
 | **Export options** | HTML, PNG, PDF | .fig, PNG, PDF |
 | **Performance** | Auto-subsampling | Memory-based |
-| **Sharing** | Easy (HTML files) | Requires MATLAB |
 | **Dashboard** | ✓ | Manual |
 
 ## Migration Guide
@@ -239,7 +227,6 @@ from plot_overlay import plot_overlay
 plot_overlay(frame, method, ..., include_measurements=True, interactive=True)
 ```
 
-### From Legacy to Enhanced (MATLAB)
 
 Old code:
 ```matlab
@@ -264,10 +251,8 @@ pdf_path = task6_overlay_plot(est_file, truth_file, method, frame, dataset, outp
 **Problem**: Static export fails  
 **Solution**: Install kaleido: `pip install kaleido`
 
-### MATLAB Issues
 
 **Problem**: Interactive features not working  
-**Solution**: Update to MATLAB R2016b or later
 
 **Problem**: Figures not saving  
 **Solution**: Check write permissions in output directory
@@ -279,7 +264,6 @@ pdf_path = task6_overlay_plot(est_file, truth_file, method, frame, dataset, outp
 
 1. **Use interactive plots for exploration**, static plots for publications
 2. **Subsample large datasets** (>10k points) for better performance  
-3. **Save .fig files** (MATLAB) for preserving full interactivity
 4. **Create dashboards** for comparing multiple methods/frames
 5. **Export to PDF/PNG** for including in reports and papers
 
@@ -289,5 +273,4 @@ See the following test scripts for usage examples:
 
 - `PYTHON/test_interactive_plotting.py` - Basic functionality test
 - `PYTHON/test_optimized_interactive.py` - Performance-optimized real data test
-- `test_matlab_interactive.m` - MATLAB functionality test
-- `test_matlab_simple.m` - Simplified MATLAB test with synthetic data
+

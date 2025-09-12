@@ -100,9 +100,7 @@ python src/GNSS_IMU_Fusion.py \
   --init-lat-deg 47.3977 --init-lon-deg 8.5456 --init-alt-m 488
 ```
 
-MATLAB quick notes
 
-- MATLAB helpers in `PYTHON/src/run_all_methods.m` are a simplified stub.
 - Ensure your data lives under `DATA/IMU` and `DATA/GNSS`. If your copy of
   `run_all_methods.m` looks for files in the repo root (e.g. `IMU_X002.dat`),
   update it to prefix `DATA/IMU` and `DATA/GNSS`, or move the files accordingly.
@@ -130,24 +128,16 @@ python src/process_one.py --config config/single_run.yml --verbose
 
 Outputs
 - Data: `PYTHON/results/<IMU>_<GNSS>_<METHOD>_kf_output.npz` and `.mat`
-- Plots: several `*.png` and MATLAB-compatible `*.fig` under `PYTHON/results/`
 
-Use results in MATLAB
 - Quick view of all key plots (NED position/velocity/acceleration, innovations, residuals, attitude):
 
 ```
-% In MATLAB, from repo root or PYTHON/
-addpath('PYTHON/MATLAB');
 plot_all_from_mat('PYTHON/results/IMU_X002_GNSS_X002_TRIAD_kf_output.mat');
 ```
 
 - Save every generated figure as .fig and .png for sharing or post‑editing:
 
 ```
-addpath('PYTHON/MATLAB');
-plot_all_from_mat('PYTHON/results/IMU_X002_GNSS_X002_TRIAD_kf_output.mat', 'PYTHON/MATLAB/results');
 ```
 
 Notes
-- The Python run already writes `*_kf_output.mat` with all time‑aligned series needed for MATLAB plotting.
-- If the MATLAB Engine for Python is available, Python also mirrors many Matplotlib figures to native `.fig` automatically; otherwise PNGs are saved. The `.mat` file above is sufficient to reproduce plots in MATLAB either way.

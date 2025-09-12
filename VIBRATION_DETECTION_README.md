@@ -1,6 +1,5 @@
 # Vibration Detection and Rejection from IMU Data
 
-This project implements a comprehensive solution for detecting and removing vibration signals from Inertial Measurement Unit (IMU) data. The implementation includes both MATLAB and Python versions with support for various vibration types and compensation methods.
 
 ## Overview
 
@@ -35,7 +34,6 @@ The project consists of three main components:
 ## Files Structure
 
 ```
-MATLAB/
 ├── vibration_model.m           # Vibration signal generation
 ├── vibration_detection.m       # Vibration detection algorithms
 ├── vibration_compensation.m    # Vibration removal methods
@@ -48,7 +46,6 @@ test_vibration_python.py       # Python implementation and tests
 
 ## Quick Start
 
-### Basic Example (MATLAB)
 
 ```matlab
 % Parameters
@@ -187,7 +184,6 @@ The algorithms provide several effectiveness metrics:
 
 The implementation includes comprehensive test suites:
 
-### MATLAB Tests
 ```matlab
 run_vibration_tests  % Comprehensive test suite with validation
 ```

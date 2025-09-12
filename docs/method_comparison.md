@@ -20,8 +20,7 @@ The best method per dataset is marked with a check mark.
 
 The following table lists the metrics printed by `run_all_methods.py` when
 processing the complete IMU and GNSS logs with all three initialisation
-methods. Each run corresponds to the log excerpt shown above and the same
-summary is produced by the MATLAB wrappers.
+methods. Each run corresponds to the log excerpt shown above.
 
 | Dataset | Method | RMSE Position [m] | Final Error [m] | RMS Residual Pos [m] | Max Residual Pos [m] | RMS Residual Vel [m/s] | Max Residual Vel [m/s] |
 |---------|--------|------------------|-----------------|----------------------|----------------------|-------------------------|-------------------------|
