@@ -357,6 +357,504 @@ def _read_state_x001(truth_file):
     return t, pos_ecef, vel_ecef, quat
 
 
+def _save_png_and_mat(path_png, arrays):
+    """Save PNG, MATLAB .mat arrays, and MATLAB-native .fig for current figure.
+
+    - PNG at `path_png`
+    - MAT at `<path_png base>.mat` containing provided arrays
+    - FIG at `<path_png base>.fig` via MATLAB engine (best-effort)
+    """
+    base, _ = os.path.splitext(path_png)
+    try:
+        plt.gcf().savefig(path_png, dpi=200, bbox_inches='tight')
+        print(f"[PNG] {path_png}")
+    except Exception as e:
+        print(f"[WARN] Failed to save PNG {path_png}: {e}")
+    try:
+        to_save = dict(arrays)
+        if 't' in to_save:
+            import numpy as _np
+            t_vec = _np.ravel(_np.asarray(to_save['t']))
+            lengths = []
+            for k, v in to_save.items():
+                a = _np.asarray(v)
+                if a.ndim >= 1 and a.shape[0] > 0:
+                    lengths.append(int(a.shape[0]))
+            if lengths:
+                n = int(min(lengths))
+                if any(L != n for L in lengths):
+                    print("[Align] Harmonising lengths to n=", n)
+                for k, v in list(to_save.items()):
+                    a = _np.asarray(v)
+                    if a.ndim >= 1 and a.shape[0] != n:
+                        to_save[k] = a[:n]
+                to_save['t'] = t_vec[:n]
+        savemat(base + '.mat', to_save)
+        print(f"[MAT] {base + '.mat'}")
+    except Exception as e:
+        print(f"[WARN] Failed to save MAT {base + '.mat'}: {e}")
+    try:
+        from utils.matlab_fig_export import save_matlab_fig, validate_fig_openable
+        fig_path = save_matlab_fig(plt.gcf(), base)
+        if fig_path:
+            validate_fig_openable(str(fig_path))
+    except Exception as e:
+        print(f"[WARN] .fig export/validation skipped: {e}")
+    plt.close()
+
+
+def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args):
+    print("Starting inline validation (truth vs KF)…")
+    est = loadmat(kf_mat_path, squeeze_me=True)
+    # time
+    t_est = None
+    for k in ['t_est', 'time_s', 'time', 't']:
+        if k in est:
+            t_est = np.ravel(est[k]).astype(float)
+            break
+    if t_est is None:
+        raise RuntimeError("Estimator time not found in kf_output.mat")
+    # quaternion (prefer att_quat; else quat_log)
+    q_est = None
+    for k in ['att_quat', 'attitude_q', 'quat_log', 'q_est', 'quaternion']:
+        if k in est:
+            q_est = np.atleast_2d(est[k]).astype(float)
+            if q_est.shape[0] == 4 and q_est.shape[1] != 4:
+                q_est = q_est.T
+            if q_est.shape[1] != 4 and q_est.shape[0] == 4:
+                q_est = q_est.T
+            break
+    if q_est is None or q_est.shape[1] != 4:
+        raise RuntimeError("Bad estimator quaternion shape")
+    q_est = _norm_quat(q_est)
+
+    # truth
+    t_tru, pos_ecef_tru, vel_ecef_tru, q_tru = _read_state_x001(truth_file)
+
+    print(f"[InlineValid] t_est:[{t_est[0]:.3f},{t_est[-1]:.3f}] N={t_est.size}")
+    print(f"[InlineValid] t_truth(raw):[{np.nanmin(t_tru):.3f},{np.nanmax(t_tru):.3f}] N={t_tru.size}")
+
+    t_truth_sub, q_truth_sub = _compute_overlap(t_est, t_tru, q_tru)
+    if t_truth_sub.size < 2:
+        msg = (
+            f"No truth samples in overlap window.\n"
+            f"  est range   = [{t_est[0]:.3f},{t_est[-1]:.3f}] (N={t_est.size})\n"
+            f"  truth range = [{np.nanmin(t_tru):.3f},{np.nanmax(t_tru):.3f}] (N={t_tru.size})\n"
+            f"  overlap N   = {t_truth_sub.size} (need ≥2). "
+            f"Check truth parsing (time in 2nd col, quats in last 4) and NaNs."
+        )
+        print("[WARN] Inline validation skipped:", msg)
+        return
+
+    def _q_normalize(q):
+        q = np.asarray(q, float)
+        n = np.linalg.norm(q, axis=1, keepdims=True)
+        n[n == 0] = 1.0
+        return q / n
+
+    def _q_conj(q):
+        q = np.asarray(q, float)
+        return np.column_stack([q[:, 0], -q[:, 1], -q[:, 2], -q[:, 3]])
+
+    def _hemi_fix(q):
+        q = _q_normalize(q)
+        s = np.ones(q.shape[0])
+        if q.shape[0] > 1:
+            s[1:] = np.sign(np.sum(q[1:] * q[:-1], axis=1))
+            s = np.cumprod(s)
+        return q * s[:, None]
+
+    def _slerp(q1, q2, u):
+        d = float(np.dot(q1, q2))
+        if d < 0.0:
+            q2 = -q2
+            d = -d
+        if d > 0.9995:
+            q = (1.0 - u) * q1 + u * q2
+            return q / (np.linalg.norm(q) + 1e-12)
+        theta0 = np.arccos(np.clip(d, -1.0, 1.0))
+        s0 = np.sin((1.0 - u) * theta0) / np.sin(theta0)
+        s1 = np.sin(u * theta0) / np.sin(theta0)
+        return s0 * q1 + s1 * q2
+
+    def _resample_quat_to(t_src, q_src, t_dst):
+        t_src = np.asarray(t_src, float)
+        q_src = _hemi_fix(np.asarray(q_src, float))
+        t_dst = np.asarray(t_dst, float)
+        if t_src.size < 2:
+            raise ValueError("Need at least two truth samples for SLERP resampling")
+        idx = np.searchsorted(t_src, t_dst, side='right') - 1
+        idx = np.clip(idx, 0, t_src.size - 2)
+        u = (t_dst - t_src[idx]) / (t_src[idx + 1] - t_src[idx] + 1e-12)
+        out = np.empty((t_dst.size, 4), float)
+        for k in range(t_dst.size):
+            out[k] = _slerp(q_src[idx[k]], q_src[idx[k] + 1], float(u[k]))
+        return _q_normalize(out)
+
+    try:
+        q_truth_on_est_raw = _resample_quat_to(t_truth_sub, q_truth_sub, t_est)
+    except Exception as e:
+        print("[WARN] Inline validation skipped during quaternion SLERP resampling:", e)
+        return
+
+    detected_frame = "NED"
+    q_truth_ned = q_truth_on_est_raw.copy()
+    try:
+        from utils import ecef_to_geodetic, compute_C_ECEF_to_NED
+        lat_deg, lon_deg, _ = ecef_to_geodetic(*pos_ecef_tru[0])
+        C_e2n = compute_C_ECEF_to_NED(np.deg2rad(lat_deg), np.deg2rad(lon_deg))
+        R_bn_list = []
+        from scipy.spatial.transform import Rotation as _R
+        for q in q_truth_on_est_raw:
+            r_be = _R.from_quat([q[1], q[2], q[3], q[0]])
+            R_bn = C_e2n @ r_be.as_matrix()
+            R_bn_list.append(_R.from_matrix(R_bn).as_quat())
+        q_truth_from_ecef = np.array([[q_xyzw[3], q_xyzw[0], q_xyzw[1], q_xyzw[2]] for q_xyzw in R_bn_list])
+        q_truth_from_ecef = _norm_quat(q_truth_from_ecef)
+        q_truth_ned = _norm_quat(q_truth_ned)
+        q_est_aligned_for_ned = _fix_hemisphere(q_truth_ned, q_est)
+        q_est_aligned_for_ecef = _fix_hemisphere(q_truth_from_ecef, q_est)
+        ang_ned = _quat_angle_deg(q_truth_ned, q_est_aligned_for_ned)
+        ang_ecef = _quat_angle_deg(q_truth_from_ecef, q_est_aligned_for_ecef)
+        med_ned = float(np.nanmedian(ang_ned))
+        med_ecef = float(np.nanmedian(ang_ecef))
+        if np.isfinite(med_ecef) and (med_ecef + 1e-3) < med_ned:
+            detected_frame = "ECEF"
+            q_truth_ned = q_truth_from_ecef
+            qE = q_est_aligned_for_ecef
+            ang = ang_ecef
+        else:
+            detected_frame = "NED"
+            qE = q_est_aligned_for_ned
+            ang = ang_ned
+        print(f"[Task7] Detected truth quaternion frame: {detected_frame}")
+        det_path = os.path.join(results_dir, f"{tag}_Task7_truth_quaternion_frame.txt")
+        with open(det_path, "w", encoding="utf-8") as fdet:
+            fdet.write(detected_frame + "\n")
+    except Exception as ex:
+        print(f"[WARN] Truth frame detection failed ({ex}); assuming NED.")
+        q_truth_ned = _norm_quat(q_truth_ned)
+        qE = _fix_hemisphere(q_truth_ned, q_est)
+        ang = _quat_angle_deg(q_truth_ned, qE)
+
+    try:
+        q_truth_ned = _norm_quat(q_truth_ned)
+        def _err0(qt):
+            qe = _fix_hemisphere(qt, q_est)
+            ang0 = _quat_angle_deg(qt, qe)
+            return float(ang0[0]) if ang0.size else float('nan')
+        e0_dir = _err0(q_truth_ned)
+        e0_con = _err0(_q_conj(q_truth_ned))
+        if np.isfinite(e0_con) and e0_con + 1e-3 < e0_dir:
+            q_truth_ned = _q_conj(q_truth_ned)
+            print(f"[Task7] Truth appears NED→Body; using conjugate. (err0 direct={e0_dir:.2f}°, conj={e0_con:.2f}°)")
+        else:
+            print(f"[Task7] Truth matches Body→NED. (err0 direct={e0_dir:.2f}°)")
+    except Exception:
+        pass
+
+    def q_norm(q):
+        q = np.asarray(q, float)
+        n = np.linalg.norm(q, axis=1, keepdims=True)
+        n[n == 0] = 1.0
+        return q / n
+
+    def q_conj(q):
+        q = np.asarray(q, float)
+        return np.column_stack([q[:, 0], -q[:, 1], -q[:, 2], -q[:, 3]])
+
+    def q_mul(a, b):
+        a = np.asarray(a, float)
+        b = np.asarray(b, float)
+        w1, x1, y1, z1 = a.T
+        w2, x2, y2, z2 = b.T
+        return np.column_stack([
+            w1*w2 - x1*x2 - y1*y2 - z1*z2,
+            w1*x2 + x1*w2 + y1*z2 - z1*y2,
+            w1*y2 - x1*z2 + y1*w2 + z1*x2,
+            w1*z2 + x1*y2 - y1*x2 + z1*w2,
+        ])
+
+    def dcm_to_quat(C):
+        C = np.asarray(C, float)
+        t = np.trace(C)
+        if t <= 0:
+            i = int(np.argmax(np.diag(C)))
+            if i == 0:
+                s = 2.0 * np.sqrt(max(1e-12, 1 + C[0, 0] - C[1, 1] - C[2, 2]))
+                w = (C[2, 1] - C[1, 2]) / s
+                x = 0.25 * s
+                y = (C[0, 1] + C[1, 0]) / s
+                z = (C[0, 2] + C[2, 0]) / s
+            elif i == 1:
+                s = 2.0 * np.sqrt(max(1e-12, 1 + C[1, 1] - C[0, 0] - C[2, 2]))
+                w = (C[0, 2] - C[2, 0]) / s
+                x = (C[0, 1] + C[1, 0]) / s
+                y = 0.25 * s
+                z = (C[1, 2] + C[2, 1]) / s
+            else:
+                s = 2.0 * np.sqrt(max(1e-12, 1 + C[2, 2] - C[0, 0] - C[1, 1]))
+                w = (C[1, 0] - C[0, 1]) / s
+                x = (C[0, 2] + C[2, 0]) / s
+                y = (C[1, 2] + C[2, 1]) / s
+                z = 0.25 * s
+        else:
+            s = 0.5 / np.sqrt(max(1e-12, t + 1.0))
+            w = 0.25 / s
+            x = (C[2, 1] - C[1, 2]) * s
+            y = (C[0, 2] - C[2, 0]) * s
+            z = (C[1, 0] - C[0, 1]) * s
+        q = np.array([w, x, y, z], float)
+        q = q / (np.linalg.norm(q) + 1e-12)
+        if q[0] < 0:
+            q = -q
+        return q
+
+    def quat_err_angle_deg(q_est_b2n, q_truth_b2n):
+        q_err = q_mul(q_est_b2n, q_conj(q_truth_b2n))
+        q_err = q_norm(q_err)
+        ang = 2*np.arccos(np.clip(np.abs(q_err[:, 0]), 0.0, 1.0)) * 180.0 / np.pi
+        return ang
+
+    def ned_to_enu_quat():
+        C_ne = np.array([[0.0, 1.0, 0.0],
+                         [1.0, 0.0, 0.0],
+                         [0.0, 0.0, -1.0]])
+        return dcm_to_quat(C_ne)
+
+    def ecef_to_ned_quat(lat_rad, lon_rad):
+        sL, cL = np.sin(lat_rad), np.cos(lat_rad)
+        sO, cO = np.sin(lon_rad), np.cos(lon_rad)
+        C_ne = np.array([[-sL*cO, -sL*sO,  cL],
+                         [    -sO,     cO,  0.],
+                         [-cL*cO, -cL*sO, -sL]])
+        C_en = C_ne.T
+        return dcm_to_quat(C_en)
+
+    def wrap_world(q_b2W, q_W2N, q_N2W):
+        return q_mul(np.tile(q_W2N, (q_b2W.shape[0], 1)), q_mul(q_b2W, np.tile(q_N2W, (q_b2W.shape[0], 1))))
+
+    def average_quat(q):
+        M = (q[:, :, None] @ q[:, None, :]).sum(axis=0)
+        w, v = np.linalg.eigh(M)
+        q_mean = v[:, np.argmax(w)]
+        if q_mean[0] < 0:
+            q_mean = -q_mean
+        return q_mean
+
+    tE = t_est
+    qE_est = q_est
+    qT_raw = q_truth_ned
+
+    try:
+        from utils import ecef_to_geodetic
+        lat_deg, lon_deg, _ = ecef_to_geodetic(*pos_ecef_tru[0])
+        ref_lat_rad = np.deg2rad(lat_deg)
+        ref_lon_rad = np.deg2rad(lon_deg)
+    except Exception:
+        ref_lat_rad = 0.0
+        ref_lon_rad = 0.0
+    q_ne = ned_to_enu_quat()
+    q_en = q_conj(np.atleast_2d(q_ne))[0]
+    q_en_ecef = ecef_to_ned_quat(ref_lat_rad, ref_lon_rad)
+    q_ne_ecef = q_conj(np.atleast_2d(q_en_ecef))[0]
+
+    cands = []
+    cands.append(("truth b2NED", qT_raw))
+    cands.append(("truth NED2b (conj)", q_conj(qT_raw)))
+    cands.append(("truth b2ENU → b2NED", wrap_world(qT_raw, q_en, q_ne)))
+    cands.append(("truth ENU2b → b2NED", wrap_world(q_conj(qT_raw), q_en, q_ne)))
+    cands.append(("truth b2ECEF → b2NED", wrap_world(qT_raw, q_en_ecef, q_ne_ecef)))
+    cands.append(("truth ECEF2b → b2NED", wrap_world(q_conj(qT_raw), q_en_ecef, q_ne_ecef)))
+
+    t0, t1 = 0.0, 60.0
+    idx = np.where((tE >= t0) & (tE <= t1))[0]
+    if idx.size < 100:
+        idx = np.arange(min(1000, tE.size))
+    scores = []
+    for name, qT in cands:
+        ang = quat_err_angle_deg(qE_est[idx], qT[idx])
+        scores.append((float(np.nanmean(ang)), name))
+    best_i = int(np.argmin([s[0] for s in scores]))
+    best_name, best_mean = scores[best_i][1], scores[best_i][0]
+    qT_best = cands[best_i][1]
+    print(f"[AutoAlign] best world/frame hypothesis: {best_name} (mean {best_mean:.3f}° over [{t0},{t1}]s)")
+
+    q_err_static = q_mul(qE_est[idx], q_conj(qT_best[idx]))
+    q_delta = average_quat(q_err_static)
+    if q_delta[0] < 0:
+        q_delta = -q_delta
+    q_delta_tiled = np.tile(q_delta, (qT_best.shape[0], 1))
+    qT_aligned = q_mul(q_delta_tiled, qT_best)
+    print(f"[AutoAlign] applied fixed body-side Δ: {np.array2string(q_delta, precision=4)}")
+
+    qT = q_norm(qT_aligned)
+    qE = _fix_hemisphere(qT, qE_est)
+    ang = _quat_angle_deg(qT, qE)
+
+    def _align_to_same_len(x, *ys):
+        n = int(min(len(x), *[len(y) for y in ys]))
+        if n <= 0:
+            return x, ys
+        x2 = x[:n]
+        ys2 = tuple(y[:n] for y in ys)
+        return x2, ys2
+
+    plt.figure(figsize=(10, 6))
+    t_plot, (qT_plot, qE_plot) = _align_to_same_len(tE, qT, qE)
+    for i, lab in enumerate(['w', 'x', 'y', 'z']):
+        ax = plt.subplot(2, 2, i + 1)
+        ax.plot(t_plot, qT_plot[:, i], '-', label='Truth')
+        ax.plot(t_plot, qE_plot[:, i], '--', label='KF')
+        ax.set_title(f'q_{lab}')
+        ax.grid(True)
+    plt.legend(loc='upper right')
+    plt.suptitle(f'{tag} Task7_6 (Body→NED): Quaternion Truth vs KF')
+    _save_png_and_mat(
+        os.path.join(results_dir, f'{tag}_Task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png'),
+        {'t': t_plot, 'q_truth': qT_plot, 'q_kf': qE_plot}
+    )
+
+    dq = qE_plot - qT_plot
+    plt.figure(figsize=(10, 6))
+    for i, lab in enumerate(['w', 'x', 'y', 'z']):
+        ax = plt.subplot(2, 2, i + 1)
+        ax.plot(t_plot, dq[:, i], '-', label='Δq = est − truth')
+        ax.set_title(f'Δq_{lab}')
+        ax.grid(True)
+        if i == 0:
+            ax.legend(loc='upper right')
+    plt.suptitle(f'{tag} Task7_6 (Body→NED): Quaternion Component Error')
+    _save_png_and_mat(
+        os.path.join(results_dir, f'{tag}_Task7_6_BodyToNED_attitude_quaternion_error_components.png'),
+        {'t': t_plot, 'dq_wxyz': dq}
+    )
+
+    eT = _quat_to_euler_zyx_deg(qT_plot)
+    eE = _quat_to_euler_zyx_deg(qE_plot)
+    plt.figure(figsize=(10, 6))
+    for i, lab in enumerate(['Yaw(Z)', 'Pitch(Y)', 'Roll(X)']):
+        ax = plt.subplot(3, 1, i + 1)
+        ax.plot(t_plot, eT[:, i], '-', label='Truth')
+        ax.plot(t_plot, eE[:, i], '--', label='KF')
+        ax.set_ylabel(lab + ' [deg]')
+        ax.grid(True)
+        if i == 0:
+            ax.legend()
+    plt.xlabel('Time [s]')
+    plt.suptitle(f'{tag} Task7_6 (Body→NED): Euler (ZYX) Truth vs KF')
+    _save_png_and_mat(
+        os.path.join(results_dir, f'{tag}_Task7_6_BodyToNED_attitude_truth_vs_estimate_euler.png'),
+        {'t': t_plot, 'e_truth_zyx_deg': eT, 'e_kf_zyx_deg': eE}
+    )
+
+    def _wrap_deg(x):
+        x = (x + 180.0) % 360.0 - 180.0
+        x[x == -180.0] = 180.0
+        return x
+    e_err = _wrap_deg(eE - eT)
+    plt.figure(figsize=(10, 6))
+    for i, lab in enumerate(['Yaw(Z)', 'Pitch(Y)', 'Roll(X)']):
+        ax = plt.subplot(3, 1, i + 1)
+        ax.plot(t_plot, e_err[:, i], '-', label='Estimate − Truth')
+        ax.set_ylabel(lab + ' err [deg]')
+        ax.grid(True)
+        if i == 0:
+            ax.legend(loc='upper right')
+    plt.xlabel('Time [s]')
+    plt.suptitle(f'{tag} Task7_6 (Body→NED): Euler Error (ZYX) vs Time')
+    _save_png_and_mat(
+        os.path.join(results_dir, f"{tag}_Task7_6_BodyToNED_attitude_euler_error_over_time.png"),
+        {'t': t_plot, 'e_error_zyx_deg': e_err}
+    )
+
+    t_plot2 = t_plot
+    ang_plot = ang
+    if len(ang_plot) != len(t_plot2):
+        n = min(len(ang_plot), len(t_plot2))
+        t_plot2 = t_plot2[:n]
+        ang_plot = ang_plot[:n]
+    try:
+        if t_plot2.size > 200000:
+            step = max(2, int(round(t_plot2.size / 50000)))
+            t_plot2 = t_plot2[::step]
+            ang_plot = ang_plot[::step]
+    except Exception:
+        pass
+    plt.figure(figsize=(10, 3))
+    plt.plot(t_plot2, ang_plot, '-')
+    plt.grid(True)
+    plt.xlabel('Time [s]')
+    plt.ylabel('Angle Error [deg]')
+    plt.title(f'{tag} Task7_6: Quaternion Error (angle) vs Time')
+    _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_6_attitude_error_angle_over_time.png'),
+                      {'t': t_plot2, 'att_err_deg': ang_plot})
+    _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_attitude_error_angle_over_time.png'),
+                      {'t': t_plot2, 'att_err_deg': ang_plot})
+
+    def _metrics(vec):
+        vec = np.asarray(vec).ravel()
+        mean = float(np.mean(vec))
+        rmse = float(np.sqrt(np.mean(vec**2)))
+        p95 = float(np.percentile(np.abs(vec), 95))
+        p99 = float(np.percentile(np.abs(vec), 99))
+        vmax = float(np.max(np.abs(vec)))
+        final = float(vec[-1]) if vec.size else float('nan')
+        return mean, rmse, p95, p99, vmax, final
+
+    headers = ["metric", "w", "x", "y", "z"]
+    rows = []
+    stats_q = {k: _metrics(dq[:, i]) for i, k in enumerate(['w', 'x', 'y', 'z'])}
+    for label, idx in [("mean", 0), ("rmse", 1), ("p95_abs", 2), ("p99_abs", 3), ("max_abs", 4), ("final", 5)]:
+        rows.append([label] + [f"{stats_q[k][idx]:.6f}" for k in ['w','x','y','z']])
+    print("\n===== Task7_6 Quaternion Component Error Summary (est − truth) =====")
+    print(" ".join(f"{h:>12s}" for h in headers))
+    for r in rows:
+        print(" ".join(f"{c:>12s}" for c in r))
+
+    headers_e = ["metric", "yaw", "pitch", "roll"]
+    rows_e = []
+    stats_e = {k: _metrics(e_err[:, i]) for i, k in enumerate(['yaw', 'pitch', 'roll'])}
+    for label, idx in [("mean", 0), ("rmse", 1), ("p95_abs", 2), ("p99_abs", 3), ("max_abs", 4), ("final", 5)]:
+        rows_e.append([label] + [f"{stats_e[k][idx]:.6f}" for k in ['yaw','pitch','roll']])
+    print("\n===== Task7_6 Euler Error Summary (est − truth) [deg] =====")
+    print(" ".join(f"{h:>12s}" for h in headers_e))
+    for r in rows_e:
+        print(" ".join(f"{c:>12s}" for c in r))
+
+    div_t = _divergence_time(tE, ang, args.div_threshold_deg, args.div_persist_sec)
+    if np.isnan(div_t):
+        print("Estimated divergence start time (attitude): none")
+    else:
+        print(f"Estimated divergence start time (attitude): {div_t:.3f} s")
+
+    with open(os.path.join(results_dir, f'{tag}_Task7_divergence_summary.csv'), 'w') as f:
+        f.write('threshold_deg,persist_s,divergence_s\n')
+        f.write(f"{args.div_threshold_deg},{args.div_persist_sec},{'' if np.isnan(div_t) else f'{div_t:.6f}'}\n")
+
+    Ls = [float(x) for x in str(args.length_scan).split(',') if x.strip()]
+    rows = []
+    for L in Ls:
+        tend = min(tE[0] + L, tE[-1])
+        m = tE <= tend
+        dv = _divergence_time(tE[m], ang[m], args.div_threshold_deg, args.div_persist_sec)
+        rows.append((L, np.nan if (dv != dv) else dv))
+    with open(os.path.join(results_dir, f'{tag}_Task7_divergence_vs_length.csv'), 'w') as f:
+        f.write('tmax_s,divergence_s\n')
+        for L, dv in rows:
+            f.write(f"{L},{'' if (dv != dv) else dv}\n")
+
+    plt.figure(figsize=(6, 4))
+    plt.plot([r[0] for r in rows], [np.nan if (r[1] != r[1]) else r[1] for r in rows], '-o')
+    plt.grid(True)
+    plt.xlabel('Dataset length used [s]')
+    plt.ylabel('Divergence time [s]')
+    plt.title(f'{tag} Task7: Divergence vs Length')
+    _save_png_and_mat(os.path.join(results_dir, f'{tag}_Task7_divergence_vs_length.png'),
+                      {'tmax_s': np.array([r[0] for r in rows], float),
+                       'divergence_s': np.array([np.nan if (r[1] != r[1]) else r[1] for r in rows], float)})
+    print("Inline validation done.")
+
 def _heuristic_truth_frame_from_residuals(t_est, q_est, t_truth, q_truth_ned_candidate, pos_ecef_tru, results_dir, tag):
     """Heuristically decide if the truth quaternion is body->NED or body->ECEF.
 
@@ -710,6 +1208,56 @@ def main(argv: Iterable[str] | None = None) -> None:
                 print(f"Task 7 failed: {e}")
     except Exception as ex:
         print(f"Task 6/7 failed: {ex}")
+
+    # ----------------------------
+    # Task 7.x: Inline truth validation (quaternion plots + summaries)
+    # ----------------------------
+    try:
+        if truth_path and Path(truth_path).exists():
+            kf_mat = os.path.join(str(results_dir), f"{run_id}_kf_output.mat")
+            if not os.path.isfile(kf_mat):
+                run_id_alt = f"{Path(imu_path).stem}_{Path(gnss_path).stem}_{method}"
+                kf_mat_alt = os.path.join(str(results_dir), f"{run_id_alt}_kf_output.mat")
+                if os.path.isfile(kf_mat_alt):
+                    kf_mat = kf_mat_alt
+            _run_inline_truth_validation(str(results_dir), run_id, kf_mat, str(truth_path), args)
+    except Exception as e:
+        print(f"[WARN] Inline validation failed: {e}")
+
+    # Optional: run a second KF pass with true attitude initialisation and compare
+    try:
+        if args.true_init_second_pass and truth_path and Path(truth_path).exists():
+            det_file = Path(results_dir) / f"{run_id}_Task7_truth_quaternion_frame.txt"
+            truth_frame = 'NED'
+            if det_file.exists():
+                try:
+                    truth_frame = det_file.read_text().strip().upper()
+                except Exception:
+                    pass
+            cmd_true = [
+                sys.executable,
+                str(HERE / "GNSS_IMU_Fusion.py"),
+                "--imu-file", str(imu_path),
+                "--gnss-file", str(gnss_path),
+                "--method", method,
+                "--truth-file", str(truth_path),
+                "--allow-truth-mismatch",
+                "--init-att-with-truth",
+                "--truth-quat-frame", truth_frame,
+                "--tag", "TRUEINIT",
+            ]
+            if args.no_plots:
+                cmd_true.append("--no-plots")
+            logger.info("Running TRUE-init KF pass: %s", cmd_true)
+            from run_all_methods import run_case as _run_case
+            ret2, _ = _run_case(cmd_true, results_dir / f"{run_id}_TRUEINIT.log")
+            if ret2 != 0:
+                print("[WARN] TRUE-init KF pass failed; skipping comparison plot.")
+            else:
+                _task5_plot_quat_cases(str(results_dir), run_id, str(truth_path), method_name=method)
+                _task5_plot_quat_cases(str(results_dir), f"{Path(imu_path).stem}_{Path(gnss_path).stem}_{method}", str(truth_path), method_name=method)
+    except Exception as e:
+        print(f"[WARN] TRUE-init comparison step failed: {e}")
 
     # ----------------------------
     # Validation of expected artifacts
