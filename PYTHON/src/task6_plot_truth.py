@@ -134,9 +134,7 @@ def main():
     else:
         est = {k: v for k, v in sio.loadmat(est_path, squeeze_me=True).items() if not k.startswith('__')}
     print(f"[Task6][Est] keys={list(est.keys())}")
-    t_est = est.get('t_est')
-    if t_est is None:
-        t_est = est.get('time_s')
+    t_est = _get_first_key(est, ['t_est', 'time_s', 't', 'time'])
     if t_est is None:
         dt = est.get('dt') or est.get('imu_dt') or 0.0
         n = None

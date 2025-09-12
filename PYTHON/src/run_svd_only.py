@@ -620,7 +620,12 @@ def main(argv: Iterable[str] | None = None) -> None:
 
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
-    print_timeline("Task 1–7 SVD pipeline starting …")
+    # Timeline summary (prints rates/durations for IMU, GNSS, optional truth)
+    print("Task 1–7 SVD pipeline starting …")
+    try:
+        print_timeline(run_id, str(imu_path), str(gnss_path), str(truth_path) if truth_path else None, str(results_dir))
+    except Exception as e:
+        print(f"[WARN] Timeline summary failed: {e}")
 
     # ----------------------------
     # Task 1–5 via run_case
@@ -630,27 +635,43 @@ def main(argv: Iterable[str] | None = None) -> None:
     print(f"  GNSS: {gnss_path}")
     print(f"  Truth: {truth_path if truth_path else '(none)'}")
 
-    t0 = time.time()
-    case = run_case(
-        imu_path=str(imu_path),
-        gnss_path=str(gnss_path),
-        method=method,
-        outdir=str(results_dir),
-        make_plots=not args.no_plots,
-        return_artifacts=True,
-        fuse_yaw=args.fuse_yaw,
-        yaw_gain=args.yaw_gain,
-        yaw_speed_min=args.yaw_speed_min,
-        init_att_with_truth=args.init_att_with_truth,
-        truth_quat_frame=args.truth_quat_frame,
-        verbose=args.debug,
-    )
-    elapsed = time.time() - t0
+    # Build and run the fusion command (Tasks 1–5)
+    os.environ["RUN_ID"] = run_id
+    # Ensure GNSS_IMU_Fusion writes under PYTHON/results
+    os.environ["PYTHON_RESULTS_DIR"] = str(results_dir)
+    log_path = results_dir / f"{run_id}.log"
+    cmd = [
+        sys.executable,
+        str(HERE / "GNSS_IMU_Fusion.py"),
+        "--imu-file", str(imu_path),
+        "--gnss-file", str(gnss_path),
+        "--method", method,
+    ]
+    if truth_path and Path(truth_path).exists():
+        cmd += ["--truth-file", str(truth_path), "--allow-truth-mismatch"]
+        if args.init_att_with_truth:
+            cmd.append("--init-att-with-truth")
+            cmd += ["--truth-quat-frame", str(args.truth_quat_frame)]
+    if args.fuse_yaw:
+        cmd.append("--fuse-yaw")
+        cmd += ["--yaw-gain", str(args.yaw_gain), "--yaw-speed-min", str(args.yaw_speed_min)]
+    if args.no_plots:
+        cmd.append("--no-plots")
+
+    start_t = time.time()
+    ret, summaries = run_case(cmd, log_path)
+    elapsed = time.time() - start_t
+    if ret != 0:
+        raise subprocess.CalledProcessError(ret, cmd)
     print(f"[SUMMARY] Task 1–5 completed in {elapsed:.1f}s (method={method}).")
 
     # Extract primary outputs
     est_mat = results_dir / f"{run_id}_kf_output.mat"
     est_npz = results_dir / f"{run_id}_kf_output.npz"
+    # Also look in legacy top-level 'results' if needed (for prior runs)
+    legacy_results = ROOT.parent / "results" if (ROOT.parent / "results").exists() else ROOT / "results"
+    est_mat_legacy = legacy_results / f"{run_id}_kf_output.mat"
+    est_npz_legacy = legacy_results / f"{run_id}_kf_output.npz"
     true_npz = results_dir / f"{run_id}_true_init_kf_output.npz"
 
     # Optionally plot Task 5 comparison if second pass available
@@ -666,10 +687,12 @@ def main(argv: Iterable[str] | None = None) -> None:
     try:
         if truth_path and truth_path.exists():
             # Task 6
+            # Prefer files in PYTHON/results; fallback to legacy top-level results
+            est_file_for_t6 = est_mat if est_mat.exists() else (est_npz if est_npz.exists() else (est_mat_legacy if est_mat_legacy.exists() else est_npz_legacy))
             cmd_t6 = [
                 sys.executable,
                 str(HERE / "task6_plot_truth.py"),
-                "--est-file", str(est_mat if est_mat.exists() else est_npz),
+                "--est-file", str(est_file_for_t6),
                 "--gnss-file", str(gnss_path),
                 "--truth-file", str(truth_path),
                 "--output", str(results_dir),
@@ -683,7 +706,8 @@ def main(argv: Iterable[str] | None = None) -> None:
             # Task 7
             print("Running Task 7 evaluation …")
             try:
-                run_evaluation_npz(str(est_npz), str(results_dir), run_id)
+                est_npz_for_t7 = est_npz if est_npz.exists() else est_npz_legacy
+                run_evaluation_npz(str(est_npz_for_t7), str(results_dir), run_id)
             except Exception as e:
                 print(f"Task 7 failed: {e}")
     except Exception as ex:
@@ -696,7 +720,8 @@ def main(argv: Iterable[str] | None = None) -> None:
         def _exists(name: str) -> bool:
             p_top = results_dir / name
             p_sub = results_dir / run_id / 'task6' / name
-            return p_top.exists() or p_sub.exists()
+            p_legacy = legacy_results / name
+            return p_top.exists() or p_sub.exists() or p_legacy.exists()
 
         must_have = [
             f"{run_id}_task1_location_map.png",
