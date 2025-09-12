@@ -70,6 +70,24 @@ Earth-rate errors by method:
 Warning: All Earth-rate errors are very close; differences are within 1.0e-05°
 ```
 
+## Running the Script
+
+Task 3 runs automatically after Tasks 1 and 2.  Execute the pipeline for a
+dataset as shown below:
+
+```bash
+python PYTHON/src/GNSS_IMU_Fusion.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
+```
+
+The console reports per‑method attitude errors, while the figures compare the
+TRIAD, Davenport and SVD solutions.
+
+## Output Files
+
+Two comparison plots are saved to `PYTHON/results/` using the dataset tag:
+
+- `<tag>_task3_errors_comparison.pdf`
+- `<tag>_task3_quaternions_comparison.pdf`
 
 ## Result
 

@@ -32,10 +32,26 @@ Call :func:`plot_overlay` for each frame to produce overlay figures. The ``--sho
 ### 6.4 Save Overlay Figures
 Overlay PDFs are stored directly in ``results/`` as ``<dataset>_<method>_task6_overlay_state_<frame>.pdf``.
 
+## Running the Script
+
+Invoke the Task 6 helper once Task 5 has produced a filter output file:
+
+```bash
+python PYTHON/src/task6_plot_truth.py --est-file PYTHON/results/IMU_X001_GNSS_X001_TRIAD_kf_output.mat \
+    --output PYTHON/results
+```
+
+Add `--show-measurements` to include raw IMU and GNSS curves in the overlay.
+
+## Output Files
+
+The command writes overlay figures directly to `PYTHON/results/` following the
+pattern `<dataset>_<method>_task6_overlay_state_<frame>.pdf` for NED, ECEF and
+body frames.
+
 ## Result
 
 Task 6 yields comparison plots that clearly show how well the fused trajectory
-matches the reference solution.
-When required arrays are absent from the estimator output (for example the
-state history ``x_log``), the Python script now issues a warning and skips the
-overlay step instead of failing.
+matches the reference solution. When required arrays are absent from the
+estimator output (for example the state history ``x_log``), the Python script
+now issues a warning and skips the overlay step instead of failing.

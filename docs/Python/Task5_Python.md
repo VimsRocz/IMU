@@ -36,6 +36,26 @@ Fused trajectory + innovations
 - Write a small markdown summary listing the generated PDFs.
 - The [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) keep plot legends consistent across tasks.
 
+## Running the Script
+
+Task 5 is reached once the IMU-only integration from Task 4 completes.  Launch
+the fusion script for a dataset:
+
+```bash
+python PYTHON/src/GNSS_IMU_Fusion.py --imu-file IMU_X001.dat --gnss-file GNSS_X001.csv
+```
+
+The filter iterates over the measurement epochs and prints innovation
+statistics to the terminal.
+
+## Output Files
+
+`PYTHON/results/` contains the fused trajectory and diagnostics:
+
+- `<tag>_kf_output.mat` and `<tag>_kf_output.npz` with the state history
+- `<tag>_task5_fused_state_<frame>.pdf` plots for NED, ECEF and body frames
+- `plot_summary.md` with a table of generated figures
+
 ## Result
 
 The Kalman filter produces the final fused trajectory and diagnostic statistics, completing the processing chain started in Task 1.
