@@ -10,18 +10,34 @@ METHODS = ['TRIAD','Davenport','SVD']
 def run_fusion(imu, gnss, truth, method, log_widget):
     cmd = [
         sys.executable,
-        str(Path(__file__).resolve().parent / 'PYTHON' / 'src' / 'GNSS_IMU_Fusion.py'),
-        '--imu-file', imu,
-        '--gnss-file', gnss,
-        '--method', method,
+        "-u",  # ensure subprocess output is unbuffered
+        str(Path(__file__).resolve().parent / "PYTHON" / "src" / "GNSS_IMU_Fusion.py"),
+        "--imu-file",
+        imu,
+        "--gnss-file",
+        gnss,
+        "--method",
+        method,
     ]
     if truth:
-        cmd += ['--truth-file', truth, '--allow-truth-mismatch']
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    for line in process.stdout:
+        cmd += ["--truth-file", truth, "--allow-truth-mismatch"]
+
+    # Use line-buffered pipes so output is forwarded to the log widget in real time
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+
+    for line in iter(process.stdout.readline, ""):
         log_widget.insert(tk.END, line)
         log_widget.see(tk.END)
-    process.wait()
+    process.stdout.close()
+    ret = process.wait()
+    log_widget.insert(tk.END, f"\nProcess finished with code {ret}\n")
+    log_widget.see(tk.END)
 
 def start_run(imu_var, gnss_var, truth_var, method_var, log_widget):
     imu = imu_var.get(); gnss = gnss_var.get(); truth = truth_var.get(); method = method_var.get()
