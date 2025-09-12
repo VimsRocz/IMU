@@ -288,7 +288,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
         ax.set_title(f'q_{lab}')
         ax.grid(True)
     plt.legend(loc='upper right')
-    title = f'{tag} Task7.6 (Body→NED): Quaternion Truth vs KF' if truth_available else f'{tag} Task7.6: Quaternion Components'
+    title = f'{tag} Task7_6 (Body→NED): Quaternion Truth vs KF' if truth_available else f'{tag} Task7_6: Quaternion Components'
     plt.suptitle(title)
     data_dict = {'t': time_s, 'q_kf': qE}
     if truth_available and qT is not None:
@@ -314,7 +314,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
         ax.grid(True)
         if i == 0:
             ax.legend(loc='upper right')
-    plt.suptitle(f'{tag} Task7.6 (Body→NED): Quaternion Component Error')
+    plt.suptitle(f'{tag} Task7_6 (Body→NED): Quaternion Component Error')
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_BodyToNED_attitude_quaternion_error_components.png'),
                                        {'t': time_s, 'dq_wxyz': dq}))
 
@@ -338,7 +338,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
         if i == 0:
             ax.legend()
     plt.xlabel('Time [s]')
-    plt.suptitle(f'{tag} Task7.6 (Body→NED): Euler (ZYX) Truth vs KF')
+    plt.suptitle(f'{tag} Task7_6 (Body→NED): Euler (ZYX) Truth vs KF')
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_BodyToNED_attitude_truth_vs_estimate_euler.png'),
                                        {'t': time_s, 'e_truth_zyx_deg': eT, 'e_kf_zyx_deg': eE}))
 
@@ -356,17 +356,17 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
         if i == 0:
             ax.legend(loc='upper right')
     plt.xlabel('Time [s]')
-    plt.suptitle(f'{tag} Task7.6 (Body→NED): Euler Error (ZYX) vs Time')
+    plt.suptitle(f'{tag} Task7_6 (Body→NED): Euler Error (ZYX) vs Time')
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_BodyToNED_attitude_euler_error_over_time.png'),
                                        {'t': time_s, 'e_error_zyx_deg': e_err}))
 
-    # Quaternion angle error over time (Task7.6 + back-compat Task7)
+    # Quaternion angle error over time (Task7_6 + back-compat Task7)
     plt.figure(figsize=(10, 3))
     plt.plot(time_s, ang, '-')
     plt.grid(True)
     plt.xlabel('Time [s]')
     plt.ylabel('Angle Error [deg]')
-    plt.title(f'{tag} Task7.6: Quaternion Error (angle) vs Time')
+    plt.title(f'{tag} Task7_6: Quaternion Error (angle) vs Time')
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_6_attitude_error_angle_over_time.png'),
                                        {'t': time_s, 'att_err_deg': ang}))
     generated.append(_save_png_and_mat(str(results_dir / f'{tag}_Task7_attitude_error_angle_over_time.png'),
@@ -388,7 +388,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
     rows = []
     for label, idx in [("mean", 0), ("rmse", 1), ("p95_abs", 2), ("p99_abs", 3), ("max_abs", 4), ("final", 5)]:
         rows.append([label] + [f"{stats_q[k][idx]:.6f}" for k in ['w','x','y','z']])
-    print("\n===== Task7.6 Quaternion Component Error Summary (est − truth) =====")
+    print("\n===== Task7_6 Quaternion Component Error Summary (est − truth) =====")
     print(" ".join(f"{h:>12s}" for h in headers))
     for r in rows:
         print(" ".join(f"{c:>12s}" for c in r))
@@ -398,7 +398,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
     rows_e = []
     for label, idx in [("mean", 0), ("rmse", 1), ("p95_abs", 2), ("p99_abs", 3), ("max_abs", 4), ("final", 5)]:
         rows_e.append([label] + [f"{stats_e[k][idx]:.6f}" for k in ['yaw','pitch','roll']])
-    print("\n===== Task7.6 Euler Error Summary (est − truth) [deg] =====")
+    print("\n===== Task7_6 Euler Error Summary (est − truth) [deg] =====")
     print(" ".join(f"{h:>12s}" for h in headers_e))
     for r in rows_e:
         print(" ".join(f"{c:>12s}" for c in r))
