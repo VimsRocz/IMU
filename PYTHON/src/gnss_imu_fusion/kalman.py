@@ -100,7 +100,10 @@ class GNSSIMUKalman:
         # manual integration of position/velocity at IMU
         acc_body = acc_meas - self.kf.x[6:9]
         acc_n = R_bn @ acc_body
-        acc_n += g_n
+        # The accelerometer measurement here is treated as a raw acceleration
+        # (including gravity).  To obtain the specific force in the navigation
+        # frame we subtract the gravity vector rather than add it.
+        acc_n -= g_n
         self.vel_imu += acc_n * dt
         self.pos_imu += self.vel_imu * dt
         if omega_meas is not None and np.linalg.norm(self.lever_arm) > 0:
