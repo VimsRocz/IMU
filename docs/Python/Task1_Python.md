@@ -39,6 +39,24 @@ Optional magnetic field if a magnetometer file is provided
  - Save the plot as `results/<tag>_task1_location_map.[pdf|png]` unless the `--no-plots` flag is used.
 - See the [standardized legend terms](../PlottingChecklist.md#standardized-legend-terms) for consistent naming of plot entries.
 
+## Running the Script
+
+Invoke Task 1 directly from the repository root to verify a GNSS/IMU pair:
+
+```bash
+python PYTHON/src/run_method_only.py --task 1 --imu IMU_X001.dat --gnss GNSS_X001.csv
+```
+
+The command prints the derived latitude/longitude together with the gravity and
+Earth‑rate vectors.  Use `--no-plots` to suppress map generation during batch
+runs.
+
+## Output Files
+
+All artefacts are written to `PYTHON/results/`.  The location map provides a
+visual check that the first GNSS fix was interpreted correctly and is stored as
+`<tag>_task1_location_map.pdf` (and optionally `.png`).
+
 ## Result
 
 Task 1 prints the reference vectors and optionally saves a location map.  The values feed directly into the body‑frame measurements of **Task 2** and ultimately the TRIAD attitude solution in **Task 3**.
