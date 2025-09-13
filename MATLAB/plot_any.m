@@ -9,12 +9,25 @@ function plot_any(input)
 % for common Task 1–5 artifacts. It is intentionally defensive: if an
 % expected key is missing it will skip that subplot gracefully.
 
+% Allow flexible launch:
+% - No arg: auto-pick a single .mat in cwd or prompt user
+% - Drag-and-drop path string: treat as filename
 if nargin < 1 || isempty(input)
-    [f,p] = uigetfile('*.mat','Select a .mat results file');
-    if isequal(f,0); return; end
-    file = fullfile(p,f);
+    mats = dir('*.mat');
+    if numel(mats) == 1
+        file = fullfile(mats(1).folder, mats(1).name);
+    else
+        [f,p] = uigetfile('*.mat','Select a .mat results file');
+        if isequal(f,0); return; end
+        file = fullfile(p,f);
+    end
 else
-    file = input;
+    % If user dragged a file path into the command window, it comes as char/string
+    if isstring(input) || ischar(input)
+        file = char(input);
+    else
+        error('plot_any:badarg','Unsupported input type');
+    end
 end
 
 S = load(file);
@@ -77,17 +90,46 @@ if isfield(S,'time_s')
     hasECEF = isfield(S,'pos_ecef_m') || isfield(S,'vel_ecef_ms');
     hasBODY = isfield(S,'pos_body_m') || isfield(S,'vel_body_ms');
 
-    if hasNED
+    % Prefer plotting only the matching frame for this file (one figure, 3x3)
+    [fp, fn, fe] = fileparts(file); %#ok<ASGLU>
+    lowerfn = lower(fn);
+    if contains(lowerfn,'task5_all_ned') && hasNED
         figure('Name','Task 5: NED (Fused)','Color','w');
         plot_frame_3x3(t, getf(S,'pos_ned_m'), getf(S,'vel_ned_ms'), getf(S,'acc_ned'), {'N','E','D'}, 'NED');
-    end
-    if hasECEF
+        sgtitle(sprintf('Task 5 – NED (Fused) – %s', fn),'Interpreter','none');
+    elseif contains(lowerfn,'task5_all_ecef') && hasECEF
         figure('Name','Task 5: ECEF (Fused)','Color','w');
         plot_frame_3x3(t, getf(S,'pos_ecef_m'), getf(S,'vel_ecef_ms'), getf(S,'acc_ecef'), {'X','Y','Z'}, 'ECEF');
-    end
-    if hasBODY
+        sgtitle(sprintf('Task 5 – ECEF (Fused) – %s', fn),'Interpreter','none');
+    elseif contains(lowerfn,'task5_all_body') && hasBODY
         figure('Name','Task 5: BODY (Fused)','Color','w');
         plot_frame_3x3(t, getf(S,'pos_body_m'), getf(S,'vel_body_ms'), getf(S,'acc_body'), {'X','Y','Z'}, 'BODY');
+        sgtitle(sprintf('Task 5 – BODY (Fused) – %s', fn),'Interpreter','none');
+    else
+        % Fallback: pick the first available frame in priority order
+        if hasNED
+            figure('Name','Task 5: NED (Fused)','Color','w');
+            plot_frame_3x3(t, getf(S,'pos_ned_m'), getf(S,'vel_ned_ms'), getf(S,'acc_ned'), {'N','E','D'}, 'NED');
+            sgtitle(sprintf('Task 5 – NED (Fused) – %s', fn),'Interpreter','none');
+        elseif hasECEF
+            figure('Name','Task 5: ECEF (Fused)','Color','w');
+            plot_frame_3x3(t, getf(S,'pos_ecef_m'), getf(S,'vel_ecef_ms'), getf(S,'acc_ecef'), {'X','Y','Z'}, 'ECEF');
+            sgtitle(sprintf('Task 5 – ECEF (Fused) – %s', fn),'Interpreter','none');
+        elseif hasBODY
+            figure('Name','Task 5: BODY (Fused)','Color','w');
+            plot_frame_3x3(t, getf(S,'pos_body_m'), getf(S,'vel_body_ms'), getf(S,'acc_body'), {'X','Y','Z'}, 'BODY');
+            sgtitle(sprintf('Task 5 – BODY (Fused) – %s', fn),'Interpreter','none');
+        else
+            warning('plot_any:task5missing','Task 5 fused fields not found in %s', file);
+        end
+    end
+    % Save PNG alongside the .mat with same base name
+    try
+        outPng = fullfile(fp, [fn '.png']);
+        exportgraphics(gcf, outPng, 'Resolution', 200);
+        fprintf('[plot_any] Saved PNG -> %s\n', outPng);
+    catch
+        try, saveas(gcf, outPng); fprintf('[plot_any] Saved PNG -> %s\n', outPng); end
     end
     return;
 end
