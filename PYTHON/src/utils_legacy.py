@@ -311,8 +311,16 @@ def save_png_and_mat(fig: Figure, filename: str, **savefig_kwargs) -> tuple[Path
     png_path = stem.with_suffix(".png")
     mat_path = stem.with_suffix(".mat")
     png_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(png_path, **savefig_kwargs)
-    save_plot_mat(fig, str(mat_path))
+    # Save PNG (best-effort) — tolerate disk-full errors gracefully
+    try:
+        fig.savefig(png_path, **savefig_kwargs)
+    except OSError as e:
+        print(f"[WARN] Skipping PNG save (reason: {e}). Path: {png_path}")
+    # Save MAT (best-effort)
+    try:
+        save_plot_mat(fig, str(mat_path))
+    except OSError as e:
+        print(f"[WARN] Skipping MAT save (reason: {e}). Path: {mat_path}")
     # Additionally try to save a MATLAB-native .fig via engine.
     # Do NOT write MAT-based '.fig' fallbacks to avoid confusing non-native files.
     try:
