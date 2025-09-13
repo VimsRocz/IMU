@@ -65,20 +65,89 @@ if ismember('data', fn) && isstruct(S.data)
     end
 end
 
+% Case A2: Task 5 fused time series bundles (2x3 Position/Velocity)
+% Recognises keys like time_s + (pos_XXX, vel_XXX) where XXX in {ned_m,ecef_m,body_m}
+if ismember('time_s', fn)
+    t = S.time_s(:);
+    % Choose frame based on available fields
+    pos = []; vel = []; labels = {'North','East','Down'}; frame_name = 'NED';
+    if ismember('pos_ned_m', fn) || ismember('vel_ned_ms', fn)
+        pos = local_getf(S,'pos_ned_m',[]); vel = local_getf(S,'vel_ned_ms',[]);
+        labels = {'North','East','Down'}; frame_name = 'NED';
+    elseif ismember('pos_ecef_m', fn) || ismember('vel_ecef_ms', fn)
+        pos = local_getf(S,'pos_ecef_m',[]); vel = local_getf(S,'vel_ecef_ms',[]);
+        labels = {'X','Y','Z'}; frame_name = 'ECEF';
+    elseif ismember('pos_body_m', fn) || ismember('vel_body_ms', fn)
+        pos = local_getf(S,'pos_body_m',[]); vel = local_getf(S,'vel_body_ms',[]);
+        labels = {'X','Y','Z'}; frame_name = 'Body';
+    end
+    if ~isempty(pos) || ~isempty(vel)
+        % Decimate if needed
+        n = numel(t); stride = max(1, ceil(n/200000));
+        ti = t(1:stride:end);
+        pos_i = local_take_stride(pos, stride);
+        vel_i = local_take_stride(vel, stride);
+        fig = figure('Name', base, 'Color','w');
+        % Position row
+        for iAx=1:3
+            ax = subplot(2,3,iAx); hold(ax,'on'); grid(ax,'on'); title(ax, labels{iAx});
+            if ~isempty(pos_i)
+                plot(ax, ti, pos_i(:,iAx), 'r-', 'Marker','x','MarkerSize',3, 'DisplayName','Fused');
+            end
+            ylabel(ax, sprintf('Position %s [m]', frame_name));
+        end
+        % Velocity row
+        for iAx=1:3
+            ax = subplot(2,3,3+iAx); hold(ax,'on'); grid(ax,'on');
+            if ~isempty(vel_i)
+                plot(ax, ti, vel_i(:,iAx), 'r-', 'Marker','x','MarkerSize',3, 'DisplayName','Fused');
+            end
+            xlabel(ax,'Time [s]'); ylabel(ax, sprintf('Velocity %s [m/s]', frame_name));
+        end
+        % Harmonised symmetric limits (based on fused only)
+        try
+            if ~isempty(pos_i)
+                lim_p = prctile(abs(pos_i(:)), 99.5);
+                if isfinite(lim_p) && lim_p>0
+                    for iAx=1:3, ylim(subplot(2,3,iAx), [-lim_p lim_p]); end
+                end
+            end
+            if ~isempty(vel_i)
+                lim_v = prctile(abs(vel_i(:)), 99.5);
+                if isfinite(lim_v) && lim_v>0
+                    for iAx=1:3, ylim(subplot(2,3,3+iAx), [-lim_v lim_v]); end
+                end
+            end
+        catch, end
+        % Shared legend
+        try, legend(subplot(2,3,1),'show','Location','northoutside','Orientation','horizontal'); catch, end
+        try, sgtitle(sprintf('Task 5 — %s Frame (Fused) — %s', frame_name, base), 'Interpreter','none'); catch, end
+        return
+    end
+end
+
 % Case B: Quaternion/Euler bundles saved by Python helpers
 has_t = ismember('t', fn);
 if has_t
     % Quaternion truth vs estimate (wxyz)
-    if (ismember('q_truth', fn) && (ismember('q_kf', fn) || ismember('q_est', fn)))
-        qt = S.q_truth; qe = []; if ismember('q_kf', fn), qe = S.q_kf; else, qe = S.q_est; end
-        local_plot_quat_components(S.t, qt, qe, base);
-        return
+    if (ismember('q_kf', fn) || ismember('q_est', fn) || ismember('q_truth', fn))
+        qt = []; if ismember('q_truth', fn), qt = S.q_truth; end
+        if ismember('q_kf', fn), qe = S.q_kf; else, qe = []; end
+        if isempty(qe) && ismember('q_est', fn), qe = S.q_est; end
+        if ~isempty(qe) || ~isempty(qt)
+            local_plot_quat_components(S.t, qt, qe, base);
+            return
+        end
     end
     % Euler truth vs estimate (ZYX degrees)
-    if (ismember('e_truth_zyx_deg', fn) && (ismember('e_kf_zyx_deg', fn) || ismember('e_est_zyx_deg', fn)))
-        et = S.e_truth_zyx_deg; ee = []; if ismember('e_kf_zyx_deg', fn), ee = S.e_kf_zyx_deg; else, ee = S.e_est_zyx_deg; end
-        local_plot_euler_zyx_deg(S.t, et, ee, base);
-        return
+    if (ismember('e_kf_zyx_deg', fn) || ismember('e_est_zyx_deg', fn) || ismember('e_truth_zyx_deg', fn))
+        et = []; if ismember('e_truth_zyx_deg', fn), et = S.e_truth_zyx_deg; end
+        if ismember('e_kf_zyx_deg', fn), ee = S.e_kf_zyx_deg; else, ee = []; end
+        if isempty(ee) && ismember('e_est_zyx_deg', fn), ee = S.e_est_zyx_deg; end
+        if ~isempty(ee) || ~isempty(et)
+            local_plot_euler_zyx_deg(S.t, et, ee, base);
+            return
+        end
     end
     % Quaternion component residuals dq_wxyz
     if ismember('dq_wxyz', fn)
@@ -146,18 +215,33 @@ end
 %% --- Helpers ---
 function local_plot_quat_components(t, q_truth, q_est, namebase)
 t = t(:);
-q_truth = reshape(q_truth, [], 4);
-q_est = reshape(q_est, [], 4);
-n = min([numel(t), size(q_truth,1), size(q_est,1)]);
-t = t(1:n); q_truth = q_truth(1:n,:); q_est = q_est(1:n,:);
+% Allow either series to be missing
+hasTruth = ~isempty(q_truth);
+hasEst   = ~isempty(q_est);
+if hasTruth, q_truth = reshape(q_truth, [], 4); end
+if hasEst,   q_est   = reshape(q_est,   [], 4); end
+n = numel(t);
+if hasTruth, n = min(n, size(q_truth,1)); end
+if hasEst,   n = min(n, size(q_est,1));   end
+t = t(1:n);
+if hasTruth, q_truth = q_truth(1:n,:); end
+if hasEst,   q_est   = q_est(1:n,:);   end
 figure('Name', namebase, 'Color','w');
 labs = {'w','x','y','z'};
 for i=1:4
     ax = subplot(4,1,i); hold(ax,'on'); grid(ax,'on');
-    plot(ax, t, q_truth(:,i), '-', 'DisplayName','Truth');
-    plot(ax, t, q_est(:,i),  '--', 'DisplayName','Estimate');
+    if hasTruth, plot(ax, t, q_truth(:,i), 'k-', 'DisplayName','Truth'); end
+    if hasEst,   plot(ax, t, q_est(:,i),  'r--', 'DisplayName','Estimate'); end
     ylabel(ax, ['q_' labs{i}]);
-    if i==1, legend(ax,'show','Location','best'); end
+    if i==1
+        if hasTruth && hasEst
+            legend(ax,'show','Location','best');
+        elseif hasEst
+            legend(ax, {'Estimate (Truth missing)'}, 'Location','best');
+        else
+            legend(ax, {'Truth'}, 'Location','best');
+        end
+    end
     if i==4, xlabel(ax,'Time [s]'); end
 end
 sgtitle(strrep(namebase,'_','\_'));
@@ -165,18 +249,32 @@ end
 
 function local_plot_euler_zyx_deg(t, e_truth, e_est, namebase)
 t = t(:);
-e_truth = reshape(e_truth, [], 3);
-e_est = reshape(e_est, [], 3);
-n = min([numel(t), size(e_truth,1), size(e_est,1)]);
-t = t(1:n); e_truth = e_truth(1:n,:); e_est = e_est(1:n,:);
+hasTruth = ~isempty(e_truth);
+hasEst   = ~isempty(e_est);
+if hasTruth, e_truth = reshape(e_truth, [], 3); end
+if hasEst,   e_est   = reshape(e_est,   [], 3); end
+n = numel(t);
+if hasTruth, n = min(n, size(e_truth,1)); end
+if hasEst,   n = min(n, size(e_est,1));   end
+t = t(1:n);
+if hasTruth, e_truth = e_truth(1:n,:); end
+if hasEst,   e_est   = e_est(1:n,:);   end
 figure('Name', namebase, 'Color','w');
 labs = {'Yaw [deg]','Pitch [deg]','Roll [deg]'};
 for i=1:3
     ax = subplot(3,1,i); hold(ax,'on'); grid(ax,'on');
-    plot(ax, t, e_truth(:,i), '-',  'DisplayName','Truth');
-    plot(ax, t, e_est(:,i),   '--', 'DisplayName','Estimate');
+    if hasTruth, plot(ax, t, e_truth(:,i), 'k-',  'DisplayName','Truth'); end
+    if hasEst,   plot(ax, t, e_est(:,i),   'r--', 'DisplayName','Estimate'); end
     ylabel(ax, labs{i});
-    if i==1, legend(ax,'show','Location','best'); end
+    if i==1
+        if hasTruth && hasEst
+            legend(ax,'show','Location','best');
+        elseif hasEst
+            legend(ax, {'Estimate (Truth missing)'}, 'Location','best');
+        else
+            legend(ax, {'Truth'}, 'Location','best');
+        end
+    end
     if i==3, xlabel(ax,'Time [s]'); end
 end
 sgtitle(strrep(namebase,'_','\_'));
@@ -228,14 +326,14 @@ vt = local_take_stride(vt, stride);
 fig = figure('Name', namebase, 'Color','w');
 for i=1:3
     ax = subplot(2,3,i); hold(ax,'on'); grid(ax,'on'); title(ax, labels{i});
-    if ~isempty(pf), plot(ax, ti, pf(:,i), '-',  'DisplayName','Fused'); end
-    if ~isempty(pt), plot(ax, ti, pt(:,i), '--', 'DisplayName','Truth'); end
+    if ~isempty(pf), plot(ax, ti, pf(:,i), 'r-',  'Marker','x','MarkerSize',3, 'DisplayName','Fused'); end
+    if ~isempty(pt), plot(ax, ti, pt(:,i), 'k:',  'Marker','*','MarkerSize',3, 'DisplayName','Truth'); end
     ylabel(ax, 'Position [m]');
 end
 for i=1:3
     ax = subplot(2,3,3+i); hold(ax,'on'); grid(ax,'on');
-    if ~isempty(vf), plot(ax, ti, vf(:,i), '-',  'DisplayName','Fused'); end
-    if ~isempty(vt), plot(ax, ti, vt(:,i), '--', 'DisplayName','Truth'); end
+    if ~isempty(vf), plot(ax, ti, vf(:,i), 'r-',  'Marker','x','MarkerSize',3, 'DisplayName','Fused'); end
+    if ~isempty(vt), plot(ax, ti, vt(:,i), 'k:',  'Marker','*','MarkerSize',3, 'DisplayName','Truth'); end
     xlabel(ax,'Time [s]'); ylabel(ax,'Velocity [m/s]');
 end
 % Harmonised symmetric limits
@@ -254,7 +352,13 @@ try
     end
 catch, end
 try, legend(subplot(2,3,1),'show','Location','northoutside','Orientation','horizontal'); catch, end
-try, sgtitle(sprintf('Task 7.6 – Truth vs Fused (%s)', local_frame_from_name(namebase))); catch, end
+try
+    if isempty(pt) && isempty(vt)
+        sgtitle(sprintf('Task 7.6 – Fused only (Truth missing) (%s)', local_frame_from_name(namebase)));
+    else
+        sgtitle(sprintf('Task 7.6 – Truth vs Fused (%s)', local_frame_from_name(namebase)));
+    end
+catch, end
 end
 
 function local_plot_ax_bundle(D, namebase)
