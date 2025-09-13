@@ -730,7 +730,7 @@ def load_estimate(path, times=None):
     return est
 
 
-def assemble_frames(est, imu_file, gnss_file, truth_file=None):
+def assemble_frames(est, imu_file, gnss_file, truth_file=None, *, allow_auto_truth: bool = False):
     """Return aligned datasets in NED/ECEF/Body frames.
 
     When a truth trajectory is supplied, its time vector is synchronised to
@@ -855,7 +855,7 @@ def assemble_frames(est, imu_file, gnss_file, truth_file=None):
         except Exception as e:
             print(f"Failed to load truth file {truth_file}: {e}")
             truth_file = None
-    elif (
+    elif allow_auto_truth and (
         est.get("truth_pos_ecef") is not None
         and est.get("truth_vel_ecef") is not None
         and est.get("truth_time") is not None

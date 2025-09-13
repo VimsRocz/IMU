@@ -266,12 +266,7 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
         vel_interp = np.vstack(
             [np.interp(t, fused_time, fused_vel[:, i]) for i in range(3)]
         ).T
-        truth_pos = pos_interp - res_pos
-        truth_vel = derive_velocity(t, truth_pos)
-        print(f"Final fused_vel_ned: {vel_interp[-1]}")
-        print(f"Final truth_vel_ned: {truth_vel[-1]}")
-        res_pos = pos_interp - truth_pos
-        res_vel = vel_interp - truth_vel
+        # Do not reconstruct truth from residuals. Keep residuals as-is.
     # Record list of task7 plots we save so we can augment later with inline validation attitude plots
     # We reuse the internal registry from utils.plot_save if available.
     try:  # Lazy import to avoid circular import at module import time
@@ -365,54 +360,13 @@ def run_evaluation_npz(npz_file: str, save_path: str, tag: str | None = None) ->
     norm_path = save_plot(fig, out_dir, tag or "run", "task7", "3_error_norms", ext="pdf")
     plt.close(fig)
 
-    # Subtasks 7.5 and 7.6: difference and overlay (Truth vs Fused)
+    # Subtasks 7.5 and 7.6 require explicit truth. Do not reconstruct truth
+    # from residuals or auto-use embedded arrays. If a separate truth step
+    # ran, it will produce these plots itself.
     if fused_time is not None and fused_pos is not None and fused_vel is not None:
-        run_id = tag.replace(os.sep, "_") if tag else "run"
-
-        ref_lat = data.get("ref_lat_rad")
-        if ref_lat is None:
-            v = data.get("ref_lat")
-            if v is not None:
-                ref_lat = float(np.asarray(v).squeeze())
-        ref_lon = data.get("ref_lon_rad")
-        if ref_lon is None:
-            v = data.get("ref_lon")
-            if v is not None:
-                ref_lon = float(np.asarray(v).squeeze())
-        if (ref_lat is None or ref_lon is None) and data.get("pos_ecef_m") is not None:
-            lat_deg, lon_deg, _ = ecef_to_geodetic(*data["pos_ecef_m"][0])
-            if ref_lat is None:
-                ref_lat = np.deg2rad(lat_deg)
-            if ref_lon is None:
-                ref_lon = np.deg2rad(lon_deg)
-
-        subtask7_5_diff_plot(
-            t_rel,
-            pos_interp,
-            truth_pos,
-            vel_interp,
-            truth_vel,
-            quat,
-            ref_lat,
-            ref_lon,
-            run_id,
-            out_dir,
-        )
-        # Task 7.6 overlays (Truth vs Fused) in all frames
-        subtask7_6_overlay_plot(
-            t_rel,
-            pos_interp,
-            truth_pos,
-            vel_interp,
-            truth_vel,
-            quat,
-            ref_lat,
-            ref_lon,
-            run_id,
-            out_dir,
-        )
+        print("Subtasks 7.5/7.6 skipped: no explicit truth file provided")
     else:
-        print("Subtask 7.5 skipped: missing fused or truth data")
+        print("Subtasks 7.5/7.6 skipped: missing fused data")
 
     # After generating residual/euler/quat component/error plots (and optional 7.5/7.6),
     # attempt to detect additional attitude validation plots produced later in the pipeline
