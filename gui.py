@@ -23,6 +23,7 @@ SCRIPT_MAP = {
     "TRIAD": "run_triad_only.py",
     "Davenport": "run_davenport_only.py",
     "SVD": "run_svd_only.py",
+    "All methods": "run_all_methods_single.py",
 }
 METHODS = list(SCRIPT_MAP.keys())
 
