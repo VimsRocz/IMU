@@ -843,101 +843,18 @@ def subtask7_6_overlay_plot(
     )
     print("Saved Task 7.6 truth-vs-fused overlays (NED/ECEF/Body) under:", out_dir)
 
-    # Register overlay plots & altitude overlays in Task 7 summary registry
+    # Register overlay plots in Task 7 summary registry (NED/ECEF/Body only)
     try:
         from utils.plot_save import _saved as _saved_registry  # type: ignore
         overlay_names = [
             f"{run_id}_task7_6_overlay_NED.png",
             f"{run_id}_task7_6_overlay_ECEF.png",
             f"{run_id}_task7_6_overlay_BODY.png",
-            f"{run_id}_task7_6_overlay_Position_NorthEastAltitude_NED.png",
-            f"{run_id}_task7_6_overlay_Altitude_NED.png",
-            f"{run_id}_task7_5_diff_truth_fused_altitude_NED.png",
+            # removed Position_NorthEastAltitude and Altitude-only overlays per requirements
         ]
         for nm in overlay_names:
             if (out_dir / nm).exists() and nm not in _saved_registry["task7"]:
                 _saved_registry["task7"].append(nm)
-    except Exception:
-        pass
-
-    # Altitude + Horizontal components overlay (Truth vs Fused) in NED (Up = -Down)
-    # NEW: 3-panel plot (North, East, Altitude) replacing/augmenting single altitude plot.
-    try:
-        alt_fused = -fused_pos_ned[:, 2]
-        alt_truth = -truth_pos_ned[:, 2]
-        north_fused = fused_pos_ned[:, 0]
-        north_truth = truth_pos_ned[:, 0]
-        east_fused = fused_pos_ned[:, 1]
-        east_truth = truth_pos_ned[:, 1]
-
-        # 3-panel figure
-        fig3, axes = plt.subplots(3, 1, figsize=(9, 7), sharex=True)
-        # North
-        axes[0].plot(time, north_fused, label="Fused")
-        axes[0].plot(time, north_truth, '--', label="Truth")
-        axes[0].set_ylabel("North [m]")
-        axes[0].grid(True)
-        axes[0].legend(loc='upper right')
-        # East
-        axes[1].plot(time, east_fused, label="Fused")
-        axes[1].plot(time, east_truth, '--', label="Truth")
-        axes[1].set_ylabel("East [m]")
-        axes[1].grid(True)
-        # Altitude (Up)
-        axes[2].plot(time, alt_fused, label="Fused")
-        axes[2].plot(time, alt_truth, '--', label="Truth")
-        axes[2].set_ylabel("Altitude [m]")
-        axes[2].set_xlabel("Time [s]")
-        axes[2].grid(True)
-        fig3.suptitle("Task 7.6 – Truth vs Fused Position (North/East/Altitude)")
-        fig3.tight_layout(rect=[0, 0, 1, 0.95])
-        base3 = out_dir / f"{run_id}_task7_6_overlay_Position_NorthEastAltitude_NED"
-        try:
-            fig3.savefig(base3.with_suffix('.png'), dpi=200, bbox_inches='tight')
-            fig3.savefig(base3.with_suffix('.pdf'), dpi=200, bbox_inches='tight')
-        except Exception:
-            pass
-        try:
-            from scipy.io import savemat  # type: ignore
-            savemat(str(base3.with_suffix('.mat')), {
-                'time': time.astype(float),
-                'north_fused_m': north_fused.astype(float),
-                'north_truth_m': north_truth.astype(float),
-                'east_fused_m': east_fused.astype(float),
-                'east_truth_m': east_truth.astype(float),
-                'alt_fused_up_m': alt_fused.astype(float),
-                'alt_truth_up_m': alt_truth.astype(float),
-            })
-        except Exception:
-            pass
-        plt.close(fig3)
-
-        # Retain legacy single-altitude figure for backward compatibility
-        fig_alt, ax_alt = plt.subplots(figsize=(8, 3))
-        ax_alt.plot(time, alt_fused, label="Fused")
-        ax_alt.plot(time, alt_truth, '--', label="Truth")
-        ax_alt.set_xlabel("Time [s]")
-        ax_alt.set_ylabel("Altitude [m]")
-        ax_alt.grid(True)
-        ax_alt.legend(loc='upper right')
-        fig_alt.suptitle("Task 7.6 – Truth vs Fused Altitude (NED)")
-        fig_alt.tight_layout(rect=[0, 0, 1, 0.95])
-        base_alt = out_dir / f"{run_id}_task7_6_overlay_Altitude_NED"
-        try:
-            fig_alt.savefig(base_alt.with_suffix('.png'), dpi=200, bbox_inches='tight')
-            fig_alt.savefig(base_alt.with_suffix('.pdf'), dpi=200, bbox_inches='tight')
-        except Exception:
-            pass
-        try:
-            from scipy.io import savemat  # type: ignore
-            savemat(str(base_alt.with_suffix('.mat')), {
-                'time': time.astype(float),
-                'alt_fused_up_m': alt_fused.astype(float),
-                'alt_truth_up_m': alt_truth.astype(float),
-            })
-        except Exception:
-            pass
-        plt.close(fig_alt)
     except Exception:
         pass
 

@@ -16,6 +16,7 @@ def save_zupt_variance(
     dataset_id: str,
     threshold: float,
     window_size: int = 100,
+    base_dir: str | Path = "results",
 ) -> None:
     """Plot ZUPT-detected intervals and accelerometer variance."""
     t = np.arange(accel.shape[0]) * dt
@@ -39,8 +40,8 @@ def save_zupt_variance(
     plt.xlabel("Time [s]")
     plt.ylabel("Variance")
     plt.tight_layout()
-    plt.title("ZUPT Detection and Accelerometer Variance")
-    base = Path(f"results/IMU_{dataset_id}_ZUPT_variance")
+    plt.title("Task 2 — ZUPT Detection and Accelerometer Variance")
+    base = Path(base_dir) / f"IMU_{dataset_id}_task2_zupt_variance"
     save_png_and_mat(plt.gcf(), str(base), arrays=dict(t=t, var=var, zupt=zupt_mask.astype(int)))
     save_matlab_fig(plt.gcf(), str(base))
     plt.close()
@@ -51,6 +52,7 @@ def save_euler_angles(
     euler_angles: np.ndarray,
     dataset_id: str,
     method: str,
+    base_dir: str | Path = "results",
 ) -> None:
     """Plot roll, pitch and yaw over time.
 
@@ -73,8 +75,8 @@ def save_euler_angles(
     plt.ylabel("Angle [deg]")
     plt.legend(loc="best")
     plt.tight_layout()
-    plt.title("Attitude Angles (Roll/Pitch/Yaw) vs. Time")
-    base = Path(f"results/{dataset_id}_{method}_attitude_angles_over_time")
+    plt.title("Task 3 — Attitude Angles (Roll/Pitch/Yaw) vs. Time")
+    base = Path(base_dir) / f"{dataset_id}_{method}_task3_attitude_angles_over_time"
     save_png_and_mat(plt.gcf(), str(base), arrays=dict(t=t, euler=euler_angles))
     save_matlab_fig(plt.gcf(), str(base))
     plt.close()
@@ -87,6 +89,7 @@ def save_residual_plots(
     vel_filter: np.ndarray,
     vel_gnss: np.ndarray,
     tag: str,
+    base_dir: str | Path = "results",
 ) -> None:
     """Plot aggregated position and velocity residuals.
 
@@ -114,10 +117,10 @@ def save_residual_plots(
         plt.plot(t, residual_pos[:, i], label=label)
     plt.xlabel("Time [s]")
     plt.ylabel("Position Residual [m]")
-    plt.title("Position Residuals vs. Time")
+    plt.title("Task 5 — Position Residuals vs. Time")
     plt.legend(loc="best")
     plt.tight_layout()
-    base = Path(plot_path("results", tag, 5, "residuals", "position_residuals")).with_suffix("")
+    base = Path(plot_path(base_dir, tag, 5, "residuals", "position_residuals")).with_suffix("")
     save_png_and_mat(plt.gcf(), str(base), arrays=dict(t=t, resid=residual_pos))
     save_matlab_fig(plt.gcf(), str(base))
     plt.close()
@@ -127,10 +130,10 @@ def save_residual_plots(
         plt.plot(t, residual_vel[:, i], label=label)
     plt.xlabel("Time [s]")
     plt.ylabel("Velocity Residual [m/s]")
-    plt.title("Velocity Residuals vs. Time")
+    plt.title("Task 5 — Velocity Residuals vs. Time")
     plt.legend(loc="best")
     plt.tight_layout()
-    base = Path(plot_path("results", tag, 5, "residuals", "velocity_residuals")).with_suffix("")
+    base = Path(plot_path(base_dir, tag, 5, "residuals", "velocity_residuals")).with_suffix("")
     save_png_and_mat(plt.gcf(), str(base), arrays=dict(t=t, resid=residual_vel))
     save_matlab_fig(plt.gcf(), str(base))
     plt.close()
@@ -141,6 +144,7 @@ def save_attitude_over_time(
     euler_angles: np.ndarray,
     dataset_id: str,
     method: str,
+    base_dir: str | Path = "results",
 ) -> None:
     """Plot roll, pitch and yaw over the entire dataset.
 
@@ -163,14 +167,14 @@ def save_attitude_over_time(
     plt.ylabel("Angle [deg]")
     plt.legend(loc="best")
     plt.tight_layout()
-    plt.title("Attitude Angles (Roll/Pitch/Yaw) Over Time")
-    base = Path(f"results/{dataset_id}_{method}_attitude_angles_over_time")
+    plt.title("Task 6 — Attitude Angles (Roll/Pitch/Yaw) Over Time")
+    base = Path(base_dir) / f"{dataset_id}_{method}_task6_attitude_angles_over_time"
     save_png_and_mat(plt.gcf(), str(base), arrays=dict(t=t, euler=euler_angles))
     save_matlab_fig(plt.gcf(), str(base))
     plt.close()
 
 
-def save_velocity_profile(t: np.ndarray, vel_filter: np.ndarray, vel_gnss: np.ndarray) -> None:
+def save_velocity_profile(t: np.ndarray, vel_filter: np.ndarray, vel_gnss: np.ndarray, base_dir: str | Path = "results") -> None:
     """Plot filter and GNSS velocity over time."""
     labels = ["North", "East", "Down"]
     plt.figure(figsize=(10, 5))
@@ -179,10 +183,10 @@ def save_velocity_profile(t: np.ndarray, vel_filter: np.ndarray, vel_gnss: np.nd
         plt.plot(t, vel_filter[:, i], label=f"Filter {label}")
     plt.xlabel("Time [s]")
     plt.ylabel("Velocity [m/s]")
-    plt.title("Velocity Profile")
+    plt.title("Task 5 — Velocity Profile")
     plt.legend(loc="best")
     plt.tight_layout()
-    save_matlab_fig(plt.gcf(), "results/velocity_profile")
+    save_matlab_fig(plt.gcf(), str(Path(base_dir) / "task5_velocity_profile"))
     plt.close()
 
 

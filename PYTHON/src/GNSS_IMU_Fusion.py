@@ -349,8 +349,9 @@ def _save_tasks_overview(
     plt.close(fig)
 
 def main():
-    _ensure_results()
-    logging.info("Ensured 'results/' directory exists.")
+    # Ensure output directory exists (honours PYTHON_RESULTS_DIR if set)
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    logging.info("Ensured '%s' directory exists.", RESULTS_DIR)
     # Parse command-line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--imu-file", required=True)
@@ -593,7 +594,7 @@ def main():
     imu_file, gnss_file = check_files(args.imu_file, args.gnss_file)
     truth_file = args.truth_file
 
-    os.makedirs("results", exist_ok=True)
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     imu_stem = Path(imu_file).stem
     gnss_stem = Path(gnss_file).stem
@@ -603,7 +604,7 @@ def main():
     run_id = make_run_id(imu_file, gnss_file, method_tag)
     global RUN_ID
     RUN_ID = run_id
-    out_dir = PY_RES_DIR
+    out_dir = RESULTS_DIR
 
     logging.info(f"Running attitude-estimation method: {method}")
 
@@ -684,7 +685,7 @@ def main():
         "time_saved": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "versions": versions,
     }
-    save_task1_artifacts(Path("results"), tag, meta, arrays, gnss_columns)
+    save_task1_artifacts(RESULTS_DIR, tag, meta, arrays, gnss_columns)
 
     if not args.no_plots:
         from task1_reference_vectors import task1_reference_vectors
@@ -1554,7 +1555,7 @@ def main():
                         acc_body_corrected[m][:, j],
                         color=c,
                         alpha=0.7,
-                        label=f"Derived IMU ({m})",
+                        label=f"Measured IMU ({m})",
                     )
                 ax.set_title(f"Acceleration {directions_acc[j]}")
             ax.set_xlabel("Time (s)")
@@ -1569,7 +1570,7 @@ def main():
     plt.close(fig_mixed)
     logging.info("Mixed frames plot saved")
 
-    # Plot 2: All data in NED frame
+    # Plot 2: All data in NED frame (show both GNSS and IMU-derived in every subplot)
     logging.info("Plotting all data in NED frame.")
     fig_ned, axes_ned = plt.subplots(3, 3, figsize=(15, 10))
     directions_ned = ["N", "E", "D"]
@@ -1583,6 +1584,15 @@ def main():
                     "k-",
                     label="Derived GNSS (ECEF→NED)",
                 )
+                for m in methods:
+                    c = colors.get(m, None)
+                    ax.plot(
+                        t_rel_ilu,
+                        pos_integ[m][:, j],
+                        color=c,
+                        alpha=0.7,
+                        label=f"Derived IMU (Body→NED) ({m})",
+                    )
                 ax.set_title(f"Position {directions_ned[j]}")
             elif i == 1:  # Velocity
                 ax.plot(
@@ -1591,8 +1601,23 @@ def main():
                     "k-",
                     label="Derived GNSS (ECEF→NED)",
                 )
+                for m in methods:
+                    c = colors.get(m, None)
+                    ax.plot(
+                        t_rel_ilu,
+                        vel_integ[m][:, j],
+                        color=c,
+                        alpha=0.7,
+                        label=f"Derived IMU (Body→NED) ({m})",
+                    )
                 ax.set_title(f"Velocity V{directions_ned[j]}")
             else:  # Acceleration
+                ax.plot(
+                    t_rel_gnss,
+                    gnss_acc_ned[:, j],
+                    "k--",
+                    label="Derived GNSS",
+                )
                 for m in methods:
                     c = colors.get(m, None)
                     f_ned = C_B_N_methods[m] @ acc_body_corrected[m].T
@@ -2199,8 +2224,15 @@ def main():
             omega_in_b = C_n_b @ omega_in_n
             omega_eff_b = gyro_body_corrected[m][i] - np.ravel(kf.x[10:13]) - omega_in_b
             dq = quat_from_rate(omega_eff_b, dt)
+            q_prev = q_cur
             q_cur = quat_multiply(q_cur, dq)
             q_cur /= np.linalg.norm(q_cur)
+            # Enforce temporal sign continuity (q and -q equivalent)
+            try:
+                if float(np.dot(q_cur, q_prev)) < 0.0:
+                    q_cur *= -1.0
+            except Exception:
+                pass
             orientations[i] = q_cur
             kf.x[6:10] = q_cur
 
@@ -2587,63 +2619,32 @@ def main():
         for j in range(3):
             ax = ax_ned_all[i, j]
             if i == 0:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_pos_ned[:, j],
-                    "k-",
-                    label="Derived GNSS (ECEF→NED)",
-                )
-                ax.plot(
-                    t_rel_ilu,
-                    fused_pos[method][:, j],
-                    c,
-                    alpha=0.7,
-                    label=f"Fused (GNSS+IMU, {method})",
-                )
-                if truth_pos_ned_i is not None:
-                    ax.plot(t_rel_ilu, truth_pos_ned_i[:, j], "m-", label="Truth")
+                ax.plot(t_rel_ilu, fused_pos[method][:, j], c, alpha=0.9, label=f"Fused (GNSS+IMU, {method})")
                 ax.set_title(f"Position {dirs_ned[j]}")
             elif i == 1:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_vel_ned[:, j],
-                    "k-",
-                    label="Derived GNSS (ECEF→NED)",
-                )
-                ax.plot(
-                    t_rel_ilu,
-                    fused_vel[method][:, j],
-                    c,
-                    alpha=0.7,
-                    label=f"Fused (GNSS+IMU, {method})",
-                )
-                if truth_vel_ned_i is not None:
-                    ax.plot(t_rel_ilu, truth_vel_ned_i[:, j], "m-", label="Truth")
+                ax.plot(t_rel_ilu, fused_vel[method][:, j], c, alpha=0.9, label=f"Fused (GNSS+IMU, {method})")
                 ax.set_title(f"Velocity V{dirs_ned[j]}")
             else:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_acc_ned[:, j],
-                    "k-",
-                    label="Derived GNSS (ECEF→NED)",
-                )
-                ax.plot(
-                    t_rel_ilu,
-                    fused_acc[method][:, j],
-                    c,
-                    alpha=0.7,
-                    label=f"Fused (GNSS+IMU, {method})",
-                )
+                ax.plot(t_rel_ilu, fused_acc[method][:, j], c, alpha=0.9, label=f"Fused (GNSS+IMU, {method})")
                 ax.set_title(f"Acceleration {dirs_ned[j]}")
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_ned_all.suptitle(
-        f"Task 5 – {method} – NED Frame (Fused vs. Derived GNSS)"
-    )
+    fig_ned_all.suptitle(f"Task 5 – {method} – NED Frame (Fused)")
     fig_ned_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         save_plot(fig_ned_all, RESULTS_DIR, tag, "task5", "all_ned", ext="png", dpi=200, bbox_inches="tight")
+        # Save a MATLAB bundle for Task 5 NED fused data
+        try:
+            from scipy.io import savemat  # type: ignore
+            savemat(str(RESULTS_DIR / f"{tag}_task5_all_ned.mat"), {
+                'time_s': np.asarray(imu_time, float),
+                'pos_ned_m': np.asarray(fused_pos[method], float),
+                'vel_ned_ms': np.asarray(fused_vel[method], float),
+                'acc_ned': np.asarray(fused_acc[method], float),
+            })
+        except Exception:
+            pass
     plt.close(fig_ned_all)
     logging.info("All data in NED frame plot saved")
 
@@ -2666,63 +2667,32 @@ def main():
         for j in range(3):
             ax = ax_ecef_all[i, j]
             if i == 0:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_pos_ecef[:, j],
-                    "k-",
-                    label="Measured GNSS Position",
-                )
-                ax.plot(
-                    t_rel_ilu,
-                    pos_ecef[:, j],
-                    c,
-                    alpha=0.7,
-                    label=f"Fused (GNSS+IMU, {method})",
-                )
-                if truth_pos_ecef_i is not None:
-                    ax.plot(t_rel_ilu, truth_pos_ecef_i[:, j], "m-", label="Truth")
+                ax.plot(t_rel_ilu, pos_ecef[:, j], c, alpha=0.9, label=f"Fused (GNSS+IMU, {method})")
                 ax.set_title(f"Position {dirs_ecef[j]}_ECEF")
             elif i == 1:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_vel_ecef[:, j],
-                    "k-",
-                    label="Measured GNSS Velocity",
-                )
-                ax.plot(
-                    t_rel_ilu,
-                    vel_ecef[:, j],
-                    c,
-                    alpha=0.7,
-                    label=f"Fused (GNSS+IMU, {method})",
-                )
-                if truth_vel_ecef_i is not None:
-                    ax.plot(t_rel_ilu, truth_vel_ecef_i[:, j], "m-", label="Truth")
+                ax.plot(t_rel_ilu, vel_ecef[:, j], c, alpha=0.9, label=f"Fused (GNSS+IMU, {method})")
                 ax.set_title(f"Velocity V{dirs_ecef[j]}_ECEF")
             else:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_acc_ecef[:, j],
-                    "k-",
-                    label="Derived GNSS Acceleration",
-                )
-                ax.plot(
-                    t_rel_ilu,
-                    acc_ecef[:, j],
-                    c,
-                    alpha=0.7,
-                    label=f"Fused (GNSS+IMU, {method})",
-                )
+                ax.plot(t_rel_ilu, acc_ecef[:, j], c, alpha=0.9, label=f"Fused (GNSS+IMU, {method})")
                 ax.set_title(f"Acceleration {dirs_ecef[j]}_ECEF")
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_ecef_all.suptitle(
-        f"Task 5 – {method} – ECEF Frame (Fused vs. Measured GNSS; Acc Derived)"
-    )
+    fig_ecef_all.suptitle(f"Task 5 – {method} – ECEF Frame (Fused)")
     fig_ecef_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         save_plot(fig_ecef_all, RESULTS_DIR, tag, "task5", "all_ecef", ext="png", dpi=200, bbox_inches="tight")
+        # Save a MATLAB bundle for Task 5 ECEF fused data
+        try:
+            from scipy.io import savemat  # type: ignore
+            savemat(str(RESULTS_DIR / f"{tag}_task5_all_ecef.mat"), {
+                'time_s': np.asarray(imu_time, float),
+                'pos_ecef_m': np.asarray(pos_ecef, float),
+                'vel_ecef_ms': np.asarray(vel_ecef, float),
+                'acc_ecef': np.asarray(acc_ecef, float),
+            })
+        except Exception:
+            pass
     plt.close(fig_ecef_all)
     logging.info("All data in ECEF frame plot saved")
 
@@ -2733,73 +2703,37 @@ def main():
     pos_body = (C_N_B @ fused_pos[method].T).T
     vel_body = (C_N_B @ fused_vel[method].T).T
     acc_body = (C_N_B @ fused_acc[method].T).T
-    if truth_pos_ned_i is not None:
-        truth_pos_body = (C_N_B @ truth_pos_ned_i.T).T
-        truth_vel_body = (C_N_B @ truth_vel_ned_i.T).T
-    gnss_pos_body = (C_N_B @ gnss_pos_ned.T).T
-    gnss_vel_body = (C_N_B @ gnss_vel_ned.T).T
-    gnss_acc_body = (C_N_B @ gnss_acc_ned.T).T
+    # Only fused data needed for Body frame summary plots
     for i in range(3):
         for j in range(3):
             ax = ax_body_all[i, j]
             if i == 0:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_pos_body[:, j],
-                    "k-",
-                    label="Derived GNSS",
-                )
-                ax.plot(
-                    t_rel_ilu,
-                    pos_body[:, j],
-                    c,
-                    alpha=0.7,
-                    label=f"Fused (GNSS+IMU, {method})",
-                )
-                if truth_pos_ned_i is not None:
-                    ax.plot(t_rel_ilu, truth_pos_body[:, j], "m-", label="Truth")
+                ax.plot(t_rel_ilu, pos_body[:, j], c, alpha=0.9, label=f"Fused (GNSS+IMU, {method})")
                 ax.set_title(f"Position r{dirs_body[j]}_body")
             elif i == 1:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_vel_body[:, j],
-                    "k-",
-                    label="Derived GNSS",
-                )
-                ax.plot(
-                    t_rel_ilu,
-                    vel_body[:, j],
-                    c,
-                    alpha=0.7,
-                    label=f"Fused (GNSS+IMU, {method})",
-                )
-                if truth_vel_ned_i is not None:
-                    ax.plot(t_rel_ilu, truth_vel_body[:, j], "m-", label="Truth")
+                ax.plot(t_rel_ilu, vel_body[:, j], c, alpha=0.9, label=f"Fused (GNSS+IMU, {method})")
                 ax.set_title(f"Velocity v{dirs_body[j]}_body")
             else:
-                ax.plot(
-                    t_rel_gnss,
-                    gnss_acc_body[:, j],
-                    "k-",
-                    label="Derived GNSS Acceleration",
-                )
-                ax.plot(
-                    t_rel_ilu,
-                    acc_body[:, j],
-                    c,
-                    alpha=0.7,
-                    label=f"Fused (GNSS+IMU, {method})",
-                )
+                ax.plot(t_rel_ilu, acc_body[:, j], c, alpha=0.9, label=f"Fused (GNSS+IMU, {method})")
                 ax.set_title(f"Acceleration A{dirs_body[j]}_body")
             ax.set_xlabel("Time (s)")
             ax.set_ylabel("Value")
             ax.legend(loc="best")
-    fig_body_all.suptitle(
-        f"Task 5 – {method} – Body Frame (Fused vs. Derived GNSS)"
-    )
+    fig_body_all.suptitle(f"Task 5 – {method} – Body Frame (Fused)")
     fig_body_all.tight_layout(rect=[0, 0, 1, 0.95])
     if not args.no_plots:
         save_plot(fig_body_all, RESULTS_DIR, tag, "task5", "all_body", ext="png", dpi=200, bbox_inches="tight")
+        # Save a MATLAB bundle for Task 5 Body fused data
+        try:
+            from scipy.io import savemat  # type: ignore
+            savemat(str(RESULTS_DIR / f"{tag}_task5_all_body.mat"), {
+                'time_s': np.asarray(imu_time, float),
+                'pos_body_m': np.asarray(pos_body, float),
+                'vel_body_ms': np.asarray(vel_body, float),
+                'acc_body': np.asarray(acc_body, float),
+            })
+        except Exception:
+            pass
     plt.close(fig_body_all)
     logging.info("All data in body frame plot saved")
     if not args.no_plots:
@@ -2854,7 +2788,7 @@ def main():
         f"{tag}_{method.lower()}_innovations.png": "Pre-fit innovations",
         f"{tag}_{method.lower()}_attitude_angles.png": "Attitude angles over time",
     }
-    summary_path = os.path.join("results", f"{tag}_plot_summary.md")
+    summary_path = str(RESULTS_DIR / f"{tag}_plot_summary.md")
     with open(summary_path, "w") as f:
         for name, desc in summary.items():
             f.write(f"- **{name}**: {desc}\n")
@@ -2885,7 +2819,10 @@ def main():
     gyro_bias = gyro_biases.get(method, np.zeros(3))
 
     # --- Attitude angles ----------------------------------------------------
-    euler = R.from_quat(attitude_q_all[method]).as_euler("xyz", degrees=True)
+    # attitude_q_all is stored as [w,x,y,z]; SciPy expects [x,y,z,w]
+    _q_wxyz = attitude_q_all[method]
+    _q_xyzw = np.column_stack([_q_wxyz[:, 1], _q_wxyz[:, 2], _q_wxyz[:, 3], _q_wxyz[:, 0]])
+    euler = R.from_quat(_q_xyzw).as_euler("xyz", degrees=True)
     if not args.no_plots:
         plt.figure()
         plt.plot(imu_time, euler[:, 0], label="Roll")
@@ -2895,8 +2832,9 @@ def main():
         plt.ylabel("Angle (deg)")
         plt.legend(loc="best")
         plt.title(f"Task 6: {tag} Attitude Angles")
-        png = Path("results") / f"{tag}_task6_attitude_angles.png"
+        png = RESULTS_DIR / f"{tag}_task6_attitude_angles.png"
         from utils.matlab_fig_export import save_matlab_fig
+        fig = plt.gcf()
         save_matlab_fig(fig, str(Path(png).with_suffix('')))
         plt.close()
 
@@ -2909,16 +2847,30 @@ def main():
 
     # Persist a rich NPZ bundle for Python/Matlab interop
     # Ensure a continuity-enforced attitude quaternion series is available to consumers
-    def _quat_make_continuous(q_wxyz: np.ndarray) -> np.ndarray:
+    def _quat_make_continuous(q_wxyz: np.ndarray) -> tuple[np.ndarray, int]:
         q = np.asarray(q_wxyz, float).copy()
         if q.ndim != 2 or q.shape[1] != 4:
-            return q
+            return q, 0
+        # normalize first
+        n0 = np.linalg.norm(q[0])
+        if n0 != 0.0:
+            q[0] /= n0
+        flips = 0
         for i in range(1, len(q)):
+            # normalize current sample
+            ni = np.linalg.norm(q[i])
+            if ni != 0.0:
+                q[i] /= ni
             if np.dot(q[i], q[i - 1]) < 0.0:
                 q[i] *= -1.0
-        return q
+                flips += 1
+        return q, flips
     att_q_raw = attitude_q_all[method]
-    att_q_h = _quat_make_continuous(att_q_raw)
+    att_q_h, flips = _quat_make_continuous(att_q_raw)
+    if flips:
+        print(f"[KF] Quaternion continuity: applied {flips} sign flips to {method} sequence.")
+    # Make the in-memory estimator output continuous as well
+    attitude_q_all[method] = att_q_h
 
     # Helpers for reducing output size
     ds = max(1, int(args.downsample))
@@ -2961,7 +2913,7 @@ def main():
                 fused_acc=_prep(fused_acc[method]),
                 euler=_prep(euler_all[method]),
                 euler_deg=_prep(np.rad2deg(euler_all[method])),
-                attitude_q=_prep(att_q_raw),
+                attitude_q=_prep(att_q_h),
                 attitude_q_harmonized=_prep(att_q_h),
                 ref_lat=np.array([ref_lat], dtype=np.float32 if use_fp32 else float),
                 ref_lon=np.array([ref_lon], dtype=np.float32 if use_fp32 else float),
@@ -3016,7 +2968,7 @@ def main():
                 residual_pos=_prep(res_pos_all[method]),
                 residual_vel=_prep(res_vel_all[method]),
                 time_residuals=_prep(time_res_all[method]),
-                attitude_q=_prep(att_q_raw),
+                attitude_q=_prep(att_q_h),
                 attitude_q_harmonized=_prep(att_q_h),
                 P_hist=_prep(P_hist_all[method]),
                 x_log=_prep(x_log_all[method]),
@@ -3136,14 +3088,14 @@ def main():
             fused_vel[method],
             truth_pos_ned,
             truth_vel_ned,
-            Path("results") / f"{tag}_task6_truth_vs_fused.png",
+            RESULTS_DIR / f"{tag}_task6_truth_vs_fused.png",
         )
 
     # Compact overview figure with subplots (always saved)
     # Use GNSS and Truth series already aligned/interpolated to the IMU timebase
     # to avoid plotting shape mismatches (IMU has many more samples than GNSS).
     _save_tasks_overview(
-        Path("results") / f"{tag}_tasks_overview",
+        RESULTS_DIR / f"{tag}_tasks_overview",
         imu_time,
         euler_all.get(method, None),
         fused_pos[method],
@@ -3169,7 +3121,7 @@ def main():
         "pos_gnss": gnss_pos_ned,
         "vel_gnss": gnss_vel_ned,
     }
-    fname = Path("results") / f"{summary_tag}_{method_tag}_compare.pkl.gz"
+    fname = RESULTS_DIR / f"{summary_tag}_{method_tag}_compare.pkl.gz"
     with gzip.open(fname, "wb") as f:
         pickle.dump(pack, f)
 
@@ -3232,14 +3184,15 @@ def main():
             dt_imu,
             dataset_id,
             threshold=0.01,
+            base_dir=RESULTS_DIR,
         )
 
         euler_deg = np.rad2deg(euler_all[method])
-        save_euler_angles(imu_time, euler_deg, dataset_id, method)
+        save_euler_angles(imu_time, euler_deg, dataset_id, method, base_dir=RESULTS_DIR)
 
         pos_f = interpolate_series(gnss_time, imu_time, fused_pos[method])
         vel_f = interpolate_series(gnss_time, imu_time, fused_vel[method])
-        save_velocity_profile(gnss_time, vel_f, gnss_vel_ned)
+        save_velocity_profile(gnss_time, vel_f, gnss_vel_ned, base_dir=RESULTS_DIR)
         save_residual_plots(
             gnss_time,
             pos_f,
@@ -3247,9 +3200,10 @@ def main():
             vel_f,
             gnss_vel_ned,
             tag,
+            base_dir=RESULTS_DIR,
         )
 
-        save_attitude_over_time(imu_time, euler_deg, dataset_id, method)
+        save_attitude_over_time(imu_time, euler_deg, dataset_id, method, base_dir=RESULTS_DIR)
 
         plot_all_methods(
             imu_time,
@@ -3331,7 +3285,7 @@ def main():
                 imu_tag = Path(imu_file).stem
                 gnss_tag = Path(gnss_file).stem
                 out_name = f"{imu_tag}_{gnss_tag}_{method}_Task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png"
-                out_path = Path("results") / out_name
+                out_path = RESULTS_DIR / out_name
                 fig_q.savefig(out_path, dpi=200, bbox_inches="tight")
                 # Also save a MATLAB .mat bundle for plot_any compatibility
                 try:

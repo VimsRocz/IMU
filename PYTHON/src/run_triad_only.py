@@ -42,6 +42,7 @@ from typing import Iterable, List, Dict
 import numpy as np
 import pandas as pd
 from scipy.spatial.transform import Rotation as R
+from utils.quaternion_tools import normalize_quat as _qnorm, align_sign_to_ref as _qalign, fix_estimator_quat_wxyz_against_truth as _qfix_est
 import scipy.io as sio
 from tabulate import tabulate
 import matplotlib.pyplot as plt
@@ -153,6 +154,151 @@ def _write_run_meta(outdir, run_id, **kv):
     with meta_path.open("w", encoding="utf-8") as f:
         json.dump(kv, f, indent=2, sort_keys=True)
     logger.info("Saved run meta -> %s", meta_path)
+
+
+# ----------------------------
+# Fallback plots without Truth (Task 7.6 style)
+# ----------------------------
+def _task7_6_plots_no_truth(results_dir: str, run_id: str) -> None:
+    """Generate quaternion and fused overlays (NED/ECEF/Body) when no truth.
+
+    Saves files with the Task 7.6 naming so downstream steps find them:
+      - <run_id>_Task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png (KF only)
+      - <run_id>_task7_6_overlay_NED.png (Fused only)
+      - <run_id>_task7_6_overlay_ECEF.png (Fused only)
+      - <run_id>_task7_6_overlay_BODY.png (Fused only)
+    """
+    res_dir = Path(results_dir)
+    npz_path = res_dir / f"{run_id}_kf_output.npz"
+    if not npz_path.exists():
+        return
+    d = np.load(npz_path, allow_pickle=True)
+    # Time
+    t = d.get("time_s") if d.get("time_s") is not None else d.get("time")
+    if t is None:
+        # Derive from dt and a series length
+        dt = d.get("imu_dt") or d.get("dt")
+        n = None
+        for key in ("pos_ned_m", "pos_ned", "fused_pos"):
+            if d.get(key) is not None:
+                n = int(np.asarray(d.get(key)).shape[0])
+                break
+        t = np.arange(n) * float(dt) if (dt and n) else np.arange(0)
+    t = np.asarray(t, float).reshape(-1)
+    if t.size:
+        t = t - t[0]
+
+    # Quaternion
+    # Prefer harmonized (continuous) quaternions if available (avoid `or` on arrays)
+    q = d.get("attitude_q_harmonized")
+    if q is None:
+        q = d.get("att_quat")
+    if q is None:
+        q = d.get("attitude_q")
+    if q is None:
+        q = d.get("quat_log")
+    if q is None:
+        return
+    q = _norm_quat(np.asarray(q, float))
+
+    # Fused pos/vel in NED (avoid `or` on arrays)
+    pos_ned = d.get("pos_ned_m")
+    if pos_ned is None:
+        pos_ned = d.get("pos_ned")
+    if pos_ned is None:
+        pos_ned = d.get("fused_pos")
+    vel_ned = d.get("vel_ned_ms")
+    if vel_ned is None:
+        vel_ned = d.get("vel_ned")
+    if vel_ned is None:
+        vel_ned = d.get("fused_vel")
+    if pos_ned is None or vel_ned is None:
+        return
+    pos_ned = np.asarray(pos_ned, float)
+    vel_ned = np.asarray(vel_ned, float)
+
+    # Align lengths
+    n = min(len(t), len(pos_ned), len(vel_ned), len(q))
+    if n <= 0:
+        return
+    t = t[:n]
+    pos_ned = pos_ned[:n]
+    vel_ned = vel_ned[:n]
+    q = q[:n]
+
+    # Plot quaternion components (KF only)
+    plt.figure(figsize=(10, 6))
+    labs = ["w", "x", "y", "z"]
+    for i, lab in enumerate(labs):
+        ax = plt.subplot(2, 2, i + 1)
+        ax.plot(t, q[:, i], '-', label='KF')
+        ax.set_title(f"q_{lab}")
+        ax.grid(True)
+    plt.legend(loc='upper right')
+    plt.suptitle(f"{run_id} Task7_6: Quaternion Components")
+    out_q = res_dir / f"{run_id}_Task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png"
+    try:
+        plt.gcf().savefig(out_q, dpi=200, bbox_inches='tight')
+    except Exception:
+        pass
+    finally:
+        plt.close()
+
+    # Helper to make fused-only overlay
+    def _overlay(pos, vel, labels, frame):
+        fig, axes = plt.subplots(2, 3, figsize=(9, 4), sharex=True)
+        # Decimate if large
+        stride = int(np.ceil(len(t) / 200000)) if len(t) > 200000 else 1
+        tt = t[::stride]
+        P = pos[::stride]
+        V = vel[::stride]
+        for i in range(3):
+            axes[0, i].plot(tt, P[:, i], label="Fused")
+            axes[0, i].set_title(labels[i])
+            axes[0, i].set_ylabel("Position [m]")
+            axes[0, i].grid(True)
+            axes[1, i].plot(tt, V[:, i], label="Fused")
+            axes[1, i].set_xlabel("Time [s]")
+            axes[1, i].set_ylabel("Velocity [m/s]")
+            axes[1, i].grid(True)
+        handles, labs_h = axes[0, 0].get_legend_handles_labels()
+        if handles:
+            fig.legend(handles, labs_h, ncol=2, loc="upper center")
+        fig.suptitle(f"Task 7.6 – Fused ({frame} Frame)")
+        fig.tight_layout(rect=[0, 0, 1, 0.92])
+        base = res_dir / f"{run_id}_task7_6_overlay_{frame}"
+        try:
+            fig.savefig(base.with_suffix('.png'), dpi=200, bbox_inches='tight')
+        except Exception:
+            pass
+        plt.close(fig)
+
+    # NED overlay
+    _overlay(pos_ned, vel_ned, ["North", "East", "Down"], "NED")
+
+    # ECEF overlay
+    ref_lat = d.get("ref_lat_rad") or d.get("ref_lat")
+    ref_lon = d.get("ref_lon_rad") or d.get("ref_lon")
+    ref_r0 = d.get("ref_r0_m") or d.get("ref_r0")
+    if ref_lat is not None and ref_lon is not None:
+        ref_lat = float(np.squeeze(ref_lat))
+        ref_lon = float(np.squeeze(ref_lon))
+        C_NE = compute_C_NED_to_ECEF(ref_lat, ref_lon)
+        pos_ecef = (C_NE @ pos_ned.T).T + np.asarray(ref_r0).reshape(3)
+        vel_ecef = (C_NE @ vel_ned.T).T
+    else:
+        pos_ecef = pos_ned.copy()
+        vel_ecef = vel_ned.copy()
+    _overlay(pos_ecef, vel_ecef, ["X", "Y", "Z"], "ECEF")
+
+    # Body overlay
+    try:
+        rot = R.from_quat(q[:, [1, 2, 3, 0]])
+        pos_body = rot.apply(pos_ned, inverse=True)
+        vel_body = rot.apply(vel_ned, inverse=True)
+        _overlay(pos_body, vel_body, ["X", "Y", "Z"], "BODY")
+    except Exception:
+        pass
 
 
 # ----------------------------
@@ -745,6 +891,9 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
     plt.figure(figsize=(10, 6))
     # Ensure same-length arrays for plotting
     t_plot, (qT_plot, qE_plot) = _align_to_same_len(tE, qT, qE)
+    # Final safety: normalise and align KF sign hemisphere to truth
+    qT_plot = _qnorm(qT_plot)
+    qE_plot = _qalign(_qnorm(qE_plot), qT_plot)
     for i, lab in enumerate(['w', 'x', 'y', 'z']):
         ax = plt.subplot(2, 2, i + 1)
         ax.plot(t_plot, qT_plot[:, i], '-', label='Truth')
@@ -921,12 +1070,20 @@ def _task5_plot_quat_cases(results_dir: str, run_id: str, truth_file: str) -> No
     dA = np.load(base_npz, allow_pickle=True)
     dB = np.load(true_npz, allow_pickle=True)
     t = np.ravel(dA.get("time_s") if dA.get("time_s") is not None else dA.get("time"))
-    qA = dA.get("att_quat")
+    qA = dA.get("attitude_q_harmonized")
     if qA is None:
-        qA = dA.get("attitude_q") or dA.get("quat_log")
-    qB = dB.get("att_quat")
+        qA = dA.get("att_quat")
+    if qA is None:
+        qA = dA.get("attitude_q")
+    if qA is None:
+        qA = dA.get("quat_log")
+    qB = dB.get("attitude_q_harmonized")
     if qB is None:
-        qB = dB.get("attitude_q") or dB.get("quat_log")
+        qB = dB.get("att_quat")
+    if qB is None:
+        qB = dB.get("attitude_q")
+    if qB is None:
+        qB = dB.get("quat_log")
     if qA is None or qB is None or t is None:
         print("[Task5] Missing quaternion/time in outputs.")
         return
@@ -958,6 +1115,20 @@ def _task5_plot_quat_cases(results_dir: str, run_id: str, truth_file: str) -> No
     else:
         q_truth_e2n = _norm_quat(q_truth_on_t)
 
+    # Detect estimator quaternion format vs truth and fix before comparisons
+    try:
+        qA_fixed, infoA = _qfix_est(qA, q_truth_on_t)
+        print(f"[Task5][Detect] TRIAD-init quaternion as {infoA.get('name')} (+conj={infoA.get('conj')}); mean Δθ={infoA.get('err_deg'):.3f}°")
+        qA = qA_fixed
+    except Exception:
+        pass
+    try:
+        qB_fixed, infoB = _qfix_est(qB, q_truth_on_t)
+        print(f"[Task5][Detect] TRUE-init quaternion as {infoB.get('name')} (+conj={infoB.get('conj')}); mean Δθ={infoB.get('err_deg'):.3f}°")
+        qB = qB_fixed
+    except Exception:
+        pass
+
     # Pick direct vs converted by median error against TRIAD-init
     def _median_err(qt):
         qe = _fix_hemisphere(qt, qA)
@@ -967,9 +1138,12 @@ def _task5_plot_quat_cases(results_dir: str, run_id: str, truth_file: str) -> No
 
     # Direction detection via t0 error
     err0_dir = float(_quat_angle_deg(qT, _fix_hemisphere(qT, qA))[0])
-    err0_con = float(_quat_angle_deg(_q_conj(qT), _fix_hemisphere(_q_conj(qT), qA))[0])
+    def _q_conj_local(q):
+        q = np.asarray(q, float)
+        return np.column_stack([q[:, 0], -q[:, 1], -q[:, 2], -q[:, 3]])
+    err0_con = float(_quat_angle_deg(_q_conj_local(qT), _fix_hemisphere(_q_conj_local(qT), qA))[0])
     if err0_con + 1e-3 < err0_dir:
-        qT = _q_conj(qT)
+        qT = _q_conj_local(qT)
         print(f"[Task5] Truth appears NED→Body; using conjugate. (err0 direct={err0_dir:.2f}°, conj={err0_con:.2f}°)")
 
     # Align per-sample signs
@@ -1015,6 +1189,19 @@ def main(argv: Iterable[str] | None = None) -> None:
     parser.add_argument("--imu", type=str, help="Path to IMU data file")
     parser.add_argument("--gnss", type=str, help="Path to GNSS data file")
     parser.add_argument("--truth", type=str, help="Path to truth data file")
+    parser.add_argument(
+        "--auto-truth",
+        dest="auto_truth",
+        action="store_true",
+        default=True,
+        help="Auto-detect a truth file if --truth is not provided (default on)",
+    )
+    parser.add_argument(
+        "--no-auto-truth",
+        dest="auto_truth",
+        action="store_false",
+        help="Do not auto-detect truth; ignore any available truth unless --truth is given",
+    )
     parser.add_argument(
         "--allow-truth-mismatch",
         action="store_true",
@@ -1092,18 +1279,18 @@ def main(argv: Iterable[str] | None = None) -> None:
         rc = _subprocess.call(cmd)
         sys.exit(rc)
 
-    if args.outdir:
-        results_dir = Path(args.outdir)
-        results_dir.mkdir(parents=True, exist_ok=True)
-    else:
-        # Standard default: PYTHON/results
-        results_dir = _py_results_dir()
-        results_dir.mkdir(parents=True, exist_ok=True)
+    # Build method/dataset-specific results directory: PYTHON/results/<Method>/<Dataset>
+    base_results = Path(args.outdir) if args.outdir else _py_results_dir()
+    results_dir = base_results / "TRIAD" / args.dataset
+    results_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Ensured '%s' directory exists.", results_dir)
     # Expose the results directory to child processes so that all plotting
     # helpers can place their outputs directly in ``PYTHON/results``.
     os.environ["PYTHON_RESULTS_DIR"] = str(results_dir)
-    print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
+    import os as _os
+    if not _os.environ.get("RESULTS_NOTE_PRINTED"):
+        print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
+        _os.environ["RESULTS_NOTE_PRINTED"] = "1"
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
@@ -1135,43 +1322,18 @@ def main(argv: Iterable[str] | None = None) -> None:
     else:
         gnss_path = _gnss_path_helper(args.dataset)
 
-    # Resolve truth path:
-    # - If user supplied one, use it (and validate later)
-    # - Else, try to pick the matching STATE file for the dataset (e.g., X002)
-    # - Else, permissively fall back to canonical/auto truth (even if dataset id differs)
+    # Resolve truth path
     user_supplied_truth = bool(args.truth)
-    if user_supplied_truth:
-        truth_path = Path(args.truth)
-    else:
-        # Try to infer dataset id from IMU/GNSS filenames
-        ds_match = None
-        for stem in (Path(imu_path).stem, Path(gnss_path).stem):
-            m = re.search(r"X\d{3}", stem)
-            if m:
-                ds_match = m.group(0)
-                break
-        truth_path = None
-        if ds_match:
-            for cand in (
-                _truth_path_helper(f"STATE_{ds_match}.txt"),
-                _truth_path_helper(f"STATE_{ds_match}_small.txt"),
-            ):
-                if cand.exists():
-                    truth_path = cand
-                    break
-        if truth_path is None:
-            # Permissive fallback: use canonical/auto truth if available
-            alt = resolve_truth_path()
-            if alt and Path(alt).exists():
-                truth_path = Path(alt)
-                try:
-                    m2 = re.search(r"X\d{3}", truth_path.name)
-                    if ds_match and m2 and m2.group(0) != ds_match:
-                        print(
-                            f"[Info] Using truth {truth_path.name} for dataset {ds_match} (mismatch allowed)."
-                        )
-                except Exception:
-                    pass
+    truth_path = Path(args.truth) if user_supplied_truth else None
+    # If not supplied and auto-truth is enabled, try to locate an appropriate file
+    if (not user_supplied_truth) and args.auto_truth:
+        try:
+            auto = resolve_truth_path(args.dataset)
+        except Exception:
+            auto = None
+        if auto and Path(auto).exists():
+            truth_path = Path(auto)
+            print(f"Auto-detected truth file: {truth_path}")
     logger.info(
         "Resolved input files: imu=%s gnss=%s truth=%s", imu_path, gnss_path, truth_path
     )
@@ -1184,7 +1346,6 @@ def main(argv: Iterable[str] | None = None) -> None:
         f"  Truth: {truth_path if truth_path else 'N/A'}",
         f"  Out:   {results_dir}",
     ]
-    logger.info("%s", "\n".join(header))
     print("\n".join(header))
     for p in (imu_path, gnss_path):
         if not Path(p).exists():
@@ -1207,7 +1368,10 @@ def main(argv: Iterable[str] | None = None) -> None:
     log_path = results_dir / f"{run_id}.log"
     print(f"\u25b6 {run_id}")
 
-    print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
+    import os as _os
+    if not _os.environ.get("RESULTS_NOTE_PRINTED"):
+        print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
+        _os.environ["RESULTS_NOTE_PRINTED"] = "1"
     print_timeline(run_id, str(imu_path), str(gnss_path), str(truth_path) if truth_path else None, out_dir=str(results_dir))
 
     task_set = None
@@ -1224,6 +1388,8 @@ def main(argv: Iterable[str] | None = None) -> None:
             str(truth_path),
             "--gnss-file",
             str(gnss_path),
+            "--output",
+            str(results_dir),
         ]
         # Apply Task 6 plotting defaults (decimation + y-limit sync)
         cmd += ["--decimate-maxpoints", "200000", "--ylim-percentile", "99.5"]
@@ -1425,7 +1591,9 @@ def main(argv: Iterable[str] | None = None) -> None:
         pos_ecef = (C_NED_ECEF @ pos_ned.T).T + ref_r0
         vel_ecef = (C_NED_ECEF @ vel_ned.T).T
 
-        quat = data.get("att_quat")
+        quat = data.get("attitude_q_harmonized")
+        if quat is None:
+            quat = data.get("att_quat")
         if quat is None:
             quat = data.get("attitude_q")
         if quat is None:
@@ -1526,45 +1694,9 @@ def main(argv: Iterable[str] | None = None) -> None:
             "truth_rate_hz": args.truth_rate,
             "imu_time_meta": tmeta,
         }
-        _write_run_meta("results", run_id, **meta)
+        _write_run_meta(results_dir, run_id, **meta)
 
-    # ----------------------------
-    # Task 6: Truth overlay plots
-    # ----------------------------
-    truth_file = truth_path
-    if truth_file and Path(truth_file).exists():
-        overlay_cmd = [
-            sys.executable,
-            str(HERE / "task6_plot_truth.py"),
-            "--est-file",
-            str(npz_path.with_suffix(".mat")),
-            "--gnss-file",
-            str(gnss_path),
-            "--truth-file",
-            str(truth_file.resolve()),
-            "--output",
-            str(results_dir),
-        ]
-        # Apply Task 6 plotting defaults (decimation + y-limit sync)
-        overlay_cmd += ["--decimate-maxpoints", "200000", "--ylim-percentile", "99.5"]
-        if args.show_measurements:
-            overlay_cmd.append("--show-measurements")
-        with open(log_path, "a") as log:
-            log.write("\nTASK 6: Overlay fused output with truth\n")
-            msg = f"Starting Task 6 overlay: cmd={overlay_cmd}"
-            logger.info(msg)
-            log.write(msg + "\n")
-            proc = subprocess.Popen(
-                overlay_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-            for line in proc.stdout:
-                print(line, end="")
-                log.write(line)
-            proc.wait()
-            logger.info("Task 6 overlay completed with return code %s", proc.returncode)
+    # Task 6 removed per requirements; no truth overlays are generated here.
 
     # ----------------------------
     # Task 7: Evaluation
@@ -1693,34 +1825,15 @@ def main(argv: Iterable[str] | None = None) -> None:
         )
         df.to_csv(results_dir / "summary.csv", index=False)
 
-    # Collect per-run artifacts into results/<run_id>/ for convenience
-    try:
-        run_dir = results_dir / run_id
-        run_dir.mkdir(parents=True, exist_ok=True)
-        for p in results_dir.glob(f"{run_id}_*"):
-            if p.is_file():
-                dst = run_dir / p.name
-                # Copy only if different or missing to avoid needless churn
-                try:
-                    import shutil
-                    if not dst.exists() or p.stat().st_size != dst.stat().st_size:
-                        shutil.copy2(p, dst)
-                except Exception:
-                    # Best-effort; keep going if any single copy fails
-                    pass
-    except Exception:
-        # Non-fatal; top-level files remain available under results/
-        pass
+    # Flat layout requested: do not create subfolders under results_dir
 
     # ----------------------------
     # Post-run artifact validation
     # ----------------------------
     try:
         def _exists(name: str) -> bool:
-            # Accept files saved at results/ or under results/<run_id>/task6/
             p_top = results_dir / name
-            p_sub = results_dir / run_id / 'task6' / name
-            return p_top.exists() or p_sub.exists()
+            return p_top.exists()
 
         must_have = [
             # Task 1
@@ -1743,13 +1856,7 @@ def main(argv: Iterable[str] | None = None) -> None:
             f"{run_id}_task5_all_ned.png",
             f"{run_id}_task5_all_ecef.png",
             f"{run_id}_task5_all_body.png",
-            # Task 6 (copied overlays)
-            f"{run_id}_task6_overlay_NED.png",
-            f"{run_id}_task6_overlay_ECEF.png",
-            f"{run_id}_task6_overlay_BODY.png",
-            f"{run_id}_task6_diff_truth_fused_over_time_NED.png",
-            f"{run_id}_task6_diff_truth_fused_over_time_ECEF.png",
-            f"{run_id}_task6_diff_truth_fused_over_time_Body.png",
+            # Task 6 removed
             # Task 7 core plots
             f"{run_id}_task7_3_residuals_position_velocity.png",
             f"{run_id}_task7_3_error_norms.png",

@@ -23,6 +23,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
+from src.utils.quaternion_tools import normalize_quat as _qnorm, ensure_continuity as _qcont, align_sign_to_ref as _qalign
 
 import sys
 import os
@@ -178,13 +179,19 @@ def main():
 
     quat_truth_i = interp_quat(t_truth, quat_truth, t_imu_c)
     quat_est_i = interp_quat(t_est, quat_est, t_imu_c) if quat_est is not None else None
+    # Normalize, enforce continuity; align estimator to truth if available
+    quat_truth_i = _qcont(_qnorm(quat_truth_i)) if quat_truth_i is not None else None
+    if quat_est_i is not None:
+        quat_est_i = _qcont(_qnorm(quat_est_i))
+        if quat_truth_i is not None:
+            quat_est_i = _qalign(quat_est_i, quat_truth_i)
 
-    eul_truth = to_euler_deg(quat_truth_i)
+    eul_truth = to_euler_deg(quat_truth_i) if quat_truth_i is not None else None
     eul_dr = to_euler_deg(quat_dr_c)
     eul_est = to_euler_deg(quat_est_i) if quat_est_i is not None else None
 
     # Plot: with Kalman filter (truth vs est)
-    if eul_est is not None:
+    if eul_est is not None and eul_truth is not None:
         fig, ax = plt.subplots(3, 1, sharex=True)
         labels = ["roll", "pitch", "yaw"]
         for i in range(3):

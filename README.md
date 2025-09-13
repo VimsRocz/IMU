@@ -34,6 +34,7 @@
 - [Repository Layout](#repository-layout)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
+ - [Quaternion Convention](#quaternion-convention)
 
 ### Installation
 
@@ -144,6 +145,15 @@ Task 1 outputs are cached for reuse:
 Notes
 
 - Older scripts assumed data in the repo root; all data now lives under `DATA/`.
+
+### Quaternion Convention
+
+- Storage: all saved quaternions are scalar-first `[w, x, y, z]`, Body→NED.
+- SciPy interop: SciPy `Rotation` expects `[x, y, z, w]`. Use helpers in `PYTHON/src/utils/quaternion_tools.py`:
+  - `to_xyzw(q_wxyz)` before `Rotation.from_quat(...)`
+  - `to_wxyz(q_xyzw)` for results from `Rotation.as_quat()`
+- Sign hemisphere: align estimate to reference with `align_sign_to_ref(q_est, q_ref)` before comparison/plotting.
+- Continuity (no ref): use `ensure_continuity(q_series)`.
 
 ### Usage
 

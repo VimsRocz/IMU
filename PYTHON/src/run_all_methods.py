@@ -248,6 +248,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
         q[d] = -q[d]
         return q
 
+
     # Align truth / estimate to common timebase (nearest neighbor for simplicity)
     # Build index mapping estimate times to truth (assume truth has >= coverage)
     try:
@@ -274,6 +275,7 @@ def _task7_attitude_plots(est_npz: pathlib.Path, truth_file: Optional[pathlib.Pa
             quat = quat[:n]
             time_s = time_s[:n]
         qT = q_norm(qT)
+        # Align hemisphere only; avoid component reordering/conjugation tweaks
         qE = fix_hemisphere(qT, qE)
         ang = quat_angle_deg(qE, qT)
     else:

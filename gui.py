@@ -59,6 +59,9 @@ def run_fusion(imu: str, gnss: str, truth: str, method: str, log_widget: tk.Text
     ]
     if truth:
         cmd += ["--truth", truth, "--allow-truth-mismatch"]
+    else:
+        # Ensure GUI runs do not implicitly auto-use any available truth
+        cmd += ["--no-auto-truth"]
 
     # Use line-buffered pipes so output is forwarded to the log widget in real time
     process = subprocess.Popen(
@@ -131,8 +134,8 @@ ttk.Button(
     command=lambda: choose_file(gnss_var, [("GNSS files", "*.csv"), ("All", "*")]),
 ).grid(row=2, column=2)
 
-# Truth file
-ttk.Label(frame, text='Truth file:').grid(row=3, column=0, sticky='w')
+# Truth file (optional)
+ttk.Label(frame, text='Truth file (optional):').grid(row=3, column=0, sticky='w')
 ttk.Entry(frame, textvariable=truth_var, width=40).grid(row=3, column=1, sticky='ew')
 ttk.Button(
     frame,

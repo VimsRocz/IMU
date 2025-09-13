@@ -44,6 +44,7 @@ from typing import Iterable, List, Dict
 import numpy as np
 import pandas as pd
 from scipy.spatial.transform import Rotation as R
+from utils.quaternion_tools import normalize_quat as _qnorm, align_sign_to_ref as _qalign
 import scipy.io as sio
 from tabulate import tabulate
 import matplotlib.pyplot as plt
@@ -75,6 +76,123 @@ from paths import (
 )
 
 SUMMARY_RE = re.compile(r"\[SUMMARY\]\s+(.*)")
+
+
+# ----------------------------
+# Fallback plots without Truth (Task 7.6 style)
+# ----------------------------
+def _task7_6_plots_no_truth(results_dir: str, run_id: str) -> None:
+    res_dir = Path(results_dir)
+    npz_path = res_dir / f"{run_id}_kf_output.npz"
+    if not npz_path.exists():
+        return
+    d = np.load(npz_path, allow_pickle=True)
+    t = d.get("time_s") if d.get("time_s") is not None else d.get("time")
+    if t is None:
+        dt = d.get("imu_dt") or d.get("dt")
+        n = None
+        for key in ("pos_ned_m", "pos_ned", "fused_pos"):
+            if d.get(key) is not None:
+                n = int(np.asarray(d.get(key)).shape[0])
+                break
+        t = np.arange(n) * float(dt) if (dt and n) else np.arange(0)
+    t = np.asarray(t, float).reshape(-1)
+    if t.size:
+        t = t - t[0]
+    q = d.get("attitude_q_harmonized")
+    if q is None:
+        q = d.get("att_quat")
+    if q is None:
+        q = d.get("attitude_q")
+    if q is None:
+        q = d.get("quat_log")
+    if q is None:
+        return
+    q = np.asarray(q, float)
+    q = q / (np.linalg.norm(q, axis=1, keepdims=True) + 1e-12)
+    pos_ned = d.get("pos_ned_m")
+    if pos_ned is None:
+        pos_ned = d.get("pos_ned")
+    if pos_ned is None:
+        pos_ned = d.get("fused_pos")
+    vel_ned = d.get("vel_ned_ms")
+    if vel_ned is None:
+        vel_ned = d.get("vel_ned")
+    if vel_ned is None:
+        vel_ned = d.get("fused_vel")
+    if pos_ned is None or vel_ned is None:
+        return
+    pos_ned = np.asarray(pos_ned, float)
+    vel_ned = np.asarray(vel_ned, float)
+    n = min(len(t), len(pos_ned), len(vel_ned), len(q))
+    if n <= 0:
+        return
+    t, pos_ned, vel_ned, q = t[:n], pos_ned[:n], vel_ned[:n], q[:n]
+    # Quaternion components (KF only)
+    plt.figure(figsize=(10, 6))
+    for i, lab in enumerate(["w", "x", "y", "z"]):
+        ax = plt.subplot(2, 2, i + 1)
+        ax.plot(t, q[:, i], '-', label='KF')
+        ax.set_title(f"q_{lab}")
+        ax.grid(True)
+    plt.legend(loc='upper right')
+    plt.suptitle(f"{run_id} Task7_6: Quaternion Components")
+    out_q = res_dir / f"{run_id}_Task7_6_BodyToNED_attitude_truth_vs_estimate_quaternion.png"
+    try:
+        plt.gcf().savefig(out_q, dpi=200, bbox_inches='tight')
+    except Exception:
+        pass
+    finally:
+        plt.close()
+    # Overlay helper
+    def _overlay(pos, vel, labels, frame):
+        fig, axes = plt.subplots(2, 3, figsize=(9, 4), sharex=True)
+        stride = int(np.ceil(len(t) / 200000)) if len(t) > 200000 else 1
+        tt = t[::stride]
+        P = pos[::stride]
+        V = vel[::stride]
+        for i in range(3):
+            axes[0, i].plot(tt, P[:, i], label="Fused")
+            axes[0, i].set_title(labels[i])
+            axes[0, i].set_ylabel("Position [m]")
+            axes[0, i].grid(True)
+            axes[1, i].plot(tt, V[:, i], label="Fused")
+            axes[1, i].set_xlabel("Time [s]")
+            axes[1, i].set_ylabel("Velocity [m/s]")
+            axes[1, i].grid(True)
+        handles, labs_h = axes[0, 0].get_legend_handles_labels()
+        if handles:
+            fig.legend(handles, labs_h, ncol=2, loc="upper center")
+        fig.suptitle(f"Task 7.6 – Fused ({frame} Frame)")
+        fig.tight_layout(rect=[0, 0, 1, 0.92])
+        base = res_dir / f"{run_id}_task7_6_overlay_{frame}"
+        try:
+            fig.savefig(base.with_suffix('.png'), dpi=200, bbox_inches='tight')
+        except Exception:
+            pass
+        plt.close(fig)
+    # NED
+    _overlay(pos_ned, vel_ned, ["North", "East", "Down"], "NED")
+    # ECEF
+    ref_lat = d.get("ref_lat_rad") or d.get("ref_lat")
+    ref_lon = d.get("ref_lon_rad") or d.get("ref_lon")
+    ref_r0 = d.get("ref_r0_m") or d.get("ref_r0")
+    if ref_lat is not None and ref_lon is not None:
+        ref_lat = float(np.squeeze(ref_lat)); ref_lon = float(np.squeeze(ref_lon))
+        C_NE = compute_C_NED_to_ECEF(ref_lat, ref_lon)
+        pos_ecef = (C_NE @ pos_ned.T).T + np.asarray(ref_r0).reshape(3)
+        vel_ecef = (C_NE @ vel_ned.T).T
+    else:
+        pos_ecef = pos_ned.copy(); vel_ecef = vel_ned.copy()
+    _overlay(pos_ecef, vel_ecef, ["X", "Y", "Z"], "ECEF")
+    # BODY
+    try:
+        rot = R.from_quat(q[:, [1, 2, 3, 0]])
+        pos_body = rot.apply(pos_ned, inverse=True)
+        vel_body = rot.apply(vel_ned, inverse=True)
+        _overlay(pos_body, vel_body, ["X", "Y", "Z"], "BODY")
+    except Exception:
+        pass
 
 
 def check_files(
@@ -689,6 +807,7 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
     print(f"[AutoAlign] applied fixed body-side Δ: {np.array2string(q_delta, precision=4)}")
 
     qT = q_norm(qT_aligned)
+    # Align estimator hemisphere to truth without reordering/conjugation tweaks
     qE = _fix_hemisphere(qT, qE_est)
     ang = _quat_angle_deg(qT, qE)
 
@@ -702,6 +821,9 @@ def _run_inline_truth_validation(results_dir, tag, kf_mat_path, truth_file, args
 
     plt.figure(figsize=(10, 6))
     t_plot, (qT_plot, qE_plot) = _align_to_same_len(tE, qT, qE)
+    # Final safety: normalise and align KF sign hemisphere to truth
+    qT_plot = _qnorm(qT_plot)
+    qE_plot = _qalign(_qnorm(qE_plot), qT_plot)
     for i, lab in enumerate(['w', 'x', 'y', 'z']):
         ax = plt.subplot(2, 2, i + 1)
         ax.plot(t_plot, qT_plot[:, i], '-', label='Truth')
@@ -1012,6 +1134,19 @@ def main(argv: Iterable[str] | None = None) -> None:
     parser.add_argument("--gnss", type=str, help="Path to GNSS data file")
     parser.add_argument("--truth", type=str, help="Path to truth data file")
     parser.add_argument(
+        "--auto-truth",
+        dest="auto_truth",
+        action="store_true",
+        default=True,
+        help="Auto-detect a truth file if --truth is not provided (default on)",
+    )
+    parser.add_argument(
+        "--no-auto-truth",
+        dest="auto_truth",
+        action="store_false",
+        help="Do not auto-detect truth; ignore any available truth unless --truth is given",
+    )
+    parser.add_argument(
         "--allow-truth-mismatch",
         action="store_true",
         help="Allow using a truth file from a different dataset (use with care)",
@@ -1096,13 +1231,28 @@ def main(argv: Iterable[str] | None = None) -> None:
     else:
         imu_path = _imu_path_helper(dataset)
         gnss_path = _gnss_path_helper(dataset)
-    truth_path = Path(args.truth) if args.truth else _truth_path_helper()
+    # Resolve truth path
+    truth_path = Path(args.truth) if args.truth else None
+    if (truth_path is None) and args.auto_truth:
+        try:
+            auto = resolve_truth_path(dataset)
+        except Exception:
+            auto = None
+        if auto and Path(auto).exists():
+            truth_path = Path(auto)
+            print(f"Auto-detected truth file: {truth_path}")
 
     method = "Davenport"
 
-    # Results directory setup
-    results_dir = Path(args.outdir) if args.outdir else _py_results_dir()
+    # Results directory setup: PYTHON/results/<Method>/<Dataset>
+    base_results = Path(args.outdir) if args.outdir else _py_results_dir()
+    results_dir = base_results / method / dataset
     results_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Ensured '%s' directory exists.", results_dir)
+    import os as _os
+    if not _os.environ.get("RESULTS_NOTE_PRINTED"):
+        print("Note: Python saves to results/ ; MATLAB saves to MATLAB/results/ (independent).")
+        _os.environ["RESULTS_NOTE_PRINTED"] = "1"
 
     # Build run ID and write meta
     run_id = build_run_id(str(imu_path), str(gnss_path), method)
@@ -1112,7 +1262,7 @@ def main(argv: Iterable[str] | None = None) -> None:
         dataset=dataset,
         imu=str(imu_path),
         gnss=str(gnss_path),
-        truth=str(truth_path),
+        truth=(str(truth_path) if truth_path else ""),
         method=method,
     )
 
@@ -1128,10 +1278,18 @@ def main(argv: Iterable[str] | None = None) -> None:
     # ----------------------------
     # Task 1–5 via run_case
     # ----------------------------
-    print(f"Running {method} with:")
-    print(f"  IMU : {imu_path}")
-    print(f"  GNSS: {gnss_path}")
-    print(f"  Truth: {truth_path if truth_path else '(none)'}")
+    # Resolved inputs + friendly header mirroring TRIAD style
+    logger.info(
+        "Resolved input files: imu=%s gnss=%s truth=%s", imu_path, gnss_path, truth_path
+    )
+    header = [
+        f"Running {method} with:",
+        f"  IMU:   {imu_path}",
+        f"  GNSS:  {gnss_path}",
+        f"  Truth: {truth_path if truth_path else '(none)'}",
+        f"  Out:   {results_dir}",
+    ]
+    print("\n".join(header))
 
     # Build and run the fusion command (Tasks 1–5)
     os.environ["RUN_ID"] = run_id
@@ -1156,6 +1314,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     if args.no_plots:
         cmd.append("--no-plots")
 
+    logger.info("Running fusion command: %s", cmd)
     start_t = time.time()
     ret, summaries = run_case(cmd, log_path)
     elapsed = time.time() - start_t
@@ -1178,36 +1337,13 @@ def main(argv: Iterable[str] | None = None) -> None:
     except Exception as ex:
         print(f"[Task5] Comparison plotting failed: {ex}")
 
-    # ----------------------------
-    # Task 6 overlay and Task 7 residuals
-    # ----------------------------
+    # Task 6 removed; run Task 7 evaluation only (if applicable)
     try:
-        if truth_path and truth_path.exists():
-            # Task 6
-            est_file_for_t6 = est_mat if est_mat.exists() else (est_npz if est_npz.exists() else (est_mat_legacy if est_mat_legacy.exists() else est_npz_legacy))
-            cmd_t6 = [
-                sys.executable,
-                str(HERE / "task6_plot_truth.py"),
-                "--est-file", str(est_file_for_t6),
-                "--gnss-file", str(gnss_path),
-                "--truth-file", str(truth_path),
-                "--output", str(results_dir),
-                "--decimate-maxpoints", "200000",
-                "--ylim-percentile", "99.5",
-            ]
-            if args.show_measurements:
-                cmd_t6.append("--show-measurements")
-            print("Starting Task 6 overlay:", cmd_t6)
-            subprocess.run(cmd_t6, check=True)
-            # Task 7
-            print("Running Task 7 evaluation …")
-            try:
-                est_npz_for_t7 = est_npz if est_npz.exists() else est_npz_legacy
-                run_evaluation_npz(str(est_npz_for_t7), str(results_dir), run_id)
-            except Exception as e:
-                print(f"Task 7 failed: {e}")
+        print("Running Task 7 evaluation …")
+        est_npz_for_t7 = est_npz if est_npz.exists() else est_npz_legacy
+        run_evaluation_npz(str(est_npz_for_t7), str(results_dir), run_id)
     except Exception as ex:
-        print(f"Task 6/7 failed: {ex}")
+        print(f"Task 7 failed: {ex}")
 
     # ----------------------------
     # Task 7.x: Inline truth validation (quaternion plots + summaries)
@@ -1285,12 +1421,7 @@ def main(argv: Iterable[str] | None = None) -> None:
             f"{run_id}_task5_all_ned.png",
             f"{run_id}_task5_all_ecef.png",
             f"{run_id}_task5_all_body.png",
-            f"{run_id}_task6_overlay_NED.png",
-            f"{run_id}_task6_overlay_ECEF.png",
-            f"{run_id}_task6_overlay_BODY.png",
-            f"{run_id}_task6_diff_truth_fused_over_time_NED.png",
-            f"{run_id}_task6_diff_truth_fused_over_time_ECEF.png",
-            f"{run_id}_task6_diff_truth_fused_over_time_Body.png",
+            # Task 6 removed
             f"{run_id}_task7_3_residuals_position_velocity.png",
             f"{run_id}_task7_3_error_norms.png",
             f"{run_id}_task7_4_attitude_angles_euler.png",
